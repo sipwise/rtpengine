@@ -101,10 +101,7 @@ struct rtpengine_config rtpe_config = {
 	.media_num_threads = -1,
 	.dtls_rsa_key_size = 2048,
 	.dtls_mtu = 1200, // chrome default mtu
-	.max_dtx = 30,
-	.dtx_shift = 5,
 	.dtx_buffer = 10,
-	.dtx_lag = 100,
 	.audio_buffer_delay = 5,
 	.audio_buffer_length = 500,
 	.mqtt_port = 1883,
@@ -678,6 +675,10 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	int rtcp_interval = 0;
 	int redis_disable_time = 10;
 	int mqtt_publish_interval = 5000;
+	int dtx_shift = 5;
+	int dtx_lag = 100;
+	int dtx_delay = 0;
+	int max_dtx = 30;
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
@@ -801,11 +802,11 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "poller-per-thread", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.poller_per_thread,	"Use poller per thread",	NULL },
 		{ "timer-accuracy", 0,0,G_OPTION_ARG_INT,	&rtpe_config.timer_accuracy,"Minimum number of microseconds to sleep","INT"},
 #ifdef WITH_TRANSCODING
-		{ "dtx-delay",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_delay,	"Delay in milliseconds to trigger DTX handling","INT"},
-		{ "max-dtx",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.max_dtx,	"Maximum duration of DTX handling",	"INT"},
+		{ "dtx-delay",	0,0,	G_OPTION_ARG_INT,	&dtx_delay,		"Delay in milliseconds to trigger DTX handling","INT"},
+		{ "max-dtx",	0,0,	G_OPTION_ARG_INT,	&max_dtx,		"Maximum duration of DTX handling",	"INT"},
 		{ "dtx-buffer",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_buffer,"Maxmium number of packets held in DTX buffer",	"INT"},
-		{ "dtx-lag",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_lag,	"Maxmium time span in milliseconds held in DTX buffer",	"INT"},
-		{ "dtx-shift",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_shift,	"Length of time (in ms) to shift DTX buffer after over/underflow",	"INT"},
+		{ "dtx-lag",	0,0,	G_OPTION_ARG_INT,	&dtx_lag,		"Maxmium time span in milliseconds held in DTX buffer",	"INT"},
+		{ "dtx-shift",	0,0,	G_OPTION_ARG_INT,	&dtx_shift,		"Length of time (in ms) to shift DTX buffer after over/underflow",	"INT"},
 		{ "dtx-cn-params",0,0,	G_OPTION_ARG_STRING_ARRAY,&dtx_cn_params,	"Parameters for CN generated from DTX","INT INT INT ..."},
 		{ "amr-dtx", 0,0,	G_OPTION_ARG_STRING,	&amr_dtx,		"DTX mechanism to use for AMR and AMR-WB","native|CN"},
 		{ "evs-dtx", 0,0,	G_OPTION_ARG_STRING,	&evs_dtx,		"DTX mechanism to use for EVS","native|CN"},
@@ -1111,6 +1112,10 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 
 	rtpe_config.redis_disable_time_us = redis_disable_time * 1000000LL;
 	rtpe_config.mqtt_publish_interval_us = mqtt_publish_interval * 1000LL;
+	rtpe_config.dtx_lag_us = dtx_lag * 1000LL;
+	rtpe_config.dtx_delay_us = dtx_delay * 1000LL;
+	rtpe_config.dtx_shift_us = dtx_shift * 1000LL;
+	rtpe_config.max_dtx_us = max_dtx * 1000000LL;
 
 	if (redisps) {
 		if (redis_ep_parse(&rtpe_config.redis_ep, &rtpe_config.redis_db, &rtpe_config.redis_hostname,

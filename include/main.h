@@ -71,11 +71,7 @@ enum endpoint_learning {
 	X(dtls_rsa_key_size) \
 	X(dtls_mtu) \
 	X(http_threads) \
-	X(dtx_delay) \
-	X(max_dtx) \
 	X(dtx_buffer) \
-	X(dtx_lag) \
-	X(dtx_shift) \
 	X(kernel_player) \
 	X(kernel_player_media) \
 	X(audio_buffer_length) \
@@ -106,6 +102,10 @@ enum endpoint_learning {
 	X(rtcp_interval_us) \
 	X(redis_disable_time_us) \
 	X(mqtt_publish_interval_us) \
+	X(dtx_delay_us) \
+	X(dtx_shift_us) \
+	X(dtx_lag_us) \
+	X(max_dtx_us) \
 
 #define RTPE_CONFIG_BOOL_PARAMS \
 	X(homer_rtcp_off) \

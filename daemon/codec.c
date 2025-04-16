@@ -2949,7 +2949,7 @@ void codec_init_payload_type(rtp_payload_type *pt, enum media_type type) {
 static int handler_func_passthrough_stub(struct codec_handler *h, struct media_packet *mp) {
 	if (G_UNLIKELY(!mp->rtp))
 		return handler_func_passthrough(h, mp);
-	if (rtpe_config.dtx_delay)
+	if (rtpe_config.dtx_delay_us)
 		return 0;
 	return handler_func_passthrough_ssrc(h, mp);
 }
@@ -3285,7 +3285,7 @@ static bool __dtx_should_do(struct codec_ssrc_handler *ch) {
 		return false;
 	if (!decoder_has_dtx(ch->decoder))
 		return false;
-	if (!rtpe_config.dtx_delay)
+	if (!rtpe_config.dtx_delay_us)
 		return false;
 	return true;
 }
@@ -3333,7 +3333,7 @@ static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *dec
 		if (!dtxb->ssrc)
 			dtxb->ssrc = mp->ssrc_in->parent->h.ssrc;
 		dtxb->ct.next = mp->tv;
-		dtxb->ct.next += rtpe_config.dtx_delay * 1000; // XXX scale to micro
+		dtxb->ct.next += rtpe_config.dtx_delay_us;
 		timerthread_obj_schedule_abs(&dtxb->ct.tt_obj, dtxb->ct.next);
 	}
 
@@ -3626,18 +3626,19 @@ out:
 
 
 static bool __dtx_drift_shift(struct dtx_buffer *dtxb, unsigned long ts,
-		long tv_diff, long ts_diff,
+		int64_t tv_diff, int64_t ts_diff,
 		struct codec_ssrc_handler *ch)
 {
 	bool discard = false;
 
-	if (tv_diff < rtpe_config.dtx_delay * 1000) {
+	if (tv_diff < rtpe_config.dtx_delay_us) {
 		// timer underflow
 		ilogs(dtx, LOG_DEBUG, "Packet reception time has caught up with DTX timer "
-				"(%li ms < %i ms), "
-				"pushing DTX timer forward my %i ms",
-				tv_diff / 1000, rtpe_config.dtx_delay, rtpe_config.dtx_shift);
-		dtxb->ct.next += rtpe_config.dtx_shift * 1000; // XXX scale to micro
+				"(%li ms < %" PRId64 " ms), "
+				"pushing DTX timer forward my %" PRId64 " ms",
+				tv_diff / 1000, rtpe_config.dtx_delay_us / 1000L,
+				rtpe_config.dtx_shift_us / 1000L);
+		dtxb->ct.next += rtpe_config.dtx_shift_us;
 	}
 	else if (ts_diff < dtxb->tspp) {
 		// TS underflow
@@ -3647,10 +3648,10 @@ static bool __dtx_drift_shift(struct dtx_buffer *dtxb, unsigned long ts,
 		}
 		else {
 			ilogs(dtx, LOG_DEBUG, "Packet timestamps have caught up with DTX timer "
-					"(TS %lu, diff %li), "
-					"pushing DTX timer forward by %i ms and discarding packet",
-					ts, ts_diff, rtpe_config.dtx_shift);
-			dtxb->ct.next += rtpe_config.dtx_shift * 1000;
+					"(TS %lu, diff %" PRId64 ", "
+					"pushing DTX timer forward by %" PRId64 " ms and discarding packet",
+					ts, ts_diff, rtpe_config.dtx_shift_us / 1000L);
+			dtxb->ct.next += rtpe_config.dtx_shift_us;
 			discard = true;
 		}
 	}
@@ -3658,20 +3659,21 @@ static bool __dtx_drift_shift(struct dtx_buffer *dtxb, unsigned long ts,
 		// inspect TS is most recent packet
 		struct dtx_packet *dtxp_last = t_queue_peek_tail(&dtxb->packets);
 		ts_diff = dtxp_last->packet ? dtxp_last->packet->ts - ts : 0;
-		long long ts_diff_us = (long long) ts_diff * 1000000 / dtxb->clockrate;
-		if (ts_diff_us >= (long long) rtpe_config.dtx_lag * 1000) {
+		int64_t ts_diff_us = ts_diff * 1000000L / dtxb->clockrate;
+		if (ts_diff_us >= (long long) rtpe_config.dtx_lag_us) {
 			// overflow
 			ilogs(dtx, LOG_DEBUG, "DTX timer queue overflowing (%i packets in queue, "
-					"%lli ms delay), speeding up DTX timer by %i ms",
-					dtxb->packets.length, ts_diff_us / 1000, rtpe_config.dtx_shift);
-			dtxb->ct.next -= rtpe_config.dtx_shift * 1000;
+					"%" PRId64 " ms delay), speeding up DTX timer by %" PRId64 " ms",
+					dtxb->packets.length, ts_diff_us / 1000,
+					rtpe_config.dtx_shift_us / 1000L);
+			dtxb->ct.next -= rtpe_config.dtx_shift_us;
 		}
 	}
 
 	return discard;
 }
 static bool __dtx_drift_drop(struct dtx_buffer *dtxb, unsigned long ts,
-		long tv_diff, long ts_diff,
+		int64_t tv_diff, int64_t ts_diff,
 		struct codec_ssrc_handler *ch)
 {
 	bool discard = false;
@@ -3684,7 +3686,7 @@ static bool __dtx_drift_drop(struct dtx_buffer *dtxb, unsigned long ts,
 		}
 		else {
 			ilogs(dtx, LOG_DEBUG, "Packet timestamps have caught up with DTX timer "
-					"(TS %lu, diff %li), "
+					"(TS %lu, diff %" PRId64 "), "
 					"adjusting input TS clock back by one frame (%i)",
 					ts, ts_diff, dtxb->tspp);
 			dtxb->head_ts -= dtxb->tspp;
@@ -3694,11 +3696,11 @@ static bool __dtx_drift_drop(struct dtx_buffer *dtxb, unsigned long ts,
 		// inspect TS is most recent packet
 		struct dtx_packet *dtxp_last = t_queue_peek_tail(&dtxb->packets);
 		ts_diff = dtxp_last->packet ? dtxp_last->packet->ts - ts : 0;
-		long long ts_diff_us = (long long) ts_diff * 1000000 / dtxb->clockrate;
-		if (ts_diff_us >= (long long) rtpe_config.dtx_lag * 1000) {
+		int64_t ts_diff_us = ts_diff * 1000000L / dtxb->clockrate;
+		if (ts_diff_us >= rtpe_config.dtx_lag_us) {
 			// overflow
 			ilogs(dtx, LOG_DEBUG, "DTX timer queue overflowing (%i packets in queue, "
-					"%lli ms delay), discarding packet",
+					"%" PRId64 " ms delay), discarding packet",
 					dtxb->packets.length, ts_diff_us / 1000);
 			discard = true;
 		}
@@ -3707,10 +3709,10 @@ static bool __dtx_drift_drop(struct dtx_buffer *dtxb, unsigned long ts,
 	return discard;
 }
 static bool __dtx_handle_drift(struct dtx_buffer *dtxb, unsigned long ts,
-		long tv_diff, long ts_diff,
+		int64_t tv_diff, int64_t ts_diff,
 		struct codec_ssrc_handler *ch)
 {
-	if (rtpe_config.dtx_shift)
+	if (rtpe_config.dtx_shift_us)
 		return __dtx_drift_shift(dtxb, ts, tv_diff, ts_diff, ch);
 	return __dtx_drift_drop(dtxb, ts, tv_diff, ts_diff, ch);
 }
@@ -3741,14 +3743,14 @@ static void __dtx_send_later(struct codec_timer *ct) {
 			// inspect head packet and check TS, see if it's ready to be decoded
 			ts = dtxp->packet ? dtxp->packet->ts : dtxb->head_ts;
 			ts_diff = ts - dtxb->head_ts;
-			long long ts_diff_us = (long long) ts_diff * 1000000 / dtxb->clockrate;
+			int64_t ts_diff_us = ts_diff * 1000000L / dtxb->clockrate;
 
 			if (!dtxb->head_ts)
 				; // first packet
 			else if (ts_diff < 0)
 				ilogs(dtx, LOG_DEBUG, "DTX timestamp reset (from %lu to %lu)", dtxb->head_ts, ts);
-			else if (ts_diff_us > MAX(20 * rtpe_config.dtx_delay, 200000))
-				ilogs(dtx, LOG_DEBUG, "DTX timestamp reset (from %lu to %lu = %lli ms)",
+			else if (ts_diff_us > MAX(20 * rtpe_config.dtx_delay_us, 200000))
+				ilogs(dtx, LOG_DEBUG, "DTX timestamp reset (from %lu to %lu = %" PRId64 " ms)",
 						dtxb->head_ts, ts, ts_diff_us);
 			else if (ts_diff >= dtxb->tspp * 2) {
 				ilogs(dtx, LOG_DEBUG, "First packet in DTX buffer not ready yet (packet TS %lu, "
@@ -3931,7 +3933,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 	else {
 		int64_t diff = rtpe_now - dtxb_start_us;
 
-		if (rtpe_config.max_dtx <= 0 || diff < rtpe_config.max_dtx * 1000000L) { // XXX scale to micro
+		if (rtpe_config.max_dtx_us <= 0 || diff < rtpe_config.max_dtx_us) {
 			ilogs(dtx, LOG_DEBUG, "RTP media for TS %lu missing, triggering DTX", ts);
 
 			// synthetic packet
