@@ -84,6 +84,118 @@ sub stun_succ {
 
 
 
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 7124)], [qw(198.51.100.3 7126)]);
+
+($port_a) = offer('wonky DTMF (GH#1929)', {
+		codec => { mask => ['all'], transcode => ['PCMA'], offer => ['telephone-event'] },
+	}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7124 RTP/AVP 0 101
+c=IN IP4 198.51.100.1
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('wonky DTMF (GH#1929)', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7126 RTP/AVP 8 101
+c=IN IP4 198.51.100.3
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 101
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# normal audio
+snd($sock_a, $port_b, rtp(0, 1000, 3000+160*0, 0x1234, "\x00" x 160));
+($ssrc) = rcv($sock_b, $port_a, rtpm(8, 1000, 3000+160*0, -1, "\x2a" x 160));
+snd($sock_a, $port_b,  rtp(0, 1001, 3000+160*1, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1001, 3000+160*1, $ssrc,  "\x2a" x 160));
+# normal DTMF
+snd($sock_a, $port_b,  rtp(101 | 0x80, 1002, 3000+160*2, 0x1234, "\x08\x0f\x00\xa0"));
+rcv($sock_b, $port_a, rtpm(101 | 0x80, 1002, 3000+160*2, $ssrc,  "\x08\x0f\x00\xa0"));
+snd($sock_a, $port_b,  rtp(101, 1003, 3000+160*2, 0x1234, "\x08\x0f\x01\x40"));
+rcv($sock_b, $port_a, rtpm(101, 1003, 3000+160*2, $ssrc,  "\x08\x0f\x01\x40"));
+snd($sock_a, $port_b,  rtp(101, 1004, 3000+160*2, 0x1234, "\x08\x0f\x01\xe0"));
+rcv($sock_b, $port_a, rtpm(101, 1004, 3000+160*2, $ssrc,  "\x08\x0f\x01\xe0"));
+# normal end event
+snd($sock_a, $port_b,  rtp(101, 1005, 3000+160*2, 0x1234, "\x08\x8f\x02\x80"));
+rcv($sock_b, $port_a, rtpm(101, 1005, 3000+160*2, $ssrc,  "\x08\x8f\x02\x80"));
+snd($sock_a, $port_b,  rtp(101, 1006, 3000+160*2, 0x1234, "\x08\x8f\x02\x80"));
+rcv($sock_b, $port_a, rtpm(101, 1006, 3000+160*2, $ssrc,  "\x08\x8f\x02\x80"));
+snd($sock_a, $port_b,  rtp(101, 1007, 3000+160*2, 0x1234, "\x08\x8f\x02\x80"));
+rcv($sock_b, $port_a, rtpm(101, 1007, 3000+160*2, $ssrc,  "\x08\x8f\x02\x80"));
+# normal audio
+snd($sock_a, $port_b,  rtp(0, 1008, 3000+160*6, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1008, 3000+160*6, $ssrc,  "\x2a" x 160));
+snd($sock_a, $port_b,  rtp(0, 1009, 3000+160*7, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1009, 3000+160*7, $ssrc,  "\x2a" x 160));
+# short frame with wonky timestamp
+snd($sock_a, $port_b,  rtp(0, 1010, 3000+160*8 + 42, 0x1234, "\x00" x 38));
+# no output - insufficient audio
+# DTMF with wonky timestamp, zero duratoin
+snd($sock_a, $port_b,  rtp(101 | 0x80, 1011, 3000+160*9 + 56, 0x1234, "\x08\x0f\x00\x00"));
+rcv($sock_b, $port_a, rtpm(101 | 0x80, 1010, 3000+160*8, $ssrc,  "\x08\x0f\x00\x00"));
+# duplicate
+snd($sock_a, $port_b,  rtp(101, 1012, 3000+160*9 + 56, 0x1234, "\x08\x0f\x00\x00"));
+rcv($sock_b, $port_a, rtpm(101, 1011, 3000+160*8, $ssrc,  "\x08\x0f\x00\x00"));
+# increase duration by some amount
+snd($sock_a, $port_b,  rtp(101, 1013, 3000+160*9 + 56, 0x1234, "\x08\x0f\x01\x90"));
+rcv($sock_b, $port_a, rtpm(101, 1012, 3000+160*8, $ssrc,  "\x08\x0f\x01\x90"));
+# duplicate
+snd($sock_a, $port_b,  rtp(101, 1014, 3000+160*9 + 56, 0x1234, "\x08\x0f\x01\x90"));
+rcv($sock_b, $port_a, rtpm(101, 1013, 3000+160*8, $ssrc,  "\x08\x0f\x01\x90"));
+# end event with wonky duration
+snd($sock_a, $port_b,  rtp(101, 1015, 3000+160*9 + 56, 0x1234, "\x08\x8f\x03\x4e"));
+rcv($sock_b, $port_a, rtpm(101, 1014, 3000+160*8, $ssrc,  "\x08\x8f\x03\x4e"));
+# stray interleaved audio with wonky timestamp
+snd($sock_a, $port_b,  rtp(0, 1016, 3000+160*12 + 98, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1015, 3000+160*13 + 46, $ssrc,  "\x2a" x 160));
+# rest of end event
+snd($sock_a, $port_b,  rtp(101, 1017, 3000+160*9 + 56, 0x1234, "\x08\x8f\x03\x4e"));
+rcv($sock_b, $port_a, rtpm(101, 1016, 3000+160*8, $ssrc,  "\x08\x8f\x03\x4e"));
+snd($sock_a, $port_b,  rtp(101, 1018, 3000+160*9 + 56, 0x1234, "\x08\x8f\x03\x4e"));
+rcv($sock_b, $port_a, rtpm(101, 1017, 3000+160*8, $ssrc,  "\x08\x8f\x03\x4e"));
+# more audio
+snd($sock_a, $port_b,  rtp(0, 1019, 3000+160*13 + 98, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1018, 3000+160*14 + 46, $ssrc,  "\x2a" x 160));
+snd($sock_a, $port_b,  rtp(0, 1020, 3000+160*14 + 98, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1019, 3000+160*15 + 46, $ssrc,  "\x2a" x 160));
+
+
+
+
 ($sock_a, $sock_ax, $sock_b, $sock_bx,
 $sock_c, $sock_cx, $sock_d, $sock_dx) = new_call([qw(198.51.100.35 3090)], [qw(198.51.100.35 3091)],
 							[qw(198.51.100.35 3092)], [qw(198.51.100.35 3093)],
