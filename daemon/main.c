@@ -673,6 +673,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	g_autoptr(char) interfaces_config = NULL;
 	g_autoptr(char) transcode_config = NULL;
 	int silent_timeout = 0;
+	int timeout = 0;
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
@@ -703,7 +704,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&rtpe_config.default_tos,		"Default TOS value to set on streams",	"INT"		},
 		{ "control-tos",0 , 0, G_OPTION_ARG_INT,	&rtpe_config.control_tos,		"Default TOS value to set on control-ng",	"INT"		},
 		{ "control-pmtu", 0,0,	G_OPTION_ARG_STRING,	&control_pmtu,	"Path MTU discovery behaviour on UDP control sockets",	"want|dont"		},
-		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&rtpe_config.timeout,	"RTP timeout",			"SECS"		},
+		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&timeout,		"RTP timeout",			"SECS"		},
 		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&silent_timeout,	"RTP timeout for muted",	"SECS"		},
 		{ "final-timeout",'a',0,G_OPTION_ARG_INT,	&rtpe_config.final_timeout,	"Call timeout",			"SECS"		},
 		{ "offer-timeout",0,0,	G_OPTION_ARG_INT,	&rtpe_config.offer_timeout,	"Timeout for incomplete one-sided calls",	"SECS"		},
@@ -1072,8 +1073,9 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	if (rtpe_config.moh_max_duration <= 0)
 		rtpe_config.moh_max_duration = 1800000;
 
-	if (rtpe_config.timeout <= 0)
-		rtpe_config.timeout = 60;
+	rtpe_config.timeout_us = timeout * 1000000LL;
+	if (rtpe_config.timeout_us <= 0)
+		rtpe_config.timeout_us = 60 * 1000000LL;
 
 	rtpe_config.silent_timeout_us = silent_timeout * 1000000LL;
 	if (rtpe_config.silent_timeout_us <= 0)

@@ -514,7 +514,7 @@ RTPE_CONFIG_ENDPOINT_QUEUE_PARAMS
 	X(cpu_limit, "max-cpu") \
 	X(load_limit, "max-load") \
 	X(bw_limit, "max-bw") \
-	X(timeout, "timeout") \
+	X(timeout_us, "timeout") \
 	X(silent_timeout_us, "silent-timeout") \
 	X(final_timeout, "final-timeout") \
 	X(control_tos, "control-tos") \
@@ -651,7 +651,7 @@ static void cli_incoming_list_maxopenfiles(str *instr, struct cli_writer *cw, co
 }
 
 static void cli_incoming_list_timeout(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	cw->cw_printf(cw, "TIMEOUT=%u\n", rtpe_config.timeout);
+	cw->cw_printf(cw, "TIMEOUT=%" PRId64 "\n", rtpe_config.timeout_us / 1000000L);
 }
 static void cli_incoming_list_silenttimeout(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	cw->cw_printf(cw, "SILENT_TIMEOUT=%" PRId64 "\n", rtpe_config.silent_timeout_us / 1000000L);
@@ -1078,7 +1078,7 @@ static void cli_incoming_set_gentimeout_us(str *instr, struct cli_writer *cw, in
 }
 
 static void cli_incoming_set_timeout(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	cli_incoming_set_gentimeout(instr, cw, &rtpe_config.timeout);
+	cli_incoming_set_gentimeout_us(instr, cw, &rtpe_config.timeout_us);
 }
 static void cli_incoming_set_silenttimeout(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	cli_incoming_set_gentimeout_us(instr, cw, &rtpe_config.silent_timeout_us);

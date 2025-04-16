@@ -174,7 +174,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 
 	// ignore media timeout if call was recently taken over
 	if (CALL_ISSET(c, FOREIGN_MEDIA)
-			&& rtpe_now - c->last_signal_us <= atomic_get_na(&rtpe_config.timeout) * 1000000L) // XXX scale to micro
+			&& rtpe_now - c->last_signal_us <= atomic_get_na(&rtpe_config.timeout_us))
 		goto out;
 
 	ice_fragments_cleanup(c->sdp_fragments, false);
@@ -237,7 +237,7 @@ no_sfd:
 		if (good)
 			goto next;
 
-		check = atomic_get_na(&rtpe_config.timeout) * 1000000LL; // XXX scale to micro
+		check = atomic_get_na(&rtpe_config.timeout_us);
 		tmp_t_reason = TIMEOUT;
 		if (!MEDIA_ISSET(ps->media, RECV) || !sfd) {
 			check = atomic_get_na(&rtpe_config.silent_timeout_us);
