@@ -232,8 +232,7 @@ int redis_set_timeout(struct redis* r, int64_t timeout) {
 
 	if (!timeout)
 		return 0;
-	tv_cmd.tv_sec = timeout / 1000;
-	tv_cmd.tv_usec = (timeout % 1000) * 1000;
+	tv_cmd = timeval_from_us(timeout);
 	if (redisSetTimeout(r->ctx, tv_cmd))
 		return -1;
 	ilog(LOG_INFO, "Setting timeout for Redis commands to %" PRId64 " milliseconds", timeout);
@@ -273,11 +272,10 @@ static int redis_connect(struct redis *r, int wait, bool resolve) {
 	r->ctx = NULL;
 	r->current_db = -1;
 
-	connect_timeout = atomic_get_na(&rtpe_config.redis_connect_timeout);
-	cmd_timeout = atomic_get_na(&rtpe_config.redis_cmd_timeout);
+	connect_timeout = atomic_get_na(&rtpe_config.redis_connect_timeout) * 1000LL;
+	cmd_timeout = atomic_get_na(&rtpe_config.redis_cmd_timeout) * 1000LL;
 
-	tv.tv_sec = connect_timeout / 1000;
-	tv.tv_usec = (connect_timeout % 1000) * 1000;
+	tv = timeval_from_us(connect_timeout);
 
 	/* re-resolve if asked */
 	if (resolve && r->hostname) {
@@ -297,7 +295,7 @@ static int redis_connect(struct redis *r, int wait, bool resolve) {
 	if (r->ctx->err)
 		goto err2;
 
-	if (redis_set_timeout(r,cmd_timeout))
+	if (redis_set_timeout(r, cmd_timeout))
 		goto err2;
 
 	if (r->auth) {

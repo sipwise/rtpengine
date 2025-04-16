@@ -100,7 +100,7 @@ void redis_delete(call_t *, struct redis *);
 void redis_wipe(struct redis *);
 int redis_async_event_base_action(struct redis *r, enum event_base_action);
 int redis_notify_subscribe_action(struct redis *r, enum subscribe_action action, int keyspace);
-int redis_set_timeout(struct redis* r, int64_t timeout); // XXX scale to micro
+int redis_set_timeout(struct redis* r, int64_t timeout);
 int redis_reconnect(struct redis* r);
 
 
