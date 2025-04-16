@@ -53,7 +53,6 @@ enum endpoint_learning {
 	X(redis_write_db) \
 	X(redis_subscribe_db) \
 	X(redis_allowed_errors) \
-	X(redis_disable_time) \
 	X(redis_cmd_timeout) \
 	X(redis_connect_timeout) \
 	X(redis_delete_async) \
@@ -106,6 +105,7 @@ enum endpoint_learning {
 	X(media_expire_us) \
 	X(db_expire_us) \
 	X(rtcp_interval_us) \
+	X(redis_disable_time_us) \
 
 #define RTPE_CONFIG_BOOL_PARAMS \
 	X(homer_rtcp_off) \

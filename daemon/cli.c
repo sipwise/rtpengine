@@ -519,7 +519,7 @@ RTPE_CONFIG_ENDPOINT_QUEUE_PARAMS
 	X(final_timeout_us, "final-timeout") \
 	X(control_tos, "control-tos") \
 	X(redis_allowed_errors, "redis_allowed_errors") \
-	X(redis_disable_time, "redis_disable_time") \
+	X(redis_disable_time_us, "redis_disable_time") \
 	X(redis_cmd_timeout, "redis_cmd_timeout") \
 	X(redis_connect_timeout, "redis_connect_timeout-db") \
 
@@ -1450,7 +1450,7 @@ static void cli_incoming_set_redisallowederrors(str *instr, struct cli_writer *c
 }
 
 static void cli_incoming_list_redisdisabletime(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	cw->cw_printf(cw, "%d\n", atomic_get_na(&rtpe_config.redis_disable_time));
+	cw->cw_printf(cw, "%" PRId64 "\n", atomic_get_na(&rtpe_config.redis_disable_time_us) / 1000000L);
 }
 
 static void cli_incoming_set_redisdisable(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
@@ -1509,7 +1509,7 @@ static void cli_incoming_set_redisdisabletime(str *instr, struct cli_writer *cw,
 		return;
 	}
 
-	atomic_set_na(&rtpe_config.redis_disable_time, seconds);
+	atomic_set_na(&rtpe_config.redis_disable_time_us, seconds * 1000000LL);
 
 	cw->cw_printf(cw,  "Success setting redis-disable-time to %ld\n", seconds);
 }

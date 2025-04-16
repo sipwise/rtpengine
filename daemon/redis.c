@@ -823,7 +823,8 @@ void redis_delete_async_loop(void *d) {
 }
 
 void redis_notify_loop(void *d) {
-	int seconds = 1, redis_notify_return = 0;
+	int redis_notify_return = 0;
+	const int64_t microseconds = 1000000L;
 	int64_t next_run = rtpe_now;
 	struct redis *r;
 
@@ -862,7 +863,7 @@ void redis_notify_loop(void *d) {
 			continue;
 		}
 
-		next_run = rtpe_now + seconds * 1000000L; // XXX scale to micro
+		next_run = rtpe_now + microseconds;
 
 		if (redis_check_conn(r) == REDIS_STATE_CONNECTED || redis_notify_return < 0) {
 			r->async_ctx = NULL;
@@ -946,10 +947,10 @@ void redis_close(struct redis *r) {
 static void redis_count_err_and_disable(struct redis *r)
 {
 	int allowed_errors;
-	int disable_time;
+	int64_t disable_time_us;
 
 	allowed_errors = atomic_get_na(&rtpe_config.redis_allowed_errors);
-	disable_time = atomic_get_na(&rtpe_config.redis_disable_time);
+	disable_time_us = atomic_get_na(&rtpe_config.redis_disable_time_us);
 
 	if (allowed_errors < 0) {
 		return;
@@ -957,10 +958,10 @@ static void redis_count_err_and_disable(struct redis *r)
 
 	r->consecutive_errors++;
 	if (r->consecutive_errors > allowed_errors) {
-		r->restore_tick_us = rtpe_now + disable_time * 1000000LL; // XXX scale to micro
-		ilog(LOG_WARNING, "Redis server %s disabled for %d seconds",
+		r->restore_tick_us = rtpe_now + disable_time_us;
+		ilog(LOG_WARNING, "Redis server %s disabled for %" PRId64 " seconds",
 				endpoint_print_buf(&r->endpoint),
-				disable_time);
+				disable_time_us / 1000000L);
 	}
 }
 

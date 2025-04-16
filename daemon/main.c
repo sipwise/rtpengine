@@ -97,7 +97,6 @@ struct rtpengine_config rtpe_config = {
 	.redis_db = -1,
 	.redis_write_db = -1,
 	.redis_allowed_errors = -1,
-	.redis_disable_time = 10,
 	.redis_connect_timeout = 1000,
 	.media_num_threads = -1,
 	.dtls_rsa_key_size = 2048,
@@ -678,6 +677,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	int media_expire = 0;
 	int db_expire = 0;
 	int rtcp_interval = 0;
+	int redis_disable_time = 10;
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
@@ -722,7 +722,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "redis-expires", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_expires_secs, "Expire time in seconds for redis keys",      "INT"       },
 		{ "no-redis-required", 'q', 0, G_OPTION_ARG_NONE, &rtpe_config.no_redis_required, "Start no matter of redis connection state", NULL },
 		{ "redis-allowed-errors", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_allowed_errors, "Number of allowed errors before redis is temporarily disabled", "INT" },
-		{ "redis-disable-time", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_disable_time, "Number of seconds redis communication is disabled because of errors", "INT" },
+		{ "redis-disable-time", 0, 0, G_OPTION_ARG_INT, &redis_disable_time,	"Number of seconds redis communication is disabled because of errors", "INT" },
 		{ "redis-cmd-timeout", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_cmd_timeout, "Sets a timeout in milliseconds for redis commands", "INT" },
 		{ "redis-connect-timeout", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_connect_timeout, "Sets a timeout in milliseconds for redis connections", "INT" },
 		{ "redis-format", 0, 0,	G_OPTION_ARG_STRING, &redis_format,		"Format for persistent storage in Redis/KeyDB", "native|bencode|JSON" },
@@ -1108,6 +1108,8 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	rtpe_config.rtcp_interval_us = rtcp_interval * 1000LL;
 	if (rtpe_config.rtcp_interval_us <= 0)
 		rtpe_config.rtcp_interval_us = 5000 * 1000LL;
+
+	rtpe_config.redis_disable_time_us = redis_disable_time * 1000000LL;
 
 	if (redisps) {
 		if (redis_ep_parse(&rtpe_config.redis_ep, &rtpe_config.redis_db, &rtpe_config.redis_hostname,
