@@ -83,7 +83,6 @@ enum endpoint_learning {
 	X(mqtt_port) \
 	X(mqtt_keepalive) \
 	X(mqtt_publish_qos) \
-	X(mqtt_publish_interval) \
 	X(cpu_affinity) \
 	X(max_recv_iters) \
 	X(media_refresh) \
@@ -106,6 +105,7 @@ enum endpoint_learning {
 	X(db_expire_us) \
 	X(rtcp_interval_us) \
 	X(redis_disable_time_us) \
+	X(mqtt_publish_interval_us) \
 
 #define RTPE_CONFIG_BOOL_PARAMS \
 	X(homer_rtcp_off) \

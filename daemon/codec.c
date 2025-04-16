@@ -1978,7 +1978,7 @@ static void __mqtt_timer_run_summary(struct codec_timer *ct) {
 	mqtt_timer_run_summary();
 }
 static void __codec_mqtt_timer_schedule(struct mqtt_timer *mqt) {
-	mqt->ct.next += rtpe_config.mqtt_publish_interval * 1000; // XXX scale to micro
+	mqt->ct.next += rtpe_config.mqtt_publish_interval_us;
 	timerthread_obj_schedule_abs(&mqt->ct.tt_obj, mqt->ct.next);
 }
 // master lock held in W

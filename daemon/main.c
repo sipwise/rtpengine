@@ -109,7 +109,6 @@ struct rtpengine_config rtpe_config = {
 	.audio_buffer_length = 500,
 	.mqtt_port = 1883,
 	.mqtt_keepalive = 30,
-	.mqtt_publish_interval = 5000,
 	.dtmf_digit_delay = 2500,
 	.moh_max_duration = -1, // disabled by default
 	.moh_max_repeats = 999,
@@ -678,6 +677,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	int db_expire = 0;
 	int rtcp_interval = 0;
 	int redis_disable_time = 10;
+	int mqtt_publish_interval = 5000;
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
@@ -844,7 +844,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "mqtt-keyfile",0,0,	G_OPTION_ARG_FILENAME,	&rtpe_config.mqtt_keyfile,"Key file for mosquitto auth",	"FILE"},
 		{ "mqtt-publish-qos",0,0,G_OPTION_ARG_INT,	&rtpe_config.mqtt_publish_qos,"Mosquitto publish QoS",		"0|1|2"},
 		{ "mqtt-publish-topic",0,0,G_OPTION_ARG_STRING,	&rtpe_config.mqtt_publish_topic,"Mosquitto publish topic",	"STRING"},
-		{ "mqtt-publish-interval",0,0,G_OPTION_ARG_INT,	&rtpe_config.mqtt_publish_interval,"Publish timer interval",	"MILLISECONDS"},
+		{ "mqtt-publish-interval",0,0,G_OPTION_ARG_INT,	&mqtt_publish_interval,	"Publish timer interval",	"MILLISECONDS"},
 		{ "mqtt-publish-scope",0,0,G_OPTION_ARG_STRING,	&mqtt_publish_scope,	"Scope for published mosquitto messages","global|summary|call|media"},
 #endif
 		{ "mos",0,0,		G_OPTION_ARG_STRING_ARRAY,&mos_options,		"MOS calculation options",		"CQ|LQ"},
@@ -1110,6 +1110,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		rtpe_config.rtcp_interval_us = 5000 * 1000LL;
 
 	rtpe_config.redis_disable_time_us = redis_disable_time * 1000000LL;
+	rtpe_config.mqtt_publish_interval_us = mqtt_publish_interval * 1000LL;
 
 	if (redisps) {
 		if (redis_ep_parse(&rtpe_config.redis_ep, &rtpe_config.redis_db, &rtpe_config.redis_hostname,
