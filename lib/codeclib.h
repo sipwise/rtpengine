@@ -149,7 +149,7 @@ union codec_options_u {
 		const unsigned int *bitrates;
 
 		int mode_change_interval;
-		int cmr_interval;
+		int64_t cmr_interval_us;
 	} amr;
 
 	struct {

@@ -2821,7 +2821,7 @@ static void amr_set_dec_codec_options(str *key, str *value, void *data) {
 	decoder_t *dec = data;
 
 	if (!str_cmp(key, "CMR-interval"))
-		dec->codec_options.amr.cmr_interval = str_to_i(value, 0);
+		dec->codec_options.amr.cmr_interval_us = str_to_i(value, 0) * 1000L;
 	else if (!str_cmp(key, "mode-change-interval"))
 		dec->codec_options.amr.mode_change_interval = str_to_i(value, 0);
 
@@ -2928,7 +2928,7 @@ static int amr_format_cmp(const struct rtp_payload_type *A, const struct rtp_pay
 }
 
 static void amr_bitrate_tracker(decoder_t *dec, unsigned int ft) {
-	if (dec->codec_options.amr.cmr_interval <= 0)
+	if (dec->codec_options.amr.cmr_interval_us <= 0)
 		return;
 
 	if (dec->avc.amr.tracker_end
@@ -2974,7 +2974,7 @@ static void amr_bitrate_tracker(decoder_t *dec, unsigned int ft) {
 		// init
 		ZERO(dec->avc.amr.bitrate_tracker);
 		dec->avc.amr.tracker_end = rtpe_now;
-		dec->avc.amr.tracker_end += dec->codec_options.amr.cmr_interval * 1000; // XXX scale to micro
+		dec->avc.amr.tracker_end += dec->codec_options.amr.cmr_interval_us;
 	}
 
 	dec->avc.amr.bitrate_tracker[ft]++;
