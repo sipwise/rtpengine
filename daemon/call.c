@@ -240,7 +240,7 @@ no_sfd:
 		check = atomic_get_na(&rtpe_config.timeout) * 1000000LL; // XXX scale to micro
 		tmp_t_reason = TIMEOUT;
 		if (!MEDIA_ISSET(ps->media, RECV) || !sfd) {
-			check = atomic_get_na(&rtpe_config.silent_timeout) * 1000000LL; // XXX scale to micro
+			check = atomic_get_na(&rtpe_config.silent_timeout_us);
 			tmp_t_reason = SILENT_TIMEOUT;
 		}
 		else if (!PS_ISSET(ps, FILLED)) {

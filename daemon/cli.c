@@ -411,8 +411,8 @@ RTPE_CONFIG_BOOL_PARAMS
 RTPE_CONFIG_ENUM_PARAMS
 #undef X
 
-#define X(s) cw->cw_printf(cw, #s " = %" PRIu64"\n", initial_rtpe_config.s);
-RTPE_CONFIG_UINT64_PARAMS
+#define X(s) cw->cw_printf(cw, #s " = %" PRId64"\n", initial_rtpe_config.s);
+RTPE_CONFIG_INT64_PARAMS
 #undef X
 
 	cw->cw_printf(cw, "[max-cpu = %.1f]\n"
@@ -463,8 +463,8 @@ RTPE_CONFIG_BOOL_PARAMS
 RTPE_CONFIG_ENUM_PARAMS
 #undef X
 
-#define X(s) cw->cw_printf(cw, #s " = %" PRIu64"\n", rtpe_config.s);
-RTPE_CONFIG_UINT64_PARAMS
+#define X(s) cw->cw_printf(cw, #s " = %" PRId64"\n", rtpe_config.s);
+RTPE_CONFIG_INT64_PARAMS
 #undef X
 
 	cw->cw_printf(cw, "[max-cpu = %.1f]\n"
@@ -515,7 +515,7 @@ RTPE_CONFIG_ENDPOINT_QUEUE_PARAMS
 	X(load_limit, "max-load") \
 	X(bw_limit, "max-bw") \
 	X(timeout, "timeout") \
-	X(silent_timeout, "silent-timeout") \
+	X(silent_timeout_us, "silent-timeout") \
 	X(final_timeout, "final-timeout") \
 	X(control_tos, "control-tos") \
 	X(redis_allowed_errors, "redis_allowed_errors") \
@@ -654,7 +654,7 @@ static void cli_incoming_list_timeout(str *instr, struct cli_writer *cw, const c
 	cw->cw_printf(cw, "TIMEOUT=%u\n", rtpe_config.timeout);
 }
 static void cli_incoming_list_silenttimeout(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	cw->cw_printf(cw, "SILENT_TIMEOUT=%u\n", rtpe_config.silent_timeout);
+	cw->cw_printf(cw, "SILENT_TIMEOUT=%" PRId64 "\n", rtpe_config.silent_timeout_us / 1000000L);
 }
 static void cli_incoming_list_finaltimeout(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	cw->cw_printf(cw, "FINAL_TIMEOUT=%u\n", rtpe_config.final_timeout);
@@ -1053,11 +1053,35 @@ static void cli_incoming_set_gentimeout(str *instr, struct cli_writer *cw, int *
 	}
 }
 
+static void cli_incoming_set_gentimeout_us(str *instr, struct cli_writer *cw, int64_t *conf_timeout) {
+	long timeout_num;
+	char *endptr;
+
+	if (instr->len == 0) {
+		cw->cw_printf(cw, "More parameters required.\n");
+		return;
+	}
+
+	errno = 0;
+	timeout_num = strtol(instr->s, &endptr, 10);
+
+	if ((errno == ERANGE && (timeout_num == ULONG_MAX)) || (errno != 0 && timeout_num == 0) || timeout_num < 0 || timeout_num >= INT_MAX) {
+		cw->cw_printf(cw,  "Fail setting timeout to %s; errno=%d\n", instr->s, errno);
+		return;
+	} else if (endptr == instr->s) {
+		cw->cw_printf(cw,  "Fail setting timeout to %s; no digits found\n", instr->s);
+		return;
+	} else {
+		atomic_set_na(conf_timeout, timeout_num * 1000000LL);
+		cw->cw_printf(cw,  "Success setting timeout to %lu\n", timeout_num);
+	}
+}
+
 static void cli_incoming_set_timeout(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	cli_incoming_set_gentimeout(instr, cw, &rtpe_config.timeout);
 }
 static void cli_incoming_set_silenttimeout(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	cli_incoming_set_gentimeout(instr, cw, &rtpe_config.silent_timeout);
+	cli_incoming_set_gentimeout_us(instr, cw, &rtpe_config.silent_timeout_us);
 }
 static void cli_incoming_set_finaltimeout(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	cli_incoming_set_gentimeout(instr, cw, &rtpe_config.final_timeout);

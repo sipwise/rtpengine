@@ -37,7 +37,6 @@ enum endpoint_learning {
 	X(kernel_table) \
 	X(max_sessions) \
 	X(timeout) \
-	X(silent_timeout) \
 	X(final_timeout) \
 	X(offer_timeout) \
 	X(moh_max_duration) \
@@ -104,8 +103,9 @@ enum endpoint_learning {
 	X(ng_client_timeout) \
 	X(ng_client_retries) \
 
-#define RTPE_CONFIG_UINT64_PARAMS \
-	X(bw_limit)
+#define RTPE_CONFIG_INT64_PARAMS \
+	X(bw_limit) \
+	X(silent_timeout_us) \
 
 #define RTPE_CONFIG_BOOL_PARAMS \
 	X(homer_rtcp_off) \
@@ -222,8 +222,8 @@ struct rtpengine_config {
 RTPE_CONFIG_INT_PARAMS
 #undef X
 
-#define X(s) uint64_t s;
-RTPE_CONFIG_UINT64_PARAMS
+#define X(s) int64_t s;
+RTPE_CONFIG_INT64_PARAMS
 #undef X
 
 #define X(s) gboolean s;

@@ -672,6 +672,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	g_autoptr(char) templates_section = NULL;
 	g_autoptr(char) interfaces_config = NULL;
 	g_autoptr(char) transcode_config = NULL;
+	int silent_timeout = 0;
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
@@ -703,7 +704,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "control-tos",0 , 0, G_OPTION_ARG_INT,	&rtpe_config.control_tos,		"Default TOS value to set on control-ng",	"INT"		},
 		{ "control-pmtu", 0,0,	G_OPTION_ARG_STRING,	&control_pmtu,	"Path MTU discovery behaviour on UDP control sockets",	"want|dont"		},
 		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&rtpe_config.timeout,	"RTP timeout",			"SECS"		},
-		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&rtpe_config.silent_timeout,"RTP timeout for muted",	"SECS"		},
+		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&silent_timeout,	"RTP timeout for muted",	"SECS"		},
 		{ "final-timeout",'a',0,G_OPTION_ARG_INT,	&rtpe_config.final_timeout,	"Call timeout",			"SECS"		},
 		{ "offer-timeout",0,0,	G_OPTION_ARG_INT,	&rtpe_config.offer_timeout,	"Timeout for incomplete one-sided calls",	"SECS"		},
 		{ "port-min",	'm', 0, G_OPTION_ARG_INT,	&rtpe_config.port_min,	"Lowest port to use for RTP",	"INT"		},
@@ -1074,8 +1075,9 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	if (rtpe_config.timeout <= 0)
 		rtpe_config.timeout = 60;
 
-	if (rtpe_config.silent_timeout <= 0)
-		rtpe_config.silent_timeout = 3600;
+	rtpe_config.silent_timeout_us = silent_timeout * 1000000LL;
+	if (rtpe_config.silent_timeout_us <= 0)
+		rtpe_config.silent_timeout_us = 3600 * 1000000LL;
 
 	if (rtpe_config.offer_timeout <= 0)
 		rtpe_config.offer_timeout = 3600;
@@ -1385,7 +1387,7 @@ static void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 
 #define X(s) ini_rtpe_cfg->s = rtpe_config.s;
 RTPE_CONFIG_INT_PARAMS
-RTPE_CONFIG_UINT64_PARAMS
+RTPE_CONFIG_INT64_PARAMS
 RTPE_CONFIG_BOOL_PARAMS
 RTPE_CONFIG_ENDPOINT_PARAMS
 RTPE_CONFIG_ENUM_PARAMS
