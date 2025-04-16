@@ -38,7 +38,6 @@ enum endpoint_learning {
 	X(max_sessions) \
 	X(moh_max_duration) \
 	X(moh_max_repeats) \
-	X(delete_delay) \
 	X(redis_expires_secs) \
 	X(default_tos) \
 	X(control_tos) \
@@ -106,6 +105,7 @@ enum endpoint_learning {
 	X(timeout_us) \
 	X(final_timeout_us) \
 	X(offer_timeout_us) \
+	X(delete_delay_us) \
 
 #define RTPE_CONFIG_BOOL_PARAMS \
 	X(homer_rtcp_off) \

@@ -86,7 +86,6 @@ struct rtpengine_config rtpe_config = {
 	// non-zero defaults
 	.kernel_table = -1,
 	.max_sessions = -1,
-	.delete_delay = 30,
 	.redis_subscribed_keyspaces = G_QUEUE_INIT,
 	.redis_expires_secs = 86400,
 	.interfaces = TYPED_GQUEUE_INIT,
@@ -676,6 +675,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	int timeout = 0;
 	int final_timeout = 0;
 	int offer_timeout = 0;
+	int delete_delay = 30;
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
@@ -749,7 +749,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 #ifdef WITH_TRANSCODING
 		{ "codec-num-threads",  0, 0, G_OPTION_ARG_INT,	&rtpe_config.codec_num_threads,	"Number of transcoding threads for asynchronous operation",	"INT"	},
 #endif
-		{ "delete-delay",  'd', 0, G_OPTION_ARG_INT,    &rtpe_config.delete_delay,  "Delay for deleting a session from memory.",    "INT"   },
+		{ "delete-delay",  'd', 0, G_OPTION_ARG_INT,    &delete_delay,  "Delay for deleting a session from memory.",    "INT"   },
 		{ "sip-source",  0,  0, G_OPTION_ARG_NONE,	&sip_source,	"Use SIP source address by default",	NULL	},
 		{ "dtls-passive", 0, 0, G_OPTION_ARG_NONE,	&dtls_passive_def,"Always prefer DTLS passive role",	NULL	},
 		{ "max-sessions", 0, 0, G_OPTION_ARG_INT,	&rtpe_config.max_sessions,	"Limit of maximum number of sessions",	"INT"	},
@@ -1090,6 +1090,10 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	rtpe_config.final_timeout_us = final_timeout * 1000000LL;
 	if (rtpe_config.final_timeout_us <= 0)
 		rtpe_config.final_timeout_us = 0;
+
+	rtpe_config.delete_delay_us = delete_delay * 1000000LL;
+	if (rtpe_config.delete_delay_us < 0)
+		die("Invalid negative delete-delay");
 
 	if (rtpe_config.rtcp_interval <= 0)
 		rtpe_config.rtcp_interval = 5000;

@@ -1538,7 +1538,7 @@ static void cli_incoming_set_redisconnecttimeout(str *instr, struct cli_writer *
 }
 
 static void cli_incoming_list_deletedelay(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	cw->cw_printf(cw, "%d\n", atomic_get_na(&rtpe_config.delete_delay));
+	cw->cw_printf(cw, "%" PRId64 "\n", atomic_get_na(&rtpe_config.delete_delay_us) / 1000000L);
 }
 
 static void cli_incoming_set_deletedelay(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
@@ -1552,7 +1552,7 @@ static void cli_incoming_set_deletedelay(str *instr, struct cli_writer *cw, cons
 		cw->cw_printf(cw, "Invalid delete-delay value\n");
 		return;
 	}
-	atomic_set_na(&rtpe_config.delete_delay, seconds);
+	atomic_set_na(&rtpe_config.delete_delay_us, seconds * 1000000LL);
 	cw->cw_printf(cw, "Success setting delete-delay to %d\n", seconds);
 }
 

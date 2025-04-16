@@ -4884,7 +4884,7 @@ static void __tags_unassociate(struct call_monologue *a, struct call_monologue *
  *
  * Returns `true`, if we need to update Redis.
  */
-static bool monologue_delete_iter(struct call_monologue *a, int delete_delay) {
+static bool monologue_delete_iter(struct call_monologue *a, int64_t delete_delay_us) {
 	call_t *call = a->call;
 	if (!call)
 		return 0;
@@ -4892,11 +4892,11 @@ static bool monologue_delete_iter(struct call_monologue *a, int delete_delay) {
 	GList *associated = g_hash_table_get_values(a->associated_tags);
 	bool update_redis = false;
 
-	if (delete_delay > 0) {
+	if (delete_delay_us > 0) {
 		ilog(LOG_INFO, "Scheduling deletion of call branch '" STR_FORMAT_M "' "
-				"(via-branch '" STR_FORMAT_M "') in %d seconds",
-				STR_FMT_M(&a->tag), STR_FMT0_M(&a->viabranch), delete_delay);
-		a->deleted_us = rtpe_now + delete_delay * 1000000LL; // XXX scale to micro
+				"(via-branch '" STR_FORMAT_M "') in %" PRId64 " seconds",
+				STR_FMT_M(&a->tag), STR_FMT0_M(&a->viabranch), delete_delay_us / 1000000L);
+		a->deleted_us = rtpe_now + delete_delay_us;
 		if (!call->ml_deleted_us || call->ml_deleted_us > a->deleted_us)
 			call->ml_deleted_us = a->deleted_us;
 	}
@@ -4915,7 +4915,7 @@ static bool monologue_delete_iter(struct call_monologue *a, int delete_delay) {
 		__tags_unassociate(a, b);
 
 		if (g_hash_table_size(b->associated_tags) == 0)
-			monologue_delete_iter(b, delete_delay);	/* schedule deletion of B */
+			monologue_delete_iter(b, delete_delay_us);	/* schedule deletion of B */
 	}
 
 	g_list_free(associated);
@@ -5257,7 +5257,7 @@ static void monologue_stop(struct call_monologue *ml, bool stop_media_subsribers
 // call must be locked in W.
 // unlocks the call and releases the reference prior to returning, even on error.
 int call_delete_branch(call_t *c, const str *branch,
-	const str *fromtag, const str *totag, ng_command_ctx_t *ctx, int delete_delay)
+	const str *fromtag, const str *totag, ng_command_ctx_t *ctx, int64_t delete_delay)
 {
 	struct call_monologue *ml;
 	int ret;
@@ -5265,7 +5265,9 @@ int call_delete_branch(call_t *c, const str *branch,
 	bool update = false;
 
 	if (delete_delay < 0)
-		delete_delay = rtpe_config.delete_delay;
+		delete_delay = rtpe_config.delete_delay_us;
+	else
+		delete_delay *= 1000000L;
 
 	for (__auto_type i = c->monologues.head; i; i = i->next) {
 		ml = i->data;
@@ -5355,8 +5357,8 @@ del_all:
 	c->destroyed = rtpe_now;
 
 	if (delete_delay > 0) {
-		ilog(LOG_INFO, "Scheduling deletion of entire call in %d seconds", delete_delay);
-		c->deleted_us = rtpe_now + delete_delay * 1000000LL; // XXX scale to micro
+		ilog(LOG_INFO, "Scheduling deletion of entire call in %" PRId64 " seconds", delete_delay / 1000000L);
+		c->deleted_us = rtpe_now + delete_delay;
 		rwlock_unlock_w(&c->master_lock);
 	}
 	else {
@@ -5388,7 +5390,7 @@ out:
 
 
 int call_delete_branch_by_id(const str *callid, const str *branch,
-	const str *fromtag, const str *totag, ng_command_ctx_t *ctx, int delete_delay)
+	const str *fromtag, const str *totag, ng_command_ctx_t *ctx, int64_t delete_delay)
 {
 	call_t *c = call_get(callid);
 	if (!c) {
