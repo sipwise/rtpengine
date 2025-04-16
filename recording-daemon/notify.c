@@ -13,7 +13,7 @@ struct notif_req {
 
 	int64_t retry_time;
 	unsigned int retries;
-	unsigned int falloff;
+	int64_t falloff_us;
 };
 
 
@@ -143,17 +143,17 @@ fail:
 		req->retries++;
 		if (c)
 			ilog(LOG_DEBUG, "Failed to perform HTTP notification for '%s%s%s': "
-					"Error while %s: %s. Will retry in %u seconds (#%u)",
+					"Error while %s: %s. Will retry in %" PRId64 " seconds (#%u)",
 					FMT_M(req->name),
 					err, curl_easy_strerror(ret),
-					req->falloff, req->retries);
+					req->falloff_us / 1000000L, req->retries);
 		else
 			ilog(LOG_DEBUG, "Failed to perform HTTP notification for '%s%s%s': "
-					"Failed to create CURL object. Will retry in %u seconds (#%u)",
+					"Failed to create CURL object. Will retry in %" PRId64 " seconds (#%u)",
 					FMT_M(req->name),
-					req->falloff, req->retries);
-		req->retry_time = now_us() + req->falloff * 1000000L; // XXX scale to micro
-		req->falloff *= 2;
+					req->falloff_us / 1000000L, req->retries);
+		req->retry_time = now_us() + req->falloff_us;
+		req->falloff_us *= 2;
 
 		pthread_mutex_lock(&timer_lock);
 		g_tree_insert(notify_timers, req, req);
@@ -320,7 +320,7 @@ void notify_push_output(output_t *o, metafile_t *mf, tag_t *tag) {
 			notify_add_header(req, "X-Recording-Tag-Metadata: %s", tag->metadata);
 	}
 
-	req->falloff = 5; // initial retry time
+	req->falloff_us = 5000000LL; // initial retry time
 
 	g_thread_pool_push(notify_threadpool, req, NULL);
 }
