@@ -675,6 +675,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	int silent_timeout = 0;
 	int timeout = 0;
 	int final_timeout = 0;
+	int offer_timeout = 0;
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
@@ -708,7 +709,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&timeout,		"RTP timeout",			"SECS"		},
 		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&silent_timeout,	"RTP timeout for muted",	"SECS"		},
 		{ "final-timeout",'a',0,G_OPTION_ARG_INT,	&final_timeout,		"Call timeout",			"SECS"		},
-		{ "offer-timeout",0,0,	G_OPTION_ARG_INT,	&rtpe_config.offer_timeout,	"Timeout for incomplete one-sided calls",	"SECS"		},
+		{ "offer-timeout",0,0,	G_OPTION_ARG_INT,	&offer_timeout,		"Timeout for incomplete one-sided calls",	"SECS"		},
 		{ "port-min",	'm', 0, G_OPTION_ARG_INT,	&rtpe_config.port_min,	"Lowest port to use for RTP",	"INT"		},
 		{ "port-max",	'M', 0, G_OPTION_ARG_INT,	&rtpe_config.port_max,	"Highest port to use for RTP",	"INT"		},
 		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"[PW@]IP:PORT/INT"	},
@@ -1082,8 +1083,9 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	if (rtpe_config.silent_timeout_us <= 0)
 		rtpe_config.silent_timeout_us = 3600 * 1000000LL;
 
-	if (rtpe_config.offer_timeout <= 0)
-		rtpe_config.offer_timeout = 3600;
+	rtpe_config.offer_timeout_us = offer_timeout * 1000000LL;
+	if (rtpe_config.offer_timeout_us <= 0)
+		rtpe_config.offer_timeout_us = 3600 * 1000000LL;
 
 	rtpe_config.final_timeout_us = final_timeout * 1000000LL;
 	if (rtpe_config.final_timeout_us <= 0)

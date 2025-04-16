@@ -660,7 +660,7 @@ static void cli_incoming_list_finaltimeout(str *instr, struct cli_writer *cw, co
 	cw->cw_printf(cw, "FINAL_TIMEOUT=%" PRId64 "\n", rtpe_config.final_timeout_us / 1000000L);
 }
 static void cli_incoming_list_offertimeout(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	cw->cw_printf(cw, "OFFER_TIMEOUT=%u\n", rtpe_config.offer_timeout);
+	cw->cw_printf(cw, "OFFER_TIMEOUT=%" PRId64 "\n", rtpe_config.offer_timeout_us / 1000000L);
 }
 
 static void cli_incoming_list_callid(str *instr, struct cli_writer *cw) {
@@ -1029,30 +1029,6 @@ static void cli_incoming_set_maxbw(str *instr, struct cli_writer *cw, const cli_
 	return;
 }
 
-static void cli_incoming_set_gentimeout(str *instr, struct cli_writer *cw, int *conf_timeout) {
-	long timeout_num;
-	char *endptr;
-
-	if (instr->len == 0) {
-		cw->cw_printf(cw, "More parameters required.\n");
-		return;
-	}
-
-	errno = 0;
-	timeout_num = strtol(instr->s, &endptr, 10);
-
-	if ((errno == ERANGE && (timeout_num == ULONG_MAX)) || (errno != 0 && timeout_num == 0) || timeout_num < 0 || timeout_num >= INT_MAX) {
-		cw->cw_printf(cw,  "Fail setting timeout to %s; errno=%d\n", instr->s, errno);
-		return;
-	} else if (endptr == instr->s) {
-		cw->cw_printf(cw,  "Fail setting timeout to %s; no digits found\n", instr->s);
-		return;
-	} else {
-		atomic_set_na(conf_timeout, timeout_num);
-		cw->cw_printf(cw,  "Success setting timeout to %lu\n", timeout_num);
-	}
-}
-
 static void cli_incoming_set_gentimeout_us(str *instr, struct cli_writer *cw, int64_t *conf_timeout) {
 	long timeout_num;
 	char *endptr;
@@ -1087,7 +1063,7 @@ static void cli_incoming_set_finaltimeout(str *instr, struct cli_writer *cw, con
 	cli_incoming_set_gentimeout_us(instr, cw, &rtpe_config.final_timeout_us);
 }
 static void cli_incoming_set_offertimeout(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	cli_incoming_set_gentimeout(instr, cw, &rtpe_config.offer_timeout);
+	cli_incoming_set_gentimeout_us(instr, cw, &rtpe_config.offer_timeout_us);
 }
 
 static void cli_generic_handler(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {

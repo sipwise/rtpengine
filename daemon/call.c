@@ -243,7 +243,7 @@ no_sfd:
 			tmp_t_reason = SILENT_TIMEOUT;
 		}
 		else if (!PS_ISSET(ps, FILLED)) {
-			check = atomic_get_na(&rtpe_config.offer_timeout) * 1000000LL; // XXX scale to micro
+			check = atomic_get_na(&rtpe_config.offer_timeout_us);
 			tmp_t_reason = OFFER_TIMEOUT;
 		}
 
