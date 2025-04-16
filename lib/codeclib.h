@@ -148,7 +148,7 @@ union codec_options_u {
 		const unsigned int *bits_per_frame;
 		const unsigned int *bitrates;
 
-		int mode_change_interval;
+		int64_t mode_change_interval_us;
 		int64_t cmr_interval_us;
 	} amr;
 

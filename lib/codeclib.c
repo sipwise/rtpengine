@@ -2823,7 +2823,7 @@ static void amr_set_dec_codec_options(str *key, str *value, void *data) {
 	if (!str_cmp(key, "CMR-interval"))
 		dec->codec_options.amr.cmr_interval_us = str_to_i(value, 0) * 1000L;
 	else if (!str_cmp(key, "mode-change-interval"))
-		dec->codec_options.amr.mode_change_interval = str_to_i(value, 0);
+		dec->codec_options.amr.mode_change_interval_us = str_to_i(value, 0) * 1000L;
 
 }
 static void amr_set_enc_codec_options(str *key, str *value, void *data) {
@@ -3002,12 +3002,12 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		decoder_event(dec, CE_AMR_CMR_RECV, GUINT_TO_POINTER(cmr_int));
 		dec->avc.amr.last_cmr = rtpe_now;
 	}
-	else if (dec->codec_options.amr.mode_change_interval) {
+	else if (dec->codec_options.amr.mode_change_interval_us) {
 		// no CMR, check if we're due to do our own mode change
 		if (!dec->avc.amr.last_cmr) // start tracking now
 			dec->avc.amr.last_cmr = rtpe_now;
 		else if (rtpe_now - dec->avc.amr.last_cmr
-				>= dec->codec_options.amr.mode_change_interval * 1000LL) { // XXX scale to micro
+				>= dec->codec_options.amr.mode_change_interval_us) {
 			// switch up if we can
 			decoder_event(dec, CE_AMR_CMR_RECV, GUINT_TO_POINTER(0xffff));
 			dec->avc.amr.last_cmr = rtpe_now;
