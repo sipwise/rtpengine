@@ -260,7 +260,7 @@ error:
 }
 
 
-static void graphite_loop_run(endpoint_t *graphite_ep, int seconds) {
+static void graphite_loop_run(endpoint_t *graphite_ep, int64_t microseconds) {
 
 	int rc=0;
 	struct pollfd wfds[1];
@@ -306,11 +306,11 @@ static void graphite_loop_run(endpoint_t *graphite_ep, int seconds) {
 
 	rtpe_now = now_us();
 	if (rtpe_now < next_run) {
-		usleep(100000);
+		usleep(100000); // XXX refactor using proper sleep time
 		return;
 	}
 
-	next_run = rtpe_now + seconds * 1000000LL; // XXX scale to micro
+	next_run = rtpe_now + microseconds;
 
 	if (graphite_sock.fd < 0 && connection_state == STATE_DISCONNECTED) {
 		connect_to_graphite_server(graphite_ep);
@@ -339,5 +339,5 @@ void graphite_loop(void *d) {
 	connect_to_graphite_server(&rtpe_config.graphite_ep);
 
 	while (!rtpe_shutdown)
-		graphite_loop_run(&rtpe_config.graphite_ep, rtpe_config.graphite_interval); // time in seconds
+		graphite_loop_run(&rtpe_config.graphite_ep, rtpe_config.graphite_interval * 1000000LL);
 }
