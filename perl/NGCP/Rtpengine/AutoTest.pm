@@ -83,6 +83,10 @@ sub autotest_init {
 	my $r = $c->req({command => 'ping'});
 	ok $r->{result} eq 'pong', 'ping works, daemon operational';
 
+	$SIG{__DIE__} = sub {
+		terminate(@_);
+	};
+
 	return 1;
 }
 
@@ -211,7 +215,7 @@ sub rtp {
 sub rcv {
 	my ($sock, $port, $match, $cb, $cb_arg) = @_;
 	my $p = '';
-	local $SIG{ALRM} = sub { exit(-10) };
+	local $SIG{ALRM} = sub { die("recv timed out"); };
 	alarm(1);
 	my $addr = $sock->recv($p, 65535, 0) or die;
 	alarm(0);
