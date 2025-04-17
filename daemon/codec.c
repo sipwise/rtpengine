@@ -2458,7 +2458,7 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 	}
 
 send:
-	ilogs(transcoding, LOG_DEBUG, "Scheduling to send RTP packet (seq %u TS %lu) in %" PRId64 ".%01ld ms (at %" PRId64" .%06" PRId64" )",
+	ilogs(transcoding, LOG_DEBUG, "Scheduling to send RTP packet (seq %u TS %lu) in %" PRId64 ".%01ld ms (at %" PRId64 ".%06" PRId64 ")",
 			ntohs(rh->seq_num),
 			ts,
 			ts_diff_us / 1000,

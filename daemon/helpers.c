@@ -312,8 +312,8 @@ static void thread_looper_helper(void *fp) {
 		int64_t stop = now_us();
 		int64_t duration_us = stop - rtpe_now;
 		if (duration_us > warn_limit_us)
-			ilog(LOG_WARN, "Run time of timer \"%s\": %" PRId64" .%06" PRId64"  sec, "
-					"exceeding limit of %" PRId64" %% (%" PRId64" .%06" PRId64"  sec)",
+			ilog(LOG_WARN, "Run time of timer \"%s\": %" PRId64 ".%06" PRId64 " sec, "
+					"exceeding limit of %" PRId64 "%% (%" PRId64 ".%06" PRId64 " sec)",
 					lh.name,
 					duration_us / 1000000, duration_us % 1000000,
 					warn_limit_pct,
