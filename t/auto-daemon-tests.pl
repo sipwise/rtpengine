@@ -84,6 +84,68 @@ sub stun_succ {
 
 
 
+new_call;
+
+offer('L16 default', { codec => { transcode => ['L16/44100'] } }, <<SDP);
+v=0
+o=- 1737366280 1737366280 IN IP4 192.168.40.21
+s=Polycom IP Phone
+c=IN IP4 192.168.40.21
+t=0 0
+m=audio 36806 RTP/AVP 9 8 101
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=rtcp:36807
+-----------------------------------------------
+v=0
+o=- 1737366280 1737366280 IN IP4 192.168.40.21
+s=Polycom IP Phone
+t=0 0
+m=audio PORT RTP/AVP 9 8 10 96 101
+c=IN IP4 203.0.113.1
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:10 L16/44100
+a=rtpmap:96 telephone-event/44100
+a=fmtp:96 0-15
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('L16 non standard', { codec => { transcode => ['L16/16000'] } }, <<SDP);
+v=0
+o=- 1737366280 1737366280 IN IP4 192.168.40.21
+s=Polycom IP Phone
+c=IN IP4 192.168.40.21
+t=0 0
+m=audio 36806 RTP/AVP 9 8 101
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=rtcp:36807
+-----------------------------------------------
+v=0
+o=- 1737366280 1737366280 IN IP4 192.168.40.21
+s=Polycom IP Phone
+t=0 0
+m=audio PORT RTP/AVP 9 8 96 97 101
+c=IN IP4 203.0.113.1
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 L16/16000
+a=rtpmap:97 telephone-event/16000
+a=fmtp:97 0-15
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
 ($sock_a, $sock_b) = new_call([qw(198.51.100.1 7124)], [qw(198.51.100.3 7126)]);
 
 ($port_a) = offer('wonky DTMF (GH#1929)', {
