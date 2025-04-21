@@ -101,3 +101,5 @@ For quick access, documentation for development:
 ## Contribution
 
 Every bit matters. Join us. Make the rtpengine community stronger.
+
+Latest mr13.2.1.1 branch merging with 3clogic master . 
