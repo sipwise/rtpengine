@@ -2021,7 +2021,6 @@ $resp = rtpe_req('query', 'unsolicited to-tag w/ via-branch', { });
 Test2::Tools::Compare::like($resp, {
           'result' => 'ok',
           'last redis update' => '0',
-          'SSRC' => {},
           'last signal' => qr//,
           'tags' => {
                       ft() => {
@@ -2034,17 +2033,17 @@ Test2::Tools::Compare::like($resp, {
                                                                                  ],
                                                               'medias' => [
                                                                             {
+                                                                              'ingress SSRCs' => [],
+                                                                              'egress SSRCs' => [],
                                                                               'index' => '1',
                                                                               'streams' => [
                                                                                              {
                                                                                                'last user packet' => qr//,
-                                                                                               'egress SSRCs' => [],
                                                                                                'advertised endpoint' => {
                                                                                                                           'address' => '198.51.100.1',
                                                                                                                           'family' => 'IPv4',
                                                                                                                           'port' => '3000'
                                                                                                                         },
-                                                                                               'ingress SSRCs' => [],
                                                                                                'flags' => [
                                                                                                             'RTP',
                                                                                                             'filled'
@@ -2071,13 +2070,11 @@ Test2::Tools::Compare::like($resp, {
                                                                                                'last packet' => qr//
                                                                                              },
                                                                                              {
-                                                                                               'egress SSRCs' => [],
                                                                                                'advertised endpoint' => {
                                                                                                                           'address' => '198.51.100.1',
                                                                                                                           'family' => 'IPv4',
                                                                                                                           'port' => '3001'
                                                                                                                         },
-                                                                                               'ingress SSRCs' => [],
                                                                                                'flags' => [
                                                                                                             'RTCP',
                                                                                                             'filled'
@@ -2127,6 +2124,8 @@ Test2::Tools::Compare::like($resp, {
                                                             'tag' => tt(),
                                                             'medias' => [
                                                                           {
+                                                                            'ingress SSRCs' => [],
+                                                                            'egress SSRCs' => [],
                                                                             'streams' => [
                                                                                            {
                                                                                              'stats_out' => {
@@ -2134,8 +2133,6 @@ Test2::Tools::Compare::like($resp, {
                                                                                                               'packets' => '0',
                                                                                                               'errors' => '0'
                                                                                                             },
-                                                                                             'egress SSRCs' => [],
-                                                                                             'ingress SSRCs' => [],
                                                                                              'advertised endpoint' => {
                                                                                                                         'port' => '4000',
                                                                                                                         'family' => 'IPv4',
@@ -2182,13 +2179,11 @@ Test2::Tools::Compare::like($resp, {
                                                                                                           'RTCP',
                                                                                                           'filled'
                                                                                                         ],
-                                                                                             'ingress SSRCs' => [],
                                                                                              'advertised endpoint' => {
                                                                                                                         'port' => '4001',
                                                                                                                         'address' => '198.51.100.1',
                                                                                                                         'family' => 'IPv4'
                                                                                                                       },
-                                                                                             'egress SSRCs' => [],
                                                                                              'last user packet' => qr//,
                                                                                              'stats_out' => {
                                                                                                               'bytes' => '0',
@@ -2311,7 +2306,6 @@ $resp = rtpe_req('query', 'unsolicited to-tag w/ via-branch', { });
 Test2::Tools::Compare::like($resp, {
           'result' => 'ok',
           'last redis update' => '0',
-          'SSRC' => {},
           'last signal' => qr//,
           'tags' => {
                       ft() => {
@@ -2324,17 +2318,17 @@ Test2::Tools::Compare::like($resp, {
                                                                                  ],
                                                               'medias' => [
                                                                             {
+                                                                              'ingress SSRCs' => [],
+                                                                              'egress SSRCs' => [],
                                                                               'index' => '1',
                                                                               'streams' => [
                                                                                              {
                                                                                                'last user packet' => qr//,
-                                                                                               'egress SSRCs' => [],
                                                                                                'advertised endpoint' => {
                                                                                                                           'address' => '198.51.100.1',
                                                                                                                           'family' => 'IPv4',
                                                                                                                           'port' => '3000'
                                                                                                                         },
-                                                                                               'ingress SSRCs' => [],
                                                                                                'flags' => [
                                                                                                             'RTP',
                                                                                                             'filled'
@@ -2361,13 +2355,11 @@ Test2::Tools::Compare::like($resp, {
                                                                                                'last packet' => qr//
                                                                                              },
                                                                                              {
-                                                                                               'egress SSRCs' => [],
                                                                                                'advertised endpoint' => {
                                                                                                                           'address' => '198.51.100.1',
                                                                                                                           'family' => 'IPv4',
                                                                                                                           'port' => '3001'
                                                                                                                         },
-                                                                                               'ingress SSRCs' => [],
                                                                                                'flags' => [
                                                                                                             'RTCP',
                                                                                                             'filled'
@@ -2417,6 +2409,8 @@ Test2::Tools::Compare::like($resp, {
                                                             'tag' => tt(),
                                                             'medias' => [
                                                                           {
+                                                                            'ingress SSRCs' => [],
+                                                                            'egress SSRCs' => [],
                                                                             'streams' => [
                                                                                            {
                                                                                              'stats_out' => {
@@ -2424,8 +2418,6 @@ Test2::Tools::Compare::like($resp, {
                                                                                                               'packets' => '0',
                                                                                                               'errors' => '0'
                                                                                                             },
-                                                                                             'egress SSRCs' => [],
-                                                                                             'ingress SSRCs' => [],
                                                                                              'advertised endpoint' => {
                                                                                                                         'port' => '4000',
                                                                                                                         'family' => 'IPv4',
@@ -2472,13 +2464,11 @@ Test2::Tools::Compare::like($resp, {
                                                                                                           'RTCP',
                                                                                                           'filled'
                                                                                                         ],
-                                                                                             'ingress SSRCs' => [],
                                                                                              'advertised endpoint' => {
                                                                                                                         'port' => '4001',
                                                                                                                         'address' => '198.51.100.1',
                                                                                                                         'family' => 'IPv4'
                                                                                                                       },
-                                                                                             'egress SSRCs' => [],
                                                                                              'last user packet' => qr//,
                                                                                              'stats_out' => {
                                                                                                               'bytes' => '0',

@@ -1512,6 +1512,7 @@ TYPED_GQUEUE(kernel_output, struct rtpengine_destination_info)
 
 typedef struct {
 	struct rtpengine_target_info reti;
+	struct ssrc_entry_call *ssrc[RTPE_NUM_SSRC_TRACKING];
 	kernel_output_q outputs;
 	rtp_stats_arr *payload_types;
 	bool blackhole;
@@ -1604,11 +1605,15 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 	s->manipulate_pt = s->silenced || ML_ISSET(media->monologue, BLOCK_SHORT);
 
 	reti->track_ssrc = 1;
-	for (unsigned int u = 0; u < G_N_ELEMENTS(stream->ssrc_in); u++) {
-		if (stream->ssrc_in[u]) {
-			reti->ssrc[u] = htonl(stream->ssrc_in[u]->h.ssrc);
-			reti->ssrc_stats[u] = stream->ssrc_in[u]->stats;
-		}
+	unsigned int u = 0;
+	for (GList *l = stream->media->ssrc_hash_in.nq.head; l; l = l->next) {
+		struct ssrc_entry_call *se = l->data;
+		if (u >= G_N_ELEMENTS(reti->ssrc))
+			break;
+		s->ssrc[u] = se; // no reference needed
+		reti->ssrc[u] = htonl(se->h.ssrc);
+		reti->ssrc_stats[u] = se->stats;
+		u++;
 	}
 
 	recording_stream_kernel_info(stream, reti);
@@ -1766,15 +1771,20 @@ static const char *kernelize_one(kernelize_state *s,
 	redi->output.stats = sink->stats_out;
 
 	if (reti->track_ssrc) {
-		for (unsigned int u = 0; u < G_N_ELEMENTS(stream->ssrc_in); u++) {
-			if (sink->ssrc_out[u]) {
-				// XXX order can be different from ingress?
-				redi->output.seq_offset[u] = sink->ssrc_out[u]->seq_diff;
-				redi->output.ssrc_stats[u] = sink->ssrc_out[u]->stats;
-			}
+		unsigned int u = 0;
+		for (GList *l = sink->media->ssrc_hash_out.nq.head; l; l = l->next) {
+			struct ssrc_entry_call *se = l->data;
+			if (u >= G_N_ELEMENTS(redi->output.ssrc_out))
+				break;
 
-			if (redi->output.ssrc_subst && stream->ssrc_in[u])
-				redi->output.ssrc_out[u] = htonl(stream->ssrc_in[u]->ssrc_map_out);
+
+			redi->output.seq_offset[u] = se->seq_diff;
+			redi->output.ssrc_stats[u] = se->stats;
+
+			if (redi->output.ssrc_subst && s->ssrc[u])
+				redi->output.ssrc_out[u] = htonl(s->ssrc[u]->ssrc_map_out);
+
+			u++;
 		}
 	}
 
@@ -2069,44 +2079,32 @@ noop:
 
 
 // returns non-null with reason string if stream should be removed from kernel
-static const char *__stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc, mutex_t *lock,
-		struct ssrc_entry_call *list[RTPE_NUM_SSRC_TRACKING], unsigned int *ctx_idx_p,
+static const char *__stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc,
 		uint32_t output_ssrc,
-		struct ssrc_entry_call **output, struct ssrc_hash *ssrc_hash, const char *label)
+		struct ssrc_entry_call **output, struct ssrc_hash *ssrc_hash,
+		const char *label)
 {
 	const char *ret = NULL;
 
-	mutex_lock(lock);
+	mutex_lock(&ssrc_hash->lock);
+	struct ssrc_entry_call *first = call_get_first_ssrc(ssrc_hash);
+	if (first && first->h.ssrc == ssrc)
+		ssrc_entry_hold(first);
+	else
+		first = NULL;
+	mutex_unlock(&ssrc_hash->lock);
 
-	int ctx_idx = __hunt_ssrc_ctx_idx(ssrc, list, 0);
-	if (ctx_idx == -1) {
-		// SSRC mismatch - get the new entry:
-		ctx_idx = *ctx_idx_p;
-		// move to next slot
-		*ctx_idx_p = (*ctx_idx_p + 1) % RTPE_NUM_SSRC_TRACKING;
-		// eject old entry if present
-		if (list[ctx_idx])
-			ssrc_entry_release(list[ctx_idx]);
-		// get new entry
-		list[ctx_idx] =
-			get_ssrc(ssrc, ssrc_hash);
+	struct ssrc_entry_call *se = first ?: get_ssrc(ssrc, ssrc_hash);
 
+	if (se != first) {
 		ret = "SSRC changed";
 		ilog(LOG_DEBUG, "New %s SSRC for: %s%s:%d SSRC: %x%s", label,
-                        FMT_M(sockaddr_print_buf(&ps->endpoint.address), ps->endpoint.port, ssrc));
-	}
-	if (ctx_idx != 0) {
-		// move most recent entry to front of the list
-		struct ssrc_entry_call *tmp = list[0];
-		list[0] = list[ctx_idx];
-		list[ctx_idx] = tmp;
-		ctx_idx = 0;
+			      FMT_M(sockaddr_print_buf(&ps->endpoint.address), ps->endpoint.port, ssrc));
 	}
 
 	// extract and hold entry
 	ssrc_entry_release(*output);
-	*output = list[ctx_idx];
-	ssrc_entry_hold(*output);
+	*output = se;
 
 	// reverse SSRC mapping
 	if (!output_ssrc)
@@ -2114,7 +2112,6 @@ static const char *__stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc, 
 	else
 		(*output)->ssrc_map_out = output_ssrc;
 
-	mutex_unlock(lock);
 	return ret;
 }
 // check and update input SSRC pointers
@@ -2122,8 +2119,8 @@ static const char *__stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc, 
 static const char *__stream_ssrc_in(struct packet_stream *in_srtp, uint32_t ssrc_bs,
 		struct ssrc_entry_call **ssrc_in_p, struct ssrc_hash *ssrc_hash)
 {
-	return __stream_ssrc_inout(in_srtp, ntohl(ssrc_bs), &in_srtp->in_lock, in_srtp->ssrc_in,
-			&in_srtp->ssrc_in_idx, 0, ssrc_in_p, ssrc_hash, "ingress");
+	return __stream_ssrc_inout(in_srtp, ntohl(ssrc_bs),
+			0, ssrc_in_p, ssrc_hash, "ingress");
 }
 // check and update output SSRC pointers
 // returns non-null with reason string if stream should be removed from kernel
@@ -2133,14 +2130,12 @@ static const char *__stream_ssrc_out(struct packet_stream *out_srtp, uint32_t ss
 		bool ssrc_change)
 {
 	if (ssrc_change)
-		return __stream_ssrc_inout(out_srtp, ssrc_in->ssrc_map_out, &out_srtp->out_lock,
-				out_srtp->ssrc_out,
-				&out_srtp->ssrc_out_idx, ntohl(ssrc_bs), ssrc_out_p, ssrc_hash,
+		return __stream_ssrc_inout(out_srtp, ssrc_in->ssrc_map_out,
+				ntohl(ssrc_bs), ssrc_out_p, ssrc_hash,
 				"egress (mapped)");
 
-	return __stream_ssrc_inout(out_srtp, ntohl(ssrc_bs), &out_srtp->out_lock,
-			out_srtp->ssrc_out,
-			&out_srtp->ssrc_out_idx, 0, ssrc_out_p, ssrc_hash,
+	return __stream_ssrc_inout(out_srtp, ntohl(ssrc_bs),
+			0, ssrc_out_p, ssrc_hash,
 			"egress (direct)");
 }
 

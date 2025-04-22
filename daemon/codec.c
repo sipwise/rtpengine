@@ -1315,32 +1315,24 @@ static void __rtcp_timer_run(struct codec_timer *ct) {
 	rwlock_lock_r(&rt->call->master_lock);
 
 	// copy out references to SSRCs for lock-free handling
-	struct ssrc_entry_call *ssrc_out[RTPE_NUM_SSRC_TRACKING] = {NULL,};
-	if (media->streams.head) {
-		struct packet_stream *ps = media->streams.head->data;
-		mutex_lock(&ps->out_lock);
-		for (unsigned int u = 0; u < RTPE_NUM_SSRC_TRACKING; u++) {
-			if (!ps->ssrc_out[u]) // end of list
-				break;
-			ssrc_out[u] = ps->ssrc_out[u];
-			ssrc_entry_hold(ssrc_out[u]);
-		}
-		mutex_unlock(&ps->out_lock);
+	GQueue ssrc_out = G_QUEUE_INIT;
+	mutex_lock(&media->ssrc_hash_out.lock);
+	for (GList *l = media->ssrc_hash_out.nq.head; l; l = l->next) {
+		struct ssrc_entry_call *se = l->data;
+		g_queue_push_tail(&ssrc_out, ssrc_entry_hold(se));
 	}
+	mutex_unlock(&media->ssrc_hash_out.lock);
 
-	for (unsigned int u = 0; u < RTPE_NUM_SSRC_TRACKING; u++) {
-		if (!ssrc_out[u]) // end of list
-			break;
-		// coverity[use : FALSE]
-		rtcp_send_report(media, ssrc_out[u]);
+	for (GList *l = ssrc_out.head; l; l = l->next) {
+		struct ssrc_entry_call *se = l->data;
+		rtcp_send_report(media, se);
 	}
 
 	rwlock_unlock_r(&rt->call->master_lock);
 
-	for (unsigned int u = 0; u < RTPE_NUM_SSRC_TRACKING; u++) {
-		if (!ssrc_out[u]) // end of list
-			break;
-		ssrc_entry_release(ssrc_out[u]);
+	while (ssrc_out.length) {
+		struct ssrc_entry_call *se = g_queue_pop_head(&ssrc_out);
+		ssrc_entry_release(se);
 	}
 
 out:
@@ -3769,6 +3761,8 @@ static void __dtx_send_later(struct codec_timer *ct) {
 			ts = dtxb->head_ts;
 		}
 		ps = mp_copy.stream;
+		struct call_media *media = ps->media;
+		struct ssrc_entry_call *se = call_get_first_ssrc(&media->ssrc_hash_in);
 		log_info_stream_fd(mp_copy.sfd);
 
 		// copy out other fields so we can unlock
@@ -3787,20 +3781,20 @@ static void __dtx_send_later(struct codec_timer *ct) {
 			shutdown = true;
 		else if (!ps)
 			shutdown = true;
-		else if (!ps->ssrc_in[0])
+		else if (!se)
 			shutdown = true;
-		else if (dtxb->ssrc != ps->ssrc_in[0]->h.ssrc)
+		else if (dtxb->ssrc != se->h.ssrc)
 			shutdown = true;
 		else if (dtxb->ct.next == 0)
 			shutdown = true;
 		else {
 			shutdown = true; // default if no last used PTs are known
 
-			for (int i = 0; i < G_N_ELEMENTS(ps->ssrc_in[0]->tracker.last_pts); i++) {
-				int pt_idx = ps->ssrc_in[0]->tracker.last_pt_idx - i;
-				pt_idx += G_N_ELEMENTS(ps->ssrc_in[0]->tracker.last_pts);
-				pt_idx %= G_N_ELEMENTS(ps->ssrc_in[0]->tracker.last_pts);
-				int last_pt = ps->ssrc_in[0]->tracker.last_pts[pt_idx];
+			for (int i = 0; i < G_N_ELEMENTS(se->tracker.last_pts); i++) {
+				int pt_idx = se->tracker.last_pt_idx - i;
+				pt_idx += G_N_ELEMENTS(se->tracker.last_pts);
+				pt_idx %= G_N_ELEMENTS(se->tracker.last_pts);
+				int last_pt = se->tracker.last_pts[pt_idx];
 				if (last_pt == 255)
 					break;
 

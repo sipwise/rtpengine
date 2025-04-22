@@ -64,7 +64,8 @@ static void call_ng_flags_list(const ng_parser_t *, parser_arg list,
 		void (*item_callback)(const ng_parser_t *, parser_arg, helper_arg),
 		helper_arg);
 static void call_ng_flags_esc_str_list(str *s, unsigned int, helper_arg);
-static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, const struct ssrc_hash *ht);
+static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, parser_arg list,
+		const struct ssrc_hash *ht);
 static str *str_dup_escape(const str *s);
 static void call_set_dtmf_block(call_t *call, struct call_monologue *monologue, sdp_ng_flags *flags);
 
@@ -2748,27 +2749,6 @@ static void ng_stats_endpoint(const ng_parser_t *parser, parser_arg dict, const 
 	parser->dict_add_int(dict, "port", ep->port);
 }
 
-static void ng_stats_stream_ssrc(const ng_parser_t *parser, parser_arg dict,
-		struct ssrc_entry_call *const ssrcs[RTPE_NUM_SSRC_TRACKING],
-		const char *label)
-{
-	parser_arg list = parser->dict_add_list(dict, label);
-
-	for (int i = 0; i < RTPE_NUM_SSRC_TRACKING; i++) {
-		struct ssrc_entry_call *c = ssrcs[i];
-		if (!c)
-			break;
-
-		parser_arg ssrc = parser->list_add_dict(list);
-
-		parser->dict_add_int(ssrc, "SSRC", ssrcs[i]->h.ssrc);
-		parser->dict_add_int(ssrc, "bytes", atomic64_get_na(&c->stats->bytes));
-		parser->dict_add_int(ssrc, "packets", atomic64_get_na(&c->stats->packets));
-		parser->dict_add_int(ssrc, "last RTP timestamp", atomic_get_na(&c->stats->timestamp));
-		parser->dict_add_int(ssrc, "last RTP seq", atomic_get_na(&c->stats->ext_seq));
-	}
-}
-
 #define BF_PS(k, f) if (PS_ISSET(ps, f)) parser->list_add_string(flags, k)
 
 static void ng_stats_stream(ng_command_ctx_t *ctx, parser_arg list, const struct packet_stream *ps,
@@ -2800,6 +2780,10 @@ static void ng_stats_stream(ng_command_ctx_t *ctx, parser_arg list, const struct
 	parser->dict_add_int(dict, "last kernel packet", atomic64_get_na(&ps->stats_in->last_packet_us) / 1000000L);
 	parser->dict_add_int(dict, "last user packet", atomic64_get_na(&ps->last_packet_us) / 1000000L);
 
+	__auto_type se = call_get_first_ssrc(&ps->media->ssrc_hash_in);
+	if (se)
+		parser->dict_add_int(dict, "SSRC", se->h.ssrc);
+
 	flags = parser->dict_add_list(dict, "flags");
 
 	BF_PS("RTP", RTP);
@@ -2813,9 +2797,6 @@ static void ng_stats_stream(ng_command_ctx_t *ctx, parser_arg list, const struct
 	BF_PS("strict source address", STRICT_SOURCE);
 	BF_PS("media handover", MEDIA_HANDOVER);
 	BF_PS("ICE", ICE);
-
-	ng_stats_stream_ssrc(parser, dict, ps->ssrc_in, "ingress SSRCs");
-	ng_stats_stream_ssrc(parser, dict, ps->ssrc_out, "egress SSRCs");
 
 stats:
 	if (totals->last_packet_us < packet_stream_last_packet(ps))
@@ -2888,7 +2869,8 @@ static void ng_stats_media(ng_command_ctx_t *ctx, parser_arg list, const struct 
 	BF_M("transcoding", TRANSCODING);
 	BF_M("block egress", BLOCK_EGRESS);
 
-	ng_stats_ssrc(parser, ssrc, &m->ssrc_hash_in); // XXX out
+	ng_stats_ssrc(parser, ssrc, parser->dict_add_list(dict, "ingress SSRCs"), &m->ssrc_hash_in);
+	ng_stats_ssrc(parser, NULL, parser->dict_add_list(dict,  "egress SSRCs"), &m->ssrc_hash_out);
 
 stats:
 	for (auto_iter(l, m->streams.head); l; l = l->next) {
@@ -3030,45 +3012,61 @@ static void ng_stats_ssrc_mos_entry_dict_avg(const ng_parser_t *parser, parser_a
 	parser->dict_add_int(subent, "samples", div);
 }
 
-static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, const struct ssrc_hash *ht) {
+static void ng_stats_ssrc_1(const ng_parser_t *parser, parser_arg ent, struct ssrc_entry_call *se) {
+	parser->dict_add_int(ent, "bytes", atomic64_get_na(&se->stats->bytes));
+	parser->dict_add_int(ent, "packets", atomic64_get_na(&se->stats->packets));
+	parser->dict_add_int(ent, "last RTP timestamp", atomic_get_na(&se->stats->timestamp));
+	parser->dict_add_int(ent, "last RTP seq", atomic_get_na(&se->stats->ext_seq));
+
+	parser->dict_add_int(ent, "cumulative loss", se->packets_lost);
+
+	int mos_samples = se->stats_blocks.length - se->no_mos_count;
+	if (mos_samples < 1) mos_samples = 1;
+	ng_stats_ssrc_mos_entry_dict_avg(parser, ent, "average MOS", &se->average_mos, mos_samples);
+	ng_stats_ssrc_mos_entry_dict(parser, ent, "lowest MOS", se->lowest_mos);
+	ng_stats_ssrc_mos_entry_dict(parser, ent, "highest MOS", se->highest_mos);
+
+	parser_arg progdict = parser->dict_add_dict(ent, "MOS progression");
+	// aim for about 10 entries to the list
+	GList *listent = se->stats_blocks.head;
+	struct ssrc_stats_block *sb = listent->data;
+	int64_t interval
+		= ((struct ssrc_stats_block *) se->stats_blocks.tail->data)->reported
+		- sb->reported;
+	interval /= 10;
+	parser->dict_add_int(progdict, "interval", interval / 1000000L);
+	int64_t next_step = sb->reported;
+	parser_arg entlist = parser->dict_add_list(progdict, "entries");
+
+	for (; listent; listent = listent->next) {
+		sb = listent->data;
+		if (sb->reported < next_step)
+			continue;
+		next_step += interval;
+		parser_arg cent = parser->list_add_dict(entlist);
+		ng_stats_ssrc_mos_entry(parser, cent, sb);
+	}
+}
+
+static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, parser_arg list,
+		const struct ssrc_hash *ht)
+{
 	for (GList *l = ht->nq.head; l; l = l->next) {
 		struct ssrc_entry_call *se = l->data;
 		char tmp[12];
 		snprintf(tmp, sizeof(tmp), "%" PRIu32, se->h.ssrc);
-		if (parser->dict_contains(dict, tmp))
-			continue;
 		if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
 			continue;
 
-		parser_arg ent = parser->dict_add_dict_dup(dict, tmp);
+		parser_arg ent = parser->list_add_dict(list);
 
-		parser->dict_add_int(ent, "cumulative loss", se->packets_lost);
+		parser->dict_add_int(ent, "SSRC", se->h.ssrc);
 
-		int mos_samples = se->stats_blocks.length - se->no_mos_count;
-		if (mos_samples < 1) mos_samples = 1;
-		ng_stats_ssrc_mos_entry_dict_avg(parser, ent, "average MOS", &se->average_mos, mos_samples);
-		ng_stats_ssrc_mos_entry_dict(parser, ent, "lowest MOS", se->lowest_mos);
-		ng_stats_ssrc_mos_entry_dict(parser, ent, "highest MOS", se->highest_mos);
+		ng_stats_ssrc_1(parser, ent, se);
 
-		parser_arg progdict = parser->dict_add_dict(ent, "MOS progression");
-		// aim for about 10 entries to the list
-		GList *listent = se->stats_blocks.head;
-		struct ssrc_stats_block *sb = listent->data;
-		int64_t interval
-			= ((struct ssrc_stats_block *) se->stats_blocks.tail->data)->reported
-			- sb->reported;
-		interval /= 10;
-		parser->dict_add_int(progdict, "interval", interval / 1000000L);
-		int64_t next_step = sb->reported;
-		parser_arg entlist = parser->dict_add_list(progdict, "entries");
-
-		for (; listent; listent = listent->next) {
-			sb = listent->data;
-			if (sb->reported < next_step)
-				continue;
-			next_step += interval;
-			parser_arg cent = parser->list_add_dict(entlist);
-			ng_stats_ssrc_mos_entry(parser, cent, sb);
+		if (dict.gen && !parser->dict_contains(dict, tmp)) {
+			ent = parser->dict_add_dict_dup(dict, tmp);
+			ng_stats_ssrc_1(parser, ent, se);
 		}
 	}
 }

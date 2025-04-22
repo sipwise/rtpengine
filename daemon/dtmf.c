@@ -802,7 +802,7 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 	if (!media->streams.head)
 		return "Media doesn't have an RTP stream";
 	struct packet_stream *ps = media->streams.head->data;
-	struct ssrc_entry_call *ssrc_in = ps->ssrc_in[0];
+	struct ssrc_entry_call *ssrc_in = call_get_first_ssrc(&media->ssrc_hash_in);
 	if (!ssrc_in)
 		return "No SSRC context present for DTMF injection"; // XXX fall back to generating stream
 

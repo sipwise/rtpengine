@@ -367,17 +367,6 @@ static void mqtt_stream_stats(struct packet_stream *ps, JsonBuilder *json) {
 	json_builder_begin_object(json);
 	mqtt_stream_stats_dir(ps->stats_in, json);
 
-	json_builder_set_member_name(json, "SSRC");
-	json_builder_begin_array(json);
-	for (int i = 0; i < RTPE_NUM_SSRC_TRACKING; i++) {
-		if (!ps->ssrc_in[i])
-			break;
-		json_builder_begin_object(json);
-		mqtt_ssrc_stats(ps->ssrc_in[i], json, ps->media);
-		json_builder_end_object(json);
-	}
-	json_builder_end_array(json);
-
 	json_builder_end_object(json);
 
 	mutex_unlock(&ps->in_lock);
@@ -387,17 +376,6 @@ static void mqtt_stream_stats(struct packet_stream *ps, JsonBuilder *json) {
 	json_builder_set_member_name(json, "egress");
 	json_builder_begin_object(json);
 	mqtt_stream_stats_dir(ps->stats_out, json);
-
-	json_builder_set_member_name(json, "SSRC");
-	json_builder_begin_array(json);
-	for (int i = 0; i < RTPE_NUM_SSRC_TRACKING; i++) {
-		if (!ps->ssrc_out[i])
-			break;
-		json_builder_begin_object(json);
-		mqtt_ssrc_stats(ps->ssrc_out[i], json, ps->media);
-		json_builder_end_object(json);
-	}
-	json_builder_end_array(json);
 
 	json_builder_end_object(json);
 
@@ -433,6 +411,47 @@ static void mqtt_media_stats(struct call_media *media, JsonBuilder *json) {
 		else
 			json_builder_add_string_value(json, "inactive");
 	}
+
+
+	mutex_lock(&media->ssrc_hash_in.lock);
+
+	json_builder_set_member_name(json, "ingress");
+	json_builder_begin_object(json);
+
+	json_builder_set_member_name(json, "SSRC");
+	json_builder_begin_array(json);
+	for (GList *l = media->ssrc_hash_in.nq.head; l; l = l->next) {
+		struct ssrc_entry_call *se = l->data;
+		json_builder_begin_object(json);
+		mqtt_ssrc_stats(se, json, media);
+		json_builder_end_object(json);
+	}
+	json_builder_end_array(json);
+
+	json_builder_end_object(json);
+
+	mutex_unlock(&media->ssrc_hash_in.lock);
+
+
+	mutex_lock(&media->ssrc_hash_out.lock);
+
+	json_builder_set_member_name(json, "egress");
+	json_builder_begin_object(json);
+
+	json_builder_set_member_name(json, "SSRC");
+	json_builder_begin_array(json);
+	for (GList *l = media->ssrc_hash_out.nq.head; l; l = l->next) {
+		struct ssrc_entry_call *se = l->data;
+		json_builder_begin_object(json);
+		mqtt_ssrc_stats(se, json, media);
+		json_builder_end_object(json);
+	}
+	json_builder_end_array(json);
+
+	json_builder_end_object(json);
+
+	mutex_unlock(&media->ssrc_hash_out.lock);
+
 
 	struct packet_stream *ps = media->streams.head ? media->streams.head->data : NULL;
 	if (ps)

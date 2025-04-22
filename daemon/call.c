@@ -74,6 +74,7 @@ static void media_stop(struct call_media *m);
 __attribute__((nonnull(1, 2, 4)))
 static struct media_subscription *__subscribe_medias_both_ways(struct call_media * a, struct call_media * b,
 		bool is_offer, medias_q *);
+static void call_stream_crypto_reset(struct packet_stream *ps);
 
 /* called with call->master_lock held in R */
 static int call_timer_delete_monologues(call_t *c) {
@@ -212,26 +213,6 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 		if (active_media)
 			CALL_CLEAR(sfd->call, FOREIGN_MEDIA);
 
-		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_in); u++) {
-			struct ssrc_entry_call *ctx = ps->ssrc_in[u];
-			if (!ctx)
-				break;
-
-			if (rtpe_now - atomic64_get_na(&ctx->stats->last_packet_us) < 2000000L)
-				payload_tracker_add(&ctx->tracker,
-						atomic_get_na(&ctx->stats->last_pt));
-		}
-		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_out); u++) {
-			struct ssrc_entry_call *ctx = ps->ssrc_out[u];
-			if (!ctx)
-				break;
-
-			if (rtpe_now - atomic64_get_na(&ctx->stats->last_packet_us) < 2000000L)
-				payload_tracker_add(&ctx->tracker,
-						atomic_get_na(&ctx->stats->last_pt));
-		}
-
-
 no_sfd:
 		if (good)
 			goto next;
@@ -263,6 +244,22 @@ next:
 			ssrc_collect_metrics(media);
 		if (MEDIA_ISSET(media, TRANSCODING))
 			hlp->transcoded_media++;
+
+		for (__auto_type l = media->ssrc_hash_in.nq.head; l; l = l->next) {
+			struct ssrc_entry_call *ctx = l->data;
+
+			if (rtpe_now - atomic64_get_na(&ctx->stats->last_packet_us) < 2000000L)
+				payload_tracker_add(&ctx->tracker,
+						atomic_get_na(&ctx->stats->last_pt));
+		}
+
+		for (__auto_type l = media->ssrc_hash_out.nq.head; l; l = l->next) {
+			struct ssrc_entry_call *ctx = l->data;
+
+			if (rtpe_now - atomic64_get_na(&ctx->stats->last_packet_us) < 2000000L)
+				payload_tracker_add(&ctx->tracker,
+						atomic_get_na(&ctx->stats->last_pt));
+		}
 	}
 
 	if (good) {
@@ -1078,27 +1075,27 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 		PS_SET(ps, NAT_WAIT);
 }
 
-void call_stream_crypto_reset(struct packet_stream *ps) {
+static void call_stream_crypto_reset(struct packet_stream *ps) {
 	ilog(LOG_DEBUG, "Resetting crypto context");
 
 	crypto_reset(&ps->crypto);
 
-	if (PS_ISSET(ps, RTP)) {
-		mutex_lock(&ps->in_lock);
-		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_in); u++) {
-			if (!ps->ssrc_in[u]) // end of list
-				break;
-			atomic_set_na(&ps->ssrc_in[u]->stats->ext_seq, 0);
-		}
-		mutex_unlock(&ps->in_lock);
+	struct call_media *media = ps->media;
 
-		mutex_lock(&ps->out_lock);
-		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_out); u++) {
-			if (!ps->ssrc_out[u]) // end of list
-				break;
-			atomic_set_na(&ps->ssrc_out[u]->stats->ext_seq, 0);
+	if (PS_ISSET(ps, RTP)) {
+		mutex_lock(&media->ssrc_hash_in.lock);
+		for (GList *l = media->ssrc_hash_in.nq.head; l; l = l->next) {
+			struct ssrc_entry_call *se = l->data;
+			atomic_set_na(&se->stats->ext_seq, 0);
 		}
-		mutex_unlock(&ps->out_lock);
+		mutex_unlock(&media->ssrc_hash_in.lock);
+
+		mutex_lock(&media->ssrc_hash_out.lock);
+		for (GList *l = media->ssrc_hash_in.nq.head; l; l = l->next) {
+			struct ssrc_entry_call *se = l->data;
+			atomic_set_na(&se->stats->ext_seq, 0);
+		}
+		mutex_unlock(&media->ssrc_hash_out.lock);
 	}
 }
 
@@ -4163,6 +4160,7 @@ void call_destroy(call_t *c) {
 				char *addr = sockaddr_print_buf(&ps->endpoint.address);
 				endpoint_t *local_endpoint = packet_stream_local_addr(ps);
 				char *local_addr = sockaddr_print_buf(&local_endpoint->address);
+				struct ssrc_entry_call *se = call_get_first_ssrc(&ps->media->ssrc_hash_in);
 
 				ilog(LOG_INFO, "--------- Port %15s:%-5u <> %s%15s:%-5u%s%s, SSRC %s%" PRIx32 "%s, in "
 						"%" PRIu64 " p, %" PRIu64 " b, %" PRIu64 " e, %" PRIu64 " ts, "
@@ -4171,7 +4169,7 @@ void call_destroy(call_t *c) {
 						(unsigned int) local_endpoint->port,
 						FMT_M(addr, ps->endpoint.port),
 						(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
-						FMT_M(ps->ssrc_in[0] ? ps->ssrc_in[0]->h.ssrc : 0),
+						FMT_M(se ? se->h.ssrc : 0),
 						atomic64_get_na(&ps->stats_in->packets),
 						atomic64_get_na(&ps->stats_in->bytes),
 						atomic64_get_na(&ps->stats_in->errors),
@@ -4360,10 +4358,6 @@ static void __call_free(call_t *c) {
 		crypto_cleanup(&ps->crypto);
 		t_queue_clear(&ps->sfds);
 		t_hash_table_destroy(ps->rtp_stats);
-		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_in); u++)
-			ssrc_entry_release(ps->ssrc_in[u]);
-		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_out); u++)
-			ssrc_entry_release(ps->ssrc_out[u]);
 		bufferpool_unref(ps->stats_in);
 		bufferpool_unref(ps->stats_out);
 		g_free(ps);

@@ -704,11 +704,8 @@ out:
 
 // call master lock held in R
 void ssrc_collect_metrics(struct call_media *media) {
-	if (!media->streams.head)
-		return;
-	struct packet_stream *ps = media->streams.head->data;
-	for (int i = 0; i < RTPE_NUM_SSRC_TRACKING; i++) {
-		struct ssrc_entry_call *s = ps->ssrc_in[i];
+	for (GList *l = media->ssrc_hash_in.nq.head; l; l = l->next) {
+		struct ssrc_entry_call *s = l->data;
 		if (!s)
 			break; // end of list
 
@@ -718,11 +715,12 @@ void ssrc_collect_metrics(struct call_media *media) {
 
 		if (s->tracker.most_len > 0 && s->tracker.most[0] != 255) {
 			const rtp_payload_type *rpt = get_rtp_payload_type(s->tracker.most[0],
-					&ps->media->codecs);
+					&media->codecs);
 			if (rpt && rpt->clock_rate)
 				s->jitter = s->jitter * 1000 / rpt->clock_rate;
 		}
 
-		RTPE_SAMPLE_SFD(jitter_measured, s->jitter, ps->selected_sfd);
+		if (media->streams.head)
+			RTPE_SAMPLE_SFD(jitter_measured, s->jitter, media->streams.head->data->selected_sfd);
 	}
 }

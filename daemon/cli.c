@@ -799,6 +799,7 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 
 			endpoint_t *local_endpoint = packet_stream_local_addr(ps);
 			local_addr = sockaddr_print_buf(&local_endpoint->address);
+			struct ssrc_entry_call *se = call_get_first_ssrc(&md->ssrc_hash_in);
 
 			cw->cw_printf(cw, "-------- Port %15s:%-5u <> %15s:%-5u%s, SSRC %" PRIx32 ", "
 					 "%" PRIu64 " p, %" PRIu64 " b, %" PRIu64 " e, %" PRIu64 " uts "
@@ -808,7 +809,7 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 					 sockaddr_print_buf(&ps->endpoint.address),
 					 ps->endpoint.port,
 					 (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
-					 ps->ssrc_in[0] ? ps->ssrc_in[0]->h.ssrc : 0,
+					 se ? se->h.ssrc : 0,
 					 atomic64_get_na(&ps->stats_in->packets),
 					 atomic64_get_na(&ps->stats_in->bytes),
 					 atomic64_get_na(&ps->stats_in->errors),

@@ -439,10 +439,6 @@ struct packet_stream {
 	struct endpoint		advertised_endpoint;		/* RO */
 	struct endpoint		learned_endpoint;		/* LOCK: out_lock */
 	struct crypto_context	crypto;				/* OUT direction, LOCK: out_lock */
-	struct ssrc_entry_call	*ssrc_in[RTPE_NUM_SSRC_TRACKING],	/* LOCK: in_lock */
-				*ssrc_out[RTPE_NUM_SSRC_TRACKING];	/* LOCK: out_lock */
-	unsigned int		ssrc_in_idx,				/* LOCK: in_lock */
-				ssrc_out_idx;				/* LOCK: out_lock */
 	struct send_timer	*send_timer;				/* RO */
 	struct jitter_buffer	*jb;					/* RO */
 	int64_t			kernel_time_us;
@@ -898,7 +894,6 @@ enum thread_looper_action call_timer(void);
 
 void __rtp_stats_update(rtp_stats_ht dst, struct codec_store *);
 bool __init_stream(struct packet_stream *ps);
-void call_stream_crypto_reset(struct packet_stream *ps);
 
 const rtp_payload_type *__rtp_stats_codec(struct call_media *m);
 
