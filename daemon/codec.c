@@ -376,6 +376,29 @@ static struct codec_handler codec_handler_stub_blackhole = {
 
 
 
+static unsigned int __codec_pipeline_hash(const struct codec_pipeline_index *i) {
+	return str_case_hash(&i->src.encoding)
+		^ str_case_hash(&i->dst.encoding)
+		^ i->src.clock_rate
+		^ i->dst.clock_rate
+		^ i->src.channels
+		^ i->dst.channels;
+}
+
+static gboolean __codec_pipeline_eq(const struct codec_pipeline_index *a, const struct codec_pipeline_index *b) {
+	return str_case_equal(&a->src.encoding, &b->src.encoding)
+		&& str_case_equal(&a->dst.encoding, &b->dst.encoding)
+		&& a->src.clock_rate == b->src.clock_rate
+		&& a->dst.clock_rate == b->dst.clock_rate
+		&& a->src.channels == b->src.channels
+		&& a->dst.channels == b->dst.channels;
+}
+
+TYPED_GHASHTABLE_IMPL(transcode_config_ht, __codec_pipeline_hash, __codec_pipeline_eq, NULL, NULL)
+
+static transcode_config_ht rtpe_transcode_config;
+static bool have_codec_preferences;
+
 static void __transform_handler_shutdown(struct transform_handler *tfh) {
 	if (!tfh)
 		return;
@@ -1358,6 +1381,31 @@ static int __codec_handler_eq(const struct codec_handler_index *h, const struct 
 
 TYPED_GHASHTABLE_IMPL(codec_handlers_ht, __codec_handler_hash, __codec_handler_eq, NULL, NULL)
 
+static int direct_rev_cmp(const void *a, const void *b) {
+	return GPOINTER_TO_INT(a) < GPOINTER_TO_INT(b) ? 1 : GPOINTER_TO_INT(a) > GPOINTER_TO_INT(b) ? -1 : 0;
+}
+
+static GTree *codec_make_prefs_tree(rtp_payload_type *pt, struct codec_store *cs) {
+	if (!have_codec_preferences)
+		return NULL;
+
+	GTree *ret = g_tree_new(direct_rev_cmp);
+
+	for (__auto_type l = cs->codec_prefs.head; l; l = l->next) {
+		__auto_type dst = l->data;
+		struct codec_pipeline_index pi = { .src = *pt, .dst = *dst };
+		__auto_type lookup = t_hash_table_lookup(rtpe_transcode_config, &pi);
+		int pref = 0;
+		if (lookup)
+			pref = lookup->preference;
+		// first one of each unique preference wins
+		if (!g_tree_lookup(ret, GINT_TO_POINTER(pref)))
+			g_tree_insert(ret, GINT_TO_POINTER(pref), dst);
+	}
+
+	return ret;
+}
+
 /**
  * receiver - media / sink - other_media
  * call must be locked in W
@@ -1486,6 +1534,8 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 		rtp_payload_type *pt = l->data;
 		rtp_payload_type *sink_pt = NULL;
 
+		g_autoptr(GTree) codec_preferences = codec_make_prefs_tree(pt, &sink->codecs);
+
 		ilogs(codec, LOG_DEBUG, "Checking receiver codec " STR_FORMAT "/" STR_FORMAT " (%i)",
 				STR_FMT(&pt->encoding_with_full_params),
 				STR_FMT0(&pt->format_parameters),
@@ -1530,13 +1580,19 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 				sink_pt = pt;
 		}
 
+		rtp_payload_type *weighted_pref_dest_codec = NULL;
+		if (codec_preferences)
+			weighted_pref_dest_codec = rtpe_g_tree_first(codec_preferences);
+		if (!weighted_pref_dest_codec)
+			weighted_pref_dest_codec = pref_dest_codec;
+
 		if (sink_pt && !pt->codec_def->supplemental) {
 			// we have a matching output codec. do we actually want to use it, or
 			// do we want to transcode to something else?
 			// ignore the preference here - for now, all `for_transcoding` codecs
 			// take preference
-			if (pref_dest_codec && pref_dest_codec->for_transcoding)
-				sink_pt = pref_dest_codec;
+			if (weighted_pref_dest_codec && weighted_pref_dest_codec->for_transcoding)
+				sink_pt = weighted_pref_dest_codec;
 		}
 
 		// ignore DTMF sink if we're blocking DTMF in PCM replacement mode
@@ -1545,7 +1601,7 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 
 		// still no output? pick the preferred sink codec
 		if (!sink_pt)
-			sink_pt = pref_dest_codec;
+			sink_pt = weighted_pref_dest_codec;
 
 		if (!sink_pt) {
 			ilogs(codec, LOG_DEBUG, "No suitable output codec for " STR_FORMAT "/" STR_FORMAT,
@@ -6326,28 +6382,6 @@ static void codec_worker(void *d) {
 	thread_waker_del(&waker);
 }
 
-static unsigned int __codec_pipeline_hash(const struct codec_pipeline_index *i) {
-	return str_case_hash(&i->src.encoding)
-		^ str_case_hash(&i->dst.encoding)
-		^ i->src.clock_rate
-		^ i->dst.clock_rate
-		^ i->src.channels
-		^ i->dst.channels;
-}
-
-static gboolean __codec_pipeline_eq(const struct codec_pipeline_index *a, const struct codec_pipeline_index *b) {
-	return str_case_equal(&a->src.encoding, &b->src.encoding)
-		&& str_case_equal(&a->dst.encoding, &b->dst.encoding)
-		&& a->src.clock_rate == b->src.clock_rate
-		&& a->dst.clock_rate == b->dst.clock_rate
-		&& a->src.channels == b->src.channels
-		&& a->dst.channels == b->dst.channels;
-}
-
-TYPED_GHASHTABLE_IMPL(transcode_config_ht, __codec_pipeline_hash, __codec_pipeline_eq, NULL, NULL)
-
-transcode_config_ht rtpe_transcode_config;
-
 #endif
 
 void codecs_init(void) {
@@ -6387,6 +6421,9 @@ void codecs_init(void) {
 						.channels = tcc->i.dst.channels,
 						.clockrate = tcc->i.dst.clock_rate,
 					});
+
+		if (tcc->preference)
+			have_codec_preferences = true;
 	}
 #endif
 }

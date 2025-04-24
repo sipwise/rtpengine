@@ -116,6 +116,8 @@ struct transcode_config {
 
 	struct codec_pipeline_index i; // parsed
 
+	int preference; // default: 0
+
 	// transform verdict
 	endpoint_t transform;
 	str local_interface;
@@ -270,10 +272,6 @@ INLINE struct codec_handler *codec_handler_lookup(codec_handlers_ht ht, int pt, 
 	struct codec_handler_index lookup = __codec_handler_lookup_struct(pt, sink);
 	return t_hash_table_lookup(ht, &lookup);
 }
-
-
-extern transcode_config_ht rtpe_transcode_config;
-
 
 
 #else

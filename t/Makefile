@@ -150,7 +150,7 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-templ-def daemon-tests-templ-def-offer \
 	daemon-tests-sdp-manipulations daemon-tests-sdes-manipulations \
 	daemon-tests-sdp-orig-replacements daemon-tests-moh daemon-tests-evs-dtx daemon-tests-transform \
-	daemon-tests-transcode-config
+	daemon-tests-transcode-config daemon-tests-codec-prefs
 
 daemon-test-deps:	tests-preload.so
 	$(MAKE) -C ../daemon
@@ -251,6 +251,9 @@ daemon-tests-t38:	daemon-test-deps spandsp_recv_fax_pcm spandsp_recv_fax_t38 \
 
 daemon-tests-evs-dtx:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-evs-dtx.pl
+
+daemon-tests-codec-prefs:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-codec-prefs.pl
 
 test-bitstr:	test-bitstr.o
 

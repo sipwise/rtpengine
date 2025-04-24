@@ -1858,6 +1858,59 @@ For example, if __source=PCMU__ and __destination=PCMA__ are set, then this
 particular transcoding config section would be considered if the received codec
 is PCMU and the requested output codec is PCMA.
 
+### __preference__ Verdict
+
+This verdict can be used on its own, or can be used in combination with some
+other verdict. It configures a preference for a particular codec combination,
+relative to other codec combinations. The default preference (none configured)
+is zero. Codec combinations with higher (positive) preference values will be
+considered as better options than the default, while lower (negative)
+preference values will be considered as worse options.
+
+For example consider the following configuration:
+
+    transcode-config = tc
+    
+    [tc-PCMA-PCMU-higher]
+    source = PCMA
+    destination = PCMU
+    preference = 5
+    
+    [tc-GSM-G723-lower]
+    source = G723
+    destination = GSM
+    preference = -5
+
+Consider a received offer SDP listing codecs GSM, PCMU, and G722 (in that
+order), with transcoding to PCMA and G723 requested. The outgoing offer SDP
+would therefore list GSM, PCMU, G722, PCMA, and G723 (in that order).
+
+If the answer were to accept any of GSM, PCMU, or G722, then pass-through
+without transcoding would occur.
+
+If the answer were to accept any of the other codecs that were requested for
+transcoding (PCMA or G723), then normally the first offered codec (GSM) would
+be used as transcoding partner. But:
+
+If the answer were to accept PCMA, then GSM as transcoding partner would be
+considered with a preference of zero, as no config section matches this pair.
+However the config section `tc-PCMA-PCMU-higher` matches PCMU as transcoding
+partner for PCMA and would give that pair a higher preference (5). PCMU would
+therefore win with the highest preference, and transcoding would occur between
+PCMA and PCMU.
+
+If the answer were to accept G723, then the config section `tc-GSM-G723-lower`
+would be considered and would give GSM as transcoding partner a negative
+preference of -5. The next possible codec (PCMU) doesn't have a matching config
+section and so would be considered with a preference of zero. PCMU would
+therefore win and transcoding would occur between G723 and PCMU.
+
+_NOTE: These config sections operate directionally, meaning that in the above
+example, a config section listing `source = GSM` and `destination = G723` would
+not be considered. If a codec pair ought to receive the same preference value
+regardless of the direction, then it must be listed twice, with source and
+destination swapped._
+
 ### __transform__ Verdict
 
 To use the __transform__ verdict, the config key __transform=...__ must be set.
