@@ -739,6 +739,8 @@ static void __reset_sequencer(void *p, void *dummy) {
 	if (s->sequencers)
 		g_hash_table_destroy(s->sequencers);
 	s->sequencers = NULL;
+	s->media_cache = NULL;
+	s->sequencer_cache = NULL;
 }
 static bool __make_transcoder_full(struct codec_handler *handler, rtp_payload_type *dest,
 		GHashTable *output_transcoders, int dtmf_payload_type, bool pcm_dtmf_detect,
@@ -2200,11 +2202,17 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 	// get sequencer appropriate for our output
 	if (!ssrc_in->sequencers)
 		ssrc_in->sequencers = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, __seq_free);
-	packet_sequencer_t *seq = g_hash_table_lookup(ssrc_in->sequencers, mp->media_out);
+	packet_sequencer_t *seq;
+	if (mp->media_out == ssrc_in->media_cache)
+		seq = ssrc_in->sequencer_cache;
+	else
+		seq = g_hash_table_lookup(ssrc_in->sequencers, mp->media_out);
 	if (!seq) {
 		seq = g_new0(__typeof(*seq), 1);
 		packet_sequencer_init(seq, (GDestroyNotify) __transcode_packet_free);
 		g_hash_table_insert(ssrc_in->sequencers, mp->media_out, seq);
+		ssrc_in->media_cache = mp->media_out;
+		ssrc_in->sequencer_cache = seq;
 		// this is a quick fix to restore sequencer values until upper layer behavior will be fixed
 		unsigned int stats_ext_seq = atomic_get_na(&ssrc_in->stats->ext_seq);
 		if(stats_ext_seq) {

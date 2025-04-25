@@ -99,6 +99,8 @@ struct ssrc_entry_call {
 	// for transcoding
 	// input only
 	GHashTable *sequencers;
+	packet_sequencer_t *sequencer_cache; // to skip hash lookup
+	struct call_media *media_cache; // to skip hash lookup
 	uint32_t jitter, transit;
 	// output only
 	uint16_t seq_diff;
