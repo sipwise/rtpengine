@@ -272,6 +272,7 @@ static bool t38_pcm_player(struct media_player *mp) {
 	int16_t smp[80];
 	int num = t38_gateway_tx(tg->gw, smp, 80);
 	if (num <= 0) {
+		ilog(LOG_DEBUG, "No T.38 PCM samples generated");
 		// use a fixed interval of 10 ms
 		timeval_add_usec(&mp->next_run, 10000);
 		timerthread_obj_schedule_abs(&mp->tt_obj, &mp->next_run);
@@ -286,6 +287,12 @@ static bool t38_pcm_player(struct media_player *mp) {
 	struct media_player *pcm_player = media_player_get(tg->pcm_player);
 	unsigned long long pts = tg->pts;
 	tg->pts += num;
+
+	// handle fill-in
+	if (timeval_diff(&rtpe_now, &tg->last_rx_ts) > 30000) {
+		ilog(LOG_DEBUG, "Adding T.38 fill-in samples");
+		t38_gateway_rx_fillin(tg->gw, 80);
+	}
 
 	mutex_unlock(&tg->lock);
 
@@ -400,14 +407,15 @@ int t38_gateway_pair(struct call_media *t38_media, struct call_media *pcm_media,
 
 	err = "Failed to init PCM codec";
 	ensure_codec_def(&tg->pcm_pt, pcm_media);
-	if (!tg->pcm_pt.codec_def)
+	if (!codec_def_supported(tg->pcm_pt.codec_def))
 		goto err;
 
 	err = "Failed to create spandsp T.38 gateway";
 	if (!(tg->gw = t38_gateway_init(NULL, t38_gateway_handler, tg)))
 		goto err;
 
-	media_player_new(&tg->pcm_player, pcm_media->monologue);
+	media_player_new(&tg->pcm_player, pcm_media->monologue,
+			pcm_media->streams.length ? pcm_media->streams.head->data->ssrc_out[0] : NULL);
 	// even though we call media_player_set_media() here, we need to call it again in
 	// t38_gateway_start because our sink might not have any streams added here yet,
 	// leaving the media_player setup incomplete
@@ -433,6 +441,10 @@ int t38_gateway_pair(struct call_media *t38_media, struct call_media *pcm_media,
 	t38_set_max_datagram_size(t38, opts.max_ifp);
 
 	logging_state_t *ls = t38_gateway_get_logging_state(tg->gw);
+	my_span_set_log(ls, spandsp_logging_func);
+	span_log_set_level(ls, span_log_level_map(get_log_level(spandsp)));
+
+	ls = t38_core_get_logging_state(t38);
 	my_span_set_log(ls, spandsp_logging_func);
 	span_log_set_level(ls, span_log_level_map(get_log_level(spandsp)));
 
@@ -510,6 +522,8 @@ int t38_gateway_input_samples(struct t38_gateway *tg, int16_t amp[], int len) {
 	if (left)
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "%i PCM samples were not processed by the T.38 gateway",
 				left);
+
+	tg->last_rx_ts = rtpe_now;
 
 	mutex_unlock(&tg->lock);
 

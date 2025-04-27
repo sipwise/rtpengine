@@ -218,11 +218,12 @@ const int num_transport_protocols = G_N_ELEMENTS(transport_protocols);
 
 /* ********** */
 
-static const struct streamhandler_io __shio_noop = { // non-RTP protocols
+static const struct streamhandler_io __shio_noop = {
 	.kernel		= __k_null,
 };
-static const struct streamhandler_io __shio_noop_rtp = {
+static const struct streamhandler_io __shio_noop_index = {
 	.kernel		= __k_null,
+	.rtp_crypt	= rtp_update_index,
 };
 static const struct streamhandler_io __shio_decrypt = {
 	.kernel		= __k_srtp_decrypt,
@@ -255,20 +256,20 @@ static const struct streamhandler_io __shio_decrypt_avpf_strip = {
 
 /* ********** */
 
-static const struct streamhandler __sh_noop = { // non-RTP protocols
+static const struct streamhandler __sh_noop = {
 	.in		= &__shio_noop,
 	.out		= &__shio_noop,
 };
-static const struct streamhandler __sh_noop_rtp = {
-	.in		= &__shio_noop_rtp,
-	.out		= &__shio_noop,
+static const struct streamhandler __sh_noop_index = {
+	.in		= &__shio_noop,
+	.out		= &__shio_noop_index,
 };
 static const struct streamhandler __sh_savp2avp = {
 	.in		= &__shio_decrypt,
 	.out		= &__shio_noop,
 };
 static const struct streamhandler __sh_avp2savp = {
-	.in		= &__shio_noop_rtp,
+	.in		= &__shio_noop,
 	.out		= &__shio_encrypt,
 };
 static const struct streamhandler __sh_avpf2avp = {
@@ -299,8 +300,8 @@ static const struct streamhandler __sh_savpf2savp = {
 /* ********** */
 
 static const struct streamhandler * const __sh_matrix_in_rtp_avp[__PROTO_LAST] = {
-	[PROTO_RTP_AVP]			= &__sh_noop_rtp,
-	[PROTO_RTP_AVPF]		= &__sh_noop_rtp,
+	[PROTO_RTP_AVP]			= &__sh_noop_index,
+	[PROTO_RTP_AVPF]		= &__sh_noop_index,
 	[PROTO_RTP_SAVP]		= &__sh_avp2savp,
 	[PROTO_RTP_SAVPF]		= &__sh_avp2savp,
 	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_avp2savp,
@@ -311,7 +312,7 @@ static const struct streamhandler * const __sh_matrix_in_rtp_avp[__PROTO_LAST] =
 };
 static const struct streamhandler * const __sh_matrix_in_rtp_avpf[__PROTO_LAST] = {
 	[PROTO_RTP_AVP]			= &__sh_avpf2avp,
-	[PROTO_RTP_AVPF]		= &__sh_noop_rtp,
+	[PROTO_RTP_AVPF]		= &__sh_noop_index,
 	[PROTO_RTP_SAVP]		= &__sh_avpf2savp,
 	[PROTO_RTP_SAVPF]		= &__sh_avp2savp,
 	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_avpf2savp,

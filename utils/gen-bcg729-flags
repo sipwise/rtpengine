@@ -1,0 +1,47 @@
+#!/bin/bash
+
+have_bcg729="no"
+
+# look for bcg729
+if pkg-config --exists libbcg729; then
+  # system pkg-config
+  have_bcg729="yes"
+
+  bcg729_inc="$(pkg-config --cflags libbcg729)"
+  bcg729_lib="$(pkg-config --libs libbcg729)"
+elif [ -e /usr/include/bcg729/decoder.h ]; then
+  # system generic
+  have_bcg729="yes"
+  bcg729_lib="-lbcg729"
+elif [ -e /usr/src/bcg729/include/bcg729/decoder.h ]; then
+  # /usr/src
+  have_bcg729=yes
+  bcg729_inc="-I/usr/src/bcg729/include/"
+  bcg729_lib="-L/usr/src/bcg729/src/ -lbcg729"
+elif [ -e "${HOME}/src/bcg729/include/bcg729/decoder.h" ]; then
+  # rfuchs dev
+  have_bcg729="yes"
+  bcg729_inc="-I${HOME}/src/bcg729/include/"
+  bcg729_lib="-L${HOME}/src/bcg729/src/ -lbcg729"
+elif [ -e "${HOME}/bcg729/include/bcg729/decoder.h" ]; then
+  # home directory
+  have_bcg729="yes"
+  bcg729_inc="-I$(HOME)/bcg729/include/"
+  bcg729_lib="-L$(HOME)/bcg729/src/ -lbcg729"
+elif [ -e "../bcg729/include/bcg729/decoder.h" ]; then
+  # included toplevel
+  have_bcg729="yes"
+  bcg729_inc="-I../bcg729/include/"
+  bcg729_lib="-L../bcg729/src/ -lbcg729"
+elif [ -e /usr/local/include/bcg729/decoder.h ]; then
+  # /usr/local/include when installing from git
+  have_bcg729="yes"
+  bcg729_inc="-I/usr/local/include/"
+  bcg729_lib="-L/usr/local/lib64/ -lbcg729"
+fi
+
+if [ "${have_bcg729}" = "yes" ]; then
+  echo "CFLAGS_BCG729 := -DHAVE_BCG729"
+  echo "CFLAGS_BCG729 += ${bcg729_inc}"
+  echo "LDLIBS_BCG729 := ${bcg729_lib}"
+fi

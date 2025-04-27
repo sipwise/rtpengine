@@ -1,11 +1,12 @@
+.DEFAULT_GOAL := all
+
 include ../lib/lib.Makefile
 
 CFLAGS += -fPIE
 LDFLAGS += -pie
 LDLIBS += -latomic
 
-all:
-	$(MAKE) $(TARGET) $(MANS)
+all:	$(TARGET) $(MANS)
 
 $(TARGET):	$(OBJS) Makefile
 	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(OBJS) $(LDLIBS)

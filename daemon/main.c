@@ -506,6 +506,7 @@ static void options(int *argc, char ***argv) {
 	g_autoptr(char_p) dtx_cn_params = NULL;
 	bool debug_srtp = false;
 	g_autoptr(char) amr_dtx = NULL;
+	g_autoptr(char) evs_dtx = NULL;
 #ifdef HAVE_MQTT
 	g_autoptr(char) mqtt_publish_scope = NULL;
 #endif
@@ -643,6 +644,7 @@ static void options(int *argc, char ***argv) {
 		{ "dtx-shift",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_shift,	"Length of time (in ms) to shift DTX buffer after over/underflow",	"INT"},
 		{ "dtx-cn-params",0,0,	G_OPTION_ARG_STRING_ARRAY,&dtx_cn_params,	"Parameters for CN generated from DTX","INT INT INT ..."},
 		{ "amr-dtx", 0,0,	G_OPTION_ARG_STRING,	&amr_dtx,		"DTX mechanism to use for AMR and AMR-WB","native|CN"},
+		{ "evs-dtx", 0,0,	G_OPTION_ARG_STRING,	&evs_dtx,		"DTX mechanism to use for EVS","native|CN"},
 		{ "silence-detect",0,0,	G_OPTION_ARG_DOUBLE,	&silence_detect,	"Audio level threshold in percent for silence detection","FLOAT"},
 		{ "cn-payload",0,0,	G_OPTION_ARG_STRING_ARRAY,&cn_payload,		"Comfort noise parameters to replace silence with","INT INT INT ..."},
 		{ "player-cache",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.player_cache,"Cache media files for playback in memory",NULL},
@@ -974,9 +976,17 @@ static void options(int *argc, char ***argv) {
 	if (amr_dtx) {
 		if (!strcasecmp(amr_dtx, "native")) {}
 		else if (!strcasecmp(amr_dtx, "CN"))
-			rtpe_config.amr_cn_dtx = 1;
+			rtpe_config.amr_cn_dtx = true;
 		else
 			die("Invalid --amr-dtx ('%s')", amr_dtx);
+	}
+
+	if (evs_dtx) {
+		if (!strcasecmp(evs_dtx, "native")) {}
+		else if (!strcasecmp(evs_dtx, "CN"))
+			rtpe_config.evs_cn_dtx = true;
+		else
+			die("Invalid --evs-dtx ('%s')", evs_dtx);
 	}
 
 	if (use_audio_player) {
@@ -1595,13 +1605,13 @@ int main(int argc, char **argv) {
 
 	jitter_buffer_init_free();
 	media_player_free();
-	codeclib_free();
 	call_interfaces_free();
 	ice_free();
 	dtls_cert_free();
 	control_ng_cleanup();
 	codecs_cleanup();
 	statistics_free();
+	codeclib_free();
 
 	redis_close(rtpe_redis);
 	if (rtpe_redis_write != rtpe_redis)

@@ -4,8 +4,11 @@
 
 #ifdef __KERNEL__
 typedef atomic64_t atomic64;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,1,0)
 static_assert(sizeof(atomic64_t) == sizeof(int64_t), "atomic64_t != int64_t");
 static_assert(sizeof(atomic_t) == sizeof(int), "atomic_t != int");
+// else: hope for the best
+#endif
 #else
 typedef int atomic_t;
 #endif

@@ -161,8 +161,10 @@ static void mqtt_call_stats(call_t *call, JsonBuilder *json) {
 
 
 static void mqtt_monologue_stats(struct call_monologue *ml, JsonBuilder *json) {
-	json_builder_set_member_name(json, "tag");
-	json_builder_add_string_value(json, ml->tag.s);
+	if (ml->tag.len) {
+		json_builder_set_member_name(json, "tag");
+		json_builder_add_string_value(json, ml->tag.s);
+	}
 
 	if (ml->label.len) {
 		json_builder_set_member_name(json, "label");

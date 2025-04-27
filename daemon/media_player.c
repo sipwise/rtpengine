@@ -184,7 +184,7 @@ static void __media_player_free(void *p) {
 
 
 // call->master_lock held in W
-void media_player_new(struct media_player **mpp, struct call_monologue *ml) {
+void media_player_new(struct media_player **mpp, struct call_monologue *ml, struct ssrc_ctx *prev_ssrc) {
 #ifdef WITH_TRANSCODING
 	if (*mpp)
 		return;
@@ -206,7 +206,10 @@ void media_player_new(struct media_player **mpp, struct call_monologue *ml) {
 	mp->run_func = media_player_read_packet; // default
 	mp->call = obj_get(ml->call);
 	mp->ml = ml;
-	mp->seq = ssl_random();
+	if (prev_ssrc)
+		mp->seq = atomic_get_na(&prev_ssrc->stats->ext_seq) + 1;
+	else
+		mp->seq = ssl_random();
 	mp->buffer_ts = ssl_random();
 	mp->ssrc_out = ssrc_ctx;
 
@@ -821,8 +824,9 @@ static rtp_payload_type *media_player_get_dst_pt(struct media_player *mp) {
 	for (__auto_type l = mp->media->codecs.codec_prefs.head; l; l = l->next) {
 		dst_pt = l->data;
 		ensure_codec_def(dst_pt, mp->media);
-		if (dst_pt->codec_def && !dst_pt->codec_def->supplemental)
+		if (codec_def_supported(dst_pt->codec_def) && !dst_pt->codec_def->supplemental)
 			goto found;
+		dst_pt = NULL;
 	}
 	if (!dst_pt) {
 		ilog(LOG_ERR, "No supported output codec found in SDP");
@@ -912,7 +916,7 @@ static int __ensure_codec_handler(struct media_player *mp, const rtp_payload_typ
 	// synthesise rtp payload type
 	rtp_payload_type src_pt = { .payload_type = -1 };
 	src_pt.codec_def = codec_find_by_av(mp->coder.avstream->CODECPAR->codec_id);
-	if (!src_pt.codec_def) {
+	if (!src_pt.codec_def || !src_pt.codec_def->support_decoding) {
 		ilog(LOG_ERR, "Attempting to play media from an unsupported file format/codec");
 		return -1;
 	}

@@ -21,7 +21,7 @@ endif
 
 export FIXTURES_PATH = /usr/share/rtpengine-perftest
 
-export deb_systemdsystemunitdir = $(shell pkg-config --variable=systemdsystemunitdir systemd)
+export deb_systemdsystemunitdir := $(shell pkg-config --variable=systemdsystemunitdir systemd)
 
 %:
 	dh $@

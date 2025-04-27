@@ -215,6 +215,7 @@ struct codec_def_s {
 	unsigned int supplemental:1,
 	             dtmf:1, // special case
 		     fixed_sizes:1, // hint for `block-short` feature
+		     evs:1,
 		     amr:1;
 
 	const codec_type_t *codec_type;
@@ -490,6 +491,11 @@ INLINE int decoder_event(decoder_t *dec, enum codec_event event, void *ptr) {
 		return 0;
 	return dec->event_func(event, ptr, dec->event_data);
 }
+INLINE bool codec_def_supported(codec_def_t *def) {
+	if (!def)
+		return false;
+	return def->support_encoding && def->support_decoding;
+}
 
 
 #else
@@ -520,6 +526,9 @@ INLINE codec_def_t *codec_find(const str *name, enum media_type type) {
 }
 INLINE void packet_sequencer_destroy(packet_sequencer_t *p) {
 	return;
+}
+INLINE bool codec_def_supported(codec_def_t *def) {
+	return false;
 }
 
 

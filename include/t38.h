@@ -64,6 +64,9 @@ struct t38_gateway {
 	// player for PCM data
 	struct media_player *pcm_player;
 	unsigned long long pts;
+
+	// to handle PCM fill-in
+	struct timeval last_rx_ts;
 };
 
 void t38_init(void);

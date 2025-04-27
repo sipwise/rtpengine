@@ -4,5 +4,7 @@
 *.mod.c
 modules.order
 Module.symvers
+rtpengine.mk
 .*.cmd
 xt_RTPENGINE.mod
+rtpengine-kmod.mk

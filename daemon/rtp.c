@@ -142,6 +142,18 @@ int rtp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	return 0;
 }
 
+// just updates the ext_seq in ssrc
+int rtp_update_index(str *s, struct packet_stream *ps, struct ssrc_ctx *ssrc) {
+	struct rtp_header *rtp;
+
+	if (G_UNLIKELY(!ssrc))
+		return -1;
+	if (rtp_payload(&rtp, NULL, s))
+		return -1;
+	packet_index(ssrc, rtp);
+	return 0;
+}
+
 /* rfc 3711, section 3.3 */
 int rtp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	struct rtp_header *rtp;

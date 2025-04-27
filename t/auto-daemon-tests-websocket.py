@@ -21,7 +21,9 @@ async def make_ws(cls, proto):
     from platform import python_version
     from websockets import __version__
 
-    if sys.version_info >= (3, 10) and float(__version__) <= 9.1:
+    ws_ver = str(__version__)
+    ws_ver = '.'.join(ws_ver.split('.')[0:2])
+    if sys.version_info >= (3, 10) and float(ws_ver) <= 9.1:
         python_v = python_version()
         msg = "python3-websocket {} unsupported in {}".format(__version__, python_v)
         raise unittest.SkipTest(msg)

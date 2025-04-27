@@ -1,0 +1,7 @@
+#!/bin/bash
+
+if [ -e "${CODEC_CHAIN_HOME}/usr/include/codec-chain/client.h" ]; then
+  echo "CFLAGS_CODEC_CHAIN := -DHAVE_CODEC_CHAIN -I${CODEC_CHAIN_HOME}/usr/include"
+elif [ -e /usr/include/codec-chain/client.h ]; then
+  echo "CFLAGS_CODEC_CHAIN := -DHAVE_CODEC_CHAIN"
+fi

@@ -3367,7 +3367,8 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 			}
 
 			err = "no matching media";
-			call_media = monologue->medias->pdata[media_index];
+			call_media = media_index < monologue->medias->len ? monologue->medias->pdata[media_index]
+				: NULL;
 			if (!call_media)
 				goto error;
 			err = "no matching media stream";

@@ -1736,6 +1736,7 @@ t=0 0
 m=audio PORT RTP/AVP 8 101
 a=rtpmap:8 PCMA/8000
 a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
 a=silenceSupp:off - - - -
 a=mptime:20 20 -
 a=sendrecv
@@ -11343,7 +11344,7 @@ rcv($sock_a, $port_b, rtpm(96, 1004, 4280, $ssrc, "\xf0\x14\x41\x00\x30\x44\x41\
 ($sock_b, $sock_a) = new_call([qw(198.51.100.10 3048)], [qw(198.51.100.10 3050)]);
 
 ($port_b) = offer('ditto in forward direction',
-	{ ICE => 'remove', replace => ['origin'], codec => { 
+	{ ICE => 'remove', replace => ['origin'], codec => {
 	'transcode' => ['AMR-WB/16000/1/23850//octet-align=1/mode-change-interval=200'] } }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.10
@@ -13463,7 +13464,7 @@ a=ptime:20
 SDP
 
 ($port_b) = answer('SRTP w/ DTMF injection (TT#81600)',
-	{ ICE => 'remove', replace => ['origin'], DTLS => 'off', ICE => 'remove', 
+	{ ICE => 'remove', replace => ['origin'], DTLS => 'off', ICE => 'remove',
 	flags => ['inject-DTMF'], 'rtcp-mux' => ['demux'] }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
@@ -15600,7 +15601,7 @@ is $ret1[10], $ret1[11], 'rtcp rport 2';
 
 @ret1 = answer('gh 850',
 	{
-		ICE => 'force-relay', flags => [qw(SDES-off)], 'transport-protocol' => 'UDP/TLS/RTP/SAVPF', 
+		ICE => 'force-relay', flags => [qw(SDES-off)], 'transport-protocol' => 'UDP/TLS/RTP/SAVPF',
 		'rtcp-mux' => [qw(accept offer)], 'via-branch' => 'z9hG4bK9463.af303705.113',
 	}, <<SDP);
 v=0
@@ -22605,7 +22606,7 @@ snd($sock_b, $port_a,  rtp(0, 1006, 3000+160*6, 0x3456, "\x00" x 160));
 # end event, 3 times
 rcv($sock_a, $port_b, rtpm(101, $seq+6, 3000+160*4, $ssrc, "\x08\x8f\x01\xe0", "\x08\x90\x01\xe0"));
 rcv($sock_a, $port_b, rtpm(101, $seq+7, 3000+160*4, $ssrc, "\x08\x8f\x01\xe0", "\x08\x90\x01\xe0"));
-rcv($sock_a, $port_b, rtpm(101, $seq+8, 3000+160*4, $ssrc, "\x08\x8f\x01\xe0", "\x08\x90\x01\xe0")); 
+rcv($sock_a, $port_b, rtpm(101, $seq+8, 3000+160*4, $ssrc, "\x08\x8f\x01\xe0", "\x08\x90\x01\xe0"));
 # audio passing through again
 snd($sock_b, $port_a,  rtp(0, 1007, 3000+160*7, 0x3456, "\x00" x 160));
 rcv($sock_a, $port_b, rtpm(0, $seq+9, 3000+160*7, $ssrc, "\x00" x 160));
@@ -23917,7 +23918,7 @@ t=0 0
 m=audio 2000 RTP/AVP 0
 c=IN IP4 198.51.100.1
 m=application 0 RTP/AVP 124
-m=application 0 * 
+m=application 0 *
 ----------------------------
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
@@ -23930,7 +23931,7 @@ a=rtpmap:0 PCMU/8000
 a=sendrecv
 a=rtcp:PORT
 m=application 0 RTP/AVP 124
-m=application 0 * 
+m=application 0 *
 SDP
 
 new_call;

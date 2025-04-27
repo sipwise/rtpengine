@@ -144,6 +144,7 @@ struct sdp_ng_flags {
 	str srtp_master_key;
 	str srtp_master_salt;
 	str srtp_mki;
+	int t38_version;
 
 	unsigned int asymmetric:1,
 	             protocol_accept:1,
