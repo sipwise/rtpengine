@@ -87,13 +87,6 @@ gen-pkgconf-flags OPENSSL             openssl
 gen-pkgconf-flags OPUS                opus
 gen-pkgconf-flags SPANDSP             spandsp
 
-echo "export CFLAGS_XMLRPC := $(pkg-config xmlrpc_client --cflags 2> /dev/null || xmlrpc-c-config client --cflags)"
-echo "CFLAGS_XMLRPC += $(pkg-config xmlrpc --cflags 2> /dev/null)"
-echo "CFLAGS_XMLRPC += $(pkg-config xmlrpc_util --cflags 2> /dev/null)"
-echo "export LDLIBS_XMLRPC := $(pkg-config xmlrpc_client --libs 2> /dev/null || xmlrpc-c-config client --libs)"
-echo "LDLIBS_XMLRPC += $(pkg-config xmlrpc --libs 2> /dev/null)"
-echo "LDLIBS_XMLRPC += $(pkg-config xmlrpc_util --libs 2> /dev/null)"
-
 echo "export CFLAGS_MYSQL := $(mysql_config --cflags)"
 echo "export LDLIBS_MYSQL := $(mysql_config --libs)"
 
