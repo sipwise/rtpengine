@@ -21,7 +21,7 @@ fi
 
 if [ -z "${RELEASE_DATE}" ]; then
   if [ "${have_dpkg_parsechangelog}" = yes ]; then
-    RELEASE_DATE="$(date -u -d "@$(dpkg-parsechangelog -l${top_srcdir}/debian/changelog -STimestamp)" '+%F')"
+    RELEASE_DATE="$(date -u -d "@$(dpkg-parsechangelog -l"${top_srcdir}"/debian/changelog -STimestamp)" '+%F')"
   fi
   if [ -z "${RELEASE_DATE}" ]; then
     RELEASE_DATE="undefined"
@@ -31,7 +31,7 @@ echo "RELEASE_DATE = ${RELEASE_DATE}"
 
 if [ -z "${RTPENGINE_VERSION}" ]; then
   if [ "${have_dpkg_parsechangelog}" = yes ]; then
-    deb_version="$(dpkg-parsechangelog -l${top_srcdir}/debian/changelog | awk '/^Version: / { print $2 }')"
+    deb_version="$(dpkg-parsechangelog -l"${top_srcdir}"/debian/changelog | awk '/^Version: / { print $2 }')"
   fi
   git_br_commit="git-$(git rev-parse --abbrev-ref --symbolic-full-name HEAD 2> /dev/null)-$(git rev-parse --short HEAD 2> /dev/null)"
 
@@ -51,12 +51,11 @@ echo "RTPENGINE_VERSION := ${RTPENGINE_VERSION}"
 CFLAGS_DEFAULT=
 CPPFLAGS_DEFAULT=
 LDFLAGS_DEFAULT=
-LDLIBS_DEFAULT=
 if command -v dpkg-buildflags >/dev/null; then
   # support http://wiki.debian.org/Hardening for >=wheezy
   CFLAGS_DEFAULT=$(dpkg-buildflags --get CFLAGS)
   CPPFLAGS_DEFAULT=$(dpkg-buildflags --get CPPFLAGS)
-  LDFLAGS=$(dpkg-buildflags --get LDFLAGS)
+  LDFLAGS_DEFAULT=$(dpkg-buildflags --get LDFLAGS)
 fi
 CFLAGS_DEFAULT+=" -O3 -flto=auto -ffat-lto-objects"
 LDFLAGS_DEFAULT+=" -flto=auto"
