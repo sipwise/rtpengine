@@ -307,10 +307,7 @@ static size_t cb_curl_write(char *ptr, size_t size, size_t nmemb, void *userdata
 
 void xmlrpc_kill_calls(void *p) {
 	struct xmlrpc_helper *xh = p;
-	pid_t pid;
-	sigset_t ss;
-	int i = 0;
-	int status;
+	unsigned int tries = 0;
 
 	int els_per_ent = 2;
 	if (xh->fmt == XF_SEMS)
@@ -333,55 +330,10 @@ void xmlrpc_kill_calls(void *p) {
 		}
 
 		if (tag)
-			ilog(LOG_INFO, "Forking child to close call (ID " STR_FORMAT_M ", tag " STR_FORMAT_M ") via XMLRPC call to %s",
-					STR_FMT_M(call_id), STR_FMT_M(tag), url);
-		else
-			ilog(LOG_INFO, "Forking child to close call (ID " STR_FORMAT_M ") via XMLRPC call to %s",
-					STR_FMT_M(call_id), url);
-		pid = fork();
-
-		if (pid) {
-retry:
-			pid = waitpid(pid, &status, 0);
-			if ((pid > 0 && WIFEXITED(status) && WEXITSTATUS(status) == 0) || i >= 3) {
-				for (int j = 0; j < els_per_ent; j++)
-					free(g_queue_pop_head(&xh->strings));
-				i = 0;
-			}
-			else {
-				if (pid == -1 && errno == EINTR)
-					goto retry;
-				ilog(LOG_INFO, "XMLRPC child exited with status %i", status);
-				i++;
-			}
-			continue;
-		}
-
-		/* child process */
-		alarm(1); /* syslog functions contain a lock, which may be locked at
-			     this point and can't be unlocked */
-		rlim(RLIMIT_CORE, 0);
-		sigemptyset(&ss);
-		sigprocmask(SIG_SETMASK, &ss, NULL);
-		closelog();
-
-		for (i = 0; i < 100; i++) {
-			if (i == 2 && rtpe_config.common.log_stderr)
-				continue;
-			close(i);
-		}
-
-		if (!rtpe_config.common.log_stderr) {
-			openlog("rtpengine/child", LOG_PID | LOG_NDELAY, LOG_DAEMON);
-		}
-
-		if (tag)
 			ilog(LOG_INFO, "Initiating XMLRPC for call (ID " STR_FORMAT_M ", tag " STR_FORMAT_M ")",
 					STR_FMT_M(call_id), STR_FMT_M(tag));
 		else
 			ilog(LOG_INFO, "Initiating XMLRPC for call (ID " STR_FORMAT_M ")", STR_FMT_M(call_id));
-
-		alarm(5);
 
 		g_autoptr(GString) body = g_string_new("");
 		g_autoptr(GString) response = g_string_new("");
@@ -397,6 +349,8 @@ retry:
 		if ((ret = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, cb_curl_write)) != CURLE_OK)
 			goto fault;
 		if ((ret = curl_easy_setopt(curl, CURLOPT_WRITEDATA, response)) != CURLE_OK)
+			goto fault;
+		if ((ret = curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5)) != CURLE_OK)
 			goto fault;
 		if ((ret = curl_easy_setopt(curl, CURLOPT_HTTPHEADER, &(struct curl_slist)
 						{.data = "Content-type: text/xml"})) != CURLE_OK)
@@ -456,17 +410,19 @@ retry:
 			}
 		}
 
-		for (int j = 0; j < els_per_ent; j++)
-			free(g_queue_pop_head(&xh->strings));
-
 fault:
 		curl_easy_cleanup(curl);
 
 		if (ret != CURLE_OK) {
 			ilog(LOG_WARNING, "XMLRPC fault occurred: %s", curl_easy_strerror(ret));
-			_exit(1);
+			tries++;
 		}
-		_exit(0);
+
+		if (ret == CURLE_OK || tries >= 3) {
+			for (int j = 0; j < els_per_ent; j++)
+				free(g_queue_pop_head(&xh->strings));
+			tries = 0;
+		}
 	}
 
 	g_free(xh);
