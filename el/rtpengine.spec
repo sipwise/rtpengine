@@ -29,7 +29,7 @@ Conflicts:	%{name}-kernel < %{version}-%{release}
 
 BuildRequires: gcc make pkgconfig %{redhat_rpm_config}
 BuildRequires:	glib2-devel libcurl-devel openssl-devel pcre-devel
-BuildRequires:	xmlrpc-c-devel zlib-devel hiredis-devel
+BuildRequires:	zlib-devel hiredis-devel
 BuildRequires:	libpcap-devel libevent-devel json-glib-devel
 BuildRequires:	mosquitto-devel
 BuildRequires:	gperf perl-IPC-Cmd
@@ -50,7 +50,7 @@ BuildRequires:	pkgconfig(libmnl) pkgconfig(libnftnl) pandoc ncurses-devel
 BuildRequires:	pkgconfig(libiptc)
 %endif
 
-%if 0%{?with_transcoding} > 0
+if 0%{?with_transcoding} > 0
 BuildRequires:	ffmpeg-devel
 Requires(pre):	ffmpeg-libs
 %endif
