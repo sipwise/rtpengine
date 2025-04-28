@@ -613,6 +613,7 @@ static const char *__make_transform_handler(struct codec_handler *handler) {
 
 	__auto_type tfh = handler->transform;
 	__auto_type media = handler->media;
+	__auto_type ml = media->monologue;
 	__auto_type call = media->call;
 
 	if (tfh) {
@@ -655,7 +656,19 @@ static const char *__make_transform_handler(struct codec_handler *handler) {
 	}
 
 	// manually construct the request
-	g_autoptr(GString) req = g_string_new("d7:command9:transform5:mediald4:type");
+	g_autoptr(GString) req = g_string_new("d7:command9:transform7:call-id");
+
+	char rand_tag[9];
+	rand_hex_str(rand_tag, 4);
+	g_string_append_printf(req, "%zu:%.*s for " STR_FORMAT, 8 + 1 + 3 + call->callid.len + 1,
+			8, rand_tag, STR_FMT(&call->callid));
+
+	g_string_append(req, "8:from-tag");
+
+	g_string_append_printf(req, "%zu:%.*s for " STR_FORMAT, 8 + 1 + 3 + ml->tag.len + 1,
+			8, rand_tag, STR_FMT(&ml->tag));
+
+	g_string_append(req, "5:mediald4:type");
 	BENC_GS_APPEND(&media->type);
 
 	g_string_append(req, "5:codecld5:inputd5:codec");
