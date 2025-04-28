@@ -71,7 +71,6 @@ test suite.
 	- *zlib*
 	- *OpenSSL*
 	- *PCRE* library
-	- *XMLRPC-C* version 1.16.08 or higher
 	- *hiredis* library
 	- *gperf*
 	- *libcurl* version 3.x or 4.x

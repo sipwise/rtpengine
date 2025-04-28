@@ -47,7 +47,6 @@ Build-Depends:
  libtest2-suite-perl,
  liburing-dev (>= 2.3) <!pkg.ngcp-rtpengine.nouring>,
  libwebsockets-dev,
- libxmlrpc-core-c3-dev (>= 1.16.07),
  libxtables-dev (>= 1.4) | iptables-dev (>= 1.4),
  ngcp-libcodec-chain-dev (>= 13.3) <pkg.ngcp-rtpengine.codec-chain>,
  pandoc,
