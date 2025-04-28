@@ -5445,6 +5445,8 @@ bool monologue_transform(struct call_monologue *ml, sdp_ng_flags *flags, medias_
 
 		if (!codec_handler_transform(m, &media->codecs))
 			return false;
+
+		__init_streams(m, NULL, flags);
 	}
 
 	return true;
