@@ -1488,6 +1488,11 @@ static void cc_init(void) {
 void cc_init_chain(codec_def_t *src, format_t *src_format, codec_def_t *dst,
 		format_t *dst_format)
 {
+	if (!cc_get) {
+		ilog(LOG_WARN, "No codec-chain support loaded");
+		return;
+	}
+
 	codec_chain_id id = cc_get(
 			(codec_chain_params) {
 				.name = src->rtpname,
@@ -5135,6 +5140,9 @@ static codec_cc_t *codec_cc_new_sync(codec_def_t *src, format_t *src_format, cod
 		void *(*async_init)(void *, void *, void *),
 		void (*async_callback)(AVPacket *, void *))
 {
+	if (!cc_get)
+		return NULL;
+
 	codec_chain_id id = cc_get(
 			(codec_chain_params) {
 				.name = src->rtpname,
@@ -5181,6 +5189,9 @@ static codec_cc_t *codec_cc_new_async(codec_def_t *src, format_t *src_format, co
 		void *(*async_init)(void *, void *, void *),
 		void (*async_callback)(AVPacket *, void *))
 {
+	if (!cc_get)
+		return NULL;
+
 	codec_chain_id id = cc_get(
 			(codec_chain_params) {
 				.name = src->rtpname,
