@@ -8,7 +8,7 @@
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
-#include <xmlrpc_client.h>
+#include <curl/curl.h>
 #include <sys/wait.h>
 #include <inttypes.h>
 
@@ -300,11 +300,13 @@ out:
 	log_info_pop();
 }
 
+static size_t cb_curl_write(char *ptr, size_t size, size_t nmemb, void *userdata) {
+	g_string_append_len(userdata, ptr, size * nmemb);
+	return size * nmemb;
+}
+
 void xmlrpc_kill_calls(void *p) {
 	struct xmlrpc_helper *xh = p;
-	xmlrpc_env e;
-	xmlrpc_client *c;
-	xmlrpc_value *r;
 	pid_t pid;
 	sigset_t ss;
 	int i = 0;
@@ -381,47 +383,90 @@ retry:
 
 		alarm(5);
 
-		xmlrpc_env_init(&e);
-		xmlrpc_client_setup_global_const(&e);
-		xmlrpc_client_create(&e, XMLRPC_CLIENT_NO_FLAGS, "ngcp-rtpengine", RTPENGINE_VERSION,
-			NULL, 0, &c);
-		if (e.fault_occurred)
+		g_autoptr(GString) body = g_string_new("");
+		g_autoptr(GString) response = g_string_new("");
+
+		int ret = CURLE_FAILED_INIT;
+		CURL *curl = curl_easy_init();
+		if (!curl)
+			goto fault;
+		if ((ret = curl_easy_setopt(curl, CURLOPT_URL, url)) != CURLE_OK)
+			goto fault;
+		if ((ret = curl_easy_setopt(curl, CURLOPT_POST, 1)) != CURLE_OK)
+			goto fault;
+		if ((ret = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, cb_curl_write)) != CURLE_OK)
+			goto fault;
+		if ((ret = curl_easy_setopt(curl, CURLOPT_WRITEDATA, response)) != CURLE_OK)
+			goto fault;
+		if ((ret = curl_easy_setopt(curl, CURLOPT_HTTPHEADER, &(struct curl_slist)
+						{.data = "Content-type: text/xml"})) != CURLE_OK)
 			goto fault;
 
-		r = NULL;
+
 		switch (xh->fmt) {
 		case XF_SEMS:
-			xmlrpc_client_call2f(&e, c, url, "di", &r, "(ssss)",
-						"sbc", "postControlCmd", tag->s, "teardown");
+			g_string_append_printf(body, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+					"<methodCall>"
+					"<methodName>di</methodName>"
+					"<params>"
+					"<param><value><string>sbc</string></value></param>"
+					"<param><value><string>postControlCmd</string></value></param>"
+					"<param><value><string>" STR_FORMAT "</string></value></param>"
+					"<param><value><string>teardown</string></value></param>"
+					"</params>"
+					"</methodCall>",
+					STR_FMT(tag));
 			break;
 		case XF_CALLID:
-			xmlrpc_client_call2f(&e, c, url, "teardown", &r, "(s)", call_id->s);
+			g_string_append_printf(body, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+					"<methodCall>"
+					"<methodName>teardown</methodName>"
+					"<params>"
+					"<param><value><string>" STR_FORMAT "</string></value></param>"
+					"</params>"
+					"</methodCall>",
+					STR_FMT(call_id));
 			break;
 		case XF_KAMAILIO:
-			xmlrpc_client_call2f(&e, c, url, "dlg.terminate_dlg", &r, "(sss)",
-					call_id->s, tag->s, tag2->s);
+			g_string_append_printf(body, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+					"<methodCall>"
+					"<methodName>dlg.terminate_dlg</methodName>"
+					"<params>"
+					"<param><value><string>" STR_FORMAT "</string></value></param>"
+					"<param><value><string>" STR_FORMAT "</string></value></param>"
+					"<param><value><string>" STR_FORMAT "</string></value></param>"
+					"</params>"
+					"</methodCall>",
+					STR_FMT(call_id), STR_FMT(tag), STR_FMT(tag2));
 			break;
 		}
 
-		if (r)
-			xmlrpc_DECREF(r);
-		if (e.fault_occurred) {
-			if (strcasestr(e.fault_string, "dialog not found"))
+		if ((ret = curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body->str)) != CURLE_OK)
+			goto fault;
+
+		if ((ret = curl_easy_perform(curl)) != CURLE_OK)
+			goto fault;
+
+		if (strcasestr(response->str, "<fault>")) {
+			if (strcasestr(response->str, "dialog not found"))
 				;
-			else
+			else {
+				ret = CURLE_HTTP_RETURNED_ERROR;
 				goto fault;
+			}
 		}
 
-		xmlrpc_client_destroy(c);
 		for (int j = 0; j < els_per_ent; j++)
 			free(g_queue_pop_head(&xh->strings));
-		xmlrpc_env_clean(&e);
-
-		_exit(0);
 
 fault:
-		ilog(LOG_WARNING, "XMLRPC fault occurred: %s", e.fault_string);
-		_exit(1);
+		curl_easy_cleanup(curl);
+
+		if (ret != CURLE_OK) {
+			ilog(LOG_WARNING, "XMLRPC fault occurred: %s", curl_easy_strerror(ret));
+			_exit(1);
+		}
+		_exit(0);
 	}
 
 	g_free(xh);
