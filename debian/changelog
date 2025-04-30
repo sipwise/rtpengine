@@ -1,3 +1,11 @@
+ngcp-rtpengine (13.3.1.2+0~mr13.3.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [4c03282] MT#55283 make shellcheck happy
+  * [429f8d2] MT#55283 obsolete usage of xmlrpc-c
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 30 Apr 2025 13:31:05 +0200
+
 ngcp-rtpengine (13.3.1.1+0~mr13.3.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
