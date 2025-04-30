@@ -1,3 +1,15 @@
+ngcp-rtpengine (13.1.1.15+0~mr13.1.1.15) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [6c2272e] MT#55283 fix python websockets version test
+  * [99f89a3] MT#55283 make shellcheck happy
+  * [cca695e] MT#55283 obsolete usage of xmlrpc-c
+
+  [ Orgad Shaneh ]
+  * [aee3217] MT#55283 Prevent warning logs when recording-method is pcap #2
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 30 Apr 2025 13:31:21 +0200
+
 ngcp-rtpengine (13.1.1.14+0~mr13.1.1.14) unstable; urgency=medium
 
   [ Richard Fuchs ]
