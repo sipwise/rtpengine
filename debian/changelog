@@ -1,3 +1,14 @@
+ngcp-rtpengine (12.5.1.31+0~mr12.5.1.31) unstable; urgency=medium
+
+  [ Orgad Shaneh ]
+  * [2c341a5] MT#55283 Prevent warning logs when recording-method is pcap #2
+
+  [ Richard Fuchs ]
+  * [0dc4f98] MT#55283 make shellcheck happy
+  * [8f6fa7a] MT#55283 obsolete usage of xmlrpc-c
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 30 Apr 2025 13:31:29 +0200
+
 ngcp-rtpengine (12.5.1.30+0~mr12.5.1.30) unstable; urgency=medium
 
   [ Richard Fuchs ]
