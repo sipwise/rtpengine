@@ -84,6 +84,75 @@ sub stun_succ {
 
 
 
+($sock_a, $sock_b, $sock_c) = new_call([qw(198.51.100.1 7188)], [qw(198.51.100.3 7190)], [qw(198.51.100.5 5192)]);
+
+($port_a) = offer('SRTP hijack <> RTP', { 'transport-protocol' => 'RTP/AVP' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 7188 RTP/SAVP 8
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:QjnnaukLn7iwASAs0YLzPUplJkjOhTZK2dvOwo6c
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b, undef, $srtp_key_b) = answer('SRTP hijack <> RTP', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 7190 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+SDP
+
+$srtp_ctx_a = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'QjnnaukLn7iwASAs0YLzPUplJkjOhTZK2dvOwo6c',
+};
+$srtp_ctx_b = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => $srtp_key_b,
+};
+
+     snd($sock_b, $port_a,  rtp(8, 1000, 3000, 0x1234, "\x00" x 160));
+srtp_rcv($sock_a, $port_b, rtpm(8, 1000, 3000, 0x1234, "\x00" x 160), $srtp_ctx_b);
+
+srtp_snd($sock_a, $port_b,  rtp(8, 2000, 4000, 0x6543, "\x11" x 160), $srtp_ctx_a);
+     rcv($sock_b, $port_a, rtpm(8, 2000, 4000, 0x6543, "\x11" x 160));
+
+# attempt inject/hijack
+
+     snd($sock_c, $port_b,  rtp(8, 2001, 4160, 0x6543, "\x11" x 160));
+  rcv_no($sock_b);
+
+     snd($sock_b, $port_a,  rtp(8, 1001, 3160, 0x1234, "\x00" x 160));
+  rcv_no($sock_c);
+srtp_rcv($sock_a, $port_b, rtpm(8, 1001, 3160, 0x1234, "\x00" x 160), $srtp_ctx_b);
+
+
+
+
 new_call;
 
 offer('L16 default', { codec => { transcode => ['L16/44100'] } }, <<SDP);
