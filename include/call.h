@@ -390,7 +390,7 @@ struct packet_stream {
 	GQueue			rtp_mirrors;	/* LOCK: call->master_lock, in_lock for streamhandler */
 	struct endpoint		endpoint;	/* LOCK: out_lock */
 	struct endpoint		detected_endpoints[4];		/* LOCK: out_lock */
-	struct timeval		ep_detect_signal;		/* LOCK: out_lock */
+	time_t			ep_detect_signal;		/* LOCK: out_lock */
 	struct endpoint		advertised_endpoint;		/* RO */
 	struct endpoint		learned_endpoint;		/* LOCK: out_lock */
 	struct crypto_context	crypto;				/* OUT direction, LOCK: out_lock */
