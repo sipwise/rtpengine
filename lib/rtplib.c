@@ -150,8 +150,25 @@ bool rtp_payload_type_fmt_eq_nf(const struct rtp_payload_type *a, const struct r
 		return false;
 	if (a->channels != b->channels)
 		return false;
-	if (str_casecmp_str(&a->encoding, &b->encoding))
+	if (str_casecmp_str(&a->encoding, &b->encoding)) {
+#ifdef WITH_TRANSCODING
+		// last ditch effort: see if it's a botched alias name (AKA G729a)
+		if (!a->codec_def || !b->codec_def)
+			return false;
+		if (a->codec_def->rfc_payload_type == -1 || b->codec_def->rfc_payload_type == -1)
+			return false;
+		if (a->codec_def->rfc_payload_type != b->codec_def->rfc_payload_type)
+			return false;
+		if (a->codec_def->codec_type != b->codec_def->codec_type)
+			return false;
+		if (a->codec_def->avcodec_id != b->codec_def->avcodec_id)
+			return false;
+		// consider them the same
+		return true;
+#else
 		return false;
+#endif
+	}
 	return true;
 }
 
@@ -160,9 +177,10 @@ bool rtp_payload_type_fmt_eq_nf(const struct rtp_payload_type *a, const struct r
 int rtp_payload_type_fmt_cmp(const struct rtp_payload_type *a, const struct rtp_payload_type *b) {
 	if (!rtp_payload_type_fmt_eq_nf(a, b))
 		return -1;
-	if (a->codec_def && a->codec_def == b->codec_def) {
-		if (a->codec_def->format_cmp)
-			return a->codec_def->format_cmp(a, b);
+	if (a->codec_def && b->codec_def
+			&& a->codec_def->format_cmp
+			&& a->codec_def->format_cmp == b->codec_def->format_cmp) {
+		return a->codec_def->format_cmp(a, b);
 	}
 	if (!a->codec_def) // ignore format of codecs we don't know
 		return 0;
