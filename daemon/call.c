@@ -2917,6 +2917,12 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 	other_media->bandwidth_as = sp->media_session_as;
 	other_media->bandwidth_rr = sp->media_session_rr;
 	other_media->bandwidth_rs = sp->media_session_rs;
+
+	if (flags->recrypt) {
+		MEDIA_SET(other_media, RECRYPT);
+		if (media)
+			MEDIA_SET(media, RECRYPT);
+	}
 }
 
 unsigned int proto_num_ports(unsigned int sp_ports, struct call_media *media, sdp_ng_flags *flags,
