@@ -2399,9 +2399,10 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 			&& phc->mp.stream->advertised_endpoint.port)
 	{
 		// check if we need to reset our learned endpoints
-		if (memcmp(&rtpe_now, &phc->mp.stream->ep_detect_signal, sizeof(rtpe_now))) {
+
+		if ((phc->mp.call->last_signal - phc->mp.stream->ep_detect_signal) != 0) {
 			memset(&phc->mp.stream->detected_endpoints, 0, sizeof(phc->mp.stream->detected_endpoints));
-			phc->mp.stream->ep_detect_signal = rtpe_now;
+			phc->mp.stream->ep_detect_signal = phc->mp.call->last_signal;
 		}
 
 		// possible endpoints that can be detected in order of preference:
