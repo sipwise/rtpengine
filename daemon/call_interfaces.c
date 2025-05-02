@@ -1271,6 +1271,9 @@ void call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 		case CSH_LOOKUP("recording announcement"):
 			out->recording_announcement = true;
 			break;
+		case CSH_LOOKUP("recrypt"):
+			out->recrypt = true;
+			break;
 		case CSH_LOOKUP("reorder-codecs"):
 		case CSH_LOOKUP("reorder codecs"):
 			ilog(LOG_INFO, "Ignoring obsolete flag `reorder-codecs`");
