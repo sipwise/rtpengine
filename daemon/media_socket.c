@@ -2816,6 +2816,17 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	// this sets rtcp, in_srtp, and sinks
 	media_packet_rtcp_demux(phc);
 
+	// this set payload_type, ssrc_in, and mp payloads
+	media_packet_rtp_in(phc);
+
+	// decrypt in place
+	// XXX check handler_ret along the paths
+	handler_ret = media_packet_decrypt(phc);
+	if (handler_ret < 0)
+		goto out; // receive error
+
+	rtp_padding(phc->mp.rtp, &phc->mp.payload);
+
 	if (media_packet_address_check(phc))
 		goto drop;
 
@@ -2825,9 +2836,6 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	bool is_blackhole = MEDIA_ISSET(phc->mp.media, BLACKHOLE);
 	if (!is_blackhole)
 		is_blackhole = !phc->rtcp && !MEDIA_ISSET(phc->mp.media, RECV);
-
-	// this set payload_type, ssrc_in, and mp payloads
-	media_packet_rtp_in(phc);
 
 	if (phc->mp.rtp)
 		ilog(LOG_DEBUG, "Handling packet: remote %s%s%s (expected: %s%s%s) -> local %s "
@@ -2862,14 +2870,6 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 			atomic64_set(&phc->mp.ssrc_in->last_ts, ntohl(phc->mp.rtp->timestamp));
 		}
 	}
-
-	// decrypt in place
-	// XXX check handler_ret along the paths
-	handler_ret = media_packet_decrypt(phc);
-	if (handler_ret < 0)
-		goto out; // receive error
-
-	rtp_padding(phc->mp.rtp, &phc->mp.payload);
 
 	// If recording pcap dumper is set, then we record the call.
 	if (phc->mp.call->recording && !rtpe_config.rec_egress)
