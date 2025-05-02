@@ -294,6 +294,8 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
+if ($extended_tests) {
+
 new_call;
 
 offer('mismatched G.729 annexb', { }, <<SDP);
@@ -417,6 +419,195 @@ a=sendrecv
 a=rtcp:PORT
 a=ptime:20
 SDP
+
+
+new_call;
+
+offer('rtpmap default mismatched G.729 annexb', { }, <<SDP);
+v=0
+o=- 13111259 1 IN IP4 1.2.3.4
+s=-
+c=IN IP4 1.2.3.4
+t=0 0
+m=audio 23874 RTP/AVP 9 8 0 18 100
+a=rtpmap:100 telephone-event/8000
+a=ptime:20
+----------------------------
+v=0
+o=- 13111259 1 IN IP4 1.2.3.4
+s=-
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 9 8 0 18 100
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729/8000
+a=rtpmap:100 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('rtpmap default mismatched G.729 annexb', { }, <<SDP);
+v=0
+o=- 1737116508926565 1737116508926565 IN IP4 5.6.7.7
+s=SIP call
+c=IN IP4 5.6.7.7
+t=0 0
+m=audio 49696 RTP/AVP 8 0 18 100
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729a/8000
+a=rtpmap:100 telephone-event/8000
+a=fmtp:100 0-11
+a=ptime:20
+a=maxptime:30
+a=sendrecv
+----------------------------
+v=0
+o=- 1737116508926565 1737116508926565 IN IP4 5.6.7.7
+s=SIP call
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 0 18 100
+a=maxptime:30
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729a/8000
+a=rtpmap:100 telephone-event/8000
+a=fmtp:100 0-11
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+new_call;
+
+offer('rtpmap mismatched G.729 annexb', { }, <<SDP);
+v=0
+o=- 13111259 1 IN IP4 1.2.3.4
+s=-
+c=IN IP4 1.2.3.4
+t=0 0
+m=audio 23874 RTP/AVP 9 8 0 18 100
+a=rtpmap:100 telephone-event/8000
+a=ptime:20
+----------------------------
+v=0
+o=- 13111259 1 IN IP4 1.2.3.4
+s=-
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 9 8 0 18 100
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729/8000
+a=rtpmap:100 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('rtpmap mismatched G.729 annexb', { }, <<SDP);
+v=0
+o=- 1737116508926565 1737116508926565 IN IP4 5.6.7.7
+s=SIP call
+c=IN IP4 5.6.7.7
+t=0 0
+m=audio 49696 RTP/AVP 8 0 18 100
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729a/8000
+a=fmtp:18 annexb=no
+a=rtpmap:100 telephone-event/8000
+a=fmtp:100 0-11
+a=ptime:20
+a=maxptime:30
+a=sendrecv
+----------------------------
+v=0
+o=- 1737116508926565 1737116508926565 IN IP4 5.6.7.7
+s=SIP call
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 0 18 100
+a=maxptime:30
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729a/8000
+a=fmtp:18 annexb=no
+a=rtpmap:100 telephone-event/8000
+a=fmtp:100 0-11
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+new_call;
+
+offer('actually rtpmap mismatched G.729 annexb', { }, <<SDP);
+v=0
+o=- 13111259 1 IN IP4 1.2.3.4
+s=-
+c=IN IP4 1.2.3.4
+t=0 0
+m=audio 23874 RTP/AVP 9 8 0 18 100
+a=rtpmap:100 telephone-event/8000
+a=ptime:20
+----------------------------
+v=0
+o=- 13111259 1 IN IP4 1.2.3.4
+s=-
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 9 8 0 18 100
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729/8000
+a=rtpmap:100 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('actually rtpmap mismatched G.729 annexb', { }, <<SDP);
+v=0
+o=- 1737116508926565 1737116508926565 IN IP4 5.6.7.7
+s=SIP call
+c=IN IP4 5.6.7.7
+t=0 0
+m=audio 49696 RTP/AVP 8 0 18 100
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729a/8000
+a=fmtp:18 annexb=yes
+a=rtpmap:100 telephone-event/8000
+a=fmtp:100 0-11
+a=ptime:20
+a=maxptime:30
+a=sendrecv
+----------------------------
+v=0
+o=- 1737116508926565 1737116508926565 IN IP4 5.6.7.7
+s=SIP call
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 0 100
+a=maxptime:30
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:100 telephone-event/8000
+a=fmtp:100 0-11
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+}
+
 
 new_call;
 
