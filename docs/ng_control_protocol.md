@@ -1067,6 +1067,27 @@ Spaces in each string may be replaced by hyphens.
     flag must be set for all call parties which are meant to hear the
     announcement.
 
+* `recrypt`
+
+    If set, forces decryption and re-encryption of all SRTP, even if
+    passthrough is possible.
+
+    Without this flag set, in situations where SRTP is in use on both sides of
+    a call, and if the SRTP keys are the same on both sides (commonly the case
+    with SDES), and if no other media manipulations are required, *rtpengine*
+    would simply pass through all media packets directly, without getting
+    involved in the encryption. This saves CPU time as there's no point in
+    decypting each packet, only to encrypt it again using the same SRTP key.
+    The side effect is that even non-SRTP packets, as well as SRTP packets with
+    an invalid encryption, are passed through, as no verification of the SRTP
+    encryption takes place. This can have security implications, as then any
+    and all media packets are considered for endpoint learning purposes,
+    regardless of whether they have an intact SRTP authentication tag.
+
+    Setting this flag forces decryption and re-encryption of all SRTP packets,
+    validating the authentication tag in the process, and discarding packets
+    without a valid tag.
+
 * `reject ICE`
 
 	Useful for `offer` messages that advertise support for ICE.

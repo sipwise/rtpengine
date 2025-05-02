@@ -228,6 +228,7 @@ struct sdp_ng_flags {
 	             sdes_static:1,
 	             sdes_nonew:1,
 	             sdes_prefer:1,
+		     recrypt:1,
 	             drop_traffic_start:1,
 	             drop_traffic_stop:1,
 	             passthrough_on:1,

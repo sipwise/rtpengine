@@ -1936,7 +1936,7 @@ static const struct streamhandler *__determine_handler(struct packet_stream *in,
 		must_recrypt = true;
 	else if (dtmf_do_logging(in->call, false))
 		must_recrypt = true;
-	else if (MEDIA_ISSET(in->media, DTLS) || (out && MEDIA_ISSET(out->media, DTLS)))
+	else if (MEDIA_ISSET2(in->media, DTLS, RECRYPT) || (out && MEDIA_ISSET2(out->media, DTLS, RECRYPT)))
 		must_recrypt = true;
 	else if (ML_ISSET(in->media->monologue, INJECT_DTMF) || (out && ML_ISSET(out->media->monologue, INJECT_DTMF)))
 		must_recrypt = true;
