@@ -1625,8 +1625,13 @@ void codeclib_init(int print) {
 		const struct rtp_payload_type *pt = rtp_get_rfc_codec(&def->rtpname_str);
 		if (pt)
 			def->rfc_payload_type = pt->payload_type;
-		else
-			def->rfc_payload_type = -1;
+		else {
+			// special case:
+			if (!strcmp(def->rtpname, "G729a"))
+				def->rfc_payload_type = 18;
+			else
+				def->rfc_payload_type = -1;
+		}
 
 		if (def->codec_type && def->codec_type->def_init)
 			def->codec_type->def_init(def);
