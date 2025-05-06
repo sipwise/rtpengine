@@ -83,6 +83,8 @@ sub autotest_init {
 	my $r = $c->req({command => 'ping'});
 	ok $r->{result} eq 'pong', 'ping works, daemon operational';
 
+	# Setup a global die handler.
+	## no critic (Variables::RequireLocalizedPunctuationVars)
 	$SIG{__DIE__} = sub {
 		terminate(@_);
 	};
