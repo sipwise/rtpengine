@@ -1,3 +1,11 @@
+ngcp-rtpengine (12.5.1.32+0~mr12.5.1.32) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7022fa8] MT#55283 extend G729a compatibility
+  * [b5d8c69] MT#55283 add global bufferpool
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 07 May 2025 20:34:50 +0200
+
 ngcp-rtpengine (12.5.1.31+0~mr12.5.1.31) unstable; urgency=medium
 
   [ Orgad Shaneh ]
