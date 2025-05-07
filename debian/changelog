@@ -1,3 +1,12 @@
+ngcp-rtpengine (13.3.1.3+0~mr13.3.1.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [0038da1] MT#55283 rework crypto debug code
+  * [37b27f6] MT#55283 add global bufferpool
+  * [1342618] MT#55283 extend G729a compatibility
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 07 May 2025 20:34:36 +0200
+
 ngcp-rtpengine (13.3.1.2+0~mr13.3.1.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
