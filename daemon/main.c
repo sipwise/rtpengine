@@ -79,6 +79,7 @@ static GQueue rtpe_cli = G_QUEUE_INIT;
 GQueue rtpe_control_ng = G_QUEUE_INIT;
 GQueue rtpe_control_ng_tcp = G_QUEUE_INIT;
 struct bufferpool *shm_bufferpool;
+struct bufferpool *rtpe_bufferpool;
 
 struct rtpengine_config rtpe_config = {
 	// non-zero defaults
@@ -1263,6 +1264,7 @@ RTPE_CONFIG_CHARPP_PARAMS
 
 static void early_init(void) {
 	socket_init(); // needed for socktype_udp
+	rtpe_bufferpool = bufferpool_new(g_malloc, g_free, 64 * 65536);
 }
 
 #ifdef WITH_TRANSCODING
@@ -1743,6 +1745,7 @@ int main(int argc, char **argv) {
 	kernel_shutdown_table();
 	options_free();
 	bufferpool_cleanup();
+	bufferpool_destroy(rtpe_bufferpool);
 
 	return 0;
 }
