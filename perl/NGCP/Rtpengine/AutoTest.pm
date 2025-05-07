@@ -59,6 +59,10 @@ sub autotest_start {
 		ok $rtpe_pid, 'daemon launched in background';
 	}
 
+	if ($launch_cb) {
+		$launch_cb->();
+	}
+
 	return autotest_init();
 }
 
@@ -66,28 +70,27 @@ sub autotest_init {
 	# keep trying to connect to the control socket while daemon is starting up
 	for (1 .. 300) {
 		$c = NGCP::Rtpengine->new($ENV{RTPENGINE_HOST} // '127.0.0.1', $ENV{RTPENGINE_PORT} // 2223);
-		last if $c->{socket};
 		Time::HiRes::usleep(100000); # 100 ms x 300 = 30 sec
+
+		$tag_iter = 0;
+		$tag_suffix = '-' . rand();
+
+		my $ok = 0;
+		eval {
+			my $r = $c->req({command => 'ping'});
+			$ok = $r->{result} eq 'pong';
+		};
+
+		next if not $ok;
+
+		# Setup a global die handler.
+		## no critic (Variables::RequireLocalizedPunctuationVars)
+		$SIG{__DIE__} = sub {
+			terminate(@_);
+		};
+
+		last;
 	}
-
-	1;
-	$c->{socket} or die;
-
-	$tag_iter = 0;
-	$tag_suffix = '-' . rand();
-
-	if ($launch_cb) {
-		$launch_cb->();
-	}
-
-	my $r = $c->req({command => 'ping'});
-	ok $r->{result} eq 'pong', 'ping works, daemon operational';
-
-	# Setup a global die handler.
-	## no critic (Variables::RequireLocalizedPunctuationVars)
-	$SIG{__DIE__} = sub {
-		terminate(@_);
-	};
 
 	return 1;
 }
