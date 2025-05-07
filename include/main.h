@@ -323,6 +323,7 @@ extern GQueue rtpe_control_ng;
 extern GQueue rtpe_control_ng_tcp;
 
 extern struct bufferpool *shm_bufferpool;
+extern struct bufferpool *rtpe_bufferpool;
 extern memory_arena_t rtpe_arena;
 
 
