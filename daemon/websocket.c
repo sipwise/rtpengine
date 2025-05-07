@@ -230,6 +230,8 @@ static void websocket_message_push(struct websocket_conn *wc, websocket_message_
 
 
 static void websocket_process(void *p, void *up) {
+	media_bufferpool = rtpe_bufferpool;
+
 	struct websocket_conn *wc = p;
 
 	mutex_lock(&wc->lock);
