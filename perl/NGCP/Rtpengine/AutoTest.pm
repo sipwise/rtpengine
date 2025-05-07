@@ -16,6 +16,8 @@ use Exporter;
 our @ISA;
 our @EXPORT;
 our $launch_cb;
+our $host;
+our $port;
 
 BEGIN {
 	require Exporter;
@@ -69,7 +71,8 @@ sub autotest_start {
 sub autotest_init {
 	# keep trying to connect to the control socket while daemon is starting up
 	for (1 .. 300) {
-		$c = NGCP::Rtpengine->new($ENV{RTPENGINE_HOST} // '127.0.0.1', $ENV{RTPENGINE_PORT} // 2223);
+		$c = NGCP::Rtpengine->new($host // $ENV{RTPENGINE_HOST} // '127.0.0.1',
+			$port // $ENV{RTPENGINE_PORT} // 2223);
 		Time::HiRes::usleep(100000); # 100 ms x 300 = 30 sec
 
 		$tag_iter = 0;
