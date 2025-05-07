@@ -24,6 +24,7 @@ unsigned int rtpe_poller_rr_iter;
 GString *dtmf_logs;
 GQueue rtpe_control_ng = G_QUEUE_INIT;
 struct bufferpool *shm_bufferpool;
+struct bufferpool *rtpe_bufferpool;
 
 static void __assert_g_string_eq(GString *a, const char *b, unsigned int line) {
 	if (strcmp(a->str, b) == 0) {
