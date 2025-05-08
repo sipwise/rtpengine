@@ -937,6 +937,10 @@ struct codec_handler *codec_handler_make_media_player(const rtp_payload_type *sr
 	struct codec_handler *h = codec_handler_make_playback(src_pt, dst_pt, last_ts, media, ssrc, codec_set);
 	if (!h)
 		return NULL;
+
+	ilogs(transcoding, LOG_DEBUG, "Disabling clock skew calculation for media playback handler");
+	h->ssrc_handler->csch.is_media_playback = true;
+
 	if (audio_player_is_active(media)) {
 		h->packet_decoded = packet_decoded_audio_player;
 		if (!audio_player_pt_match(media, dst_pt))
@@ -2484,7 +2488,9 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 
 	ts_diff_us = p->ttq_entry.when - rtpe_now;
 
-	csch->output_skew = csch->output_skew * 15 / 16 + ts_diff_us / 16;
+	if (!csch->is_media_playback)
+		csch->output_skew = csch->output_skew * 15 / 16 + ts_diff_us / 16;
+
 	if (csch->output_skew > 50000 && ts_diff_us > 10000) { // arbitrary value, 50 ms, 10 ms shift
 		ilogs(transcoding, LOG_DEBUG, "Steady clock skew of %li.%01li ms detected, shifting send timer back by 10 ms",
 			csch->output_skew / 1000,

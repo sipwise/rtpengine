@@ -106,6 +106,7 @@ struct codec_scheduler {
 	int64_t first_send;
 	unsigned long first_send_ts;
 	long output_skew;
+	bool is_media_playback; // used to track media playback so we can skip skew calculation
 };
 
 struct transcode_config {
