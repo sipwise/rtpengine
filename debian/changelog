@@ -1,3 +1,10 @@
+ngcp-rtpengine (12.5.1.33+0~mr12.5.1.33) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [42271aa] MT#55283 fix off by one bug
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 09 May 2025 14:46:13 +0200
+
 ngcp-rtpengine (12.5.1.32+0~mr12.5.1.32) unstable; urgency=medium
 
   [ Richard Fuchs ]
