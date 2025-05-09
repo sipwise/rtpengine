@@ -1,3 +1,11 @@
+ngcp-rtpengine (11.5.1.40+0~mr11.5.1.40) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [4a33f53] MT#55283 fix python websockets version test
+  * [1d47043] MT#55283 fix off by one bug
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 09 May 2025 14:46:20 +0200
+
 ngcp-rtpengine (11.5.1.39+0~mr11.5.1.39) unstable; urgency=medium
 
   [ Richard Fuchs ]
