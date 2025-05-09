@@ -698,7 +698,7 @@ static ssize_t __bencode_string(const char *s, ssize_t offset, size_t len) {
 	if (s + offset == end || end != s + pos)
 		return -2;
 
-	if (pos + sl > len)
+	if (pos + sl >= len)
 		return -1;
 
 	return pos + sl + 1;
