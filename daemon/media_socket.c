@@ -2486,11 +2486,10 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 
 			if (tmp && PS_ISSET(phc->mp.stream, STRICT_SOURCE)) {
 				ilog(LOG_INFO | LOG_FLAG_LIMIT, "Drop due to strict-source attribute; "
-						"got %s%s:%d%s, "
-						"expected %s%s:%d%s",
-					FMT_M(sockaddr_print_buf(&endpoint.address), endpoint.port),
-					FMT_M(sockaddr_print_buf(&ps_endpoint->address),
-					ps_endpoint->port));
+						"got %s%s%s, "
+						"expected %s%s%s",
+					FMT_M(endpoint_print_buf(&endpoint)),
+					FMT_M(endpoint_print_buf(ps_endpoint)));
 				atomic64_inc_na(&phc->mp.stream->stats_in->errors);
 				atomic64_inc_na(&phc->mp.sfd->local_intf->stats->in.errors);
 				ret = true;
