@@ -359,19 +359,19 @@ snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\x00" x 160));
 # callee send from different port
 snd($sock_c, $port_a, rtp(0, 2001, 4160, 0x1234, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x1234, "\x00" x 160));
+rcv_no($sock_a);
 # caller send, forward to expected
 snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1002, 3320, 0x1234, "\x00" x 160));
 # callee send from different address
 snd($sock_d, $port_a, rtp(0, 2002, 4320, 0x1234, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2002, 4320, 0x1234, "\x00" x 160));
+rcv_no($sock_a);
 # caller send, forward to expected
 snd($sock_a, $port_b, rtp(0, 1003, 3480, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1003, 3480, 0x1234, "\x00" x 160));
 # callee send from different everything
 snd($sock_e, $port_a, rtp(0, 2003, 4480, 0x1234, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2003, 4480, 0x1234, "\x00" x 160));
+rcv_no($sock_a);
 # caller send, forward to expected
 snd($sock_a, $port_b, rtp(0, 1004, 3640, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1004, 3640, 0x1234, "\x00" x 160));
@@ -384,19 +384,19 @@ snd($sock_a, $port_b, rtp(0, 1005, 3800, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1005, 3800, 0x1234, "\x00" x 160));
 # callee send from different port
 snd($sock_c, $port_a, rtp(0, 2005, 4800, 0x1234, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2005, 4800, 0x1234, "\x00" x 160));
+rcv_no($sock_a);
 # caller send, forward to expected
 snd($sock_a, $port_b, rtp(0, 1006, 3960, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1006, 3960, 0x1234, "\x00" x 160));
 # callee send from different address
 snd($sock_d, $port_a, rtp(0, 2006, 4960, 0x1234, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2006, 4960, 0x1234, "\x00" x 160));
+rcv_no($sock_a);
 # caller send, forward to expected
 snd($sock_a, $port_b, rtp(0, 1007, 4120, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1007, 4120, 0x1234, "\x00" x 160));
 # callee send from different everything
 snd($sock_e, $port_a, rtp(0, 2007, 5120, 0x1234, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2007, 5120, 0x1234, "\x00" x 160));
+rcv_no($sock_a);
 # caller send, forward to expected
 snd($sock_a, $port_b, rtp(0, 1008, 4280, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1008, 4280, 0x1234, "\x00" x 160));
@@ -506,7 +506,7 @@ snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x1234, "\x00" x 160));
 rcv($sock_c, $port_a, rtpm(0, 1002, 3320, 0x1234, "\x00" x 160));
 # callee send from different address
 snd($sock_d, $port_a, rtp(0, 2002, 4320, 0x1234, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2002, 4320, 0x1234, "\x00" x 160));
+rcv_no($sock_a);
 # caller send, forward to almost good candidate (different address ignored)
 snd($sock_a, $port_b, rtp(0, 1003, 3480, 0x1234, "\x00" x 160));
 rcv($sock_c, $port_a, rtpm(0, 1003, 3480, 0x1234, "\x00" x 160));
@@ -519,19 +519,19 @@ rcv($sock_b, $port_a, rtpm(0, 1004, 3640, 0x1234, "\x00" x 160));
 
 # callee send from different everything
 snd($sock_e, $port_a, rtp(0, 2004, 4640, 0x1234, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2004, 4640, 0x1234, "\x00" x 160));
+rcv_no($sock_a);
 # caller send, forward to expected
 snd($sock_a, $port_b, rtp(0, 1005, 3800, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1005, 3800, 0x1234, "\x00" x 160));
 # callee send from different port
 snd($sock_c, $port_a, rtp(0, 2005, 4800, 0x1234, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2005, 4800, 0x1234, "\x00" x 160));
+rcv_no($sock_a);
 # caller send, forward to expected
 snd($sock_a, $port_b, rtp(0, 1006, 3960, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1006, 3960, 0x1234, "\x00" x 160));
 # callee send from different address
 snd($sock_d, $port_a, rtp(0, 2006, 4960, 0x1234, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2006, 4960, 0x1234, "\x00" x 160));
+rcv_no($sock_a);
 # caller send, forward to expected
 snd($sock_a, $port_b, rtp(0, 1007, 4120, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1007, 4120, 0x1234, "\x00" x 160));
@@ -547,7 +547,7 @@ sleep(4);
 
 # callee send from different everything
 snd($sock_e, $port_a, rtp(0, 2008, 5280, 0x1234, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2008, 5280, 0x1234, "\x00" x 160)); # first packet that confirms the address still gets through
+rcv_no($sock_a);
 # caller send, forward to expected
 snd($sock_a, $port_b, rtp(0, 1009, 4440, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1009, 4440, 0x1234, "\x00" x 160));

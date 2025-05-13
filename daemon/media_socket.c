@@ -2536,10 +2536,25 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 		phc->mp.stream->detected_endpoints[idx] = phc->mp.fsin;
 
 		// now grab the best matched endpoint
-		for (idx = 0; idx < 4; idx++) {
-			use_endpoint_confirm = &phc->mp.stream->detected_endpoints[idx];
+		unsigned int matched_idx;
+		for (matched_idx = 0; matched_idx < 4; matched_idx++) {
+			use_endpoint_confirm = &phc->mp.stream->detected_endpoints[matched_idx];
 			if (use_endpoint_confirm->address.family)
 				break;
+		}
+
+		// finally, if there has been a better match and if strict-source is set,
+		// drop this packet
+		if (PS_ISSET(phc->mp.stream, STRICT_SOURCE) && matched_idx < idx) {
+			ilog(LOG_INFO | LOG_FLAG_LIMIT, "Drop during learning due to strict-source attribute; "
+					"got %s%s%s, "
+					"best match %s%s%s",
+				FMT_M(endpoint_print_buf(&phc->mp.fsin)),
+				FMT_M(endpoint_print_buf(use_endpoint_confirm)));
+			atomic64_inc_na(&phc->mp.stream->stats_in->errors);
+			atomic64_inc_na(&phc->mp.sfd->local_intf->stats->in.errors);
+			ret = true;
+			goto out;
 		}
 	}
 
