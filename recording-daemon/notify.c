@@ -8,7 +8,7 @@
 
 struct notif_req {
 	char *name; // just for logging
-	struct curl_slist *headers;
+	struct curl_slist *headers; // NULL = nothing to send
 	char *full_filename_path;
 
 	int64_t retry_time;
@@ -32,9 +32,10 @@ static size_t dummy_read(char *ptr, size_t size, size_t nmemb, void *userdata) {
 	return 0;
 }
 
-static void do_notify_http(struct notif_req *req) {
+static bool do_notify_http(struct notif_req *req) {
 	const char *err = NULL;
 	CURLcode ret;
+	bool success = false;
 
 	ilog(LOG_DEBUG, "Launching HTTP notification for '%s%s%s'", FMT_M(req->name));
 
@@ -123,6 +124,8 @@ static void do_notify_http(struct notif_req *req) {
 
 	/* success */
 
+	success = true;
+
 	ilog(LOG_NOTICE, "HTTP notification for '%s%s%s' was successful", FMT_M(req->name));
 
 	if (notify_record && notify_purge) {
@@ -131,50 +134,22 @@ static void do_notify_http(struct notif_req *req) {
 		else
 			ilog(LOG_ERR, "File '%s%s%s' could not be deleted.", FMT_M(req->full_filename_path));
 	}
+
+	curl_slist_free_all(req->headers);
+	req->headers = NULL;
+
 	goto cleanup;
 
 fail:
 	if (c)
-		curl_easy_cleanup(c);
-
-	if (notify_retries >= 0 && req->retries < notify_retries) {
-		/* schedule retry */
-		req->retries++;
-		if (c)
-			ilog(LOG_DEBUG, "Failed to perform HTTP notification for '%s%s%s': "
-					"Error while %s: %s. Will retry in %" PRId64 " seconds (#%u)",
-					FMT_M(req->name),
-					err, curl_easy_strerror(ret),
-					req->falloff_us / 1000000L, req->retries);
-		else
-			ilog(LOG_DEBUG, "Failed to perform HTTP notification for '%s%s%s': "
-					"Failed to create CURL object. Will retry in %" PRId64 " seconds (#%u)",
-					FMT_M(req->name),
-					req->falloff_us / 1000000L, req->retries);
-		req->retry_time = now_us() + req->falloff_us;
-		req->falloff_us *= 2;
-
-		pthread_mutex_lock(&timer_lock);
-		g_tree_insert(notify_timers, req, req);
-		pthread_cond_signal(&timer_cond);
-		pthread_mutex_unlock(&timer_lock);
-
-		return;
-	}
-
-	if (c)
-		ilog(LOG_ERR, "Failed to perform HTTP notification for '%s%s%s' after %u retries: "
+		ilog(LOG_ERR, "Failed to perform HTTP notification for '%s%s%s': "
 				"Error while %s: %s",
 				FMT_M(req->name),
-				req->retries, err, curl_easy_strerror(ret));
+				err, curl_easy_strerror(ret));
 	else
-		ilog(LOG_ERR, "Failed to perform HTTP notification for '%s%s%s' after %u retries: "
+		ilog(LOG_ERR, "Failed to perform HTTP notification for '%s%s%s': "
 				"Failed to create CURL object",
-				FMT_M(req->name),
-				req->retries);
-
-	c = NULL;
-	goto cleanup;
+				FMT_M(req->name));
 
 cleanup:
 	if (c)
@@ -185,14 +160,44 @@ cleanup:
 		curl_mime_free(mime);
 #endif
 
-	curl_slist_free_all(req->headers);
+	return success;
 }
 
 static void do_notify(void *p, void *u) {
 	struct notif_req *req = p;
 
-	do_notify_http(req);
+	unsigned int fails = 0;
 
+	fails += do_notify_http(req) == false;
+
+	if (fails) {
+		if (notify_retries >= 0 && req->retries < notify_retries) {
+			/* schedule retry */
+			req->retries++;
+
+			ilog(LOG_INFO, "Failure while sending notification for '%s%s%s': "
+					"Will retry in %" PRId64 " seconds (#%u)",
+					FMT_M(req->name),
+					req->falloff_us / 1000000L, req->retries);
+
+			req->retry_time = now_us() + req->falloff_us;
+			req->falloff_us *= 2;
+
+			pthread_mutex_lock(&timer_lock);
+			g_tree_insert(notify_timers, req, req);
+			pthread_cond_signal(&timer_cond);
+			pthread_mutex_unlock(&timer_lock);
+
+			return; // skip cleanup
+		}
+
+		ilog(LOG_ERR, "Failure while sending notification for '%s%s%s' after %u retries. "
+				"Giving up",
+				FMT_M(req->name),
+				req->retries);
+	}
+
+	curl_slist_free_all(req->headers);
 	g_free(req->name);
 	g_free(req->full_filename_path);
 	g_free(req);
