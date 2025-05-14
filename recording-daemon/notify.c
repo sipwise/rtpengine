@@ -32,8 +32,7 @@ static size_t dummy_read(char *ptr, size_t size, size_t nmemb, void *userdata) {
 	return 0;
 }
 
-static void do_notify(void *p, void *u) {
-	struct notif_req *req = p;
+static void do_notify_http(struct notif_req *req) {
 	const char *err = NULL;
 	CURLcode ret;
 
@@ -187,6 +186,13 @@ cleanup:
 #endif
 
 	curl_slist_free_all(req->headers);
+}
+
+static void do_notify(void *p, void *u) {
+	struct notif_req *req = p;
+
+	do_notify_http(req);
+
 	g_free(req->name);
 	g_free(req->full_filename_path);
 	g_free(req);
@@ -198,19 +204,19 @@ static void *notify_timer(void *p) {
 
 	// notify_timers being NULL acts as our shutdown flag
 	while (notify_timers) {
-		ilog(LOG_DEBUG, "HTTP notification timer thread looping");
+		ilog(LOG_DEBUG, "Notification timer thread looping");
 
 		// grab first entry in list, check retry time, sleep if it's in the future
 
 		struct notif_req *first = rtpe_g_tree_first(notify_timers);
 		if (!first) {
-			ilog(LOG_DEBUG, "No scheduled HTTP notification retries, sleeping");
+			ilog(LOG_DEBUG, "No scheduled notification retries, sleeping");
 			pthread_cond_wait(&timer_cond, &timer_lock);
 			continue;
 		}
 		int64_t now = now_us();
 		if (now < first->retry_time) {
-			ilog(LOG_DEBUG, "Sleeping until next scheduled HTTP notification retry in %" PRId64 " seconds",
+			ilog(LOG_DEBUG, "Sleeping until next scheduled notification retry in %" PRId64 " seconds",
 					(first->retry_time - now) / 1000000L);
 			cond_timedwait(&timer_cond, &timer_lock, first->retry_time);
 			continue;
@@ -219,7 +225,7 @@ static void *notify_timer(void *p) {
 		// first entry is ready to run
 
 		g_tree_remove(notify_timers, first);
-		ilog(LOG_DEBUG, "HTTP notification retry for '%s%s%s' is scheduled now", FMT_M(first->name));
+		ilog(LOG_DEBUG, "Notification retry for '%s%s%s' is scheduled now", FMT_M(first->name));
 		g_thread_pool_push(notify_threadpool, first, NULL);
 	}
 
@@ -283,14 +289,7 @@ static void notify_add_header(struct notif_req *req, const char *fmt, ...) {
 	va_end(ap);
 }
 
-void notify_push_output(output_t *o, metafile_t *mf, tag_t *tag) {
-	if (!notify_threadpool)
-		return;
-
-	struct notif_req *req = g_new0(__typeof(*req), 1);
-
-	req->name = g_strdup(o->file_name);
-	req->full_filename_path = g_strdup_printf("%s.%s", o->full_filename, o->file_format);
+static void notify_req_setup_http(struct notif_req *req, output_t *o, metafile_t *mf, tag_t *tag) {
 	double now = (double) now_us() / 1000000.;
 
 	notify_add_header(req, "X-Recording-Call-ID: %s", mf->call_id);
@@ -319,6 +318,19 @@ void notify_push_output(output_t *o, metafile_t *mf, tag_t *tag) {
 		if (tag->metadata)
 			notify_add_header(req, "X-Recording-Tag-Metadata: %s", tag->metadata);
 	}
+
+}
+
+void notify_push_output(output_t *o, metafile_t *mf, tag_t *tag) {
+	if (!notify_threadpool)
+		return;
+
+	struct notif_req *req = g_new0(__typeof(*req), 1);
+
+	req->name = g_strdup(o->file_name);
+	req->full_filename_path = g_strdup_printf("%s.%s", o->full_filename, o->file_format);
+
+	notify_req_setup_http(req, o, mf, tag);
 
 	req->falloff_us = 5000000LL; // initial retry time
 
