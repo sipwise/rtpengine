@@ -47,6 +47,7 @@ extern gboolean notify_post;
 extern gboolean notify_nverify;
 extern int notify_threads;
 extern int notify_retries;
+extern char *notify_command;
 extern gboolean notify_record;
 extern gboolean notify_purge;
 extern gboolean mix_output_per_media;

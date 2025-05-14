@@ -10,6 +10,9 @@ struct notif_req {
 	char *name; // just for logging
 	struct curl_slist *headers; // NULL = nothing to send
 	char *full_filename_path;
+	unsigned long long db_id;
+
+	char **argv;
 
 	int64_t retry_time;
 	unsigned int retries;
@@ -33,6 +36,9 @@ static size_t dummy_read(char *ptr, size_t size, size_t nmemb, void *userdata) {
 }
 
 static bool do_notify_http(struct notif_req *req) {
+	if (!req->headers)
+		return true;
+
 	const char *err = NULL;
 	CURLcode ret;
 	bool success = false;
@@ -92,7 +98,7 @@ static bool do_notify_http(struct notif_req *req) {
 	}
 
 #if CURL_AT_LEAST_VERSION(7,56,0)
-	if (notify_record) {
+	if (notify_record && req->full_filename_path) {
 		err = "initializing curl mime&part";
 		curl_mimepart *part;
 		mime = curl_mime_init(c);
@@ -128,7 +134,7 @@ static bool do_notify_http(struct notif_req *req) {
 
 	ilog(LOG_NOTICE, "HTTP notification for '%s%s%s' was successful", FMT_M(req->name));
 
-	if (notify_record && notify_purge) {
+	if (notify_record && notify_purge && req->full_filename_path) {
 		if (unlink(req->full_filename_path) == 0)
 			ilog(LOG_NOTICE, "File '%s%s%s' deleted successfully.", FMT_M(req->full_filename_path));
 		else
@@ -163,12 +169,37 @@ cleanup:
 	return success;
 }
 
+static bool do_notify_command(struct notif_req *req) {
+	if (!req->argv)
+		return true;
+
+	ilog(LOG_DEBUG, "Executing notification command for '%s%s%s'", FMT_M(req->name));
+
+	GError *err = NULL;
+	bool success = g_spawn_sync(NULL, req->argv, NULL,
+			G_SPAWN_SEARCH_PATH | G_SPAWN_STDOUT_TO_DEV_NULL | G_SPAWN_STDERR_TO_DEV_NULL,
+			NULL, NULL, NULL, NULL, NULL, &err);
+
+	if (success) {
+		g_strfreev(req->argv);
+		req->argv = NULL;
+	}
+	else {
+		ilog(LOG_ERR, "Failed to execute notification command for '%s%s%s': %s",
+			FMT_M(req->name), err->message);
+		g_error_free(err);
+	}
+
+	return success;
+}
+
 static void do_notify(void *p, void *u) {
 	struct notif_req *req = p;
 
 	unsigned int fails = 0;
 
 	fails += do_notify_http(req) == false;
+	fails += do_notify_command(req) == false;
 
 	if (fails) {
 		if (notify_retries >= 0 && req->retries < notify_retries) {
@@ -198,6 +229,7 @@ static void do_notify(void *p, void *u) {
 	}
 
 	curl_slist_free_all(req->headers);
+	g_strfreev(req->argv);
 	g_free(req->name);
 	g_free(req->full_filename_path);
 	g_free(req);
@@ -260,7 +292,7 @@ static int notify_req_cmp(const void *A, const void *B) {
 
 
 void notify_setup(void) {
-	if (!notify_uri || notify_threads <= 0)
+	if ((!notify_uri && !notify_command) || notify_threads <= 0)
 		return;
 
 	notify_threadpool = g_thread_pool_new(do_notify, NULL, notify_threads, false, NULL);
@@ -295,6 +327,9 @@ static void notify_add_header(struct notif_req *req, const char *fmt, ...) {
 }
 
 static void notify_req_setup_http(struct notif_req *req, output_t *o, metafile_t *mf, tag_t *tag) {
+	if (!notify_uri)
+		return;
+
 	double now = (double) now_us() / 1000000.;
 
 	notify_add_header(req, "X-Recording-Call-ID: %s", mf->call_id);
@@ -326,6 +361,17 @@ static void notify_req_setup_http(struct notif_req *req, output_t *o, metafile_t
 
 }
 
+static void notify_req_setup_command(struct notif_req *req, output_t *o, metafile_t *mf, tag_t *tag) {
+	if (!notify_command)
+		return;
+
+	req->argv = g_new(char *, 4);
+	req->argv[0] = g_strdup(notify_command);
+	req->argv[1] = g_strdup(req->full_filename_path ?: "");
+	req->argv[2] = g_strdup_printf("%llu", req->db_id);
+	req->argv[3] = NULL;
+}
+
 void notify_push_output(output_t *o, metafile_t *mf, tag_t *tag) {
 	if (!notify_threadpool)
 		return;
@@ -333,9 +379,12 @@ void notify_push_output(output_t *o, metafile_t *mf, tag_t *tag) {
 	struct notif_req *req = g_new0(__typeof(*req), 1);
 
 	req->name = g_strdup(o->file_name);
-	req->full_filename_path = g_strdup_printf("%s.%s", o->full_filename, o->file_format);
+	if ((output_storage & OUTPUT_STORAGE_FILE))
+		req->full_filename_path = g_strdup_printf("%s.%s", o->full_filename, o->file_format);
+	req->db_id = o->db_id;
 
 	notify_req_setup_http(req, o, mf, tag);
+	notify_req_setup_command(req, o, mf, tag);
 
 	req->falloff_us = 5000000LL; // initial retry time
 

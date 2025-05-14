@@ -333,6 +333,12 @@ sufficient for a standard installation of rtpengine.
 
     Disable TLS peer certificate verification for HTTPS requests.
 
+- __\-\-notify-command=__*PATH*
+
+    External command to launch to send a notification about a new recording.
+    The command will receive two command line arguments: The full path and file
+    name of the recording, and the ID number from the database entry.
+
 - __\-\-notify-concurrency=__*INT*
 
     The maximum number of HTTP requests to perform simultaneously.
