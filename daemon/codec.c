@@ -2702,7 +2702,11 @@ static tc_code packet_dtmf(struct codec_ssrc_handler *ch, struct codec_ssrc_hand
 
 	bool do_blocking = block_dtmf == BLOCK_DTMF_DROP;
 
-	if (packet->payload->len >= sizeof(struct telephone_event_payload)) {
+	if (is_dtmf_replace_mode(block_dtmf) && !handler_silence_block(packet->handler, mp)) {
+		 // don't send transcoded DTMF audio during media blocking");
+		do_blocking = true;
+	}
+	else if (packet->payload->len >= sizeof(struct telephone_event_payload)) {
 		struct telephone_event_payload *dtmf = (void *) packet->payload->s;
 		struct codec_handler *h = input_ch->handler;
 		// fudge up TS and duration values
@@ -2836,7 +2840,11 @@ static int __handler_func_supplemental(struct codec_handler *h, struct media_pac
 }
 static int handler_func_dtmf(struct codec_handler *h, struct media_packet *mp) {
 	// DTMF input - can we do DTMF output?
-	if (h->dtmf_payload_type == -1)
+
+	// handler_func_transcode will return immediately if we're blockinh media, which means
+	// the DTMF event won't be processed for log-dtmf etc. So, if media is being blocked,
+	// let it run through packet_dtmf, which will process it and then drop it
+	if (h->dtmf_payload_type == -1 && handler_silence_block(h, mp))
 		return handler_func_transcode(h, mp);
 
 	return __handler_func_supplemental(h, mp, packet_dtmf, packet_dtmf_dup);
