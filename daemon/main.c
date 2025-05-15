@@ -449,10 +449,10 @@ static void do_transcode_config(const char *name, charp_ht ht, struct transcode_
 			die("Failed to parse transform endpoint '%s' in transcode config '%s'", tfm, name);
 		char *iface = t_hash_table_lookup(ht, "local-interface");
 		if (iface)
-			tc->local_interface = STR(iface);
+			tc->local_interface = str_dup_str(STR_PTR(iface));
 		iface = t_hash_table_lookup(ht, "remote-interface");
 		if (iface)
-			tc->remote_interface = STR(iface);
+			tc->remote_interface = str_dup_str(STR_PTR(iface));
 		return;
 	}
 #ifdef HAVE_CODEC_CHAIN
