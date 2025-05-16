@@ -156,7 +156,7 @@ struct codec_handler *codec_handler_make_dummy(const rtp_payload_type *dst_pt, s
 		str_case_value_ht codec_set);
 void codec_calc_jitter(struct ssrc_entry_call *, unsigned long ts, unsigned int clockrate, int64_t);
 void codec_update_all_handlers(struct call_monologue *ml);
-void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_flags *flags);
+void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_flags *flags, bool clear_delay_buffer);
 
 struct codec_store_args {
 	str_case_value_ht codec_set;
@@ -228,6 +228,9 @@ struct chu_args {
 	const struct stream_params *sp;
 	bool allow_asymmetric;
 	bool reset_transcoding;
+	// when false (default if not passed) the delay buffer is flushed as normal
+	// used by play-media to ensure media packets aren't sent alongside delayed packets
+	bool clear_delay_buffer;
 };
 #define codec_handlers_update(r, s, ...) \
 	__codec_handlers_update(r, s, (struct chu_args) {__VA_ARGS__})
@@ -246,7 +249,7 @@ uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch, struct ssrc_entry_call
 void codec_decoder_skip_pts(struct codec_ssrc_handler *ch, uint64_t);
 uint64_t codec_decoder_unskip_pts(struct codec_ssrc_handler *ch);
 void codec_tracker_update(struct codec_store *, struct codec_store *);
-void codec_handlers_stop(codec_handlers_q *, struct call_media *sink);
+void codec_handlers_stop(codec_handlers_q *, struct call_media *sink, bool clear_delay_buffer);
 
 
 void packet_encoded_packetize(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
@@ -282,7 +285,7 @@ INLINE void __codec_handlers_update(struct call_media *receiver, struct call_med
 }
 INLINE void codec_handler_free(struct codec_handler **handler) { }
 INLINE void codec_tracker_update(struct codec_store *cs, struct codec_store *ocs) { }
-INLINE void codec_handlers_stop(codec_handlers_q *q, struct call_media *sink) { }
+INLINE void codec_handlers_stop(codec_handlers_q *q, struct call_media *sink, bool clear_delay_buffer) { }
 INLINE void ensure_codec_def(rtp_payload_type *pt, struct call_media *media) { }
 
 #endif
