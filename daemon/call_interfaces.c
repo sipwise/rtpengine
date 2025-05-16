@@ -1445,6 +1445,7 @@ void call_ng_flags_init(sdp_ng_flags *out, enum ng_opmode opmode) {
 	out->el_option = rtpe_config.endpoint_learning;
 	out->tos = 256;
 	out->delay_buffer = -1;
+	out->flush_delay_buffer = true;
 	out->delete_delay = -1;
 	out->volume = 9999;
 	out->digit = -1;
@@ -3864,6 +3865,9 @@ const char *call_play_media_ng(ng_command_ctx_t *ctx) {
 	err = play_media_select_party(&call, &monologues, ctx, &flags);
 	if (err)
 		return err;
+
+	// make sure any delay buffer packets are discarded so they don't get sent alongside the media packets
+	flags.flush_delay_buffer = false;
 
 	for (__auto_type l = monologues.head; l; l = l->next) {
 		struct call_monologue *monologue = l->data;

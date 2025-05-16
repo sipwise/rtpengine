@@ -167,6 +167,7 @@ struct sdp_ng_flags {
 	long long duration;
 	long long pause;
 	long long start_pos;
+	bool flush_delay_buffer;
 	str vsc_start_rec;
 	str vsc_stop_rec;
 	str vsc_start_stop_rec;

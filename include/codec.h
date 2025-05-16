@@ -106,6 +106,7 @@ struct codec_scheduler {
 	int64_t first_send;
 	unsigned long first_send_ts;
 	long output_skew;
+	bool is_media_playback; // used to track media playback so we can skip skew calculation
 };
 
 struct transcode_config {
@@ -245,7 +246,7 @@ uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch, struct ssrc_entry_call
 void codec_decoder_skip_pts(struct codec_ssrc_handler *ch, uint64_t);
 uint64_t codec_decoder_unskip_pts(struct codec_ssrc_handler *ch);
 void codec_tracker_update(struct codec_store *, struct codec_store *);
-void codec_handlers_stop(codec_handlers_q *, struct call_media *sink);
+void codec_handlers_stop(codec_handlers_q *, struct call_media *sink, bool flush_delay_buffer);
 
 
 void packet_encoded_packetize(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,

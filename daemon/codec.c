@@ -937,6 +937,10 @@ struct codec_handler *codec_handler_make_media_player(const rtp_payload_type *sr
 	struct codec_handler *h = codec_handler_make_playback(src_pt, dst_pt, last_ts, media, ssrc, codec_set);
 	if (!h)
 		return NULL;
+
+	ilogs(transcoding, LOG_DEBUG, "Disabling clock skew calculation for media playback handler");
+	h->ssrc_handler->csch.is_media_playback = true;
+
 	if (audio_player_is_active(media)) {
 		h->packet_decoded = packet_decoded_audio_player;
 		if (!audio_player_pt_match(media, dst_pt))
@@ -1462,7 +1466,7 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	if (proto_is_not_rtp(receiver->protocol)) {
 		__generator_stop_all(receiver);
 		__generator_stop_all(sink);
-		codec_handlers_stop(&receiver->codec_handlers_store, sink);
+		codec_handlers_stop(&receiver->codec_handlers_store, sink, true);
 		return;
 	}
 
@@ -1478,7 +1482,10 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	// we're doing some kind of media passthrough - shut down local generators
 	__generator_stop(receiver);
 	__generator_stop(sink);
-	codec_handlers_stop(&receiver->codec_handlers_store, sink);
+
+	// flush_delay_buffer is disabled by play-media to ensure media packets don't get scheduled
+	// alongside the delay buffer packets resulting in choppy audio
+	codec_handlers_stop(&receiver->codec_handlers_store, sink, a.flags ? a.flags->flush_delay_buffer : true);
 	// XXX this can cause unnecessary shutdown/resets of codec handlers
 
 	bool is_transcoding = false;
@@ -2485,7 +2492,9 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 
 	ts_diff_us = p->ttq_entry.when - rtpe_now;
 
-	csch->output_skew = csch->output_skew * 15 / 16 + ts_diff_us / 16;
+	if (!csch->is_media_playback)
+		csch->output_skew = csch->output_skew * 15 / 16 + ts_diff_us / 16;
+
 	if (csch->output_skew > 50000 && ts_diff_us > 10000) { // arbitrary value, 50 ms, 10 ms shift
 		ilogs(transcoding, LOG_DEBUG, "Steady clock skew of %li.%01li ms detected, shifting send timer back by 10 ms",
 			csch->output_skew / 1000,
@@ -2697,7 +2706,11 @@ static tc_code packet_dtmf(struct codec_ssrc_handler *ch, struct codec_ssrc_hand
 
 	bool do_blocking = block_dtmf == BLOCK_DTMF_DROP;
 
-	if (packet->payload->len >= sizeof(struct telephone_event_payload)) {
+	if (is_dtmf_replace_mode(block_dtmf) && !handler_silence_block(packet->handler, mp)) {
+		 // don't send transcoded DTMF audio during media blocking");
+		do_blocking = true;
+	}
+	else if (packet->payload->len >= sizeof(struct telephone_event_payload)) {
 		struct telephone_event_payload *dtmf = (void *) packet->payload->s;
 		struct codec_handler *h = input_ch->handler;
 		// fudge up TS and duration values
@@ -2831,7 +2844,11 @@ static int __handler_func_supplemental(struct codec_handler *h, struct media_pac
 }
 static int handler_func_dtmf(struct codec_handler *h, struct media_packet *mp) {
 	// DTMF input - can we do DTMF output?
-	if (h->dtmf_payload_type == -1)
+
+	// handler_func_transcode will return immediately if we're blockinh media, which means
+	// the DTMF event won't be processed for log-dtmf etc. So, if media is being blocked,
+	// let it run through packet_dtmf, which will process it and then drop it
+	if (h->dtmf_payload_type == -1 && handler_silence_block(h, mp))
 		return handler_func_transcode(h, mp);
 
 	return __handler_func_supplemental(h, mp, packet_dtmf, packet_dtmf_dup);
@@ -4144,7 +4161,7 @@ static void __ssrc_handler_stop(void *p, void *arg) {
 	}
 	codec_cc_stop(ch->chain);
 }
-void codec_handlers_stop(codec_handlers_q *q, struct call_media *sink) {
+void codec_handlers_stop(codec_handlers_q *q, struct call_media *sink, bool flush_delay_buffer) {
 	for (__auto_type l = q->head; l; l = l->next) {
 		struct codec_handler *h = l->data;
 
@@ -4153,7 +4170,7 @@ void codec_handlers_stop(codec_handlers_q *q, struct call_media *sink) {
 
 		if (h->delay_buffer) {
 			mutex_lock(&h->delay_buffer->lock);
-			__delay_buffer_shutdown(h->delay_buffer, true);
+			__delay_buffer_shutdown(h->delay_buffer, flush_delay_buffer);
 			mutex_unlock(&h->delay_buffer->lock);
 
 			delay_buffer_stop(&h->delay_buffer);
