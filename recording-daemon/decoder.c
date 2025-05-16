@@ -23,7 +23,7 @@
 
 int resample_audio;
 
-
+// Remove duplicate struct definition; use the one from types.h
 
 decode_t *decoder_new(const char *payload_str, const char *format, int ptime, output_t *outp) {
 	char *slash = strchr(payload_str, '/');
@@ -114,8 +114,13 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *sp, void *dp)
 	pthread_mutex_lock(&metafile->mix_lock);
 	if (metafile->mix_out) {
 		dbg("adding packet from stream #%lu to mix output", stream->id);
+		// If SSRC changed, force a new slot lookup
+        if (deco->last_ssrc != ssrc->ssrc) {
+            deco->mixer_idx = (unsigned int)-1;
+            deco->last_ssrc = ssrc->ssrc;
+        }
 		if (G_UNLIKELY(deco->mixer_idx == (unsigned int) -1))
-			deco->mixer_idx = mix_get_index(metafile->mix, ssrc);
+			deco->mixer_idx = mix_get_index(metafile->mix, ssrc->ssrc, stream->media_sdp_id, stream->channel_slot);
 		format_t actual_format;
 		if (output_config(metafile->mix_out, &dec->dest_format, &actual_format))
 			goto no_mix_out;
@@ -126,8 +131,10 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *sp, void *dp)
 			pthread_mutex_unlock(&metafile->mix_lock);
 			goto err;
 		}
-		if (mix_add(metafile->mix, dec_frame, deco->mixer_idx, ssrc, metafile->mix_out))
+		if (mix_add(metafile->mix, dec_frame, deco->mixer_idx, ssrc->ssrc, metafile->mix_out)) {
 			ilog(LOG_ERR, "Failed to add decoded packet to mixed output");
+			deco->mixer_idx = (unsigned int)-1; // Force new slot lookup on next frame
+		}
 	}
 no_mix_out:
 	pthread_mutex_unlock(&metafile->mix_lock);

@@ -1,3 +1,5 @@
 .*.sw?
 *.strhash.c
 docs/_*
+config.mk
+/.idea
