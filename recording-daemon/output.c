@@ -354,6 +354,22 @@ got_fn:
 	if (!output->fp)
 		goto err;
 
+	if (output_buffer > 0) {
+		err = "failed to alloc I/O buffer";
+		output->iobuf = g_malloc(output_buffer);
+		if (!output->iobuf)
+			goto err;
+
+		err = "failed to set I/O buffer";
+		if (setvbuf(output->fp, output->iobuf, _IOFBF, output_buffer))
+			goto err;
+	}
+	else {
+		err = "failed to set unuffered I/O";
+		if (setvbuf(output->fp, NULL, _IONBF, 0))
+			goto err;
+	}
+
 	err = "failed to alloc avio buffer";
 	void *avio_buf = av_malloc(DEFAULT_AVIO_BUFSIZE);
 	if (!avio_buf)
@@ -465,6 +481,7 @@ void output_close(metafile_t *mf, output_t *output, tag_t *tag, bool discard) {
 	g_clear_pointer(&output->file_path, g_free);
 	g_clear_pointer(&output->file_name, g_free);
 	g_clear_pointer(&output->filename, g_free);
+	g_clear_pointer(&output->iobuf, g_free);
 	g_free(output);
 }
 

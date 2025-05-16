@@ -175,6 +175,7 @@ struct output_s {
 	int64_t start_time_us;
 
 	FILE *fp;
+	char *iobuf;
 	AVIOContext *avioctx;
 	AVFormatContext *fmtctx;
 	AVStream *avst;

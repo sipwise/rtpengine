@@ -293,6 +293,11 @@ sufficient for a standard installation of rtpengine.
     are supported. If the value is blank or given as __-1__ then the user/group is
     left unchanged.
 
+- __\-\-output-buffer=__*INT*
+
+    Set the size of the I/O buffer used for writing files. The default is 2^18
+    bytes (256 kB). Can be set to zero to effect unbuffered I/O.
+
 - __\-\-mysql-host=__*HOST*\|*IP*
 - __\-\-mysql-port=__*INT*
 - __\-\-mysql-user=__*USERNAME*

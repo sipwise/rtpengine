@@ -49,6 +49,7 @@ mode_t output_chmod_dir;
 uid_t output_chown = -1;
 gid_t output_chgrp = -1;
 char *output_pattern = NULL;
+int output_buffer = 1<<18;
 gboolean decoding_enabled;
 char *c_mysql_host,
       *c_mysql_user,
@@ -213,6 +214,7 @@ static void options(int *argc, char ***argv) {
 		{ "output-chmod-dir",	0,   0, G_OPTION_ARG_STRING,	&chmod_dir_mode,"Directory mode for recordings",	"OCTAL"		},
 		{ "output-chown",	0,   0, G_OPTION_ARG_STRING,	&user_uid,	"File owner for recordings",		"USER|UID"	},
 		{ "output-chgrp",	0,   0, G_OPTION_ARG_STRING,	&group_gid,	"File group for recordings",		"GROUP|GID"	},
+		{ "output-buffer",	0,   0, G_OPTION_ARG_INT,	&output_buffer,	"I/O buffer size for writing files",	"INT"		},
 		{ "mysql-host",		0,   0,	G_OPTION_ARG_STRING,	&c_mysql_host,	"MySQL host for storage of call metadata","HOST|IP"	},
 		{ "mysql-port",		0,   0,	G_OPTION_ARG_INT,	&c_mysql_port,	"MySQL port"				,"INT"		},
 		{ "mysql-user",		0,   0,	G_OPTION_ARG_STRING,	&c_mysql_user,	"MySQL connection credentials",		"USERNAME"	},
@@ -339,6 +341,9 @@ static void options(int *argc, char ***argv) {
 		die("Invalid output pattern '%s' (no '%%c' format present)", output_pattern);
 	if (!strstr(output_pattern, "%t"))
 		die("Invalid output pattern '%s' (no '%%t' format present)", output_pattern);
+
+	if (output_buffer < 0)
+		die("Invalid negative output-buffer value");
 }
 
 static void options_free(void) {
