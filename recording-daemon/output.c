@@ -14,6 +14,8 @@
 #include "notify.h"
 
 
+#define DEFAULT_AVIO_BUFSIZE 4096
+
 //static int output_codec_id;
 static codec_def_t *output_codec;
 static const char *output_file_format;
@@ -253,6 +255,20 @@ output_t *output_new_ext(metafile_t *mf, const char *type, const char *kind, con
 	return ret;
 }
 
+int output_avio_write(void *opaque, const uint8_t *buf, int buf_size) {
+	output_t *o = opaque;
+	ssize_t written = fwrite(buf, buf_size, 1, o->fp);
+	if (written == 1)
+		return buf_size;
+	return AVERROR(errno);
+}
+
+int64_t output_avio_seek(void *opaque, int64_t offset, int whence) {
+	output_t *o = opaque;
+	fseek(o->fp, offset, whence);
+	return ftell(o->fp);
+}
+
 int output_config(output_t *output, const format_t *requested_format, format_t *actual_format) {
 	const char *err;
 	int av_ret = 0;
@@ -332,10 +348,27 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 
 got_fn:
 	output->filename = full_fn;
-	err = "failed to open avio";
-	av_ret = avio_open(&output->fmtctx->pb, full_fn, AVIO_FLAG_WRITE);
-	if (av_ret < 0)
+
+	err = "failed to open output file";
+	output->fp = fopen(full_fn, "wb");
+	if (!output->fp)
 		goto err;
+
+	err = "failed to alloc avio buffer";
+	void *avio_buf = av_malloc(DEFAULT_AVIO_BUFSIZE);
+	if (!avio_buf)
+		goto err;
+
+	output->avioctx = avio_alloc_context(avio_buf, DEFAULT_AVIO_BUFSIZE, 1, output,
+			NULL, output_avio_write, output_avio_seek);
+	err = "failed to alloc AVIOContext";
+	if (!output->avioctx) {
+		av_freep(&avio_buf);
+		goto err;
+	}
+
+	output->fmtctx->pb = output->avioctx;
+
 	err = "failed to write header";
 	av_ret = avformat_write_header(output->fmtctx, NULL);
 	if (av_ret)
@@ -380,10 +413,18 @@ static bool output_shutdown(output_t *output) {
 	ilog(LOG_INFO, "Closing output media file '%s'", output->filename);
 
 	bool ret = false;
-	if (output->fmtctx->pb) {
+	if (output->fmtctx->pb)
 		av_write_trailer(output->fmtctx);
-		avio_closep(&output->fmtctx->pb);
-		ret = true;
+	if (output->fp) {
+		if (ftell(output->fp))
+			ret = true;
+		fclose(output->fp);
+		output->fp = NULL;
+	}
+	if (output->avioctx) {
+		if (output->avioctx->buffer)
+			av_freep(&output->avioctx->buffer);
+		av_freep(&output->avioctx);
 	}
 	avformat_free_context(output->fmtctx);
 

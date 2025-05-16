@@ -174,6 +174,8 @@ struct output_s {
 	unsigned int channel_mult;
 	int64_t start_time_us;
 
+	FILE *fp;
+	AVIOContext *avioctx;
 	AVFormatContext *fmtctx;
 	AVStream *avst;
 	encoder_t *encoder;
