@@ -1466,7 +1466,7 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	if (proto_is_not_rtp(receiver->protocol)) {
 		__generator_stop_all(receiver);
 		__generator_stop_all(sink);
-		codec_handlers_stop(&receiver->codec_handlers_store, sink);
+		codec_handlers_stop(&receiver->codec_handlers_store, sink, a.clear_delay_buffer);
 		return;
 	}
 
@@ -1482,7 +1482,10 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	// we're doing some kind of media passthrough - shut down local generators
 	__generator_stop(receiver);
 	__generator_stop(sink);
-	codec_handlers_stop(&receiver->codec_handlers_store, sink);
+
+	// clear_delay_buffer is enabled by play-media to ensure media packets don't get scheduled
+	// alongside the delay buffer packets resulting in choppy audio
+	codec_handlers_stop(&receiver->codec_handlers_store, sink, a.clear_delay_buffer);
 	// XXX this can cause unnecessary shutdown/resets of codec handlers
 
 	bool is_transcoding = false;
@@ -4158,7 +4161,7 @@ static void __ssrc_handler_stop(void *p, void *arg) {
 	}
 	codec_cc_stop(ch->chain);
 }
-void codec_handlers_stop(codec_handlers_q *q, struct call_media *sink) {
+void codec_handlers_stop(codec_handlers_q *q, struct call_media *sink, bool clear_delay_buffer) {
 	for (__auto_type l = q->head; l; l = l->next) {
 		struct codec_handler *h = l->data;
 
@@ -4167,7 +4170,7 @@ void codec_handlers_stop(codec_handlers_q *q, struct call_media *sink) {
 
 		if (h->delay_buffer) {
 			mutex_lock(&h->delay_buffer->lock);
-			__delay_buffer_shutdown(h->delay_buffer, true);
+			__delay_buffer_shutdown(h->delay_buffer, !clear_delay_buffer);
 			mutex_unlock(&h->delay_buffer->lock);
 
 			delay_buffer_stop(&h->delay_buffer);
@@ -4877,7 +4880,7 @@ void codec_update_all_handlers(struct call_monologue *ml) {
 
 	dialogue_unconfirm(ml, "updating codec handlers");
 }
-void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_flags *flags) {
+void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_flags *flags, bool clear_delay_buffer) {
 
 	for (int i = 0; i < ml->medias->len; i++)
 	{
@@ -4893,7 +4896,7 @@ void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_fl
 			if (!source_media)
 				continue;
 
-			codec_handlers_update(source_media, sink_media, .flags = flags);
+			codec_handlers_update(source_media, sink_media, .flags = flags, .clear_delay_buffer = clear_delay_buffer);
 		}
 	}
 
