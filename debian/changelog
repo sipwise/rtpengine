@@ -1,3 +1,11 @@
+ngcp-rtpengine (12.5.1.34+0~mr12.5.1.34) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [df7633a] MT#55283 fix regression from d3b944199
+  * [365cd56] MT#55283 add stats reporting test
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 20 May 2025 17:17:46 +0200
+
 ngcp-rtpengine (12.5.1.33+0~mr12.5.1.33) unstable; urgency=medium
 
   [ Richard Fuchs ]
