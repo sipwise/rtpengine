@@ -176,6 +176,8 @@ struct output_s {
 
 	FILE *fp;
 	char *iobuf;
+	GString *membuf;
+	size_t mempos;
 	AVIOContext *avioctx;
 	AVFormatContext *fmtctx;
 	AVStream *avst;

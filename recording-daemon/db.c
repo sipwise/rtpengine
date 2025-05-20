@@ -370,7 +370,7 @@ void db_close_call(metafile_t *mf) {
 	}
 }
 
-void db_close_stream(output_t *op, FILE *fp) {
+void db_close_stream(output_t *op, FILE *fp, GString *gs) {
 	if (check_conn() || op->db_id == 0) {
 		if (fp)
 			fclose(fp);
@@ -383,40 +383,48 @@ void db_close_stream(output_t *op, FILE *fp) {
 	MYSQL_BIND b[3];
 
 	if ((output_storage & OUTPUT_STORAGE_DB)) {
-		FILE *f = fp;
-		if (!f)
-			f = fopen(op->filename, "rb");
-		if (!f) {
-			ilog(LOG_ERR, "Failed to open file: %s%s%s", FMT_M(op->filename));
-			if ((output_storage & OUTPUT_STORAGE_FILE))
-				goto file;
-			return;
+		if (gs) {
+			if (fp)
+				fclose(fp);
+			stream.len = gs->len;
+			stream.s = g_string_free(gs, FALSE);
 		}
-		fseek(f, 0, SEEK_END);
-		long pos = ftell(f);
-		if (pos < 0) {
-			ilog(LOG_ERR, "Failed to get file position: %s", strerror(errno));
-			fclose(f);
-			if ((output_storage & OUTPUT_STORAGE_FILE))
-				goto file;
-			return;
-		}
-		stream.len = pos;
-		fseek(f, 0, SEEK_SET);
-		stream.s = malloc(stream.len);
-		if (stream.s) {
-			size_t count = fread(stream.s, 1, stream.len, f);
-			if (count != stream.len) {
-				stream.len = 0;
-				ilog(LOG_ERR, "Failed to read from stream");
+		else {
+			FILE *f = fp;
+			if (!f)
+				f = fopen(op->filename, "rb");
+			if (!f) {
+				ilog(LOG_ERR, "Failed to open file: %s%s%s", FMT_M(op->filename));
+				if ((output_storage & OUTPUT_STORAGE_FILE))
+					goto file;
+				return;
+			}
+			fseek(f, 0, SEEK_END);
+			long pos = ftell(f);
+			if (pos < 0) {
+				ilog(LOG_ERR, "Failed to get file position: %s", strerror(errno));
 				fclose(f);
 				if ((output_storage & OUTPUT_STORAGE_FILE))
 					goto file;
-				free(stream.s);
 				return;
 			}
+			stream.len = pos;
+			fseek(f, 0, SEEK_SET);
+			stream.s = g_malloc(stream.len);
+			if (stream.s) {
+				size_t count = fread(stream.s, 1, stream.len, f);
+				if (count != stream.len) {
+					stream.len = 0;
+					ilog(LOG_ERR, "Failed to read from stream");
+					fclose(f);
+					if ((output_storage & OUTPUT_STORAGE_FILE))
+						goto file;
+					g_free(stream.s);
+					return;
+				}
+			}
+			fclose(f);
 		}
-		fclose(f);
         }
 	else if (fp)
 		fclose(fp);
@@ -430,9 +438,8 @@ file:;
 
 	execute_wrap(&stm_close_stream, b, NULL);
 
-        if (stream.s)
-		free(stream.s);
-	if (!(output_storage & OUTPUT_STORAGE_FILE))
+	g_free(stream.s);
+	if (op->filename && !(output_storage & OUTPUT_STORAGE_FILE))
 		if (unlink(op->filename))
 			ilog(LOG_ERR, "Failed to delete file '%s': %s", op->filename, strerror(errno));
 }

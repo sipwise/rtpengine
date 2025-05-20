@@ -11,6 +11,7 @@ enum output_storage_enum {
 	OUTPUT_STORAGE_FILE = 0x1,
 	OUTPUT_STORAGE_DB = 0x2,
 	OUTPUT_STORAGE_BOTH = 0x3,
+	OUTPUT_STORAGE_DB_MEMORY = 0x4,
 };
 enum mix_method {
 	MM_DIRECT = 0,

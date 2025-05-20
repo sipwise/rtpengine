@@ -138,12 +138,15 @@ sufficient for a standard installation of rtpengine.
     Points to the shared object file (__.so__) containing the reference
     implementation for the EVS codec. See the `README` for more details.
 
-- __\-\-output-storage=file__\|__db__\|__both__
+- __\-\-output-storage=file__\|__db__\|__db-mem__\|__both__
 
     Where to store media files. By default, media files are written directly to the
     file system (see __output-dir__). They can also be stored as a __BLOB__ in a
     MySQL database, either instead of, or in addition to, being written to the file
-    system.
+    system. Database storage can either be facilitated using temporary files
+    (__db__) which are then read back and deleted, or without temporary files
+    (__db-mem__) by spooling the audio data in memory until the recording is
+    complete.
 
 - __\-\-output-dir=__*PATH*
 

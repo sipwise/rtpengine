@@ -24,7 +24,7 @@ int mp3_bitrate;
 
 
 
-static bool output_shutdown(output_t *output, FILE **);
+static bool output_shutdown(output_t *output, FILE **, GString **);
 
 
 
@@ -269,6 +269,24 @@ int64_t output_avio_seek(void *opaque, int64_t offset, int whence) {
 	return ftell(o->fp);
 }
 
+int output_avio_mem_write(void *opaque, const uint8_t *buf, int buf_size) {
+	output_t *o = opaque;
+	g_string_overwrite_len(o->membuf, o->mempos, (const char *) buf, buf_size);
+	o->mempos += buf_size;
+	return buf_size;
+}
+
+int64_t output_avio_mem_seek(void *opaque, int64_t offset, int whence) {
+	output_t *o = opaque;
+	if (whence == SEEK_SET)
+		o->mempos = offset;
+	else if (whence == SEEK_CUR)
+		o->mempos += offset;
+	else if (whence == SEEK_END)
+		o->mempos = o->membuf->len + offset;
+	return o->mempos;
+}
+
 int output_config(output_t *output, const format_t *requested_format, format_t *actual_format) {
 	const char *err;
 	int av_ret = 0;
@@ -284,7 +302,7 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 	if (G_LIKELY(format_eq(&req_fmt, &output->requested_format)))
 		goto done;
 
-	output_shutdown(output, NULL);
+	output_shutdown(output, NULL, NULL);
 
 	err = "failed to alloc format context";
 	output->fmtctx = avformat_alloc_context();
@@ -328,6 +346,10 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 #endif
 
 	char *full_fn = NULL;
+
+	if ((output_storage & OUTPUT_STORAGE_DB_MEMORY))
+		goto no_output_file;
+
 	char suff[16] = "";
 	for (int i = 1; i < 20; i++) {
 		if (!output->skip_filename_extension) {
@@ -350,9 +372,11 @@ got_fn:
 	output->filename = full_fn;
 
 	err = "failed to open output file";
-	output->fp = fopen(full_fn, (output_storage & OUTPUT_STORAGE_DB) ? "wb+" : "wb");
-	if (!output->fp)
-		goto err;
+	if (!(output_storage & OUTPUT_STORAGE_DB_MEMORY)) {
+		output->fp = fopen(full_fn, (output_storage & OUTPUT_STORAGE_DB) ? "wb+" : "wb");
+		if (!output->fp)
+			goto err;
+	}
 
 	if (output_buffer > 0) {
 		err = "failed to alloc I/O buffer";
@@ -370,13 +394,20 @@ got_fn:
 			goto err;
 	}
 
+no_output_file:
 	err = "failed to alloc avio buffer";
 	void *avio_buf = av_malloc(DEFAULT_AVIO_BUFSIZE);
 	if (!avio_buf)
 		goto err;
 
-	output->avioctx = avio_alloc_context(avio_buf, DEFAULT_AVIO_BUFSIZE, 1, output,
-			NULL, output_avio_write, output_avio_seek);
+	if (!(output_storage & OUTPUT_STORAGE_DB_MEMORY))
+		output->avioctx = avio_alloc_context(avio_buf, DEFAULT_AVIO_BUFSIZE, 1, output,
+				NULL, output_avio_write, output_avio_seek);
+	else {
+		output->membuf = g_string_new("");
+		output->avioctx = avio_alloc_context(avio_buf, DEFAULT_AVIO_BUFSIZE, 1, output,
+				NULL, output_avio_mem_write, output_avio_mem_seek);
+	}
 	err = "failed to alloc AVIOContext";
 	if (!output->avioctx) {
 		av_freep(&avio_buf);
@@ -390,12 +421,12 @@ got_fn:
 	if (av_ret)
 		goto err;
 
-	if (output_chmod)
+	if (output_chmod && output->filename)
 		if (chmod(output->filename, output_chmod))
 			ilog(LOG_WARN, "Failed to change file mode of '%s%s%s': %s",
 					FMT_M(output->filename), strerror(errno));
 
-	if (output_chown != -1 || output_chgrp != -1)
+	if ((output_chown != -1 || output_chgrp != -1) && output->filename)
 		if (chown(output->filename, output_chown, output_chgrp))
 			ilog(LOG_WARN, "Failed to change file owner/group of '%s%s%s': %s",
 					FMT_M(output->filename), strerror(errno));
@@ -405,14 +436,14 @@ got_fn:
 	}
 
 	db_config_stream(output);
-	ilog(LOG_INFO, "Opened output media file '%s' for writing", full_fn);
+	ilog(LOG_INFO, "Opened output media file '%s' for writing", full_fn ?: "(mem stream)");
 done:
 	if (actual_format)
 		*actual_format = output->actual_format;
 	return 0;
 
 err:
-	output_shutdown(output, NULL);
+	output_shutdown(output, NULL, NULL);
 	ilog(LOG_ERR, "Error configuring media output: %s", err);
 	if (av_ret)
 		ilog(LOG_ERR, "Error returned from libav: %s", av_error(av_ret));
@@ -420,13 +451,13 @@ err:
 }
 
 
-static bool output_shutdown(output_t *output, FILE **fp) {
+static bool output_shutdown(output_t *output, FILE **fp, GString **gs) {
 	if (!output)
 		return false;
 	if (!output->fmtctx)
 		return false;
 
-	ilog(LOG_INFO, "Closing output media file '%s'", output->filename);
+	ilog(LOG_INFO, "Closing output media file '%s'", output->filename ?: "(mem stream)");
 
 	bool ret = false;
 	if (output->fmtctx->pb)
@@ -442,6 +473,15 @@ static bool output_shutdown(output_t *output, FILE **fp) {
 		if (output->fp)
 			fclose(output->fp);
 		output->fp = NULL;
+	}
+	else if (output->membuf) {
+		if (output->membuf->len) {
+			if (gs) {
+				*gs = output->membuf;
+				output->membuf = NULL;
+			}
+			ret = true;
+		}
 	}
 	if (output->avioctx) {
 		if (output->avioctx->buffer)
@@ -468,16 +508,20 @@ void output_close(metafile_t *mf, output_t *output, tag_t *tag, bool discard) {
 	if (!output)
 		return;
 	if (!discard) {
+		GString *membuf = NULL;
 		FILE *fp = NULL;
-		if (output_shutdown(output, &fp)) {
-			db_close_stream(output, fp);
+		if (output_shutdown(output, &fp, &membuf)) {
+			db_close_stream(output, fp, membuf);
 			notify_push_output(output, mf, tag);
 		}
-		else
+		else {
 			db_delete_stream(mf, output);
+			if (membuf)
+				g_string_free(membuf, TRUE);
+		}
 	}
 	else {
-		output_shutdown(output, NULL);
+		output_shutdown(output, NULL, NULL);
 		if (output->filename && unlink(output->filename))
 			ilog(LOG_WARN, "Failed to unlink '%s%s%s': %s",
 					FMT_M(output->filename), strerror(errno));
@@ -489,6 +533,8 @@ void output_close(metafile_t *mf, output_t *output, tag_t *tag, bool discard) {
 	g_clear_pointer(&output->file_name, g_free);
 	g_clear_pointer(&output->filename, g_free);
 	g_clear_pointer(&output->iobuf, g_free);
+	if (output->membuf)
+		g_string_free(output->membuf, TRUE);
 	g_free(output);
 }
 

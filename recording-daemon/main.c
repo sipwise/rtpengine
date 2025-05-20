@@ -285,6 +285,8 @@ static void options(int *argc, char ***argv) {
 		output_storage = OUTPUT_STORAGE_FILE;
 	else if (!strcmp(os_str, "db"))
 		output_storage = OUTPUT_STORAGE_DB;
+	else if (!strcmp(os_str, "db-mem"))
+		output_storage = OUTPUT_STORAGE_DB | OUTPUT_STORAGE_DB_MEMORY;
 	else if (!strcmp(os_str, "both"))
 		output_storage = OUTPUT_STORAGE_BOTH;
 	else
