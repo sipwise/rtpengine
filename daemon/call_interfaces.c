@@ -3018,6 +3018,9 @@ static void ng_stats_ssrc_1(const ng_parser_t *parser, parser_arg ent, struct ss
 	parser->dict_add_int(ent, "last RTP timestamp", atomic_get_na(&se->stats->timestamp));
 	parser->dict_add_int(ent, "last RTP seq", atomic_get_na(&se->stats->ext_seq));
 
+	if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
+		return;
+
 	parser->dict_add_int(ent, "cumulative loss", se->packets_lost);
 
 	int mos_samples = se->stats_blocks.length - se->no_mos_count;
@@ -3055,8 +3058,6 @@ static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, parser_arg
 		struct ssrc_entry_call *se = l->data;
 		char tmp[12];
 		snprintf(tmp, sizeof(tmp), "%" PRIu32, se->h.ssrc);
-		if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
-			continue;
 
 		parser_arg ent = parser->list_add_dict(list);
 
