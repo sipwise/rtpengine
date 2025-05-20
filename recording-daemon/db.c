@@ -370,11 +370,12 @@ void db_close_call(metafile_t *mf) {
 	}
 }
 
-void db_close_stream(output_t *op) {
-	if (check_conn())
+void db_close_stream(output_t *op, FILE *fp) {
+	if (check_conn() || op->db_id == 0) {
+		if (fp)
+			fclose(fp);
 		return;
-	if (op->db_id == 0)
-		return;
+	}
 
 	int64_t now = now_us();
 
@@ -382,7 +383,9 @@ void db_close_stream(output_t *op) {
 	MYSQL_BIND b[3];
 
 	if ((output_storage & OUTPUT_STORAGE_DB)) {
-		FILE *f = fopen(op->filename, "rb");
+		FILE *f = fp;
+		if (!f)
+			f = fopen(op->filename, "rb");
 		if (!f) {
 			ilog(LOG_ERR, "Failed to open file: %s%s%s", FMT_M(op->filename));
 			if ((output_storage & OUTPUT_STORAGE_FILE))
@@ -415,6 +418,8 @@ void db_close_stream(output_t *op) {
 		}
 		fclose(f);
         }
+	else if (fp)
+		fclose(fp);
 
 file:;
 	int par_idx = 0;

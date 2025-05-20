@@ -24,7 +24,7 @@ int mp3_bitrate;
 
 
 
-static bool output_shutdown(output_t *output);
+static bool output_shutdown(output_t *output, FILE **);
 
 
 
@@ -284,7 +284,7 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 	if (G_LIKELY(format_eq(&req_fmt, &output->requested_format)))
 		goto done;
 
-	output_shutdown(output);
+	output_shutdown(output, NULL);
 
 	err = "failed to alloc format context";
 	output->fmtctx = avformat_alloc_context();
@@ -350,7 +350,7 @@ got_fn:
 	output->filename = full_fn;
 
 	err = "failed to open output file";
-	output->fp = fopen(full_fn, "wb");
+	output->fp = fopen(full_fn, (output_storage & OUTPUT_STORAGE_DB) ? "wb+" : "wb");
 	if (!output->fp)
 		goto err;
 
@@ -412,7 +412,7 @@ done:
 	return 0;
 
 err:
-	output_shutdown(output);
+	output_shutdown(output, NULL);
 	ilog(LOG_ERR, "Error configuring media output: %s", err);
 	if (av_ret)
 		ilog(LOG_ERR, "Error returned from libav: %s", av_error(av_ret));
@@ -420,7 +420,7 @@ err:
 }
 
 
-static bool output_shutdown(output_t *output) {
+static bool output_shutdown(output_t *output, FILE **fp) {
 	if (!output)
 		return false;
 	if (!output->fmtctx)
@@ -432,9 +432,15 @@ static bool output_shutdown(output_t *output) {
 	if (output->fmtctx->pb)
 		av_write_trailer(output->fmtctx);
 	if (output->fp) {
-		if (ftell(output->fp))
+		if (ftell(output->fp)) {
 			ret = true;
-		fclose(output->fp);
+			if (fp && (output_storage & OUTPUT_STORAGE_DB)) {
+				*fp = output->fp;
+				output->fp = NULL;
+			}
+		}
+		if (output->fp)
+			fclose(output->fp);
 		output->fp = NULL;
 	}
 	if (output->avioctx) {
@@ -462,15 +468,16 @@ void output_close(metafile_t *mf, output_t *output, tag_t *tag, bool discard) {
 	if (!output)
 		return;
 	if (!discard) {
-		if (output_shutdown(output)) {
-			db_close_stream(output);
+		FILE *fp = NULL;
+		if (output_shutdown(output, &fp)) {
+			db_close_stream(output, fp);
 			notify_push_output(output, mf, tag);
 		}
 		else
 			db_delete_stream(mf, output);
 	}
 	else {
-		output_shutdown(output);
+		output_shutdown(output, NULL);
 		if (output->filename && unlink(output->filename))
 			ilog(LOG_WARN, "Failed to unlink '%s%s%s': %s",
 					FMT_M(output->filename), strerror(errno));
