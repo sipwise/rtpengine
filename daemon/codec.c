@@ -2333,13 +2333,12 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 			if (ts_diff == 0 || ts_diff >= 0x80000000)
 				break;
 
-			unsigned long long ts_diff_us =
-				(unsigned long long) ts_diff * 1000000 / h->dest_pt.clock_rate;
+			uint64_t ts_diff_us = ts_diff * 1000000LL / h->dest_pt.clock_rate;
 			if (ts_diff_us >= 60000)  { // arbitrary value
 				packet = packet_sequencer_force_next_packet(seq);
 				if (!packet)
 					break;
-				ilogs(transcoding, LOG_DEBUG, "Timestamp difference too large (%llu ms) after lost packet, "
+				ilogs(transcoding, LOG_DEBUG, "Timestamp difference too large (%" PRIu64 " ms) after lost packet, "
 						"forcing next packet", ts_diff_us / 1000);
 				RTPE_STATS_INC(rtp_skips);
 			}
@@ -3709,7 +3708,7 @@ static bool __dtx_drift_shift(struct dtx_buffer *dtxb, unsigned long ts,
 		struct dtx_packet *dtxp_last = t_queue_peek_tail(&dtxb->packets);
 		ts_diff = dtxp_last->packet ? dtxp_last->packet->ts - ts : 0;
 		int64_t ts_diff_us = ts_diff * 1000000L / dtxb->clockrate;
-		if (ts_diff_us >= (long long) rtpe_config.dtx_lag_us) {
+		if (ts_diff_us >= rtpe_config.dtx_lag_us) {
 			// overflow
 			ilogs(dtx, LOG_DEBUG, "DTX timer queue overflowing (%i packets in queue, "
 					"%" PRId64 " ms delay), speeding up DTX timer by %" PRId64 " ms",
