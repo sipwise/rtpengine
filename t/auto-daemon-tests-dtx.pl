@@ -27,8 +27,384 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 
 
 
-
 if ($amr_tests) {
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.10 5210)], [qw(198.51.100.10 5212)]);
+
+($port_a) = offer('packet loss',
+	{ codec => { transcode => ['L16/16000/1'], } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5210 RTP/AVP 8
+c=IN IP4 198.51.100.10
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 96
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 L16/16000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('packet loss', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5212 RTP/AVP 96
+c=IN IP4 198.51.100.10
+a=rtpmap:96 L16/16000
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# start @ 0 ms
+snd($sock_a, $port_b,  rtp(8, 2000, 4000, 0x5678, "\x20" x 160));
+# consumed by resampler @ 10 ms
+Time::HiRes::usleep(20000);
+# RTP in @ 20 ms
+snd($sock_a, $port_b,  rtp(8,  2000 + 1, 4000 + 160*1, 0x5678, "\x20" x 160));
+# RTP out @ 30 ms
+($seq) = rcv($sock_b, $port_a, rtpm(96, -1, 4000, 0x5678, "\xaa\x00" x 320));
+# RTP in @ 30 ms
+snd($sock_a, $port_b,  rtp(8,  2000 + 2, 4000 + 160*2, 0x5678, "\x20" x 160));
+# RTP out @ 50 ms
+rcv($sock_b, $port_a, rtpm(96, $seq + 1, 4000 + 320*1, 0x5678, "\xaa\x00" x 320));
+# no RTP in @ 50 ms, DTX
+# RTP out w/ some silence @ 70 ms
+rcv($sock_b, $port_a, rtpm(96, $seq + 2, 4000 + 320*2, 0x5678, "\xaa\x00" x 289 . "\xa9\xff\xaa\x00\xaa\x03\xaa\x00\xa9\xf8\xaa\x00\xaa\x11\xaa\x00\xa9\xe1\xaa\x00\xaa\x36\xaa\x00\xa9\xa8\xaa\x00\xaa\x8b\xaa\x00\xa9\x2e\xaa\x00\xab\x36\xaa\x00\xa8\x3d\xaa\x00\xac\x90\xaa\x00\xa6\x31\xaa\x00\xb0\x0f\xaa\x00\x9e\x7a\xaa\x00\xd5\x00"));
+# no RTP in @ 70 ms, DTX
+# silence RTP out @ 90 ms
+rcv($sock_b, $port_a, rtpm(96, $seq + 3, 4000 + 320*3, 0x5678, "\x00\x00\x0b\x86\x00\x00\xf9\xf1\x00\x00\x03\xcf\x00\x00\xfd\x71\x00\x00\x01\xc3\x00\x00\xfe\xca\x00\x00\x00\xd2\x00\x00\xff\x75\x00\x00\x00\x59\x00\x00\xff\xca\x00\x00\x00\x1f\x00\x00\xff\xf0\x00\x00\x00\x08\x00\x00\xff\xfd\x00\x00\x00\x01" . "\x00" x 580));
+# RTP in @ 90 ms
+snd($sock_a, $port_b,  rtp(8,  2000 + 3, 4000 + 160*5, 0x5678, "\x90" x 160));
+# remaining silence RTP out @ 110 ms
+rcv($sock_b, $port_a, rtpm(96, $seq + 4, 4000 + 320*4, 0x5678, "\x00" x 586 . "\xff\xff\x00\x00\x00\x02\x00\x00\xff\xfc\x00\x00\x00\x07\x00\x00\xff\xf5\x00\x00\x00\x11\x00\x00\xff\xe6\x00\x00\x00\x27\x00\x00\xff\xc8\x00\x00\x00\x52\x00\x00\xff\x86\x00\x00\x00\xc2\x00\x00\xfe\x8f\x00\x00\x05\x60"));
+# RTP in @ 110 ms
+snd($sock_a, $port_b,  rtp(8,  2000 + 4, 4000 + 160*6, 0x5678, "\x90" x 160));
+# RTP out @ 130 ms
+rcv($sock_b, $port_a, rtpm(96, $seq + 5, 4000 + 320*5, 0x5678, "\x0a\xc0\x0c\x31\x0a\xc0\x09\xfe\x0a\xc0\x0b\x3a\x0a\xc0\x0a\x6e\x0a\xc0\x0a\xf8\x0a\xc0\x0a\x99\x0a\xc0\x0a\xda\x0a\xc0\x0a\xaf\x0a\xc0\x0a\xcb\x0a\xc0\x0a\xb9\x0a\xc0\x0a\xc4\x0a\xc0\x0a\xbe\x0a\xc0\x0a\xc1" . "\x0a\xc0" x 294));
+# lost RTP in packet @ 130, seq +5
+# RTP out w/ some silence @ 150 ms
+rcv($sock_b, $port_a, rtpm(96, $seq + 6, 4000 + 320*6, 0x5678, "\x0a\xc0" x 293 . "\x0a\xc1\x0a\xc0\x0a\xbe\x0a\xc0\x0a\xc4\x0a\xc0\x0a\xb9\x0a\xc0\x0a\xcb\x0a\xc0\x0a\xaf\x0a\xc0\x0a\xda\x0a\xc0\x0a\x99\x0a\xc0\x0a\xf8\x0a\xc0\x0a\x6e\x0a\xc0\x0b\x3a\x0a\xc0\x09\xfe\x0a\xc0\x0c\x31\x0a\xc0\x05\x60"));
+# resume RTP in @ 150
+snd($sock_a, $port_b,  rtp(8,  2000 + 6, 4000 + 160*8, 0x5678, "\x90" x 160));
+# sequencer waiting for seq +5, silence RTP out @ 170
+rcv($sock_b, $port_a, rtpm(96, $seq + 7, 4000 + 320*7, 0x5678, "\x00\x00\xfe\x8f\x00\x00\x00\xc2\x00\x00\xff\x86\x00\x00\x00\x52\x00\x00\xff\xc8\x00\x00\x00\x27\x00\x00\xff\xe6\x00\x00\x00\x11\x00\x00\xff\xf5\x00\x00\x00\x07\x00\x00\xff\xfc\x00\x00\x00\x02\x00\x00\xff\xff" . "\x00" x 588));
+# RTP in @ 170
+snd($sock_a, $port_b,  rtp(8,  2000 + 7, 4000 + 160*9, 0x5678, "\xe0" x 160));
+# partial silence RTP out @ 190, switching to decoding
+rcv($sock_b, $port_a, rtpm(96, $seq + 8, 4000 + 320*8, 0x5678, "\x00" x 586 . "\xff\xff\x00\x00\x00\x01\x00\x00\xff\xfe\x00\x00\x00\x03\x00\x00\xff\xfa\x00\x00\x00\x09\x00\x00\xff\xf3\x00\x00\x00\x13\x00\x00\xff\xe4\x00\x00\x00\x29\x00\x00\xff\xc3\x00\x00\x00\x61\x00\x00\xff\x48\x00\x00\x02\xb0"));
+# RTP in @ 190
+snd($sock_a, $port_b,  rtp(8,  2000 + 8, 4000 + 160*10, 0x5678, "\xe0" x 160));
+# RTP out @ 210
+rcv($sock_b, $port_a, rtpm(96, $seq + 9, 4000 + 320*9, 0x5678, "\x05\x60\x06\x18\x05\x60\x04\xff\x05\x60\x05\x9d\x05\x60\x05\x37\x05\x60\x05\x7c\x05\x60\x05\x4d\x05\x60\x05\x6d\x05\x60\x05\x57\x05\x60\x05\x66\x05\x60\x05\x5d\x05\x60\x05\x62\x05\x60\x05\x5f" . "\x05\x60" x 296));
+# RTP in @ 210
+snd($sock_a, $port_b,  rtp(8,  2000 + 9, 4000 + 160*11, 0x5678, "\xe0" x 160));
+# RTP out @ 230
+rcv($sock_b, $port_a, rtpm(96, $seq + 10, 4000 + 320*10, 0x5678, "\x05\x60" x 320));
+# RTP in @ 230
+snd($sock_a, $port_b,  rtp(8,  2000 + 10, 4000 + 160*12, 0x5678, "\xe0" x 160));
+# RTP out @ 250
+rcv($sock_b, $port_a, rtpm(96, $seq + 11, 4000 + 320*11, 0x5678, "\x05\x60" x 320));
+# RTP in @ 250
+snd($sock_a, $port_b,  rtp(8,  2000 + 11, 4000 + 160*13, 0x5678, "\xe0" x 160));
+# RTP out @ 270
+rcv($sock_b, $port_a, rtpm(96, $seq + 12, 4000 + 320*12, 0x5678, "\x05\x60" x 320));
+# RTP in @ 270
+snd($sock_a, $port_b,  rtp(8,  2000 + 12, 4000 + 160*14, 0x5678, "\xe0" x 160));
+# RTP out @ 290
+rcv($sock_b, $port_a, rtpm(96, $seq + 13, 4000 + 320*13, 0x5678, "\x05\x60" x 320));
+# RTP in @ 290
+snd($sock_a, $port_b,  rtp(8,  2000 + 13, 4000 + 160*15, 0x5678, "\xe0" x 160));
+# RTP out @ 310
+rcv($sock_b, $port_a, rtpm(96, $seq + 14, 4000 + 320*14, 0x5678, "\x05\x60" x 320));
+# RTP in @ 310
+snd($sock_a, $port_b,  rtp(8,  2000 + 14, 4000 + 160*16, 0x5678, "\xe0" x 160));
+# RTP out @ 330
+rcv($sock_b, $port_a, rtpm(96, $seq + 15, 4000 + 320*15, 0x5678, "\x05\x60" x 320));
+# RTP in @ 330
+snd($sock_a, $port_b,  rtp(8,  2000 + 15, 4000 + 160*17, 0x5678, "\xe0" x 160));
+# RTP out @ 350
+rcv($sock_b, $port_a, rtpm(96, $seq + 16, 4000 + 320*16, 0x5678, "\x05\x60" x 320));
+
+rtpe_req('delete', 'delete');
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.10 5196)], [qw(198.51.100.10 5198)]);
+
+($port_a) = offer('dtx-shift',
+	{ codec => { transcode => ['L16/16000/1'], } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5196 RTP/AVP 8
+c=IN IP4 198.51.100.10
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 96
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 L16/16000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('dtx-shift', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5198 RTP/AVP 96
+c=IN IP4 198.51.100.10
+a=rtpmap:96 L16/16000
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# start @ 0 ms
+snd($sock_a, $port_b,  rtp(8, 2000, 4000, 0x5678, "\x20" x 160));
+# consumed by resampler @ 10 ms
+# no RTP @ 20 ms
+# DTX @ 30 ms
+($seq) = rcv($sock_b, $port_a, rtpm(96, -1, 4000, 0x5678, "\xaa\x00" x 289 . "\xa9\xff\xaa\x00\xaa\x03\xaa\x00\xa9\xf8\xaa\x00\xaa\x11\xaa\x00\xa9\xe1\xaa\x00\xaa\x36\xaa\x00\xa9\xa8\xaa\x00\xaa\x8b\xaa\x00\xa9\x2e\xaa\x00\xab\x36\xaa\x00\xa8\x3d\xaa\x00\xac\x90\xaa\x00\xa6\x31\xaa\x00\xb0\x0f\xaa\x00\x9e\x7a\xaa\x00\xd5\x00"));
+# late RTP @ 30 ms, discarded
+snd($sock_a, $port_b,  rtp(8,  2000 + 1, 4000 + 160*1, 0x5678, "\x20" x 160));
+# DTX @ 50 ms
+rcv($sock_b, $port_a, rtpm(96, $seq + 1, 4000 + 320*1, 0x5678, "\x00\x00\x0b\x86\x00\x00\xf9\xf1\x00\x00\x03\xcf\x00\x00\xfd\x71\x00\x00\x01\xc3\x00\x00\xfe\xca\x00\x00\x00\xd2\x00\x00\xff\x75\x00\x00\x00\x59\x00\x00\xff\xca\x00\x00\x00\x1f\x00\x00\xff\xf0\x00\x00\x00\x08\x00\x00\xff\xfd\x00\x00\x00\x01" . "\x00" x 580));
+# late RTP @ 50 ms, discarded
+snd($sock_a, $port_b,  rtp(8,  2000 + 2, 4000 + 160*2, 0x5678, "\x20" x 160));
+# DTX @ 75 ms
+rcv($sock_b, $port_a, rtpm(96, $seq + 2, 4000 + 320*2, 0x5678, "\x00" x 640));
+# late RTP @ 75 ms, discarded
+snd($sock_a, $port_b,  rtp(8,  2000 + 3, 4000 + 160*3, 0x5678, "\x20" x 160));
+# good RTP @ 75 ms
+snd($sock_a, $port_b,  rtp(8,  2000 + 4, 4000 + 160*4, 0x5678, "\x20" x 160));
+rcv($sock_b, $port_a, rtpm(96, $seq + 3, 4000 + 320*3, 0x5678, "\x00" x 579 . "\x01\x00\x00\xff\xfd\x00\x00\x00\x08\x00\x00\xff\xf0\x00\x00\x00\x1f\x00\x00\xff\xca\x00\x00\x00\x59\x00\x00\xff\x75\x00\x00\x00\xd2\x00\x00\xfe\xca\x00\x00\x01\xc3\x00\x00\xfd\x71\x00\x00\x03\xcf\x00\x00\xf9\xf1\x00\x00\x0b\x86\x00\x00\xd5\x00"));
+snd($sock_a, $port_b,  rtp(8,  2000 + 5, 4000 + 160*5, 0x5678, "\x20" x 160));
+rcv($sock_b, $port_a, rtpm(96, $seq + 4, 4000 + 320*4, 0x5678, "\xaa\x00\x9e\x7a\xaa\x00\xb0\x0f\xaa\x00\xa6\x31\xaa\x00\xac\x90\xaa\x00\xa8\x3d\xaa\x00\xab\x36\xaa\x00\xa9\x2e\xaa\x00\xaa\x8b\xaa\x00\xa9\xa8\xaa\x00\xaa\x36\xaa\x00\xa9\xe1\xaa\x00\xaa\x11\xaa\x00\xa9\xf8\xaa\x00\xaa\x03\xaa\x00\xa9\xff" . "\xaa\x00" x 290));
+
+rtpe_req('delete', 'delete');
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.10 5272)], [qw(198.51.100.10 5274)]);
+
+($port_a) = offer('packet loss w/ high TS',
+	{ codec => { transcode => ['L16/16000/1'], } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5272 RTP/AVP 8
+c=IN IP4 198.51.100.10
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 96
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 L16/16000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('packet loss w/ high TS', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5274 RTP/AVP 96
+c=IN IP4 198.51.100.10
+a=rtpmap:96 L16/16000
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# start @ 0 ms
+snd($sock_a, $port_b,  rtp(8, 2000, 3800000000, 0x5678, "\x20" x 160));
+# consumed by resampler @ 10 ms
+Time::HiRes::usleep(20000);
+# RTP in @ 20 ms
+snd($sock_a, $port_b,  rtp(8,  2000 + 1, 3800000000 + 160*1, 0x5678, "\x20" x 160));
+# RTP out @ 30 ms
+($seq) = rcv($sock_b, $port_a, rtpm(96, -1, 3800000000, 0x5678, "\xaa\x00" x 320));
+# RTP in @ 30 ms
+snd($sock_a, $port_b,  rtp(8,  2000 + 2, 3800000000 + 160*2, 0x5678, "\x20" x 160));
+# RTP out @ 50 ms
+rcv($sock_b, $port_a, rtpm(96, $seq + 1, 3800000000 + 320*1, 0x5678, "\xaa\x00" x 320));
+# no RTP in @ 50 ms, DTX
+# RTP out w/ some silence @ 70 ms
+rcv($sock_b, $port_a, rtpm(96, $seq + 2, 3800000000 + 320*2, 0x5678, "\xaa\x00" x 289 . "\xa9\xff\xaa\x00\xaa\x03\xaa\x00\xa9\xf8\xaa\x00\xaa\x11\xaa\x00\xa9\xe1\xaa\x00\xaa\x36\xaa\x00\xa9\xa8\xaa\x00\xaa\x8b\xaa\x00\xa9\x2e\xaa\x00\xab\x36\xaa\x00\xa8\x3d\xaa\x00\xac\x90\xaa\x00\xa6\x31\xaa\x00\xb0\x0f\xaa\x00\x9e\x7a\xaa\x00\xd5\x00"));
+# no RTP in @ 70 ms, DTX
+# silence RTP out @ 90 ms
+rcv($sock_b, $port_a, rtpm(96, $seq + 3, 3800000000 + 320*3, 0x5678, "\x00\x00\x0b\x86\x00\x00\xf9\xf1\x00\x00\x03\xcf\x00\x00\xfd\x71\x00\x00\x01\xc3\x00\x00\xfe\xca\x00\x00\x00\xd2\x00\x00\xff\x75\x00\x00\x00\x59\x00\x00\xff\xca\x00\x00\x00\x1f\x00\x00\xff\xf0\x00\x00\x00\x08\x00\x00\xff\xfd\x00\x00\x00\x01" . "\x00" x 580));
+# RTP in @ 90 ms
+snd($sock_a, $port_b,  rtp(8,  2000 + 3, 3800000000 + 160*5, 0x5678, "\x90" x 160));
+# remaining silence RTP out @ 110 ms
+rcv($sock_b, $port_a, rtpm(96, $seq + 4, 3800000000 + 320*4, 0x5678, "\x00" x 586 . "\xff\xff\x00\x00\x00\x02\x00\x00\xff\xfc\x00\x00\x00\x07\x00\x00\xff\xf5\x00\x00\x00\x11\x00\x00\xff\xe6\x00\x00\x00\x27\x00\x00\xff\xc8\x00\x00\x00\x52\x00\x00\xff\x86\x00\x00\x00\xc2\x00\x00\xfe\x8f\x00\x00\x05\x60"));
+# RTP in @ 110 ms
+snd($sock_a, $port_b,  rtp(8,  2000 + 4, 3800000000 + 160*6, 0x5678, "\x90" x 160));
+# RTP out @ 130 ms
+rcv($sock_b, $port_a, rtpm(96, $seq + 5, 3800000000 + 320*5, 0x5678, "\x0a\xc0\x0c\x31\x0a\xc0\x09\xfe\x0a\xc0\x0b\x3a\x0a\xc0\x0a\x6e\x0a\xc0\x0a\xf8\x0a\xc0\x0a\x99\x0a\xc0\x0a\xda\x0a\xc0\x0a\xaf\x0a\xc0\x0a\xcb\x0a\xc0\x0a\xb9\x0a\xc0\x0a\xc4\x0a\xc0\x0a\xbe\x0a\xc0\x0a\xc1" . "\x0a\xc0" x 294));
+# lost RTP in packet @ 130, seq +5
+# RTP out w/ some silence @ 150 ms
+rcv($sock_b, $port_a, rtpm(96, $seq + 6, 3800000000 + 320*6, 0x5678, "\x0a\xc0" x 293 . "\x0a\xc1\x0a\xc0\x0a\xbe\x0a\xc0\x0a\xc4\x0a\xc0\x0a\xb9\x0a\xc0\x0a\xcb\x0a\xc0\x0a\xaf\x0a\xc0\x0a\xda\x0a\xc0\x0a\x99\x0a\xc0\x0a\xf8\x0a\xc0\x0a\x6e\x0a\xc0\x0b\x3a\x0a\xc0\x09\xfe\x0a\xc0\x0c\x31\x0a\xc0\x05\x60"));
+# resume RTP in @ 150
+snd($sock_a, $port_b,  rtp(8,  2000 + 6, 3800000000 + 160*8, 0x5678, "\x90" x 160));
+# sequencer waiting for seq +5, silence RTP out @ 170
+rcv($sock_b, $port_a, rtpm(96, $seq + 7, 3800000000 + 320*7, 0x5678, "\x00\x00\xfe\x8f\x00\x00\x00\xc2\x00\x00\xff\x86\x00\x00\x00\x52\x00\x00\xff\xc8\x00\x00\x00\x27\x00\x00\xff\xe6\x00\x00\x00\x11\x00\x00\xff\xf5\x00\x00\x00\x07\x00\x00\xff\xfc\x00\x00\x00\x02\x00\x00\xff\xff" . "\x00" x 588));
+# RTP in @ 170
+snd($sock_a, $port_b,  rtp(8,  2000 + 7, 3800000000 + 160*9, 0x5678, "\xe0" x 160));
+# silence RTP out @ 190, still waiting for seq +5
+rcv($sock_b, $port_a, rtpm(96, $seq + 8, 3800000000 + 320*8, 0x5678, "\x00" x 586 . "\xff\xff\x00\x00\x00\x01\x00\x00\xff\xfe\x00\x00\x00\x03\x00\x00\xff\xfa\x00\x00\x00\x09\x00\x00\xff\xf3\x00\x00\x00\x13\x00\x00\xff\xe4\x00\x00\x00\x29\x00\x00\xff\xc3\x00\x00\x00\x61\x00\x00\xff\x48\x00\x00\x02\xb0"));
+# RTP in @ 190
+snd($sock_a, $port_b,  rtp(8,  2000 + 8, 3800000000 + 160*10, 0x5678, "\xe0" x 160));
+# partial silence RTP out @ 210, switching to decoding
+rcv($sock_b, $port_a, rtpm(96, $seq + 9, 3800000000 + 320*9, 0x5678, "\x05\x60\x06\x18\x05\x60\x04\xff\x05\x60\x05\x9d\x05\x60\x05\x37\x05\x60\x05\x7c\x05\x60\x05\x4d\x05\x60\x05\x6d\x05\x60\x05\x57\x05\x60\x05\x66\x05\x60\x05\x5d\x05\x60\x05\x62\x05\x60\x05\x5f" . "\x05\x60" x 296));
+# RTP in @ 210
+snd($sock_a, $port_b,  rtp(8,  2000 + 9, 3800000000 + 160*11, 0x5678, "\xe0" x 160));
+# RTP out @ 230
+rcv($sock_b, $port_a, rtpm(96, $seq + 10, 3800000000 + 320*10, 0x5678, "\x05\x60" x 320));
+# RTP in @ 230
+snd($sock_a, $port_b,  rtp(8,  2000 + 10, 3800000000 + 160*12, 0x5678, "\xe0" x 160));
+# RTP out @ 250
+rcv($sock_b, $port_a, rtpm(96, $seq + 11, 3800000000 + 320*11, 0x5678, "\x05\x60" x 320));
+# RTP in @ 250
+snd($sock_a, $port_b,  rtp(8,  2000 + 11, 3800000000 + 160*13, 0x5678, "\xe0" x 160));
+# RTP out @ 270
+rcv($sock_b, $port_a, rtpm(96, $seq + 12, 3800000000 + 320*12, 0x5678, "\x05\x60" x 320));
+# RTP in @ 270
+snd($sock_a, $port_b,  rtp(8,  2000 + 12, 3800000000 + 160*14, 0x5678, "\xe0" x 160));
+# RTP out @ 290
+rcv($sock_b, $port_a, rtpm(96, $seq + 13, 3800000000 + 320*13, 0x5678, "\x05\x60" x 320));
+# RTP in @ 290
+snd($sock_a, $port_b,  rtp(8,  2000 + 13, 3800000000 + 160*15, 0x5678, "\xe0" x 160));
+# RTP out @ 310
+rcv($sock_b, $port_a, rtpm(96, $seq + 14, 3800000000 + 320*14, 0x5678, "\x05\x60" x 320));
+# RTP in @ 310
+snd($sock_a, $port_b,  rtp(8,  2000 + 14, 3800000000 + 160*16, 0x5678, "\xe0" x 160));
+# RTP out @ 330
+rcv($sock_b, $port_a, rtpm(96, $seq + 15, 3800000000 + 320*15, 0x5678, "\x05\x60" x 320));
+# RTP in @ 330
+snd($sock_a, $port_b,  rtp(8,  2000 + 15, 3800000000 + 160*17, 0x5678, "\xe0" x 160));
+# RTP out @ 350
+rcv($sock_b, $port_a, rtpm(96, $seq + 16, 3800000000 + 320*16, 0x5678, "\x05\x60" x 320));
+
+rtpe_req('delete', 'delete');
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.10 5258)], [qw(198.51.100.10 5260)]);
+
+($port_a) = offer('dtx-shift w/ high TS',
+	{ codec => { transcode => ['L16/16000/1'], } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5258 RTP/AVP 8
+c=IN IP4 198.51.100.10
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 96
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 L16/16000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('dtx-shift w/ high TS', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5260 RTP/AVP 96
+c=IN IP4 198.51.100.10
+a=rtpmap:96 L16/16000
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# start @ 0 ms
+snd($sock_a, $port_b,  rtp(8, 2000, 3800000000, 0x5678, "\x20" x 160));
+# consumed by resampler @ 10 ms
+# no RTP @ 20 ms
+# DTX @ 30 ms
+($seq) = rcv($sock_b, $port_a, rtpm(96, -1, 3800000000, 0x5678, "\xaa\x00" x 289 . "\xa9\xff\xaa\x00\xaa\x03\xaa\x00\xa9\xf8\xaa\x00\xaa\x11\xaa\x00\xa9\xe1\xaa\x00\xaa\x36\xaa\x00\xa9\xa8\xaa\x00\xaa\x8b\xaa\x00\xa9\x2e\xaa\x00\xab\x36\xaa\x00\xa8\x3d\xaa\x00\xac\x90\xaa\x00\xa6\x31\xaa\x00\xb0\x0f\xaa\x00\x9e\x7a\xaa\x00\xd5\x00"));
+# late RTP @ 30 ms, discarded
+snd($sock_a, $port_b,  rtp(8,  2000 + 1, 3800000000 + 160*1, 0x5678, "\x20" x 160));
+# DTX @ 50 ms
+rcv($sock_b, $port_a, rtpm(96, $seq + 1, 3800000000 + 320*1, 0x5678, "\x00\x00\x0b\x86\x00\x00\xf9\xf1\x00\x00\x03\xcf\x00\x00\xfd\x71\x00\x00\x01\xc3\x00\x00\xfe\xca\x00\x00\x00\xd2\x00\x00\xff\x75\x00\x00\x00\x59\x00\x00\xff\xca\x00\x00\x00\x1f\x00\x00\xff\xf0\x00\x00\x00\x08\x00\x00\xff\xfd\x00\x00\x00\x01" . "\x00" x 580));
+# late RTP @ 50 ms, discarded
+snd($sock_a, $port_b,  rtp(8,  2000 + 2, 3800000000 + 160*2, 0x5678, "\x20" x 160));
+# DTX @ 75 ms
+rcv($sock_b, $port_a, rtpm(96, $seq + 2, 3800000000 + 320*2, 0x5678, "\x00" x 640));
+# late RTP @ 75 ms, discarded
+snd($sock_a, $port_b,  rtp(8,  2000 + 3, 3800000000 + 160*3, 0x5678, "\x20" x 160));
+# good RTP @ 75 ms
+snd($sock_a, $port_b,  rtp(8,  2000 + 4, 3800000000 + 160*4, 0x5678, "\x20" x 160));
+rcv($sock_b, $port_a, rtpm(96, $seq + 3, 3800000000 + 320*3, 0x5678, "\x00" x 579 . "\x01\x00\x00\xff\xfd\x00\x00\x00\x08\x00\x00\xff\xf0\x00\x00\x00\x1f\x00\x00\xff\xca\x00\x00\x00\x59\x00\x00\xff\x75\x00\x00\x00\xd2\x00\x00\xfe\xca\x00\x00\x01\xc3\x00\x00\xfd\x71\x00\x00\x03\xcf\x00\x00\xf9\xf1\x00\x00\x0b\x86\x00\x00\xd5\x00"));
+snd($sock_a, $port_b,  rtp(8,  2000 + 5, 3800000000 + 160*5, 0x5678, "\x20" x 160));
+rcv($sock_b, $port_a, rtpm(96, $seq + 4, 3800000000 + 320*4, 0x5678, "\xaa\x00\x9e\x7a\xaa\x00\xb0\x0f\xaa\x00\xa6\x31\xaa\x00\xac\x90\xaa\x00\xa8\x3d\xaa\x00\xab\x36\xaa\x00\xa9\x2e\xaa\x00\xaa\x8b\xaa\x00\xa9\xa8\xaa\x00\xaa\x36\xaa\x00\xa9\xe1\xaa\x00\xaa\x11\xaa\x00\xa9\xf8\xaa\x00\xaa\x03\xaa\x00\xa9\xff" . "\xaa\x00" x 290));
+
+rtpe_req('delete', 'delete');
+
+
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.10 5128)], [qw(198.51.100.10 5130)]);
 
