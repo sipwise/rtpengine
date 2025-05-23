@@ -902,13 +902,13 @@ err_send:
 
 send_resp:
 	if (cmd.s) {
-		ilogs(control, LOG_INFO, "Replying to '" STR_FORMAT "'"
+		ilogs(control, LOG_INFO, "Replying to '" STR_FORMAT "' "
 				"from %s (elapsed time %" PRId64 ".%06" PRId64 " sec)",
 				STR_FMT(&cmd), addr, cmd_process_time / 1000000, cmd_process_time % 1000000);
 
 		if (get_log_level(control) >= LOG_DEBUG) {
 			log_str = g_string_sized_new(256);
-			g_string_append_printf(log_str, "Response dump for '"STR_FORMAT"' to %s: %s",
+			g_string_append_printf(log_str, "Response dump for '" STR_FORMAT "' to %s: %s",
 					STR_FMT(&cmd), addr,
 					rtpe_config.common.log_mark_prefix);
 			parser->pretty_print(command_ctx.resp, log_str);
