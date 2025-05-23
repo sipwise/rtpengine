@@ -2340,7 +2340,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 			if (ts_diff == 0 || ts_diff >= 0x80000000)
 				break;
 
-			uint64_t ts_diff_us = ts_diff * 1000000LL / h->dest_pt.clock_rate;
+			uint64_t ts_diff_us = ts_diff * 1000000LL / h->source_pt.clock_rate;
 			if (ts_diff_us >= 60000)  { // arbitrary value
 				packet = packet_sequencer_force_next_packet(seq);
 				if (!packet)
