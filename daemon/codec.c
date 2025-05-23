@@ -3813,7 +3813,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 			// inspect head packet and check TS, see if it's ready to be decoded
 			ts = dtxp->packet ? dtxp->packet->ts : dtxb->head_ts;
 			ts_diff = ts - dtxb->head_ts;
-			int64_t ts_diff_us = ts_diff * 1000000L / dtxb->clockrate;
+			int64_t ts_diff_us = ts_diff * 1000000LL / dtxb->clockrate;
 
 			if (!dtxb->head_ts)
 				; // first packet
@@ -3829,7 +3829,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 			}
 			else if (ts_diff_us > MAX(20 * rtpe_config.dtx_delay_us, 200000))
 				ilogs(dtx, LOG_DEBUG, "DTX timestamp reset (from %lu to %lu = %" PRId64 " ms)",
-						dtxb->head_ts, ts, ts_diff_us);
+						dtxb->head_ts, ts, ts_diff_us / 1000);
 			else if (ts_diff >= dtxb->tspp * 2) {
 				ilogs(dtx, LOG_DEBUG, "First packet in DTX buffer not ready yet (packet TS %lu, "
 						"DTX TS %lu, diff %li)",
