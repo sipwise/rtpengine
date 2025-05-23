@@ -132,6 +132,7 @@ struct dtx_buffer {
 	unsigned long head_ts;
 	uint32_t ssrc;
 	time_t start;
+	unsigned int discard_old_count;
 };
 struct dtx_packet {
 	struct transcode_packet *packet;
@@ -3724,6 +3725,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 	unsigned long ts;
 	int p_left = 0;
 	long tv_diff = -1, ts_diff = 0;
+	bool discarded_old = false;
 
 	mutex_lock(&dtxb->lock);
 
@@ -3748,8 +3750,16 @@ static void __dtx_send_later(struct codec_timer *ct) {
 
 			if (!dtxb->head_ts)
 				; // first packet
-			else if (ts_diff < 0)
+			else if (ts_diff_us < -100000 || dtxb->discard_old_count > 3)
 				ilogs(dtx, LOG_DEBUG, "DTX timestamp reset (from %lu to %lu)", dtxb->head_ts, ts);
+			else if (ts_diff < 0 || (ts_diff == 0 && discarded_old)) {
+				ilogs(dtx, LOG_DEBUG, "Discarding old packet (TS %lu < %lu, %" PRId64 " ms old)",
+						ts, dtxb->head_ts, -ts_diff);
+				t_queue_pop_head(&dtxb->packets);
+				dtx_packet_free(dtxp);
+				discarded_old = true;
+				continue; // try again
+			}
 			else if (ts_diff_us > MAX(20 * rtpe_config.dtx_delay, 200000))
 				ilogs(dtx, LOG_DEBUG, "DTX timestamp reset (from %lu to %lu = %lli ms)",
 						dtxb->head_ts, ts, ts_diff_us);
@@ -3909,6 +3919,11 @@ static void __dtx_send_later(struct codec_timer *ct) {
 
 	int ptime = dtxb->ptime;
 	time_t dtxb_start = dtxb->start;
+
+	if (discarded_old)
+		dtxb->discard_old_count++;
+	else
+		dtxb->discard_old_count = 0;
 
 	mutex_unlock(&dtxb->lock);
 
