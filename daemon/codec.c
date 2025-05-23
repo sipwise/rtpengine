@@ -3777,14 +3777,11 @@ static bool __dtx_drift_drop(struct dtx_buffer *dtxb, unsigned long ts,
 
 	return discard;
 }
-static bool __dtx_handle_drift(struct dtx_buffer *dtxb, unsigned long ts,
+
+static bool (*__dtx_handle_drift)(struct dtx_buffer *dtxb, unsigned long ts,
 		int64_t tv_diff, int64_t ts_diff,
-		struct codec_ssrc_handler *ch)
-{
-	if (rtpe_config.dtx_shift_us)
-		return __dtx_drift_shift(dtxb, ts, tv_diff, ts_diff, ch);
-	return __dtx_drift_drop(dtxb, ts, tv_diff, ts_diff, ch);
-}
+		struct codec_ssrc_handler *ch);
+
 static void __dtx_send_later(struct codec_timer *ct) {
 	struct dtx_buffer *dtxb = (void *) ct;
 	struct media_packet mp_copy = {0,};
@@ -6472,6 +6469,11 @@ void codecs_init(void) {
 		if (tcc->preference)
 			have_codec_preferences = true;
 	}
+
+	if (rtpe_config.dtx_shift_us)
+		__dtx_handle_drift = __dtx_drift_shift;
+	else
+		__dtx_handle_drift = __dtx_drift_drop;
 #endif
 }
 void codecs_cleanup(void) {
