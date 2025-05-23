@@ -2354,6 +2354,9 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 		}
 
 		if (ch) {
+			if (!ch->csch.last_ts)
+				ch->csch.last_ts = packet->ts;
+
 			uint32_t ts_diff = ch->csch.last_ts - packet->ts;
 			if (ts_diff < 0x80000000) { // ch->last_ts >= packet->ts
 				// multiple consecutive packets with same TS: this could be a compound packet, e.g. a large video frame, or
