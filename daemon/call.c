@@ -1026,6 +1026,7 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 		return;
 
 	ps->advertised_endpoint = ep;
+	ps->learned_endpoint = ep;
 
 	/* ignore endpoint changes if we're ICE-enabled and ICE data hasn't changed */
 	if (PS_ISSET(ps, FILLED) && MEDIA_ISSET(media, ICE) && media->ice_agent

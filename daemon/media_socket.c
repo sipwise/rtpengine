@@ -2415,7 +2415,6 @@ static int __media_packet_encrypt(struct packet_handler_ctx *phc, struct sink_ha
 // returns: drop packet true/false
 static bool media_packet_address_check(struct packet_handler_ctx *phc)
 {
-	struct endpoint endpoint;
 	bool ret = false;
 
 	mutex_lock(&phc->mp.stream->in_lock);
@@ -2444,14 +2443,13 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 
 	PS_SET(phc->mp.stream, RECEIVED);
 
-	/* do not pay attention to source addresses of incoming packets for asymmetric streams */
-	if (MEDIA_ISSET(phc->mp.media, ASYMMETRIC) || phc->mp.stream->el_flags == EL_OFF) {
+	endpoint_t *update_endpoint = &phc->mp.stream->endpoint;
+	// don't update the "to" address endpoint for asymmetric streams
+	if (MEDIA_ISSET(phc->mp.media, ASYMMETRIC))
+		update_endpoint = &phc->mp.stream->learned_endpoint;
+
+	if (phc->mp.stream->el_flags == EL_OFF)
 		PS_SET(phc->mp.stream, CONFIRMED);
-		mutex_lock(&phc->mp.stream->out_lock);
-		if (MEDIA_ISSET(phc->mp.media, ASYMMETRIC) && !phc->mp.stream->learned_endpoint.address.family)
-			phc->mp.stream->learned_endpoint = phc->mp.fsin;
-		mutex_unlock(&phc->mp.stream->out_lock);
-	}
 
 	/* confirm sinks for unidirectional streams in order to kernelize */
 	if (MEDIA_ISSET(phc->mp.media, UNIDIRECTIONAL)) {
@@ -2465,12 +2463,10 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 	if (PS_ISSET(phc->mp.stream, CONFIRMED)) {
 		/* see if we need to compare the source address with the known endpoint */
 		if (PS_ISSET2(phc->mp.stream, STRICT_SOURCE, MEDIA_HANDOVER)) {
-			endpoint = phc->mp.fsin;
+			endpoint_t endpoint = phc->mp.fsin;
 			mutex_lock(&phc->mp.stream->out_lock);
 
-			struct endpoint *ps_endpoint = MEDIA_ISSET(phc->mp.media, ASYMMETRIC) ?
-							&phc->mp.stream->learned_endpoint : &phc->mp.stream->endpoint;
-			int tmp = memcmp(&endpoint, ps_endpoint, sizeof(endpoint));
+			int tmp = memcmp(&endpoint, update_endpoint, sizeof(endpoint));
 			if (tmp && PS_ISSET(phc->mp.stream, MEDIA_HANDOVER)) {
 				/* out_lock remains locked */
 				ilog(LOG_INFO | LOG_FLAG_LIMIT, "Peer address changed to %s%s%s",
@@ -2478,7 +2474,7 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 				phc->unkernelize = "peer address changed (media handover)";
 				phc->unconfirm = true;
 				phc->update = true;
-				*ps_endpoint = phc->mp.fsin;
+				*update_endpoint = phc->mp.fsin;
 				goto update_addr;
 			}
 
@@ -2489,7 +2485,7 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 						"got %s%s%s, "
 						"expected %s%s%s",
 					FMT_M(endpoint_print_buf(&endpoint)),
-					FMT_M(endpoint_print_buf(ps_endpoint)));
+					FMT_M(endpoint_print_buf(update_endpoint)));
 				atomic64_inc_na(&phc->mp.stream->stats_in->errors);
 				atomic64_inc_na(&phc->mp.sfd->local_intf->stats->in.errors);
 				ret = true;
@@ -2574,14 +2570,15 @@ update_peerinfo:
 	// if we're during the wait time, check the received address against the previously
 	// learned address. if they're the same, ignore this packet for learning purposes
 	if (!wait_time || !phc->mp.stream->learned_endpoint.address.family ||
-			memcmp(use_endpoint_confirm, &phc->mp.stream->learned_endpoint, sizeof(endpoint)))
+			memcmp(use_endpoint_confirm, &phc->mp.stream->learned_endpoint,
+				sizeof(*use_endpoint_confirm)))
 	{
-		endpoint = phc->mp.stream->endpoint;
-		phc->mp.stream->endpoint = *use_endpoint_confirm;
+		endpoint_t endpoint = *update_endpoint;
+		*update_endpoint = *use_endpoint_confirm;
 		phc->mp.stream->learned_endpoint = *use_endpoint_confirm;
-		if (memcmp(&endpoint, &phc->mp.stream->endpoint, sizeof(endpoint))) {
+		if (memcmp(&endpoint, update_endpoint, sizeof(endpoint))) {
 			ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Peer address changed from %s%s%s to %s%s%s",
-					FMT_M(endpoint_print_buf(&endpoint)),
+					FMT_M(endpoint_print_buf(update_endpoint)),
 					FMT_M(endpoint_print_buf(use_endpoint_confirm)));
 			phc->unkernelize = "peer address changed";
 			phc->update = true;
