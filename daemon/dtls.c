@@ -646,6 +646,14 @@ static long dtls_bio_callback(BIO *bio, int oper, const char *argp, size_t len, 
 	return ret;
 }
 
+#if OPENSSL_VERSION_NUMBER < 0x10101000L
+static long dtls_bio_callback_wrap(BIO *bio, int oper, const char *argp, int argi, long argl,
+		long ret)
+{
+	return dtls_bio_callback(bio, oper, argp, argi, argi, argl, ret, NULL);
+}
+#endif
+
 int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, int active,
 		struct dtls_cert *cert)
 {
@@ -698,7 +706,11 @@ int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, in
 	if (!d->r_bio || !d->w_bio)
 		goto error;
 
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L
 	BIO_set_callback_ex(d->w_bio, dtls_bio_callback);
+#else
+	BIO_set_callback(d->w_bio, dtls_bio_callback_wrap);
+#endif
 	BIO_set_callback_arg(d->w_bio, (char *) ps);
 
 #if defined(BIO_CTRL_DGRAM_SET_MTU)
