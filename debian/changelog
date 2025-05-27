@@ -1,3 +1,19 @@
+ngcp-rtpengine (13.3.1.6+0~mr13.3.1.6) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [c310e94] MT#55283 track last outgoing TS
+  * [bc2c90f] MT#55283 add even more DTX tests
+  * [8faaba5] MT#55283 fix missing init of last_ts
+  * [be5887e] MT#55283 use correct PT for clock rate
+  * [c7c3a70] MT#55283 add logic to discard old packets
+  * [424bee4] MT#55283 int typing fixes
+  * [de78f2b] MT#55283 add extra DTX tests
+  * [c1431a2] MT#55283 add tests for dtx-shift=0
+  * [78ad6c2] MT#62735 fix heuristic learning mode
+  * [e7020a2] MT#62735 add tests for heuristic learning mode
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 27 May 2025 20:28:30 +0200
+
 ngcp-rtpengine (13.3.1.5+0~mr13.3.1.5) unstable; urgency=medium
 
   [ Richard Fuchs ]
