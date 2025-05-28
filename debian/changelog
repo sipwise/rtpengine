@@ -1,3 +1,12 @@
+ngcp-rtpengine (11.5.1.41+0~mr11.5.1.41) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [65389c4] MT#55283 prevent erroneous swithch to DB 0
+  * [222a1e6] MT#62735 fix heuristic learning mode
+  * [0c07eed] MT#62735 add tests for heuristic learning mode
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 28 May 2025 15:51:53 +0200
+
 ngcp-rtpengine (11.5.1.40+0~mr11.5.1.40) unstable; urgency=medium
 
   [ Richard Fuchs ]
