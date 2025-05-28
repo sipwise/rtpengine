@@ -15,9 +15,9 @@ if [ -z "${RTPENGINE_VERSION}" ]; then
     deb_changelog="${M}/debian/changelog"
   fi
   if [ "${have_dpkg_parsechangelog}" = yes ]; then
-    deb_version="$(dpkg-parsechangelog -l${deb_changelog} | awk '/^Version: / {print $$2}')"
+    deb_version="$(dpkg-parsechangelog -l"${deb_changelog}" | awk '/^Version: / {print $2}')"
   fi
-  git_br_commit="git-$(cd ${M} && git rev-parse --abbrev-ref --symbolic-full-name HEAD 2> /dev/null)-$(cd ${M} && git rev-parse --short HEAD 2> /dev/null)"
+  git_br_commit="git-$(cd "${M}" && git rev-parse --abbrev-ref --symbolic-full-name HEAD 2> /dev/null)-$(cd "${M}" && git rev-parse --short HEAD 2> /dev/null)"
 
   if [ "${have_dpkg_parsechangelog}" = yes ]; then
     RTPENGINE_VERSION+=" ${deb_version}"
