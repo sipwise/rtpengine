@@ -6,7 +6,7 @@ export M
 
 include $(M)/rtpengine-kmod.mk
 
-EXTRA_CFLAGS+=	-DRTPENGINE_VERSION="\"$(RTPENGINE_VERSION)\""
+ccflags-y    += -DRTPENGINE_VERSION="\"$(RTPENGINE_VERSION)\""
 
 obj-m        += xt_RTPENGINE.o
 
