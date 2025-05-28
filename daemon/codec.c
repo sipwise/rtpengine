@@ -2333,25 +2333,36 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 					|| !h->dest_pt.codec_def)
 				break;
 
-			uint32_t ts_diff = packet_ts - ch->csch.last_ts;
-
-			// if packet TS is larger than last tracked TS, we can force the next packet if packets were lost and the TS
-			// difference is too large. if packet TS is the same or lower (can happen for supplement codecs) we can wait
-			// for the next packet
-			if (ts_diff == 0 || ts_diff >= 0x80000000)
-				break;
-
-			uint64_t ts_diff_us = ts_diff * 1000000LL / h->source_pt.clock_rate;
-			if (ts_diff_us >= 60000)  { // arbitrary value
+			// it's possible to receive audio packets between dtmf event packets for the same event. if this is
+			// happening while media is being blocked, then packet_sequencer_next_packet will have returned NULL
+			// above. this check forces processing of the dtmf event while media blocking is enabled so they can
+			// be detected correctly and sent on dtmf-log-dest endpoints
+			if (h->source_pt.codec_def && h->source_pt.codec_def->supplemental && !handler_silence_block(h, mp)) {
 				packet = packet_sequencer_force_next_packet(seq);
 				if (!packet)
 					break;
-				ilogs(transcoding, LOG_DEBUG, "Timestamp difference too large (%" PRIu64 " ms) after lost packet, "
-						"forcing next packet", ts_diff_us / 1000);
-				RTPE_STATS_INC(rtp_skips);
 			}
-			else
-				break;
+			else {
+				uint32_t ts_diff = packet_ts - ch->csch.last_ts;
+
+				// if packet TS is larger than last tracked TS, we can force the next packet if packets were lost and the TS
+				// difference is too large. if packet TS is the same or lower (can happen for supplement codecs) we can wait
+				// for the next packet
+				if (ts_diff == 0 || ts_diff >= 0x80000000)
+					break;
+
+				uint64_t ts_diff_us = ts_diff * 1000000LL / h->source_pt.clock_rate;
+				if (ts_diff_us >= 60000)  { // arbitrary value
+					packet = packet_sequencer_force_next_packet(seq);
+					if (!packet)
+						break;
+					ilogs(transcoding, LOG_DEBUG, "Timestamp difference too large (%" PRIu64 " ms) after lost packet, "
+							"forcing next packet", ts_diff_us / 1000);
+					RTPE_STATS_INC(rtp_skips);
+				}
+				else
+					break;
+			}
 		}
 
 		if (ch) {
