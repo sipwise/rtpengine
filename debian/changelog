@@ -1,3 +1,11 @@
+ngcp-rtpengine (10.5.8.5+0~mr10.5.8.5) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [d4cbde3] MT#62735 fix heuristic learning mode
+  * [3bf7e8c] MT#62735 add tests for heuristic learning mode
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 28 May 2025 15:52:00 +0200
+
 ngcp-rtpengine (10.5.8.4+0~mr10.5.8.4) unstable; urgency=medium
 
   [ Richard Fuchs ]
