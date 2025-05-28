@@ -44,6 +44,8 @@
 #include "xt_RTPENGINE.h"
 
 MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Sipwise GmbH <support@sipwise.com>");
+MODULE_DESCRIPTION("rtpengine packet forwarding acceleration");
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6,13,0)
 MODULE_IMPORT_NS("CRYPTO_INTERNAL");
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(5,12,0)
