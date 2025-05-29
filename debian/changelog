@@ -1,3 +1,13 @@
+ngcp-rtpengine (13.3.1.7+0~mr13.3.1.7) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [9e0bb87] MT#55283 fix kernel version generating booboo
+  * [498e223] MT#55283 use ccflags instead of EXTRA_CFLAGS
+  * [885c042] MT#55283 add missing MODULE_DESCRIPTION/AUTHOR
+  * [91234a8] MT#55283 add RTCP tests
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 29 May 2025 16:04:09 +0200
+
 ngcp-rtpengine (13.3.1.6+0~mr13.3.1.6) unstable; urgency=medium
 
   [ Richard Fuchs ]
