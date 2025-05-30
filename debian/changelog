@@ -1,3 +1,10 @@
+ngcp-rtpengine (11.5.1.42+0~mr11.5.1.42) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7b36f11] MT#55283 compile fix for CentOS 9
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 30 May 2025 13:54:21 +0200
+
 ngcp-rtpengine (11.5.1.41+0~mr11.5.1.41) unstable; urgency=medium
 
   [ Richard Fuchs ]
