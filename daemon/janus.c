@@ -133,11 +133,9 @@ static void janus_send_json_sync_response(struct websocket_message *wm, JsonBuil
 	char *result = glib_json_print(builder);
 
 	if (wm->method == M_WEBSOCKET)
-		websocket_write_text(wm->wc, result, true);
-	else {
-		websocket_http_response(wm->wc, code, "application/json", strlen(result));
-		websocket_write_http(wm->wc, result, true);
-	}
+		websocket_write_text(wm->wc, result);
+	else
+		websocket_http_complete(wm->wc, code, "application/json", strlen(result), result);
 
 	g_free(result);
 }
@@ -155,7 +153,7 @@ static void janus_send_json_async(struct janus_session *session, JsonBuilder *bu
 	struct websocket_conn *wc;
 	while (t_hash_table_iter_next(&iter, NULL, &wc)) {
 		// lock order constraint: janus_session lock first, websocket_conn lock second
-		websocket_write_text(wc, result, true);
+		websocket_write_text(wc, result);
 	}
 
 	g_free(result);
