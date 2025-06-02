@@ -2632,10 +2632,12 @@ char* redis_encode_json(struct call *c) {
 			json_builder_begin_array(builder);
 			for (GList *m = media->codecs.codec_prefs.head; m; m = m->next) {
 				struct rtp_payload_type *pt = m->data;
-				JSON_ADD_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT "/" STR_FORMAT "/%i/%i",
+				JSON_ADD_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT "/%i/%i/"
+							STR_FORMAT "/" STR_FORMAT,
 						pt->payload_type, STR_FMT(&pt->encoding),
 						pt->clock_rate, STR_FMT(&pt->encoding_parameters),
-						STR_FMT(&pt->format_parameters), pt->bitrate, pt->ptime);
+						pt->bitrate, pt->ptime, STR_FMT(&pt->format_parameters),
+						STR_FMT(&pt->codec_opts));
 			}
 			json_builder_end_array(builder);
 		}
