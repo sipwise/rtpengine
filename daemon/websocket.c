@@ -328,16 +328,19 @@ static int websocket_dequeue(struct websocket_conn *wc) {
 
 		if (to_send) {
 			if (to_send > 10000)
-				ilogs(http, LOG_DEBUG, "Writing %lu bytes to LWS", (unsigned long) to_send);
+				ilogs(http, LOG_DEBUG, "Writing %zu bytes to LWS", to_send);
 			else
 				ilogs(http, LOG_DEBUG, "Writing back to LWS: '%.*s'",
 						(int) to_send, wo->str->str + LWS_PRE);
 			ssize_t ret = lws_write(wsi, (unsigned char *) wo->str->str + LWS_PRE,
 					to_send, wo->protocol);
-			if (ret != to_send)
-				ilogs(http, LOG_ERR, "Invalid LWS write: %lu != %lu",
-						(unsigned long) ret,
-						(unsigned long) to_send);
+			if (ret <= 0)
+				ilogs(http, LOG_DEBUG, "Failed LWS write: %zd", ret);
+			else if (ret < to_send) {
+				lws_callback_on_writable(wsi);
+				websocket_output_free(wo);
+				break;
+			}
 
 			if (wo->protocol == LWS_WRITE_HTTP)
 				is_http = true;
