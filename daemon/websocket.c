@@ -303,7 +303,7 @@ static int websocket_dequeue(struct websocket_conn *wc) {
 	if (!wc)
 		return 0;
 
-	int is_http = 0;
+	bool is_http = false;
 
 	mutex_lock(&wc->lock);
 	struct websocket_output *wo;
@@ -340,7 +340,7 @@ static int websocket_dequeue(struct websocket_conn *wc) {
 						(unsigned long) to_send);
 
 			if (wo->protocol == LWS_WRITE_HTTP)
-				is_http = 1;
+				is_http = true;
 		}
 
 next:
@@ -350,12 +350,11 @@ next:
 
 	mutex_unlock(&wc->lock);
 
-	int ret = 0;
 	if (is_http)
 		if (lws_http_transaction_completed(wsi) == 1) // may destroy `wc`
-			ret = -1;
+			return -1;
 
-	return ret;
+	return 0;
 }
 
 void websocket_http_response(struct websocket_conn *wc, int status, const char *content_type,
