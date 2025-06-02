@@ -2736,10 +2736,12 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 			inner = parser->dict_add_list_dup(root, tmp);
 			for (__auto_type m = media->codecs.codec_prefs.head; m; m = m->next) {
 				rtp_payload_type *pt = m->data;
-				JSON_ADD_LIST_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT "/" STR_FORMAT "/%i/%i",
+				JSON_ADD_LIST_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT "/%i/%i/"
+							STR_FORMAT "/" STR_FORMAT,
 						pt->payload_type, STR_FMT(&pt->encoding),
 						pt->clock_rate, STR_FMT(&pt->encoding_parameters),
-						STR_FMT(&pt->format_parameters), pt->bitrate, pt->ptime);
+						pt->bitrate, pt->ptime, STR_FMT(&pt->format_parameters),
+						STR_FMT(&pt->codec_opts));
 			}
 		} // --- for medias.head
 
