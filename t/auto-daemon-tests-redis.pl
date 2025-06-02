@@ -171,12 +171,12 @@ $json_exp = {
 		  '0'
 		],
   'payload_types-0' => [
-			 '0/PCMU/8000///0/20',
-			 '8/PCMA/8000///0/20'
+			 '0/PCMU/8000//0/20//',
+			 '8/PCMA/8000//0/20//'
 		       ],
   'payload_types-1' => [
-			 '0/PCMU/8000///0/20',
-			 '8/PCMA/8000///0/20'
+			 '0/PCMU/8000//0/20//',
+			 '8/PCMA/8000//0/20//'
 		       ],
   'rtcp_sinks-0' => [],
   'rtcp_sinks-1' => [
@@ -431,10 +431,10 @@ $json_exp = {
 		  '0'
 		],
   'payload_types-0' => [
-			 '8/PCMA/8000///0/20'
+			 '8/PCMA/8000//0/20//'
 		       ],
   'payload_types-1' => [
-			 '8/PCMA/8000///0/20'
+			 '8/PCMA/8000//0/20//'
 		       ],
   'rtcp_sinks-0' => [],
   'rtcp_sinks-1' => [
@@ -696,12 +696,12 @@ $json_exp = {
 		  '0'
 		],
   'payload_types-0' => [
-			 '0/PCMU/8000///0/20',
-			 '8/PCMA/8000///0/20'
+			 '0/PCMU/8000//0/20//',
+			 '8/PCMA/8000//0/20//'
 		       ],
   'payload_types-1' => [
-			 '0/PCMU/8000///0/20',
-			 '8/PCMA/8000///0/20'
+			 '0/PCMU/8000//0/20//',
+			 '8/PCMA/8000//0/20//'
 		       ],
   'rtcp_sinks-0' => [],
   'rtcp_sinks-1' => [
@@ -957,12 +957,12 @@ $json_exp = {
 		  '0'
 		],
   'payload_types-0' => [
-			 '0/PCMU/8000///0/20',
-			 '8/PCMA/8000///0/20'
+			 '0/PCMU/8000//0/20//',
+			 '8/PCMA/8000//0/20//'
 		       ],
   'payload_types-1' => [
-			 '0/PCMU/8000///0/20',
-			 '8/PCMA/8000///0/20'
+			 '0/PCMU/8000//0/20//',
+			 '8/PCMA/8000//0/20//'
 		       ],
   'rtcp_sinks-0' => [],
   'rtcp_sinks-1' => [
@@ -1276,20 +1276,20 @@ $json_exp = {
                           '3'
                         ],
           'payload_types-0' => [
-                                 '0/PCMU/8000///0/20',
-                                 '8/PCMA/8000///0/20'
+                                 '0/PCMU/8000//0/20//',
+                                 '8/PCMA/8000//0/20//'
                                ],
           'payload_types-1' => [
-                                 '0/PCMU/8000///0/20',
-                                 '8/PCMA/8000///0/20'
+                                 '0/PCMU/8000//0/20//',
+                                 '8/PCMA/8000//0/20//'
                                ],
           'payload_types-2' => [
-                                 '0/PCMU/8000///0/20',
-                                 '8/PCMA/8000///0/20'
+                                 '0/PCMU/8000//0/20//',
+                                 '8/PCMA/8000//0/20//'
                                ],
           'payload_types-3' => [
-                                 '0/PCMU/8000///0/20',
-                                 '8/PCMA/8000///0/20'
+                                 '0/PCMU/8000//0/20//',
+                                 '8/PCMA/8000//0/20//'
                                ],
           'rtcp_sinks-0' => [],
           'rtcp_sinks-1' => [
@@ -1595,9 +1595,9 @@ $json_exp->{'media-2'}{format_str} = '8';
 $json_exp->{'media-2'}{media_flags} = '2162692';
 $json_exp->{'media-3'}{format_str} = '8';
 $json_exp->{'media-3'}{media_flags} = '2162692';
-$json_exp->{'payload_types-2'}[0] = '8/PCMA/8000///0/20';
+$json_exp->{'payload_types-2'}[0] = '8/PCMA/8000//0/20//';
 $#{$json_exp->{'payload_types-2'}} = 0;
-$json_exp->{'payload_types-3'}[0] = '8/PCMA/8000///0/20';
+$json_exp->{'payload_types-3'}[0] = '8/PCMA/8000//0/20//';
 $#{$json_exp->{'payload_types-3'}} = 0;
 $json_exp->{'stream-1'}{ps_flags} = '1179649';
 $json_exp->{'stream-3'}{ps_flags} = '1179649';
@@ -1686,7 +1686,7 @@ $json_exp = {
 		  '0'
 		],
   'payload_types-0' => [
-			 '0/PCMU/8000///0/20'
+			 '0/PCMU/8000//0/20//'
 		       ],
   'rtcp_sinks-0' => [],
   'rtcp_sinks-1' => [],
@@ -1859,10 +1859,10 @@ $json_exp = {
 		  '1'
 		],
   'payload_types-0' => [
-			 '0/PCMU/8000///0/20'
+			 '0/PCMU/8000//0/20//'
 		       ],
   'payload_types-1' => [
-			 '0/PCMU/8000///0/20'
+			 '0/PCMU/8000//0/20//'
 		       ],
   'rtcp_sinks-0' => [],
   'rtcp_sinks-1' => [
@@ -2100,10 +2100,10 @@ $json_exp = {
 		  '1'
 		],
   'payload_types-0' => [
-			 '0/PCMU/8000///0/20'
+			 '0/PCMU/8000//0/20//'
 		       ],
   'payload_types-1' => [
-			 '0/PCMU/8000///0/20'
+			 '0/PCMU/8000//0/20//'
 		       ],
   'rtcp_sinks-0' => [],
   'rtcp_sinks-1' => [
@@ -2369,13 +2369,13 @@ $json_exp = {
 		  '2'
 		],
   'payload_types-0' => [
-			 '0/PCMU/8000///0/20'
+			 '0/PCMU/8000//0/20//'
 		       ],
   'payload_types-1' => [
-			 '0/PCMU/8000///0/20'
+			 '0/PCMU/8000//0/20//'
 		       ],
   'payload_types-2' => [
-			 '0/PCMU/8000///0/20'
+			 '0/PCMU/8000//0/20//'
 		       ],
   'rtcp_sinks-0' => [],
   'rtcp_sinks-1' => [
