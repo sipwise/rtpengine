@@ -19,7 +19,6 @@ struct websocket_conn;
 
 struct websocket_output {
 	GString *str;
-	size_t str_done;
 	enum lws_write_protocol protocol;
 	int http_status;
 	const char *content_type;
@@ -105,7 +104,6 @@ static void __websocket_queue_raw(struct websocket_conn *wc, const char *msg, si
 		wo->str = g_string_new("");
 		// allocate pre-buffer
 		g_string_set_size(wo->str, LWS_PRE);
-		wo->str_done = LWS_PRE;
 	}
 
 	if (msg && len)
@@ -326,20 +324,20 @@ static int websocket_dequeue(struct websocket_conn *wc) {
 
 		// allocate post-buffer
 		g_string_set_size(wo->str, wo->str->len + LWS_SEND_BUFFER_POST_PADDING);
-		size_t to_send = wo->str->len - wo->str_done - LWS_SEND_BUFFER_POST_PADDING;
+		size_t to_send = wo->str->len - LWS_PRE - LWS_SEND_BUFFER_POST_PADDING;
+
 		if (to_send) {
 			if (to_send > 10000)
 				ilogs(http, LOG_DEBUG, "Writing %lu bytes to LWS", (unsigned long) to_send);
 			else
 				ilogs(http, LOG_DEBUG, "Writing back to LWS: '%.*s'",
-						(int) to_send, wo->str->str + wo->str_done);
-			size_t ret = lws_write(wsi, (unsigned char *) wo->str->str + wo->str_done,
+						(int) to_send, wo->str->str + LWS_PRE);
+			ssize_t ret = lws_write(wsi, (unsigned char *) wo->str->str + LWS_PRE,
 					to_send, wo->protocol);
 			if (ret != to_send)
 				ilogs(http, LOG_ERR, "Invalid LWS write: %lu != %lu",
 						(unsigned long) ret,
 						(unsigned long) to_send);
-			wo->str_done += ret;
 
 			if (wo->protocol == LWS_WRITE_HTTP)
 				is_http = 1;
