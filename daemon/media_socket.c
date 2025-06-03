@@ -2578,8 +2578,8 @@ update_peerinfo:
 		phc->mp.stream->learned_endpoint = *use_endpoint_confirm;
 		if (memcmp(&endpoint, update_endpoint, sizeof(endpoint))) {
 			ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Peer address changed from %s%s%s to %s%s%s",
-					FMT_M(endpoint_print_buf(update_endpoint)),
-					FMT_M(endpoint_print_buf(use_endpoint_confirm)));
+					FMT_M(endpoint_print_buf(&endpoint)),
+					FMT_M(endpoint_print_buf(update_endpoint)));
 			phc->unkernelize = "peer address changed";
 			phc->update = true;
 			phc->unkernelize_subscriptions = true;
