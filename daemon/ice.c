@@ -1259,6 +1259,8 @@ int ice_request(stream_fd *sfd, const endpoint_t *src,
 			goto err;
 	}
 
+	PAIR_SET(pair, AUTHENTICATED);
+
 	if (!AGENT_ISSET(ag, LITE_SELF)) {
 		/* determine role conflict */
 		if (attrs->controlling && AGENT_ISSET(ag, CONTROLLING)) {
@@ -1390,6 +1392,8 @@ int ice_response(stream_fd *sfd, const endpoint_t *src,
 		__trigger_check(pair);
 		goto out;
 	}
+
+	PAIR_SET(pair, AUTHENTICATED);
 
 	/* we don't discover peer reflexive here (RFC 5245 7.1.3.2.1) as we don't expect to be behind NAT */
 	/* we also skip parts of 7.1.3.2.2 as we don't do server reflexive */
@@ -1533,7 +1537,7 @@ bool ice_peer_address_known(struct ice_agent *ag, const endpoint_t *sin, struct 
 	struct ice_candidate_pair *pair = __pair_lookup(ag, cand, ifa);
 	if (!pair)
 		return false;
-	if (!PAIR_ISSET(pair, VALID))
+	if (!PAIR_ISSET(pair, AUTHENTICATED))
 		return false;
 
 	return true;

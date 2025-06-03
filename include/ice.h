@@ -38,6 +38,7 @@
 #define ICE_PAIR_VALID			0x0040
 #define ICE_PAIR_TO_USE			0x0080
 #define ICE_PAIR_TRIGGERED		0x0100
+#define ICE_PAIR_AUTHENTICATED		0x0200
 
 #define PAIR_ISSET(p, f)	bf_isset(&(p)->pair_flags, ICE_PAIR_ ## f)
 #define PAIR_SET(p, f)		bf_set(&(p)->pair_flags, ICE_PAIR_ ## f)
