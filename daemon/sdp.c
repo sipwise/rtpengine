@@ -3253,6 +3253,8 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 		if (!sdp_out_add_media(s, media, port))
 			goto err;
 
+		MEDIA_SET(media, PUBLIC);
+
 		/* print media level attributes */
 		print_sdp_media_section(s, media, &sdp_address, copy_media, source_media,
 				rtp_ps, rtp_ps_link, flags);

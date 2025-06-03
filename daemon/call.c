@@ -867,6 +867,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 		return NULL;
 
 	__C_DBG("allocating stream_fds for %u ports", num_ports);
+	MEDIA_CLEAR(media, PUBLIC);
 
 	struct socket_intf_list *il;
 	while ((il = t_queue_pop_head(&intf_sockets))) {

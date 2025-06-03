@@ -580,5 +580,56 @@ rcv_no($sock_e);
 
 
 
+($sock_a, $sock_b, $sock_c) = new_call(
+	[qw(198.51.100.1 2188)], # caller
+	[qw(198.51.100.3 2190)], # callee - from SDP
+	[qw(198.51.100.3 2210)], # hijack
+);
+
+($port_a) = offer('offer only', { flags => ['strict source'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2188 RTP/AVP 0 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# callee send
+snd($sock_b, $port_a,         rtp(0, 2000, 4000, 0x1234, "\x00" x 160));
+($port_b) = rcv($sock_a, -1, rtpm(0, 2000, 4000, 0x1234, "\x00" x 160));
+rcv_no($sock_b);
+rcv_no($sock_c);
+# hijack send
+snd($sock_c, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+# callee send, forward, hijack ignored
+snd($sock_b, $port_a,  rtp(0, 2001, 4160, 0x1234, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x1234, "\x00" x 160));
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+
+
+
+
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();

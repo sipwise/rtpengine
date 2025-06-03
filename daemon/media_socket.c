@@ -2427,6 +2427,10 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 				phc->mp.stream->endpoint.port);
 		goto out;
 	}
+	if (!MEDIA_ISSET(phc->mp.media, PUBLIC)) {
+		__C_DBG("media not answered");
+		goto out;
+	}
 
 	// GH #697 - apparent Asterisk bug where it sends stray RTCP to the RTP port.
 	// work around this by detecting this situation and ignoring the packet for

@@ -215,6 +215,7 @@ enum {
 #define MEDIA_FLAG_REAL_SENDONLY		(1LL << 35)
 #define MEDIA_FLAG_SELECT_PT			(1LL << 36)
 #define MEDIA_FLAG_RECRYPT			(1LL << 37)
+#define MEDIA_FLAG_PUBLIC			(1LL << 38)
 
 /* struct call_monologue */
 #define ML_FLAG_REC_FORWARDING			(1LL << 16)
