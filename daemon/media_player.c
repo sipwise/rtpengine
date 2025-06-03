@@ -879,7 +879,8 @@ static bool media_player_cache_entry_init(struct media_player *mp, const rtp_pay
 	entry->coder = mp->coder;
 	ZERO(mp->coder);
 	mp->coder.duration = entry->coder.duration; // retain this for reporting
-	entry->coder.avioctx->opaque = &entry->coder; // format context pointer must point to new coder
+	if (entry->coder.avioctx)
+		entry->coder.avioctx->opaque = &entry->coder; // format context pointer must point to new coder
 	entry->call_ref = obj_get(mp->call); // hold reference until decoding is finished, as blob is owned by call
 
 	entry->coder.handler->packet_encoded = media_player_packet_cache;
