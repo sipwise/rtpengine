@@ -70,12 +70,12 @@ static bool do_notify_http(struct notif_req *req) {
 
 	/* allow redirects */
 	err = "setting CURLOPT_FOLLOWLOCATION";
-	if ((ret = curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1)) != CURLE_OK)
+	if ((ret = curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1L)) != CURLE_OK)
 		goto fail;
 
 	/* max 5 redirects */
 	err = "setting CURLOPT_MAXREDIRS";
-	if ((ret = curl_easy_setopt(c, CURLOPT_MAXREDIRS, 5)) != CURLE_OK)
+	if ((ret = curl_easy_setopt(c, CURLOPT_MAXREDIRS, 5L)) != CURLE_OK)
 		goto fail;
 
 	/* add headers */
@@ -86,14 +86,14 @@ static bool do_notify_http(struct notif_req *req) {
 	/* POST vs GET */
 	if (notify_post) {
 		err = "setting CURLOPT_POST";
-		if ((ret = curl_easy_setopt(c, CURLOPT_POST, 1)) != CURLE_OK)
+		if ((ret = curl_easy_setopt(c, CURLOPT_POST, 1L)) != CURLE_OK)
 			goto fail;
 	}
 
 	/* cert verify (enabled by default) */
 	if (notify_nverify) {
 		err = "setting CURLOPT_SSL_VERIFYPEER";
-		if ((ret = curl_easy_setopt(c, CURLOPT_SSL_VERIFYPEER, 0)) != CURLE_OK)
+		if ((ret = curl_easy_setopt(c, CURLOPT_SSL_VERIFYPEER, 0L)) != CURLE_OK)
 			goto fail;
 	}
 

@@ -344,13 +344,13 @@ void xmlrpc_kill_calls(void *p) {
 			goto fault;
 		if ((ret = curl_easy_setopt(curl, CURLOPT_URL, url)) != CURLE_OK)
 			goto fault;
-		if ((ret = curl_easy_setopt(curl, CURLOPT_POST, 1)) != CURLE_OK)
+		if ((ret = curl_easy_setopt(curl, CURLOPT_POST, 1L)) != CURLE_OK)
 			goto fault;
 		if ((ret = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, cb_curl_write)) != CURLE_OK)
 			goto fault;
 		if ((ret = curl_easy_setopt(curl, CURLOPT_WRITEDATA, response)) != CURLE_OK)
 			goto fault;
-		if ((ret = curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5)) != CURLE_OK)
+		if ((ret = curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L)) != CURLE_OK)
 			goto fault;
 		if ((ret = curl_easy_setopt(curl, CURLOPT_HTTPHEADER, &(struct curl_slist)
 						{.data = "Content-type: text/xml"})) != CURLE_OK)
