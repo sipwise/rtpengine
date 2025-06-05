@@ -323,7 +323,7 @@ m=audio 49696 RTP/AVP 8 0 18 100
 a=rtpmap:8 PCMA/8000
 a=rtpmap:0 PCMU/8000
 a=rtpmap:18 G729/8000
-a=fmtp:18 annexb=no
+a=fmtp:18 annexb=yes
 a=rtpmap:100 telephone-event/8000
 a=fmtp:100 0-11
 a=ptime:20
@@ -340,7 +340,7 @@ a=maxptime:30
 a=rtpmap:8 PCMA/8000
 a=rtpmap:0 PCMU/8000
 a=rtpmap:18 G729/8000
-a=fmtp:18 annexb=no
+a=fmtp:18 annexb=yes
 a=rtpmap:100 telephone-event/8000
 a=fmtp:100 0-11
 a=sendrecv
@@ -386,7 +386,7 @@ m=audio 49696 RTP/AVP 8 0 18 100
 a=rtpmap:8 PCMA/8000
 a=rtpmap:0 PCMU/8000
 a=rtpmap:18 G729/8000
-a=fmtp:18 annexb=yes
+a=fmtp:18 annexb=no
 a=rtpmap:100 telephone-event/8000
 a=fmtp:100 0-11
 a=ptime:20

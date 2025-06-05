@@ -425,7 +425,7 @@ static struct codec_def_s __codec_defs[] = {
 		.default_channels = 1,
 		.default_ptime = 20,
 		.minimum_ptime = 20,
-		.default_fmtp = "annexb=no",
+		.default_fmtp = "annexb=yes",
 		.format_cmp = format_cmp_g729,
 		.packetizer = packetizer_g729,
 		.bits_per_sample = 1, // 10 ms frame has 80 samples and encodes as (max) 10 bytes = 80 bits
@@ -444,6 +444,7 @@ static struct codec_def_s __codec_defs[] = {
 		.default_channels = 1,
 		.default_ptime = 20,
 		.minimum_ptime = 20,
+		.default_fmtp = "annexb=no",
 		.format_cmp = format_cmp_g729,
 		.packetizer = packetizer_g729,
 		.bits_per_sample = 1, // 10 ms frame has 80 samples and encodes as (max) 10 bytes = 80 bits
@@ -3382,19 +3383,20 @@ static int packetizer_g729(AVPacket *pkt, GString *buf, str *input_output, encod
 	return buf->len >= 2 ? 1 : 0;
 }
 
+static bool g729_is_annex_b(const struct rtp_payload_type *p) {
+	// defaults based on codec name (G729 vs G729a)
+	bool annex_b = p->encoding.len && !((p->encoding.s[p->encoding.len - 1] & 0xdf) == 'A');
+	// override per fmtp
+	if (str_str(&p->format_parameters, "annexb=no") != -1)
+		annex_b = false;
+	else if (str_str(&p->format_parameters, "annexb=yes") != -1)
+		annex_b = true;
+	return annex_b;
+}
 static int format_cmp_g729(const struct rtp_payload_type *a, const struct rtp_payload_type *b) {
-	// shortcut the most common case:
-	if (!str_cmp_str(&a->format_parameters, &b->format_parameters))
-		return 0;
-	// incompatible is if one side uses annex B but the other one doesn't
-	if (str_str(&a->format_parameters, "annexb=yes") != -1
-			&& str_str(&b->format_parameters, "annexb=yes") == -1)
-		return -1;
-	if (str_str(&a->format_parameters, "annexb=yes") == -1
-			&& str_str(&b->format_parameters, "annexb=yes") != -1)
-		return -1;
-	// everything else is compatible
-	return 0;
+	bool a_b = g729_is_annex_b(a);
+	bool b_b = g729_is_annex_b(b);
+	return a_b == b_b ? 0 : -1;
 }
 #endif
 
