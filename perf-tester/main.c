@@ -157,8 +157,8 @@ static const struct testparams testparams[] = {
 
 
 // settings
-static char *source_codec = "PCMA";
-static char *dest_codec = "opus";
+static char *source_codec;
+static char *dest_codec;
 static int init_threads = 0;
 static gboolean bidirectional = false;
 static int max_cpu = 0;
@@ -168,6 +168,7 @@ static int measure_time = 500;
 static int repeats = 1;
 static gboolean cpu_freq;
 static int freq_granularity = 50;
+static bool codec_chain;
 
 
 #define BLOCKED_COLOR 1
@@ -292,8 +293,6 @@ static int got_packet_pkt(struct stream *s, AVPacket *pkt) {
 		}
 	}
 
-	av_packet_unref(pkt);
-
 	return 0;
 }
 
@@ -372,8 +371,10 @@ static void readable(int fd, void *o) {
 				decoder_input_data(s->decoder, &frame, s->input_ts, got_frame, s, NULL);
 			else {
 				AVPacket *pkt = codec_cc_input_data(s->chain, &frame, s->input_ts, s, NULL, NULL);
-				if (pkt)
+				if (pkt) {
 					got_packet_pkt(s, pkt);
+					av_packet_unref(pkt);
+				}
 				else
 					mutex_lock(&s->lock); // was unlocked by async_init
 			}
@@ -440,6 +441,7 @@ static void stream_free(struct stream *s) {
 		encoder_free(s->encoder);
 	if (s->decoder)
 		decoder_close(s->decoder);
+	codec_cc_free(&s->chain);
 	g_free(s->type);
 }
 
@@ -458,7 +460,6 @@ static void async_finish(AVPacket *pkt, void *async_cb_obj) {
 		got_packet_pkt(s, pkt);
 	}
 	obj_put(s);
-	av_packet_free(&pkt);
 }
 
 static void new_stream_params(
@@ -1687,6 +1688,12 @@ static void options(int *argc, char ***argv) {
 			.description = "Granularity in ms for measuring CPU frequencies",
 			.arg_description = "INT",
 		},
+		{
+			.long_name = "codec-chain",
+			.arg = G_OPTION_ARG_NONE,
+			.arg_data = &codec_chain,
+			.description = "Use codec-chain facilities",
+		},
 		{ NULL, }
 	};
 
@@ -1697,6 +1704,11 @@ static void options(int *argc, char ***argv) {
 		init_threads = num_cpus;
 	if (init_threads <= 0)
 		init_threads = 1;
+
+	if (!source_codec)
+		source_codec = g_strdup("PCMA");
+	if (!dest_codec)
+		dest_codec = g_strdup("opus");
 
 	if (max_cpu > 100 || max_cpu < 0)
 		die("Invalid `max-cpu` number given");
@@ -1946,6 +1958,20 @@ int main(int argc, char **argv) {
 		die("Definition for input fixture not found");
 	if (!find_params(&out_params, dest_codec))
 		die("Definition for output fixture not found");
+
+	if (codec_chain) {
+		cc_init_chain(
+				decoder_def,
+				&(format_t) {
+					.channels = in_params.channels,
+					.clockrate = in_params.clock_rate,
+				},
+				encoder_def,
+				&(format_t) {
+					.channels = out_params.channels,
+					.clockrate = out_params.clock_rate,
+		});
+	}
 
 	load_fixture(&in_params);
 	if (bidirectional)
