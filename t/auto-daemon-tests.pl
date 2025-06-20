@@ -25973,6 +25973,28 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
+new_call;
+
+$resp = eval {
+	undef $SIG{__DIE__};
+
+	rtpe_raw_req( {
+		'command' => 'offer',
+		'call-id' => cid(),
+		'from-tag' => ft(),
+		sdp => <<SDP } );
+v=
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 2000 RTP/AVP 8 9
+SDP
+};
+
+like($resp, qr/^Error reason: "Failed to parse SDP"/, 'invalid SDP parsing error');
+
 
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
