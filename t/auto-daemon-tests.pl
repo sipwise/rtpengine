@@ -84,6 +84,51 @@ sub stun_succ {
 
 
 
+new_call;
+
+offer('asymmetric codecs w transcoding', { codec => { transcode => ['G722'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 9
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:9 G722/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('asymmetric codecs w transcoding', { flags => ['allow asymmetric codecs'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 9
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
 ($sock_a, $sock_b, $sock_c) = new_call([qw(198.51.100.1 7188)], [qw(198.51.100.3 7190)], [qw(198.51.100.5 5192)]);
 
 ($port_a) = offer('SRTP hijack <> RTP', { 'transport-protocol' => 'RTP/AVP' }, <<SDP);
