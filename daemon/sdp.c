@@ -1262,14 +1262,10 @@ int sdp_parse(str *body, sdp_sessions_q *sessions, const sdp_ng_flags *flags) {
 		switch (line_code) {
 			case 'v':
 				errstr = "Error in v= line";
-				if (value.len != 1) {
-					abort();
+				if (value.len != 1)
 					goto error;
-				}
-				if (value.s[0] != '0') {
-					abort();
+				if (value.s[0] != '0')
 					goto error;
-				}
 
 new_session:
 				session = g_slice_alloc0(sizeof(*session));
