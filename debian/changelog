@@ -1,3 +1,173 @@
+ngcp-rtpengine (13.4.1.0+0~mr13.4.1.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7580e6a] MT#55283 remove debugging remnant
+  * [940f84b] MT#55283 track last outgoing TS
+  * [8121ae2] MT#55283 add even more DTX tests
+  * [0623b6b] MT#61625 tie codec-chain into transcode-config
+  * [1779bee] MT#55283 fix atomic_compare_exchange macro
+  * [859ac06] MT#55283 use non-glib atomic macros in more places
+  * [75aa303] MT#55283 convert ssrc_hash to g_direct
+  * [86aa171] MT#55283 use embedded links for ssrc_hash
+  * [2a141c2] MT#55283 overhaul SSRC hash
+  * [9f9aaa5] MT#55283 remove unused argument
+  * [56f171b] MT#55283 rework crypto debug code
+  * [954bac9] MT#55283 move SSRC hash from monologue to media
+  * [238dc9d] MT#55283 integrate ssrc_hash into upper objects
+  * [d75e448] MT#55283 replace UINT64F with PRIu64
+  * [c705103] MT#55283 convert rtpe_now to int64_t
+  * [2b81650] MT#55283 convert ng_command_stats to int64_t
+  * [8c1d798] MT#55283 convert t38_gateway to int64_t
+  * [39e4d97] MT#55283 convert media_player to int64_t
+  * [8b50a41] MT#55283 convert homer to int64_t
+  * [f34786d] MT#55283 convert media_packet to int64_t
+  * [40319c1] MT#55283 convert ice_agent to int64_t
+  * [a1dadf1] MT#55283 convert agent_schedule_abs to int64_t
+  * [52cb96f] MT#55283 convert last_activity to int64_t
+  * [cf98f90] MT#55283 remove rtcp_parse_ctx
+  * [b2e75d6] MT#55283 convert codec_calc_jitter to int64_t
+  * [93d6f0a] MT#55283 convert codec_timer to int64_t
+  * [5d87874] MT#55283 convert jitter_bufer to int64_t
+  * [20ffa4f] MT#55283 convert timerthread to int64_t
+  * [c59864d] MT#55283 convert rtpe_started to int64_t
+  * [5dd2b5b] MT#55283 convert graphite to int64_t
+  * [87df808] MT#55283 convert ssrc to int64_t
+  * [165c42f] MT#55283 convert calls to int64_t
+  * [e92f260] MT#55283 convert daemon/ to int64_t
+  * [7f84fe5] MT#55283 convert last_packet to int64_t
+  * [8c694b5] MT#55283 convert cookie_cache to int64_t
+  * [b455cf8] MT#55283 convert dtls to int64_t
+  * [0050ac5] MT#55283 convert redis to int64_t
+  * [952429a] MT#55283 convert last_packet to int64_t
+  * [7b9ec86] MT#55283 convert last_packet to int64_t
+  * [27ce614] MT#55283 convert packet_stream_last_packet to int64_t
+  * [9405f3d] MT#55283 convert timestamp/check to int64_t
+  * [ad65c90] MT#55283 convert call structs to int64_t
+  * [e097ee3] MT#55283 convert time_t to int64_t
+  * [a4bd720] MT#55283 convert time_t to int64_t
+  * [8d050d5] MT#55283 convert codeclib to int64_t
+  * [9018099] MT#55283 convert timeval_cmp to int64_t
+  * [a7d71f0] MT#55283 convert notify to int64_t
+  * [8994c59] MT#55283 convert mix to int64_t
+  * [2cda417] MT#55283 convert now_double to int64_t
+  * [2a6853c] MT#55283 obsolete timeval_cmp
+  * [358723e] MT#55283 remove some unused functions
+  * [283abdf] MT#55283 convert mix_buffer to int64_t
+  * [71f2234] MT#55283 obsolete timeval_diff
+  * [aadaa76] MT#55283 obsolete some timeval_from_us
+  * [50b44b4] MT#55283 convert streambuf to int64_t
+  * [3b37004] MT#55283 convert last_packet to int64_t
+  * [f358815] MT#55283 convert async_last to int64_t
+  * [27ff6e6] MT#55283 convert last_redis_update to int64_t
+  * [9f61e02] MT#55283 obsolete some timeval_from_us
+  * [f796537] MT#55283 simplify ntp_ts_lsw, ntp_ts_msw
+  * [2d19336] MT#55283 remember DTMF start TS
+  * [36dfa43] MT#55283 tests for I4e675b151
+  * [3df2868] MT#55283 react better on receive timeouts
+  * [5112c6c] MT#55283 fix typos
+  * [27992a3] MT#55283 scale graphite interval
+  * [9061ce0] MT#55283 scale silent-timeout
+  * [3261098] MT#55283 scale timeout
+  * [d3dc92a] MT#55283 scale final-timeout
+  * [482166f] MT#55283 scale offer-timeout
+  * [4eadfd2] MT#55283 scale delete-delay
+  * [461de89] MT#55283 scale expire times
+  * [180cb21] MT#55283 scale rtcp-interval
+  * [e12ba22] MT#55283 scale redis timers
+  * [206e7db] MT#55283 scale redis timeouts
+  * [8e5cd0a] MT#55283 scale falloff
+  * [6e07f40] MT#55283 scale mqtt_publish_interval
+  * [4d5ff24] MT#55283 scale dtx timers
+  * [03d961b] MT#55283 scale cmr_interval
+  * [58e45c2] MT#55283 scale mode_change_interval
+  * [636c9f1] MT#55283 add L16 and G726 support
+  * [94b1ece] MT#55283 extend test preload .so
+  * [19af803] MT#55283 split SSRC hash into in and out
+  * [cf22d82] MT#55283 eliminate input/output combination SSRC
+  * [c8dd521] MT#55283 obsolete SSRC tracking
+  * [ac2d404] MT#55283 sequencer cache
+  * [71addf5] MT#62687 support codec preferences
+  * [8d1cfbd] MT#55283 make shellcheck happy
+  * [5d98537] MT#55283 obsolete usage of xmlrpc-c
+  * [795f30f] MT#55283 obsolete forking for XMLRPC
+  * [564c5e6] MT#55283 revert sample config changes
+  * [547ffde] MT#55283 add missing init_streams
+  * [8353a29] MT#55283 check codec-chain load status
+  * [fdcee65] MT#55283 tag transform call IDs/tags
+  * [7893b1a] MT#55283 extend G729a compatibility
+  * [5d61302] MT#55283 add global bufferpool
+  * [9d82d08] MT#55283 refactor autotest_init
+  * [bb265dd] MT#55283 tests: add $host and $port knobs
+  * [fb99f31] MT#55283 tests: add support for NG over HTTP
+  * [3ec06bc] MT#55283 add test for play media over HTTP
+  * [76dd9ab] MT#55283 fix off by one bug
+  * [2fdafa6] MT#55283 fix missing strdup
+  * [4e099e4] MT#55283 report SSRCs even without stats
+  * [581a125] MT#55283 add stats reporting test
+  * [0a168c7] MT#55283 int type update
+  * [1e11b44] MT#55283 formatting fix
+  * [9068638] MT#62735 fix heuristic learning mode
+  * [ee32e5b] MT#62735 add tests for heuristic learning mode
+  * [88cb8ab] MT#62735 pull up SRTP decryption
+  * [2af6de6] MT#62735 add tests for I2a2cdd9476
+  * [8a1b420] MT#62735 add `recrypt` flag
+  * [ae8a822] MT#62735 add tests for Ia2779bf5
+  * [1a382b9] MT#55283 use endpoint_print_buf
+  * [5132e74] MT#62735 honour strict-source during learning
+  * [21b0df2] MT#55283 update asymmetric handling
+  * [794797c] MT#55283 tests for I100d0d0476b
+  * [fdfd5c0] MT#55283 fix missing init of last_ts
+  * [449018f] MT#55283 use correct PT for clock rate
+  * [a2fc205] MT#55283 add logic to discard old packets
+  * [4ddfe23] MT#55283 int typing fixes
+  * [41a2dfb] MT#55283 use function pointer for DTX method
+  * [6221c9e] MT#55283 add extra DTX tests
+  * [97b55f3] MT#55283 add tests for dtx-shift=0
+  * [21672a2] MT#62544 split out HTTP notification logic
+  * [6652b5f] MT#62544 split out notify retry logic
+  * [0f65446] MT#62544 support notification command
+  * [d84bd00] MT#62544 hand-roll avio output
+  * [02253c6] MT#62544 add output-buffer option
+  * [c156315] MT#62544 read from storage file without reopening
+  * [d0a3bae] MT#62544 support in-memory recording
+  * [5253845] MT#55283 support older BIO_set_callback
+  * [277bd13] MT#55283 fix kernel version generating booboo
+  * [db77c69] MT#55283 remove kernel patching code
+  * [38700ab] MT#55283 use ccflags instead of EXTRA_CFLAGS
+  * [a9fccfa] MT#55283 add missing MODULE_DESCRIPTION/AUTHOR
+  * [849e16d] MT#55283 add RTCP tests
+  * [c35ee94] MT#55283 fix PT Redis JSON encoding
+  * [9c8773f] MT#55283 fix regression from f86c5e17
+  * [d2f8fd4] MT#55283 loosen check from e969a7942
+  * [dd84505] MT#55283 fix log message format
+  * [a2c9d5c] MT#55283 add media PUBLIC flag
+  * [54f7a46] MT#55283 add extra MOS test
+  * [621d869] MT#55283 exclude non existent file from shellcheck
+  * [c4cc99d] MT#55283 fix shellcheck issues
+  * [160827c] MT#55283 obsolete `str_done`
+  * [557b052] MT#55283 update is_http to bool
+  * [9db8925] MT#55283 handle lws partial writes
+  * [1480574] MT#55283 overhaul WS locking logic
+  * [bad2b3d] MT#55283 add extra WS test
+  * [991a2c3] MT#55283 silence curl compiler warnings
+  * [3df26cf] MT#55283 improve G.729 format matching
+  * [92ee471] MT#55283 ignore fmtp for G.711
+  * [3932939] MT#55283 perf tester fixes
+
+  [ Orgad Shaneh ]
+  * [312997c] MT#55283 Prevent warning logs when recording-method is pcap #2
+
+  [ Guillem Jover ]
+  * [377cbbb] MT#62763 perl: Suppress a perlcritic false positive
+
+  [ Tom Briden ]
+  * [3bd7298] MT#55283 codec: disable clock skew calculation during media playback
+  * [5ca5214] MT#55283 fix not processing DTMF events while media is being blocked and DTMF-security=silence
+  * [9fd6b31] MT#55283 add flag to discard delay buffer packets in codec_handlers_stop before media playback
+  * [101d9ae] MT#55283 codec: fix not processing DTMF during block-media when audio sent along with DTMF
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 20 Jun 2025 10:45:27 +0200
+
 ngcp-rtpengine (13.4.0.0+0~mr13.4.0.0) unstable; urgency=medium
 
   [ Guillem Jover ]
