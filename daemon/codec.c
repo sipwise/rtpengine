@@ -1221,7 +1221,7 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 		if (!sink_pt) {
 			// no matching/identical output codec. maybe we have the same output codec,
 			// but with a different payload type or a different format?
-			if (!a.allow_asymmetric)
+			if (!a.allow_asymmetric || pt->for_transcoding)
 				sink_pt = codec_store_find_compatible(&sink->codecs, pt);
 			else
 				sink_pt = pt;
