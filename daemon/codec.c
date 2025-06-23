@@ -340,6 +340,7 @@ static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *ch,
 		tc_code (*dtx_func)(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
 			struct transcode_packet *packet,
 			struct media_packet *mp));
+static void __dtx_soft_shutdown(struct dtx_buffer *dtxb);
 static void __dtx_shutdown(struct dtx_buffer *dtxb);
 static struct codec_handler *__input_handler(struct codec_handler *h, struct media_packet *mp);
 
@@ -4040,9 +4041,9 @@ static void __dtx_send_later(struct codec_timer *ct) {
 		}
 		else {
 			ilogs(dtx, LOG_DEBUG, "Stopping DTX at TS %lu", ts);
-
+			ptime = -1;
 			mutex_lock(&dtxb->lock);
-			__dtx_shutdown(dtxb);
+			__dtx_soft_shutdown(dtxb);
 			mutex_unlock(&dtxb->lock);
 		}
 	}
@@ -4051,14 +4052,18 @@ static void __dtx_send_later(struct codec_timer *ct) {
 
 	mutex_lock(&dtxb->lock);
 
-	if (ptime != dtxb->ptime) {
-		dtxb->ptime = ptime;
-		dtxb->tspp = ptime * dtxb->clockrate / 1000;
-	}
+	if (ptime > 0) {
+		if (ptime != dtxb->ptime) {
+			dtxb->ptime = ptime;
+			dtxb->tspp = ptime * dtxb->clockrate / 1000;
+		}
 
-	// schedule next run
-	dtxb->ct.next += dtxb->ptime * 1000; // XXX scale to micro
-	timerthread_obj_schedule_abs(&dtxb->ct.tt_obj, dtxb->ct.next);
+		// schedule next run
+		dtxb->ct.next += dtxb->ptime * 1000; // XXX scale to micro
+		timerthread_obj_schedule_abs(&dtxb->ct.tt_obj, dtxb->ct.next);
+	}
+	else
+		dtxb->ct.next = 0; // stop here
 
 	mutex_unlock(&dtxb->lock);
 
@@ -4077,24 +4082,26 @@ out:
 		dtx_packet_free(dtxp);
 	media_packet_release(&mp_copy);
 }
-static void __dtx_shutdown(struct dtx_buffer *dtxb) {
-	if (dtxb->csh) {
-		__auto_type ch = dtxb->csh;
+static void __dtx_soft_shutdown(struct dtx_buffer *dtxb) {
+	__auto_type ch = dtxb->csh;
+	if (ch) {
 		ch->csch.first_send = 0;
 		ch->csch.first_ts = 0;
-		ch->csch.first_ts = 0;
+		ch->csch.first_send_ts = 0;
 		if (ch->encoder) {
 			ch->encoder->packet_pts = 0;
 			ch->encoder->fifo_pts = 0;
 			ch->encoder->next_pts = 0;
 			ch->encoder->mux_dts = 0;
 		}
-
-		ssrc_entry_release(dtxb->csh);
 	}
-	obj_release(dtxb->call);
 	t_queue_clear_full(&dtxb->packets, dtx_packet_free);
 	dtxb->head_ts = 0;
+}
+static void __dtx_shutdown(struct dtx_buffer *dtxb) {
+	__dtx_soft_shutdown(dtxb);
+	ssrc_entry_release(dtxb->csh);
+	obj_release(dtxb->call);
 }
 static void __delay_buffer_shutdown(struct delay_buffer *dbuf, bool flush) {
 	if (flush) {
