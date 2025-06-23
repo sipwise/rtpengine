@@ -10,7 +10,8 @@ use POSIX;
 
 
 autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
-			-n 2223 -c 12345 -f -L 7 -E -u 2222 --silence-detect=1 --dtx-delay=10))
+			-n 2223 -c 12345 -f -L 7 -E -u 2222 --silence-detect=1 --dtx-delay=10
+			--max-dtx=10))
 		or die;
 
 
@@ -1801,6 +1802,88 @@ rcv($sock_b, $port_a, rtpm(8, $seq + 5, 4800, $ssrc, "\xd5" x 160));
 # start audio again
 snd($sock_a, $port_b, rtp(0, 2002, 4960, 0x5678, "\x40" x 240));
 rcv($sock_b, $port_a, rtpm(8, $seq + 6, 4960, $ssrc, "\x68" x 160));
+
+rtpe_req('delete', 'G.711 DTX ptime change', { 'from-tag' => ft() });
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.10 5044)], [qw(198.51.100.10 5046)]);
+
+($port_a) = offer('max-dtx',
+	{ replace => ['origin'], codec => {
+			transcode => ['PCMA'],
+	} }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5044 RTP/AVP 0
+c=IN IP4 198.51.100.10
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('max-dtx',
+	{ replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5046 RTP/AVP 8
+c=IN IP4 198.51.100.10
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(0, 2000, 4000, 0x5678, "\x40" x 160));
+($seq, $ssrc) = rcv($sock_b, $port_a, rtpm(8, -1, 4000, -1, "\x68" x 160));
+snd($sock_a, $port_b, rtp(0, 2001, 4160, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 1, 4160, $ssrc, "\x68" x 160));
+snd($sock_a, $port_b, rtp(0, 2002, 4320, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 2, 4320, $ssrc, "\x68" x 160));
+# DTX -> silence
+rcv($sock_b, $port_a, rtpm(8, $seq + 3, 4480, $ssrc, "\xd5" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 4, 4640, $ssrc, "\xd5" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 5, 4800, $ssrc, "\xd5" x 160));
+# start audio again
+snd($sock_a, $port_b, rtp(0, 2003, 4960, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 6, 4960, $ssrc, "\x68" x 160));
+snd($sock_a, $port_b, rtp(0, 2004, 5120, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 7, 5120, $ssrc, "\x68" x 160));
+# DTX -> silence
+rcv($sock_b, $port_a, rtpm(8, $seq + 8, 5280, $ssrc, "\xd5" x 160));
+# receive until max-dtx kicks in (10 sec, ~500 packets)
+for my $i (0 .. 497) {
+	rcv($sock_b, $port_a, rtpm(8, $seq + 9 + $i, 5440 + $i * 160, $ssrc, "\xd5" x 160));
+}
+# now shut down
+rcv_no($sock_b);
+# start audio again
+snd($sock_a, $port_b, rtp(0, 2005, 90000, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 507, 90000, $ssrc, "\x68" x 160));
+snd($sock_a, $port_b, rtp(0, 2006, 90160, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 508, 90160, $ssrc, "\x68" x 160));
+# DTX -> silence
+rcv($sock_b, $port_a, rtpm(8, $seq + 509, 90320, $ssrc, "\xd5" x 160));
 
 rtpe_req('delete', 'G.711 DTX ptime change', { 'from-tag' => ft() });
 
