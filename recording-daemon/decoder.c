@@ -19,6 +19,7 @@
 #include "main.h"
 #include "packet.h"
 #include "tag.h"
+#include "tls_send.h"
 
 
 int resample_audio;
