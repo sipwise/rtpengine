@@ -9,6 +9,8 @@
 #include "main.h"
 #include "streambuf.h"
 #include "fix_frame_channel_layout.h"
+#include "output.h"
+#include "tag.h"
 
 
 static ssize_t ssrc_tls_write(void *, const void *, size_t);
@@ -73,7 +75,6 @@ void tls_fwd_shutdown(tls_fwd_t **p) {
 		return;
 	streambuf_destroy(tls_fwd->stream);
 	tls_fwd->stream = NULL;
-	resample_shutdown(&tls_fwd->resampler);
 	if (tls_fwd->ssl) {
 		SSL_free(tls_fwd->ssl);
 		tls_fwd->ssl = NULL;
@@ -84,11 +85,12 @@ void tls_fwd_shutdown(tls_fwd_t **p) {
 	}
 	close_socket(&tls_fwd->sock);
 	av_frame_free(&tls_fwd->silence_frame);
+	sink_close(&tls_fwd->sink);
 	g_clear_pointer(p, g_free);
 }
 
 
-void tls_fwd_state(tls_fwd_t **p) {
+static void tls_fwd_state(tls_fwd_t **p) {
 	tls_fwd_t *tls_fwd = *p;
 	int ret;
 
@@ -140,7 +142,7 @@ void tls_fwd_state(tls_fwd_t **p) {
 }
 
 
-void tls_fwd_silence_frames_upto(tls_fwd_t *tls_fwd, AVFrame *frame, int64_t upto) {
+static void tls_fwd_silence_frames_upto(tls_fwd_t *tls_fwd, AVFrame *frame, int64_t upto) {
 	unsigned int silence_samples = tls_fwd->format.clockrate / 100;
 
 	while (tls_fwd->in_pts < upto) {
@@ -180,6 +182,69 @@ void tls_fwd_silence_frames_upto(tls_fwd_t *tls_fwd, AVFrame *frame, int64_t upt
 		dbg("Writing %u bytes PCM to TLS", linesize);
 		streambuf_write(tls_fwd->stream, (char *) tls_fwd->silence_frame->extended_data[0], linesize);
 	}
+}
+
+
+static bool tls_fwd_add(sink_t *sink, AVFrame *frame) {
+	tls_fwd_t **p = sink->tls_fwd;
+
+	tls_fwd_state(p);
+
+	// if we're in the middle of a disconnect then ssrc_tls_state may have destroyed the streambuf
+	// so we need to skip the below to ensure we only send metadata for the new connection
+	// once we've got a new streambuf
+	tls_fwd_t *tls_fwd = *p;
+	if (!tls_fwd) {
+		av_frame_free(&frame);
+		return false;
+	}
+
+	if (!tls_fwd->sent_intro) {
+		ssrc_t *ssrc = tls_fwd->ssrc;
+		metafile_t *metafile = tls_fwd->metafile;
+		tag_t *tag = NULL;
+
+		if (ssrc->stream)
+			tag = tag_get(metafile, ssrc->stream->tag);
+
+		if (tag && tag->metadata) {
+			dbg("Writing tag metadata header to TLS");
+			streambuf_write(tls_fwd->stream, tag->metadata, strlen(tag->metadata) + 1);
+		}
+		else if (metafile->metadata) {
+			dbg("Writing call metadata header to TLS");
+			streambuf_write(tls_fwd->stream, metafile->metadata, strlen(metafile->metadata) + 1);
+		}
+		else {
+			ilog(LOG_WARN, "No metadata present for forwarding connection");
+			streambuf_write(tls_fwd->stream, "\0", 1);
+		}
+		tls_fwd->sent_intro = 1;
+	}
+
+	tls_fwd_silence_frames_upto(tls_fwd, frame, frame->pts);
+	uint64_t next_pts = frame->pts + frame->nb_samples;
+	if (next_pts > tls_fwd->in_pts)
+		tls_fwd->in_pts = next_pts;
+
+	int linesize = av_get_bytes_per_sample(frame->format) * frame->nb_samples;
+	dbg("Writing %u bytes PCM to TLS", linesize);
+	streambuf_write(tls_fwd->stream, (char *) frame->extended_data[0], linesize);
+
+	av_frame_free(&frame);
+
+	return true;
+}
+
+
+static bool tls_fwd_config(sink_t *sink, const format_t *requested_format, format_t *actual_format)
+{
+	*actual_format = (format_t) {
+		.clockrate = tls_resample,
+		.format = AV_SAMPLE_FMT_S16,
+		.channels = 1,
+	};
+	return true;
 }
 
 
@@ -238,6 +303,9 @@ void tls_fwd_init(stream_t *stream, metafile_t *mf, ssrc_t *ssrc) {
 		tls_fwd->stream = streambuf_new(&tls_fwd->poller, tls_fwd->sock.fd);
 	}
 
+	tls_fwd->ssrc = ssrc;
+	tls_fwd->metafile = mf;
+
 	tls_fwd_state(&ssrc->tls_fwd);
 	if (!ssrc->tls_fwd) // may have been closed
 		return;
@@ -247,4 +315,9 @@ void tls_fwd_init(stream_t *stream, metafile_t *mf, ssrc_t *ssrc) {
 		.channels = 1,
 		.format = AV_SAMPLE_FMT_S16,
 	};
+
+	sink_init(&tls_fwd->sink);
+	tls_fwd->sink.tls_fwd = &ssrc->tls_fwd;
+	tls_fwd->sink.add = tls_fwd_add;
+	tls_fwd->sink.config = tls_fwd_config;
 }

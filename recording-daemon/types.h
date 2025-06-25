@@ -53,6 +53,7 @@ struct sink_s {
 	union {
 		output_t *output;
 		ssrc_t *ssrc;
+		tls_fwd_t **tls_fwd;
 	};
 
 	resample_t resampler;
@@ -92,8 +93,8 @@ struct packet_s {
 
 
 struct tls_fwd_s {
+	sink_t sink;
 	format_t format;
-	resample_t resampler;
 	socket_t sock;
 	uint64_t in_pts;
 	AVFrame *silence_frame;
@@ -101,6 +102,8 @@ struct tls_fwd_s {
 	SSL *ssl;
 	struct streambuf *stream;
 	struct poller poller;
+	ssrc_t *ssrc;
+	metafile_t *metafile;
 	unsigned int sent_intro:1;
 };
 

@@ -105,71 +105,25 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *sp, void *dp)
 			(unsigned int) frame->extended_data[0][2],
 			(unsigned int) frame->extended_data[0][3]);
 
-	if (!metafile->recording_on)
-		goto no_recording;
+	if (metafile->recording_on) {
+		sink_add(&deco->mix_sink, frame, &dec->dest_format);
 
-	sink_add(&deco->mix_sink, frame, &dec->dest_format);
-
-	if (output) {
-		dbg("SSRC %lx of stream #%lu has single output", ssrc->ssrc, stream->id);
-		if (!sink_add(&output->sink, frame, &dec->dest_format))
-			ilog(LOG_ERR, "Failed to add decoded packet to individual output");
+		if (output) {
+			dbg("SSRC %lx of stream #%lu has single output", ssrc->ssrc, stream->id);
+			if (!sink_add(&output->sink, frame, &dec->dest_format))
+				ilog(LOG_ERR, "Failed to add decoded packet to individual output");
+		}
 	}
 
-no_recording:
 	if (ssrc->tls_fwd) {
-		// XXX might be a second resampling to same format
 		dbg("SSRC %lx of stream #%lu has TLS forwarding stream", ssrc->ssrc, stream->id);
-
-		tls_fwd_state(&ssrc->tls_fwd);
-		// if we're in the middle of a disconnect then ssrc_tls_state may have destroyed the streambuf
-		// so we need to skip the below to ensure we only send metadata for the new connection
-		// once we've got a new streambuf
-		if (!ssrc->tls_fwd)
-			goto err;
-
-		AVFrame *dec_frame = resample_frame(&ssrc->tls_fwd->resampler, frame, &ssrc->tls_fwd->format);
-
-		if (!ssrc->tls_fwd->sent_intro) {
-			tag_t *tag = NULL;
-
-			if (ssrc->stream)
-				tag = tag_get(metafile, ssrc->stream->tag);
-
-			if (tag && tag->metadata) {
-				dbg("Writing tag metadata header to TLS");
-				streambuf_write(ssrc->tls_fwd->stream, tag->metadata, strlen(tag->metadata) + 1);
-			}
-			else if (metafile->metadata) {
-				dbg("Writing call metadata header to TLS");
-				streambuf_write(ssrc->tls_fwd->stream, metafile->metadata, strlen(metafile->metadata) + 1);
-			}
-			else {
-				ilog(LOG_WARN, "No metadata present for forwarding connection");
-				streambuf_write(ssrc->tls_fwd->stream, "\0", 1);
-			}
-			ssrc->tls_fwd->sent_intro = 1;
-		}
-
-		tls_fwd_silence_frames_upto(ssrc->tls_fwd, dec_frame, dec_frame->pts);
-		uint64_t next_pts = dec_frame->pts + dec_frame->nb_samples;
-		if (next_pts > ssrc->tls_fwd->in_pts)
-			ssrc->tls_fwd->in_pts = next_pts;
-
-		int linesize = av_get_bytes_per_sample(dec_frame->format) * dec_frame->nb_samples;
-		dbg("Writing %u bytes PCM to TLS", linesize);
-		streambuf_write(ssrc->tls_fwd->stream, (char *) dec_frame->extended_data[0], linesize);
-		if (dec_frame != frame)
-			av_frame_free(&dec_frame);
+		if (!sink_add(&ssrc->tls_fwd->sink, frame, &ssrc->tls_fwd->format))
+			ilog(LOG_ERR, "Failed to add decoded packet to TLS/TCP forward output");
 
 	}
 
 	av_frame_free(&frame);
 	return 0;
-
-err:
-	av_frame_free(&frame);
-	return -1;
 }
 
 
