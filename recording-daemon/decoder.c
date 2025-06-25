@@ -121,7 +121,7 @@ no_recording:
 		// XXX might be a second resampling to same format
 		dbg("SSRC %lx of stream #%lu has TLS forwarding stream", ssrc->ssrc, stream->id);
 
-		ssrc_tls_state(ssrc);
+		tls_fwd_state(&ssrc->tls_fwd);
 		// if we're in the middle of a disconnect then ssrc_tls_state may have destroyed the streambuf
 		// so we need to skip the below to ensure we only send metadata for the new connection
 		// once we've got a new streambuf
@@ -151,7 +151,7 @@ no_recording:
 			ssrc->tls_fwd->sent_intro = 1;
 		}
 
-		ssrc_tls_fwd_silence_frames_upto(ssrc, dec_frame, dec_frame->pts);
+		tls_fwd_silence_frames_upto(ssrc->tls_fwd, dec_frame, dec_frame->pts);
 		uint64_t next_pts = dec_frame->pts + dec_frame->nb_samples;
 		if (next_pts > ssrc->tls_fwd->in_pts)
 			ssrc->tls_fwd->in_pts = next_pts;
