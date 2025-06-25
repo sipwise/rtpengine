@@ -26,6 +26,7 @@ int resample_audio;
 
 
 
+// does not initialise the contained `sink`
 decode_t *decoder_new(const char *payload_str, const char *format, int ptime, const format_t *dec_format) {
 	char *slash = strchr(payload_str, '/');
 	if (!slash) {
@@ -87,7 +88,6 @@ decode_t *decoder_new(const char *payload_str, const char *format, int ptime, co
 		return NULL;
 	decode_t *deco = g_new0(decode_t, 1);
 	deco->dec = dec;
-	deco->mixer_idx = (unsigned int) -1;
 	return deco;
 }
 
@@ -112,20 +112,20 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *sp, void *dp)
 	pthread_mutex_lock(&metafile->mix_lock);
 	if (metafile->mix_out) {
 		dbg("adding packet from stream #%lu to mix output", stream->id);
-		if (G_UNLIKELY(deco->mixer_idx == (unsigned int) -1))
-			deco->mixer_idx = mix_get_index(metafile->mix, ssrc, stream->media_sdp_id, stream->channel_slot);
+		if (G_UNLIKELY(deco->mix_sink.mixer_idx == (unsigned int) -1))
+			deco->mix_sink.mixer_idx = mix_get_index(metafile->mix, ssrc, stream->media_sdp_id, stream->channel_slot);
 		format_t actual_format;
 		if (output_config(metafile->mix_out, &dec->dest_format, &actual_format))
 			goto no_mix_out;
 		mix_config(metafile->mix, &actual_format);
 		// XXX might be a second resampling to same format
 		AVFrame *copy_frame = av_frame_clone(frame);
-		AVFrame *dec_frame = resample_frame(&deco->mix_resampler, copy_frame, &actual_format);
+		AVFrame *dec_frame = resample_frame(&deco->mix_sink.resampler, copy_frame, &actual_format);
 		if (!dec_frame) {
 			pthread_mutex_unlock(&metafile->mix_lock);
 			goto err;
 		}
-		if (mix_add(metafile->mix, dec_frame, deco->mixer_idx, ssrc, metafile->mix_out))
+		if (mix_add(metafile->mix, dec_frame, deco->mix_sink.mixer_idx, ssrc, metafile->mix_out))
 			ilog(LOG_ERR, "Failed to add decoded packet to mixed output");
 		if (dec_frame != copy_frame)
 			av_frame_free(&copy_frame);
@@ -204,6 +204,6 @@ void decoder_free(decode_t *deco) {
 	if (!deco)
 		return;
 	decoder_close(deco->dec);
-	resample_shutdown(&deco->mix_resampler);
+	sink_close(&deco->mix_sink);
 	g_free(deco);
 }

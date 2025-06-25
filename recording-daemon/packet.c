@@ -120,6 +120,8 @@ static void packet_decode(ssrc_t *ssrc, packet_t *packet) {
 		else if (ssrc->output)
 			dec_format = ssrc->output->requested_format;
 		ssrc->decoders[payload_type] = decoder_new(payload_str, format, ptime, &dec_format);
+		sink_init(&ssrc->decoders[payload_type]->mix_sink);
+		ssrc->decoders[payload_type]->mix_sink.ssrc = ssrc;
 		pthread_mutex_unlock(&mf->mix_lock);
 		if (!ssrc->decoders[payload_type]) {
 			ilog(LOG_WARN, "Cannot decode RTP payload type %u (%s)",

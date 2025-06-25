@@ -123,6 +123,7 @@ static void create_parent_dirs(char *dir) {
 
 void sink_init(sink_t *sink) {
 	*sink = (__typeof(*sink)) {
+		.mixer_idx = -1u,
 	};
 }
 
@@ -559,7 +560,7 @@ static bool output_shutdown(output_t *output, FILE **fp, GString **gs) {
 }
 
 
-static void sink_close(sink_t *sink) {
+void sink_close(sink_t *sink) {
 	resample_shutdown(&sink->resampler);
 }
 

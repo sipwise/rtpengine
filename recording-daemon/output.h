@@ -17,6 +17,7 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 
 
 void sink_init(sink_t *);
+void sink_close(sink_t *sink);
 
 bool sink_add(sink_t *, AVFrame *frame, const format_t *requested_format);
 

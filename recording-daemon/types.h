@@ -51,9 +51,14 @@ struct sink_s {
 
 	union {
 		output_t *output;
+		ssrc_t *ssrc;
 	};
 
 	resample_t resampler;
+
+	union {
+		unsigned int mixer_idx;
+	};
 };
 
 
@@ -197,8 +202,7 @@ struct output_s {
 
 struct decode_s {
 	decoder_t *dec;
-	resample_t mix_resampler;
-	unsigned int mixer_idx;
+	sink_t mix_sink;
 };
 
 
