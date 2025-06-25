@@ -138,9 +138,7 @@ no_mix_out:
 
 	if (output) {
 		dbg("SSRC %lx of stream #%lu has single output", ssrc->ssrc, stream->id);
-		if (output_config(output, &dec->dest_format, NULL))
-			goto err;
-		if (!sink_add(&output->sink, frame))
+		if (!sink_add(&output->sink, frame, &dec->dest_format))
 			ilog(LOG_ERR, "Failed to add decoded packet to individual output");
 	}
 

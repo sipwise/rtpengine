@@ -25,6 +25,8 @@ int mp3_bitrate;
 
 
 static bool output_shutdown(output_t *output, FILE **, GString **);
+static bool output_config_(sink_t *, output_t *output, const format_t *requested_format,
+		format_t *actual_format);
 
 
 
@@ -42,9 +44,14 @@ static int output_got_packet(encoder_t *enc, void *u1, void *u2) {
 }
 
 
-bool sink_add(sink_t *sink, AVFrame *frame) {
+bool sink_add(sink_t *sink, AVFrame *frame, const format_t *requested_format) {
 	if (!sink)
 		return false;
+
+	format_t actual_format;
+	if (!sink->config(sink, requested_format, &actual_format))
+		return false;
+
 	return sink->add(sink, frame);
 }
 
@@ -104,6 +111,10 @@ void sink_init(sink_t *sink) {
 	};
 }
 
+static bool output_config__(sink_t *s, const format_t *requested_format, format_t *actual_format) {
+	return output_config_(s, s->output, requested_format, actual_format);
+}
+
 static output_t *output_alloc(const char *path, const char *name) {
 	output_t *ret = g_new0(output_t, 1);
 	ret->file_path = g_strdup(path);
@@ -119,6 +130,7 @@ static output_t *output_alloc(const char *path, const char *name) {
 	sink_init(&ret->sink);
 	ret->sink.output = ret;
 	ret->sink.add = output_add;
+	ret->sink.config = output_config__;
 
 	return ret;
 }
@@ -308,7 +320,9 @@ int64_t output_avio_mem_seek(void *opaque, int64_t offset, int whence) {
 	return o->mempos;
 }
 
-int output_config(output_t *output, const format_t *requested_format, format_t *actual_format) {
+static bool output_config_(sink_t *sink, output_t *output, const format_t *requested_format,
+		format_t *actual_format)
+{
 	const char *err;
 	int av_ret = 0;
 
@@ -461,14 +475,19 @@ no_output_file:
 done:
 	if (actual_format)
 		*actual_format = output->actual_format;
-	return 0;
+	return true;
 
 err:
 	output_shutdown(output, NULL, NULL);
 	ilog(LOG_ERR, "Error configuring media output: %s", err);
 	if (av_ret)
 		ilog(LOG_ERR, "Error returned from libav: %s", av_error(av_ret));
-	return -1;
+	return false;
+}
+
+
+int output_config(output_t *output, const format_t *requested_format, format_t *actual_format) {
+	return output_config_(NULL, output, requested_format, actual_format) ? 0 : -1;
 }
 
 

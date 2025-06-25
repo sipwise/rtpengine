@@ -47,6 +47,7 @@ struct handler_s {
 
 struct sink_s {
 	bool (*add)(sink_t *, AVFrame *);
+	bool (*config)(sink_t *, const format_t *requested_format, format_t *actual_format);
 
 	union {
 		output_t *output;

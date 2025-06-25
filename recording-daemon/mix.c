@@ -390,7 +390,7 @@ int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, void *ptr, output_t *o
 		}
 		frame = resample_frame(&mix->resample, mix->sink_frame, &mix->out_format);
 
-		bool ok = sink_add(&output->sink, frame);
+		bool ok = sink_add(&output->sink, frame, &mix->out_format);
 
 		av_frame_unref(mix->sink_frame);
 		if (frame != mix->sink_frame)
