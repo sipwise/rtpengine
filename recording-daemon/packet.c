@@ -43,7 +43,7 @@ void ssrc_close(ssrc_t *s) {
 
 void ssrc_free(void *p) {
 	ssrc_t *s = p;
-	av_frame_free(&s->tls_silence_frame);
+	av_frame_free(&s->tls_fwd.silence_frame);
 	packet_sequencer_destroy(&s->sequencer);
 	ssrc_close(s);
 	g_free(s);

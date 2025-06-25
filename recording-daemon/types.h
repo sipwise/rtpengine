@@ -34,6 +34,7 @@ typedef struct packet_s packet_t;
 typedef struct stream_s stream_t;
 typedef struct ssrc_s ssrc_t;
 typedef struct sink_s sink_t;
+typedef struct tls_fwd_s tls_fwd_t;
 
 
 typedef void handler_func(handler_t *);
@@ -90,6 +91,20 @@ struct packet_s {
 };
 
 
+struct tls_fwd_s {
+	format_t format;
+	resample_t resampler;
+	socket_t sock;
+	uint64_t in_pts;
+	AVFrame *silence_frame;
+	SSL_CTX *ssl_ctx;
+	SSL *ssl;
+	struct streambuf *stream;
+	struct poller poller;
+	unsigned int sent_intro:1;
+};
+
+
 struct ssrc_s {
 	pthread_mutex_t lock;
 	stream_t *stream;
@@ -98,18 +113,7 @@ struct ssrc_s {
 	packet_sequencer_t sequencer;
 	decode_t *decoders[128];
 	output_t *output;
-
-	// TLS output
-	format_t tls_fwd_format;
-	resample_t tls_fwd_resampler;
-	socket_t tls_fwd_sock;
-	uint64_t tls_in_pts;
-	AVFrame *tls_silence_frame;
-	SSL_CTX *ssl_ctx;
-	SSL *ssl;
-	struct streambuf *tls_fwd_stream;
-	struct poller tls_fwd_poller;
-	unsigned int sent_intro:1;
+	tls_fwd_t tls_fwd;
 };
 
 
