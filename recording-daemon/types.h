@@ -113,7 +113,7 @@ struct ssrc_s {
 	packet_sequencer_t sequencer;
 	decode_t *decoders[128];
 	output_t *output;
-	tls_fwd_t tls_fwd;
+	tls_fwd_t *tls_fwd;
 };
 
 
