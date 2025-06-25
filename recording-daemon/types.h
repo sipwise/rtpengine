@@ -33,6 +33,7 @@ typedef struct decode_s decode_t;
 typedef struct packet_s packet_t;
 typedef struct stream_s stream_t;
 typedef struct ssrc_s ssrc_t;
+typedef struct sink_s sink_t;
 
 
 typedef void handler_func(handler_t *);
@@ -41,6 +42,15 @@ typedef void handler_func(handler_t *);
 struct handler_s {
 	handler_func *func;
 	void *ptr;
+};
+
+
+struct sink_s {
+	bool (*add)(sink_t *, AVFrame *);
+
+	union {
+		output_t *output;
+	};
 };
 
 
@@ -156,6 +166,8 @@ struct metafile_s {
 
 
 struct output_s {
+	sink_t sink;
+
 	char *full_filename, // path + filename
 		*file_path,
 		*file_name,

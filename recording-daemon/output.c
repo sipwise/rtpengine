@@ -42,14 +42,26 @@ static int output_got_packet(encoder_t *enc, void *u1, void *u2) {
 }
 
 
-int output_add(output_t *output, AVFrame *frame) {
-	if (!output)
-		return -1;
+bool sink_add(sink_t *sink, AVFrame *frame) {
+	if (!sink)
+		return false;
+	return sink->add(sink, frame);
+}
+
+
+static bool output_add(sink_t *sink, AVFrame *frame) {
+	bool ret = false;
+
+	output_t *output = sink->output;
 	if (!output->encoder) // not ready - not configured
-		return -1;
+		goto out;
 	if (!output->fmtctx) // output not open
-		return -1;
-	return encoder_input_fifo(output->encoder, frame, output_got_packet, output, NULL);
+		goto out;
+	ret = encoder_input_fifo(output->encoder, frame, output_got_packet, output, NULL) == 0;
+
+out:
+	av_frame_free(&frame);
+	return ret;
 }
 
 
@@ -87,6 +99,11 @@ static void create_parent_dirs(char *dir) {
 	}
 }
 
+void sink_init(sink_t *sink) {
+	*sink = (__typeof(*sink)) {
+	};
+}
+
 static output_t *output_alloc(const char *path, const char *name) {
 	output_t *ret = g_new0(output_t, 1);
 	ret->file_path = g_strdup(path);
@@ -98,6 +115,10 @@ static output_t *output_alloc(const char *path, const char *name) {
 	ret->requested_format.format = -1;
 	ret->actual_format.format = -1;
 	ret->start_time_us = now_us();
+
+	sink_init(&ret->sink);
+	ret->sink.output = ret;
+	ret->sink.add = output_add;
 
 	return ret;
 }
