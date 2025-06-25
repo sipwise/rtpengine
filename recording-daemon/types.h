@@ -11,7 +11,6 @@
 #include <libavutil/samplefmt.h>
 #include <libavutil/audio_fifo.h>
 #include <openssl/ssl.h>
-#include <openssl/bio.h>
 #include "str.h"
 #include "codeclib.h"
 #include "poller.h"
@@ -26,16 +25,14 @@ struct rtp_header;
 struct streambuf;
 
 
-struct handler_s;
 typedef struct handler_s handler_t;
-struct metafile_s;
 typedef struct metafile_s metafile_t;
-struct output_s;
 typedef struct output_s output_t;
-struct mix_s;
 typedef struct mix_s mix_t;
-struct decode_s;
 typedef struct decode_s decode_t;
+typedef struct packet_s packet_t;
+typedef struct stream_s stream_t;
+typedef struct ssrc_s ssrc_t;
 
 
 typedef void handler_func(handler_t *);
@@ -60,7 +57,6 @@ struct stream_s {
 	unsigned int media_sdp_id;
 	unsigned int channel_slot;
 };
-typedef struct stream_s stream_t;
 
 
 struct packet_s {
@@ -74,7 +70,6 @@ struct packet_s {
 	str payload;
 
 };
-typedef struct packet_s packet_t;
 
 
 struct ssrc_s {
@@ -92,14 +87,12 @@ struct ssrc_s {
 	socket_t tls_fwd_sock;
 	uint64_t tls_in_pts;
 	AVFrame *tls_silence_frame;
-	//BIO *bio;
 	SSL_CTX *ssl_ctx;
 	SSL *ssl;
 	struct streambuf *tls_fwd_stream;
 	struct poller tls_fwd_poller;
 	unsigned int sent_intro:1;
 };
-typedef struct ssrc_s ssrc_t;
 
 
 struct tag_s {
