@@ -12,6 +12,7 @@
 #include "main.h"
 #include "recaux.h"
 #include "notify.h"
+#include "resample.h"
 
 
 #define DEFAULT_AVIO_BUFSIZE 4096
@@ -52,7 +53,21 @@ bool sink_add(sink_t *sink, AVFrame *frame, const format_t *requested_format) {
 	if (!sink->config(sink, requested_format, &actual_format))
 		return false;
 
-	return sink->add(sink, frame);
+	AVFrame *copy_frame = av_frame_clone(frame);
+	if (!copy_frame)
+		return false;
+	AVFrame *dec_frame = resample_frame(&sink->resampler, copy_frame, &actual_format);
+	if (!dec_frame) {
+		av_frame_free(&copy_frame);
+		return false;
+	}
+
+	bool ok = sink->add(sink, dec_frame);
+
+	if (dec_frame != copy_frame)
+		av_frame_free(&copy_frame);
+
+	return ok;
 }
 
 
@@ -544,6 +559,11 @@ static bool output_shutdown(output_t *output, FILE **fp, GString **gs) {
 }
 
 
+static void sink_close(sink_t *sink) {
+	resample_shutdown(&sink->resampler);
+}
+
+
 void output_close(metafile_t *mf, output_t *output, tag_t *tag, bool discard) {
 	if (!output)
 		return;
@@ -575,6 +595,7 @@ void output_close(metafile_t *mf, output_t *output, tag_t *tag, bool discard) {
 	g_clear_pointer(&output->iobuf, g_free);
 	if (output->membuf)
 		g_string_free(output->membuf, TRUE);
+	sink_close(&output->sink);
 	g_free(output);
 }
 

@@ -52,6 +52,8 @@ struct sink_s {
 	union {
 		output_t *output;
 	};
+
+	resample_t resampler;
 };
 
 
