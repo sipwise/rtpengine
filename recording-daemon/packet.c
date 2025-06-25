@@ -114,12 +114,12 @@ static void packet_decode(ssrc_t *ssrc, packet_t *packet) {
 		dbg("payload type for %u is %s", payload_type, payload_str);
 
 		pthread_mutex_lock(&mf->mix_lock);
-		output_t *outp = NULL;
+		format_t dec_format = { .format = -1 };
 		if (mf->mix_out)
-			outp = mf->mix_out;
+			dec_format = mf->mix_out->requested_format;
 		else if (ssrc->output)
-			outp = ssrc->output;
-		ssrc->decoders[payload_type] = decoder_new(payload_str, format, ptime, outp);
+			dec_format = ssrc->output->requested_format;
+		ssrc->decoders[payload_type] = decoder_new(payload_str, format, ptime, &dec_format);
 		pthread_mutex_unlock(&mf->mix_lock);
 		if (!ssrc->decoders[payload_type]) {
 			ilog(LOG_WARN, "Cannot decode RTP payload type %u (%s)",

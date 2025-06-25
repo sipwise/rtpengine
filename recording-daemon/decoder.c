@@ -26,7 +26,7 @@ int resample_audio;
 
 
 
-decode_t *decoder_new(const char *payload_str, const char *format, int ptime, output_t *outp) {
+decode_t *decoder_new(const char *payload_str, const char *format, int ptime, const format_t *dec_format) {
 	char *slash = strchr(payload_str, '/');
 	if (!slash) {
 		ilog(LOG_WARN, "Invalid payload format: %s", payload_str);
@@ -74,12 +74,9 @@ decode_t *decoder_new(const char *payload_str, const char *format, int ptime, ou
 	if (resample_audio)
 		out_format.clockrate = resample_audio;
 	// mono/stereo mixing goes here: out_format.channels = ...
-	if (outp) {
-		// if this output has been configured already, re-use the same format
-		if (outp->requested_format.format != -1)
-			out_format = outp->requested_format;
-		output_config(outp, &out_format, &out_format);
-	}
+	// if the output has been configured already, re-use the same format
+	if (dec_format->format != -1)
+		out_format = *dec_format;
 	else
 		out_format.format = AV_SAMPLE_FMT_S16; // needed for TLS-only scenarios
 
