@@ -19,6 +19,7 @@
 #include "tag.h"
 #include "fix_frame_channel_layout.h"
 #include "tls_send.h"
+#include "mix.h"
 
 
 static void packet_free(void *p) {
@@ -120,8 +121,12 @@ static void packet_decode(ssrc_t *ssrc, packet_t *packet) {
 		else if (ssrc->output)
 			dec_format = ssrc->output->requested_format;
 		ssrc->decoders[payload_type] = decoder_new(payload_str, format, ptime, &dec_format);
+
 		sink_init(&ssrc->decoders[payload_type]->mix_sink);
 		ssrc->decoders[payload_type]->mix_sink.ssrc = ssrc;
+		ssrc->decoders[payload_type]->mix_sink.add = mix_add;
+		ssrc->decoders[payload_type]->mix_sink.config = mix_config;
+
 		pthread_mutex_unlock(&mf->mix_lock);
 		if (!ssrc->decoders[payload_type]) {
 			ilog(LOG_WARN, "Cannot decode RTP payload type %u (%s)",

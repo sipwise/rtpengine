@@ -138,7 +138,7 @@ unsigned int mix_get_index(mix_t *mix, void *ptr, unsigned int media_sdp_id, uns
 }
 
 
-int mix_config(mix_t *mix, const format_t *format) {
+static int mix_config_(mix_t *mix, const format_t *format) {
 	const char *err;
 	char args[512];
 
@@ -323,7 +323,7 @@ static void mix_silence_fill(mix_t *mix) {
 }
 
 
-int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, void *ptr, output_t *output) {
+static int mix_add_(mix_t *mix, AVFrame *frame, unsigned int idx, void *ptr, output_t *output) {
 	const char *err;
 
 	err = "index out of range";
@@ -402,4 +402,40 @@ err:
 	ilog(LOG_ERR, "Failed to add frame to mixer: %s", err);
 	av_frame_free(&frame);
 	return -1;
+}
+
+
+bool mix_add(sink_t *sink, AVFrame *frame) {
+	ssrc_t *ssrc = sink->ssrc;
+	metafile_t *metafile = ssrc->metafile;
+
+	LOCK(&metafile->mix_lock);
+
+	if (!metafile->mix_out)
+		return true;
+
+	if (mix_add_(metafile->mix, frame, sink->mixer_idx, ssrc, metafile->mix_out))
+		ilog(LOG_ERR, "Failed to add decoded packet to mixed output");
+
+	return true;
+}
+
+
+bool mix_config(sink_t *sink, const format_t *requested_format, format_t *actual_format) {
+	ssrc_t *ssrc = sink->ssrc;
+	metafile_t *metafile = ssrc->metafile;
+
+	LOCK(&metafile->mix_lock);
+
+	if (!metafile->mix_out)
+		return true;
+
+	stream_t *stream = ssrc->stream;
+
+	if (G_UNLIKELY(sink->mixer_idx == (unsigned int) -1))
+		sink->mixer_idx = mix_get_index(metafile->mix, ssrc, stream->media_sdp_id, stream->channel_slot);
+	if (output_config(metafile->mix_out, requested_format, actual_format))
+		return true;
+	mix_config_(metafile->mix, actual_format);
+	return true;
 }

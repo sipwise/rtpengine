@@ -108,30 +108,7 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *sp, void *dp)
 	if (!metafile->recording_on)
 		goto no_recording;
 
-	// handle mix output
-	pthread_mutex_lock(&metafile->mix_lock);
-	if (metafile->mix_out) {
-		dbg("adding packet from stream #%lu to mix output", stream->id);
-		if (G_UNLIKELY(deco->mix_sink.mixer_idx == (unsigned int) -1))
-			deco->mix_sink.mixer_idx = mix_get_index(metafile->mix, ssrc, stream->media_sdp_id, stream->channel_slot);
-		format_t actual_format;
-		if (output_config(metafile->mix_out, &dec->dest_format, &actual_format))
-			goto no_mix_out;
-		mix_config(metafile->mix, &actual_format);
-		// XXX might be a second resampling to same format
-		AVFrame *copy_frame = av_frame_clone(frame);
-		AVFrame *dec_frame = resample_frame(&deco->mix_sink.resampler, copy_frame, &actual_format);
-		if (!dec_frame) {
-			pthread_mutex_unlock(&metafile->mix_lock);
-			goto err;
-		}
-		if (mix_add(metafile->mix, dec_frame, deco->mix_sink.mixer_idx, ssrc, metafile->mix_out))
-			ilog(LOG_ERR, "Failed to add decoded packet to mixed output");
-		if (dec_frame != copy_frame)
-			av_frame_free(&copy_frame);
-	}
-no_mix_out:
-	pthread_mutex_unlock(&metafile->mix_lock);
+	sink_add(&deco->mix_sink, frame, &dec->dest_format);
 
 	if (output) {
 		dbg("SSRC %lx of stream #%lu has single output", ssrc->ssrc, stream->id);
