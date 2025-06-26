@@ -32,6 +32,7 @@
 #include "ssrc.h"
 #include "main.h"
 #include "codec.h"
+#include "sdp.h"
 
 typedef union {
 	GQueue *q;
@@ -1517,39 +1518,41 @@ static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 			ml->sdp_session_timing = call_str_cpy(&s);
 		/* o= */
 		if (!redis_hash_get_str(&s, rh, "sdp_orig_parsed")) {
+			sdp_orig_free(ml->session_sdp_orig);
 			ml->session_sdp_orig = g_new0(__typeof(*ml->session_sdp_orig), 1);
 			ml->session_sdp_orig->parsed = 1;
 			redis_hash_get_llu(&ml->session_sdp_orig->version_num, rh, "sdp_orig_version_num");
 			if (!redis_hash_get_str(&s, rh, "sdp_orig_username"))
-				ml->session_sdp_orig->username = str_dup_str(&s);
+				ml->session_sdp_orig->username = call_str_cpy(&s);
 			if (!redis_hash_get_str(&s, rh, "sdp_orig_session_id"))
-				ml->session_sdp_orig->session_id = str_dup_str(&s);
+				ml->session_sdp_orig->session_id = call_str_cpy(&s);
 			if (!redis_hash_get_str(&s, rh, "sdp_orig_version_str"))
-				ml->session_sdp_orig->version_str = str_dup_str(&s);
+				ml->session_sdp_orig->version_str = call_str_cpy(&s);
 			if (!redis_hash_get_str(&s, rh, "sdp_orig_address_network_type"))
-				ml->session_sdp_orig->address.network_type = str_dup_str(&s);
+				ml->session_sdp_orig->address.network_type = call_str_cpy(&s);
 			if (!redis_hash_get_str(&s, rh, "sdp_orig_address_address_type"))
-				ml->session_sdp_orig->address.address_type = str_dup_str(&s);
+				ml->session_sdp_orig->address.address_type = call_str_cpy(&s);
 			if (!redis_hash_get_str(&s, rh, "sdp_orig_address_address"))
-				ml->session_sdp_orig->address.address = str_dup_str(&s);
+				ml->session_sdp_orig->address.address = call_str_cpy(&s);
 		}
 		/* o= last used of the other side*/
 		if (!redis_hash_get_str(&s, rh, "last_sdp_orig_parsed")) {
+			sdp_orig_free(ml->session_last_sdp_orig);
 			ml->session_last_sdp_orig = g_new0(__typeof(*ml->session_last_sdp_orig), 1);
 			ml->session_last_sdp_orig->parsed = 1;
 			redis_hash_get_llu(&ml->session_last_sdp_orig->version_num, rh, "last_sdp_orig_version_num");
 			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_username"))
-				ml->session_last_sdp_orig->username = str_dup_str(&s);
+				ml->session_last_sdp_orig->username = call_str_cpy(&s);
 			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_session_id"))
-				ml->session_last_sdp_orig->session_id = str_dup_str(&s);
+				ml->session_last_sdp_orig->session_id = call_str_cpy(&s);
 			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_version_str"))
-				ml->session_last_sdp_orig->version_str = str_dup_str(&s);
+				ml->session_last_sdp_orig->version_str = call_str_cpy(&s);
 			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_address_network_type"))
-				ml->session_last_sdp_orig->address.network_type = str_dup_str(&s);
+				ml->session_last_sdp_orig->address.network_type = call_str_cpy(&s);
 			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_address_address_type"))
-				ml->session_last_sdp_orig->address.address_type = str_dup_str(&s);
+				ml->session_last_sdp_orig->address.address_type = call_str_cpy(&s);
 			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_address_address"))
-				ml->session_last_sdp_orig->address.address = str_dup_str(&s);
+				ml->session_last_sdp_orig->address.address = call_str_cpy(&s);
 		}
 
 		ml->sdp_session_bandwidth.as = (!redis_hash_get_ld(&il, rh, "sdp_session_as")) ? il : -1;
