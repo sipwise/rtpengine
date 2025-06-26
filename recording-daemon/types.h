@@ -55,6 +55,9 @@ struct sink_s {
 		ssrc_t *ssrc;
 		tls_fwd_t **tls_fwd;
 	};
+	union {
+		mix_t **mix;
+	};
 
 	resample_t resampler;
 

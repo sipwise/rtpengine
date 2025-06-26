@@ -85,6 +85,7 @@ static void meta_destroy(metafile_t *mf) {
 	db_close_call(mf);
 	output_close(mf, mf->mix_out, NULL, mf->discard);
 	mf->mix_out = NULL;
+	mix_close(mf->mix);
 }
 
 
@@ -104,7 +105,7 @@ static void meta_mix_output(metafile_t *mf) {
 	mf->mix_out = output_new_ext(mf, "mix", "mixed", "mix");
 	if (mix_method == MM_CHANNELS)
 		mf->mix_out->channel_mult = mix_num_inputs;
-	mf->mix = mix_new(mf->media_rec_slots);
+	mf->mix = mix_new(&mf->mix_lock, &mf->mix_out->sink, mf->media_rec_slots);
 	db_do_stream(mf, mf->mix_out, NULL, 0);
 }
 

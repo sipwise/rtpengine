@@ -123,6 +123,7 @@ static void packet_decode(ssrc_t *ssrc, packet_t *packet) {
 
 		sink_init(&ssrc->decoders[payload_type]->mix_sink);
 		ssrc->decoders[payload_type]->mix_sink.ssrc = ssrc;
+		ssrc->decoders[payload_type]->mix_sink.mix = &mf->mix;
 		ssrc->decoders[payload_type]->mix_sink.add = mix_add;
 		ssrc->decoders[payload_type]->mix_sink.config = mix_config;
 

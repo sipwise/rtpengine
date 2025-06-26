@@ -38,6 +38,8 @@ struct mix_s {
 	resample_t resample;
 
 	uint64_t out_pts; // starting at zero
+	pthread_mutex_t *lock;
+	sink_t *sink;
 
 	AVFrame *silence_frame;
 };
@@ -249,11 +251,13 @@ err:
 }
 
 
-mix_t *mix_new(unsigned int media_rec_slots) {
+mix_t *mix_new(pthread_mutex_t *lock, sink_t *sink, unsigned int media_rec_slots) {
 	mix_t *mix = g_new0(mix_t, 1);
 	format_init(&mix->in_format);
 	format_init(&mix->out_format);
 	mix->sink_frame = av_frame_alloc();
+	mix->lock = lock;
+	mix->sink = sink;
 
 	for (unsigned int i = 0; i < mix_num_inputs; i++)
 		mix->pts_offs[i] = (uint64_t) -1LL;
@@ -325,7 +329,7 @@ static void mix_silence_fill(mix_t *mix) {
 }
 
 
-static int mix_add_(mix_t *mix, AVFrame *frame, unsigned int idx, void *ptr, output_t *output) {
+static int mix_add_(mix_t *mix, AVFrame *frame, unsigned int idx, void *ptr) {
 	const char *err;
 
 	err = "index out of range";
@@ -390,7 +394,7 @@ static int mix_add_(mix_t *mix, AVFrame *frame, unsigned int idx, void *ptr, out
 			else
 				goto err;
 		}
-		bool ok = sink_add(&output->sink, mix->sink_frame, &mix->out_format);
+		bool ok = sink_add(mix->sink, mix->sink_frame, &mix->out_format);
 
 		av_frame_unref(mix->sink_frame);
 
@@ -409,14 +413,19 @@ err:
 
 bool mix_add(sink_t *sink, AVFrame *frame) {
 	ssrc_t *ssrc = sink->ssrc;
-	metafile_t *metafile = ssrc->metafile;
+	mix_t *mix = *sink->mix;
 
-	LOCK(&metafile->mix_lock);
+	if (!mix)
+		return false;
+	if (!mix->lock)
+		return false;
 
-	if (!metafile->mix_out)
-		return true;
+	LOCK(mix->lock);
 
-	if (mix_add_(metafile->mix, frame, sink->mixer_idx, ssrc, metafile->mix_out))
+	if (!mix->sink)
+		return false;
+
+	if (mix_add_(mix, frame, sink->mixer_idx, ssrc))
 		ilog(LOG_ERR, "Failed to add decoded packet to mixed output");
 
 	return true;
@@ -425,19 +434,38 @@ bool mix_add(sink_t *sink, AVFrame *frame) {
 
 bool mix_config(sink_t *sink, const format_t *requested_format, format_t *actual_format) {
 	ssrc_t *ssrc = sink->ssrc;
-	metafile_t *metafile = ssrc->metafile;
+	mix_t *mix = *sink->mix;
 
-	LOCK(&metafile->mix_lock);
+	if (!mix)
+		return false;
+	if (!mix->lock)
+		return false;
 
-	if (!metafile->mix_out)
-		return true;
+	LOCK(mix->lock);
+
+	if (!mix->sink)
+		return false;
 
 	stream_t *stream = ssrc->stream;
 
-	if (G_UNLIKELY(sink->mixer_idx == (unsigned int) -1))
-		sink->mixer_idx = mix_get_index(metafile->mix, ssrc, stream->media_sdp_id, stream->channel_slot);
-	if (output_config(metafile->mix_out, requested_format, actual_format))
-		return true;
-	mix_config_(metafile->mix, actual_format);
+	if (G_UNLIKELY(sink->mixer_idx == -1u))
+		sink->mixer_idx = mix_get_index(mix, ssrc, stream->media_sdp_id, stream->channel_slot);
+
+	if (!mix->sink->config(mix->sink, requested_format, actual_format))
+		return false;
+
+	mix_config_(mix, actual_format);
+
 	return true;
+}
+
+
+void mix_close(mix_t *mix) {
+	if (!mix)
+		return;
+
+	mix_shutdown(mix);
+
+	mix->sink = NULL;
+	mix->lock = NULL;
 }
