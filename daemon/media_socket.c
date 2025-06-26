@@ -2268,7 +2268,7 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc)
 
 	const char *unkern = NULL;
 
-	if (G_LIKELY(!phc->rtcp && !rtp_payload(&phc->mp.rtp, &phc->mp.payload, &phc->s))) {
+	if (G_LIKELY(!phc->rtcp && (phc->mp.rtp?1:!rtp_payload(&phc->mp.rtp, &phc->mp.payload, &phc->s)))) {
 		unkern = __stream_ssrc_in(phc->in_srtp, phc->mp.rtp->ssrc, &phc->mp.ssrc_in,
 				&phc->mp.media->ssrc_hash_in);
 
@@ -2442,6 +2442,19 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 					"peer address confirmation purposes",
 					FMT_M(endpoint_print_buf(&phc->mp.fsin)));
 			goto out;
+		} else if(proto_is_rtp(phc->mp.media->protocol)) {
+			if(rtp_payload(&phc->mp.rtp, &phc->mp.payload, &phc->s) != 0) {
+				ilog(LOG_INFO | LOG_FLAG_LIMIT, "Ignoring invalid RTP packet from %s%s%s for "
+						"peer address confirmation purposes",
+						FMT_M(endpoint_print_buf(&phc->mp.fsin)));
+				goto out;
+			}
+			if(!phc->mp.rtp->ssrc) {
+				ilog(LOG_INFO | LOG_FLAG_LIMIT, "Ignoring RTP packet with zero SSRC from %s%s%s for "
+						"peer address confirmation purposes",
+						FMT_M(endpoint_print_buf(&phc->mp.fsin)));
+				goto out;
+			}
 		}
 	}
 
