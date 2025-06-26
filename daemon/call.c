@@ -2755,8 +2755,7 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 
 		/* origin (name, version etc.) */
 		if (flags->session_sdp_orig.parsed) {
-			if (ml->session_sdp_orig)
-				sdp_orig_free(ml->session_sdp_orig);
+			sdp_orig_free(ml->session_sdp_orig);
 			ml->session_sdp_orig = sdp_orig_dup(&flags->session_sdp_orig);
 		}
 
@@ -4318,10 +4317,8 @@ void __monologue_free(struct call_monologue *m) {
 	t_hash_table_destroy(m->media_ids);
 	if (m->last_out_sdp)
 		g_string_free(m->last_out_sdp, TRUE);
-	if (m->session_sdp_orig)
-		sdp_orig_free(m->session_sdp_orig);
-	if (m->session_last_sdp_orig)
-		sdp_orig_free(m->session_last_sdp_orig);
+	sdp_orig_free(m->session_sdp_orig);
+	sdp_orig_free(m->session_last_sdp_orig);
 	t_queue_clear_full(&m->generic_attributes, sdp_attr_free);
 	t_queue_clear_full(&m->all_attributes, sdp_attr_free);
 	t_queue_clear(&m->tag_aliases);
