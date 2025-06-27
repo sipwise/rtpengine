@@ -1971,10 +1971,8 @@ static void __sdes_accept(struct call_media *media, const sdp_ng_flags *flags) {
 			/* stop the iteration intentionally, if only one suite is left
 			 * this helps with a case, when the offerer left with no suites,
 			 * which can be allowed, but we need to still have at least something */
-			if (l->next == NULL) {
-				l = l->prev;
+			if (media->sdes_in.length == 1)
 				break;
-			}
 
 			ilogs(crypto, LOG_DEBUG, "Dropping offered crypto suite '%s' from offer due to %s",
 				offered_cps->params.crypto_suite->name,
