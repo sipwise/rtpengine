@@ -1424,5 +1424,202 @@ SDP
 
 
 
+new_call;
+
+offer('GH#1961 control 1', {
+	'transport protocol' => 'RTP/AVP',
+}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/SAVP 0
+c=IN IP4 198.51.100.14
+a=crypto:1 AEAD_AES_256_GCM inline:afVD36MxX6VCs5jRuSskylEOZIqOJONtmqk3fkxs0o2J7IYihHaZtaWW620=
+a=crypto:2 AES_256_CM_HMAC_SHA1_80 inline:aoxgxiS2uKmOEO62n99oF8GItPoPjQc7zbDQqTlWcez0PPXuYYbU5f0Iisd07g==
+a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:a3mpENVMHa1LnI6CW0h4wWeKN+UVOM6w4wNeVYiC
+a=crypto:4 AES_CM_128_HMAC_SHA1_32 inline:qRljTH1mnKdtYWjb0bmHW+elicAKOpiXZVA++biB
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('GH#1961 control 1', {
+}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.14
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AEAD_AES_256_GCM inline:CRYPTO256S
+SDP
+
+new_call;
+
+offer('GH#1961 control 2', {
+	'transport protocol' => 'RTP/AVP',
+	SDES => ['no-AES_CM_128_HMAC_SHA1_32'],
+}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/SAVP 0
+c=IN IP4 198.51.100.14
+a=crypto:1 AEAD_AES_256_GCM inline:afVD36MxX6VCs5jRuSskylEOZIqOJONtmqk3fkxs0o2J7IYihHaZtaWW620=
+a=crypto:2 AES_256_CM_HMAC_SHA1_80 inline:aoxgxiS2uKmOEO62n99oF8GItPoPjQc7zbDQqTlWcez0PPXuYYbU5f0Iisd07g==
+a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:a3mpENVMHa1LnI6CW0h4wWeKN+UVOM6w4wNeVYiC
+a=crypto:4 AES_CM_128_HMAC_SHA1_32 inline:qRljTH1mnKdtYWjb0bmHW+elicAKOpiXZVA++biB
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('GH#1961 control 2', {
+}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.14
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AEAD_AES_256_GCM inline:CRYPTO256S
+SDP
+
+new_call;
+
+offer('GH#1961 control 3', {
+	'transport protocol' => 'RTP/AVP',
+	SDES => ['no-AEAD_AES_256_GCM'],
+}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/SAVP 0
+c=IN IP4 198.51.100.14
+a=crypto:1 AEAD_AES_256_GCM inline:afVD36MxX6VCs5jRuSskylEOZIqOJONtmqk3fkxs0o2J7IYihHaZtaWW620=
+a=crypto:2 AES_256_CM_HMAC_SHA1_80 inline:aoxgxiS2uKmOEO62n99oF8GItPoPjQc7zbDQqTlWcez0PPXuYYbU5f0Iisd07g==
+a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:a3mpENVMHa1LnI6CW0h4wWeKN+UVOM6w4wNeVYiC
+a=crypto:4 AES_CM_128_HMAC_SHA1_32 inline:qRljTH1mnKdtYWjb0bmHW+elicAKOpiXZVA++biB
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('GH#1961 control 3', {
+}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.14
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:2 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+SDP
+
+new_call;
+
+offer('GH#1961', {
+	'transport protocol' => 'RTP/AVP',
+	SDES => ['no-AES_CM_128_HMAC_SHA1_32', 'no-AEAD_AES_256_GCM'],
+}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/SAVP 0
+c=IN IP4 198.51.100.14
+a=crypto:1 AEAD_AES_256_GCM inline:afVD36MxX6VCs5jRuSskylEOZIqOJONtmqk3fkxs0o2J7IYihHaZtaWW620=
+a=crypto:2 AES_256_CM_HMAC_SHA1_80 inline:aoxgxiS2uKmOEO62n99oF8GItPoPjQc7zbDQqTlWcez0PPXuYYbU5f0Iisd07g==
+a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:a3mpENVMHa1LnI6CW0h4wWeKN+UVOM6w4wNeVYiC
+a=crypto:4 AES_CM_128_HMAC_SHA1_32 inline:qRljTH1mnKdtYWjb0bmHW+elicAKOpiXZVA++biB
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('GH#1961', {
+}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.14
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:2 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+SDP
+
+
+
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
