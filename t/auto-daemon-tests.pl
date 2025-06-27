@@ -19769,7 +19769,7 @@ c=IN IP4 203.0.113.1
 a=rtpmap:0 PCMU/8000
 a=sendrecv
 a=rtcp:PORT
-a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:2GLk3p/csdno4KlGO1TxCVaEt+bifmDlQ5NjnCb5cJYPURiGRSTBEtEq37db8g
 SDP
 
 
