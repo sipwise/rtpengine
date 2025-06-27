@@ -89,19 +89,30 @@ static void meta_destroy(metafile_t *mf) {
 
 
 // mf is locked
+static void meta_mix_output(metafile_t *mf) {
+	LOCK(&mf->mix_lock);
+
+	if (!output_enabled || !output_mixed || !mf->recording_on) {
+		mix_destroy(mf->mix);
+		mf->mix = NULL;
+		return;
+	}
+
+	if (mf->mix)
+		return;
+
+	mf->mix_out = output_new_ext(mf, "mix", "mixed", "mix");
+	if (mix_method == MM_CHANNELS)
+		mf->mix_out->channel_mult = mix_num_inputs;
+	mf->mix = mix_new();
+	db_do_stream(mf, mf->mix_out, NULL, 0);
+}
+
+
+// mf is locked
 static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *content) {
 	db_do_call(mf);
-	if (output_enabled && output_mixed && mf->recording_on) {
-		pthread_mutex_lock(&mf->mix_lock);
-		if (!mf->mix) {
-			mf->mix_out = output_new_ext(mf, "mix", "mixed", "mix");
-			if (mix_method == MM_CHANNELS)
-				mf->mix_out->channel_mult = mix_num_inputs;
-			mf->mix = mix_new();
-			db_do_stream(mf, mf->mix_out, NULL, 0);
-		}
-		pthread_mutex_unlock(&mf->mix_lock);
-	}
+	meta_mix_output(mf);
 	dbg("stream %lu interface %s%s%s", snum, FMT_M(content));
 	stream_open(mf, snum, content);
 }
@@ -260,6 +271,8 @@ static void meta_section(metafile_t *mf, char *section, char *content, unsigned 
 		mf->output_pattern = g_string_chunk_insert(mf->gsc, content);
 	else if (!strcmp(section, "SKIP_DATABASE"))
 		mf->skip_db = 1;
+
+	meta_mix_output(mf);
 }
 
 
