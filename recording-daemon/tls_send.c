@@ -248,16 +248,11 @@ static bool tls_fwd_config(sink_t *sink, const format_t *requested_format, forma
 }
 
 
-void tls_fwd_init(stream_t *stream, metafile_t *mf, ssrc_t *ssrc) {
-	if ((!stream->forwarding_on && !mf->forwarding_on) || !tls_send_to_ep.port) {
-		tls_fwd_shutdown(&ssrc->tls_fwd);
-		return;
-	}
+bool tls_fwd_new(tls_fwd_t **tlsp) {
+	if (*tlsp)
+		return true;
 
-	if (ssrc->tls_fwd)
-		return;
-
-	tls_fwd_t *tls_fwd = ssrc->tls_fwd = g_new0(tls_fwd_t, 1);
+	tls_fwd_t *tls_fwd = *tlsp = g_new0(tls_fwd_t, 1);
 
 	// initialise the connection
 	ZERO(tls_fwd->poller);
@@ -270,14 +265,14 @@ void tls_fwd_init(stream_t *stream, metafile_t *mf, ssrc_t *ssrc) {
 #endif
 		if (!tls_fwd->ssl_ctx) {
 			ilog(LOG_ERR, "Failed to create TLS context");
-			tls_fwd_shutdown(&ssrc->tls_fwd);
-			return;
+			tls_fwd_shutdown(tlsp);
+			return false;
 		}
 		tls_fwd->ssl = SSL_new(tls_fwd->ssl_ctx);
 		if (!tls_fwd->ssl) {
 			ilog(LOG_ERR, "Failed to create TLS connection");
-			tls_fwd_shutdown(&ssrc->tls_fwd);
-			return;
+			tls_fwd_shutdown(tlsp);
+			return false;
 		}
 	} else {
 		dbg("Starting TCP connection to %s", endpoint_print_buf(&tls_send_to_ep));
@@ -287,28 +282,25 @@ void tls_fwd_init(stream_t *stream, metafile_t *mf, ssrc_t *ssrc) {
 		ilog(LOG_ERR, "Failed to open/connect TLS/TCP socket to %s: %s",
 			endpoint_print_buf(&tls_send_to_ep),
 			strerror(errno));
-		tls_fwd_shutdown(&ssrc->tls_fwd);
-		return;
+		tls_fwd_shutdown(tlsp);
+		return false;
 	}
 
 	tls_fwd->poller.state = PS_CONNECTING;
 	if (!tls_disable) {
 		if (SSL_set_fd(tls_fwd->ssl, tls_fwd->sock.fd) != 1) {
 			ilog(LOG_ERR, "Failed to set TLS fd");
-			tls_fwd_shutdown(&ssrc->tls_fwd);
-			return;
+			tls_fwd_shutdown(tlsp);
+			return false;
 		}
 		tls_fwd->stream = streambuf_new_ptr(&tls_fwd->poller, tls_fwd->ssl, &ssrc_tls_funcs);
 	} else {
 		tls_fwd->stream = streambuf_new(&tls_fwd->poller, tls_fwd->sock.fd);
 	}
 
-	tls_fwd->ssrc = ssrc;
-	tls_fwd->metafile = mf;
-
-	tls_fwd_state(&ssrc->tls_fwd);
-	if (!ssrc->tls_fwd) // may have been closed
-		return;
+	tls_fwd_state(tlsp);
+	if (!*tlsp) // may have been closed
+		return false;
 
 	tls_fwd->format = (format_t) {
 		.clockrate = tls_resample,
@@ -317,7 +309,23 @@ void tls_fwd_init(stream_t *stream, metafile_t *mf, ssrc_t *ssrc) {
 	};
 
 	sink_init(&tls_fwd->sink);
-	tls_fwd->sink.tls_fwd = &ssrc->tls_fwd;
+	tls_fwd->sink.tls_fwd = tlsp;
 	tls_fwd->sink.add = tls_fwd_add;
 	tls_fwd->sink.config = tls_fwd_config;
+
+	return true;
+}
+
+
+void tls_fwd_init(stream_t *stream, metafile_t *mf, ssrc_t *ssrc) {
+	if ((!stream->forwarding_on && !mf->forwarding_on) || !tls_send_to_ep.port) {
+		tls_fwd_shutdown(&ssrc->tls_fwd);
+		return;
+	}
+
+	if (!tls_fwd_new(&ssrc->tls_fwd))
+		return;
+
+	ssrc->tls_fwd->ssrc = ssrc;
+	ssrc->tls_fwd->metafile = mf;
 }
