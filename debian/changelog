@@ -1,3 +1,12 @@
+ngcp-rtpengine (12.5.1.36+0~mr12.5.1.36) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [a1dc4d7] MT#55283 add a second step of resampling
+  * [3d975ec] MT#55283 fix PT Redis JSON encoding
+  * [e8b2e47] MT#55283 fix sdes_accept logic booboo
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 30 Jun 2025 15:16:35 +0200
+
 ngcp-rtpengine (12.5.1.35+0~mr12.5.1.35) unstable; urgency=medium
 
   [ Richard Fuchs ]
