@@ -258,6 +258,7 @@ static void options(int *argc, char ***argv) {
 			die("Cannot have both 'tcp-send-to' and 'tls-send-to' active at the same time");
 		tls_send_to = tcp_send_to;
 		tls_disable = true;
+		tcp_send_to = NULL;
 	}
 
 	if (tls_send_to) {
