@@ -317,11 +317,20 @@ sufficient for a standard installation of rtpengine.
 
 - __\-\-tcp-send-to=__*IP*:*PORT*
 - __\-\-tcp-resample=__*INT*
+- __\-\-tcp-mixed
 - __\-\-tls-send-to=__*IP*:*PORT*
 - __\-\-tls-resample=__*INT*
+- __\-\-tls-mixed
 
     Send decoded audio over a TCP or TLS connection to the specified destination.
-    Audio is sent as raw mono 16-bit PCM in the given sample rate.
+    Audio is sent as raw 16-bit PCM in the given sample rate.
+
+    By default one connection with one mono audio stream will be established
+    for each SSRC. If mixed mode is enabled, then similar to the mixed file
+    output one connection per call will be established instead, containing
+    audio mixed together from all captured SSRCs. The __mix-method__ setting is
+    honoured in the same way, so the audio will be either mono or mulit-channel
+    depending on the setting.
 
     Only one of these option combinations (TCP or TLS) can be active at the
     same time.

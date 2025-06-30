@@ -127,6 +127,12 @@ static void packet_decode(ssrc_t *ssrc, packet_t *packet) {
 		ssrc->decoders[payload_type]->mix_sink.add = mix_add;
 		ssrc->decoders[payload_type]->mix_sink.config = mix_config;
 
+		sink_init(&ssrc->decoders[payload_type]->tls_mix_sink);
+		ssrc->decoders[payload_type]->tls_mix_sink.ssrc = ssrc;
+		ssrc->decoders[payload_type]->tls_mix_sink.mix = &mf->tls_mix;
+		ssrc->decoders[payload_type]->tls_mix_sink.add = mix_add;
+		ssrc->decoders[payload_type]->tls_mix_sink.config = mix_config;
+
 		pthread_mutex_unlock(&mf->mix_lock);
 		if (!ssrc->decoders[payload_type]) {
 			ilog(LOG_WARN, "Cannot decode RTP payload type %u (%s)",

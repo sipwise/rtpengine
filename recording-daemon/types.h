@@ -166,6 +166,9 @@ struct metafile_s {
 	mix_t *mix;
 	output_t *mix_out;
 
+	mix_t *tls_mix;
+	tls_fwd_t *mix_tls_fwd;
+
 	int forward_fd;
 	int forward_count;
 	int forward_failed;
@@ -214,6 +217,7 @@ struct output_s {
 struct decode_s {
 	decoder_t *dec;
 	sink_t mix_sink;
+	sink_t tls_mix_sink;
 };
 
 

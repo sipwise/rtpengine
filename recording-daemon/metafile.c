@@ -17,6 +17,7 @@
 #include "db.h"
 #include "forward.h"
 #include "tag.h"
+#include "tls_send.h"
 
 static pthread_mutex_t metafiles_lock = PTHREAD_MUTEX_INITIALIZER;
 static GHashTable *metafiles;
@@ -27,6 +28,8 @@ static void meta_free(void *ptr) {
 
 	dbg("freeing metafile info for %s%s%s", FMT_M(mf->name));
 	mix_destroy(mf->mix);
+	mix_destroy(mf->tls_mix);
+	tls_fwd_shutdown(&mf->mix_tls_fwd);
 	db_close_call(mf);
 	g_string_chunk_free(mf->gsc);
 	// SSRCs first as they have linked outputs which need to be closed first
@@ -90,9 +93,8 @@ static void meta_destroy(metafile_t *mf) {
 
 
 // mf is locked
-static void meta_mix_output(metafile_t *mf) {
-	LOCK(&mf->mix_lock);
-
+// mix is locked
+static void meta_mix_file_output(metafile_t *mf) {
 	if (!output_enabled || !output_mixed || !mf->recording_on || !mf->random_tag) {
 		mix_destroy(mf->mix);
 		mf->mix = NULL;
@@ -107,6 +109,37 @@ static void meta_mix_output(metafile_t *mf) {
 		mf->mix_out->channel_mult = mix_num_inputs;
 	mf->mix = mix_new(&mf->mix_lock, &mf->mix_out->sink, mf->media_rec_slots);
 	db_do_stream(mf, mf->mix_out, NULL, 0);
+}
+
+
+static void meta_mix_tls_output(metafile_t *mf) {
+	if (!tls_mixed) {
+		mix_destroy(mf->tls_mix);
+		mf->tls_mix = NULL;
+		tls_fwd_shutdown(&mf->mix_tls_fwd);
+		return;
+	}
+
+	if (!mf->mix_tls_fwd) {
+		mix_destroy(mf->tls_mix);
+		mf->tls_mix = NULL;
+	}
+
+	if (!tls_fwd_new(&mf->mix_tls_fwd))
+		return;
+	if (!mf->tls_mix)
+		mf->tls_mix = mix_new(&mf->mix_lock, &mf->mix_tls_fwd->sink, mf->media_rec_slots);
+
+	mf->mix_tls_fwd->metafile = mf;
+}
+
+
+// mf is locked
+static void meta_mix_output(metafile_t *mf) {
+	LOCK(&mf->mix_lock);
+
+	meta_mix_file_output(mf);
+	meta_mix_tls_output(mf);
 }
 
 
@@ -130,6 +163,7 @@ static void meta_stream_details(metafile_t *mf, unsigned long snum, char *conten
 
 	mf->media_rec_slots = media_rec_slots;
 	mix_set_channel_slots(mf->mix, media_rec_slots);
+	mix_set_channel_slots(mf->tls_mix, media_rec_slots);
 	stream_details(mf, snum, tag, media_sdp_id, media_rec_slot-1);
 }
 

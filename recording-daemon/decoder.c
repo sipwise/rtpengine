@@ -115,6 +115,9 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *sp, void *dp)
 		}
 	}
 
+	if (metafile->forwarding_on)
+		sink_add(&deco->tls_mix_sink, frame, &dec->dest_format);
+
 	if (ssrc->tls_fwd) {
 		dbg("SSRC %lx of stream #%lu has TLS forwarding stream", ssrc->ssrc, stream->id);
 		if (!sink_add(&ssrc->tls_fwd->sink, frame, &ssrc->tls_fwd->format))
@@ -136,5 +139,6 @@ void decoder_free(decode_t *deco) {
 		return;
 	decoder_close(deco->dec);
 	sink_close(&deco->mix_sink);
+	sink_close(&deco->tls_mix_sink);
 	g_free(deco);
 }

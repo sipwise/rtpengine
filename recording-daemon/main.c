@@ -61,6 +61,7 @@ static char *tls_send_to = NULL;
 endpoint_t tls_send_to_ep;
 int tls_resample = 8000;
 bool tls_disable = false;
+gboolean tls_mixed = false;
 char *notify_uri;
 gboolean notify_post;
 gboolean notify_nverify;
@@ -225,6 +226,8 @@ static void options(int *argc, char ***argv) {
 		{ "tls-send-to", 	0,   0, G_OPTION_ARG_STRING,	&tls_send_to,	"Where to send to (TLS destination)",	"IP:PORT"	},
 		{ "tcp-resample", 	0,   0, G_OPTION_ARG_INT,	&tls_resample,	"Sampling rate for TCP/TLS PCM output",	"INT"		},
 		{ "tls-resample", 	0,   0, G_OPTION_ARG_INT,	&tls_resample,	"Sampling rate for TCP/TLS PCM output",	"INT"		},
+		{ "tcp-mixed", 		0,   0, G_OPTION_ARG_NONE,	&tls_mixed,	"Deliver mixed TCP/TLS PCM output",	NULL		},
+		{ "tls-mixed", 		0,   0, G_OPTION_ARG_NONE,	&tls_mixed,	"Deliver mixed TCP/TLS PCM output",	NULL		},
 		{ "notify-uri", 	0,   0, G_OPTION_ARG_STRING,	&notify_uri,	"Notify destination for finished outputs","URI"		},
 		{ "notify-post", 	0,   0, G_OPTION_ARG_NONE,	&notify_post,	"Use POST instead of GET",		NULL		},
 		{ "notify-no-verify", 	0,   0, G_OPTION_ARG_NONE,	&notify_nverify,"Don't verify HTTPS peer certificate",	NULL		},
@@ -281,6 +284,9 @@ static void options(int *argc, char ***argv) {
 
 	if (output_enabled || tls_send_to_ep.port)
 		decoding_enabled = true;
+
+	if (!tls_send_to && !tcp_send_to)
+		tls_mixed = false;
 
 	if (!os_str || !strcmp(os_str, "file"))
 		output_storage = OUTPUT_STORAGE_FILE;
