@@ -1,3 +1,13 @@
+ngcp-rtpengine (13.3.1.8+0~mr13.3.1.8) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [12fee08] MT#55283 fix PT Redis JSON encoding
+  * [a85d925] MT#55283 remove debugging remnants
+  * [9aef7cc] MT#55283 fix mem leak
+  * [68f5fc9] MT#55283 fix sdes_accept logic booboo
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 30 Jun 2025 15:16:22 +0200
+
 ngcp-rtpengine (13.3.1.7+0~mr13.3.1.7) unstable; urgency=medium
 
   [ Richard Fuchs ]
