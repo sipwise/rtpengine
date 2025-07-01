@@ -249,7 +249,7 @@ err:
 }
 
 
-mix_t *mix_new(void) {
+mix_t *mix_new(unsigned int media_rec_slots) {
 	mix_t *mix = g_new0(mix_t, 1);
 	format_init(&mix->in_format);
 	format_init(&mix->out_format);
@@ -264,6 +264,8 @@ mix_t *mix_new(void) {
 		//mix->next_idx[i] = mix_num_inputs+1;
 		mix->next_idx[i] = i;
 	}
+
+	mix_set_channel_slots(mix, media_rec_slots);
 
 	return mix;
 }

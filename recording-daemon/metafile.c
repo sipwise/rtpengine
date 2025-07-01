@@ -104,7 +104,7 @@ static void meta_mix_output(metafile_t *mf) {
 	mf->mix_out = output_new_ext(mf, "mix", "mixed", "mix");
 	if (mix_method == MM_CHANNELS)
 		mf->mix_out->channel_mult = mix_num_inputs;
-	mf->mix = mix_new();
+	mf->mix = mix_new(mf->media_rec_slots);
 	db_do_stream(mf, mf->mix_out, NULL, 0);
 }
 
@@ -127,6 +127,7 @@ static void meta_stream_details(metafile_t *mf, unsigned long snum, char *conten
 				&tag, &media, &tm, &cmp, &flags, &media_sdp_id, &media_rec_slot, &media_rec_slots) != 8)
 		return;
 
+	mf->media_rec_slots = media_rec_slots;
 	mix_set_channel_slots(mf->mix, media_rec_slots);
 	stream_details(mf, snum, tag, media_sdp_id, media_rec_slot-1);
 }

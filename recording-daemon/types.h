@@ -151,6 +151,7 @@ struct metafile_s {
 	unsigned long long db_id;
 	unsigned int db_streams;
 	int64_t start_time_us;
+	unsigned int media_rec_slots;
 
 	GStringChunk *gsc; // XXX limit max size
 

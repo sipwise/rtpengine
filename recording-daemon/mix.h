@@ -6,7 +6,7 @@
 
 #define MIX_MAX_INPUTS 4
 
-mix_t *mix_new(void);
+mix_t *mix_new(unsigned int);
 void mix_destroy(mix_t *mix);
 void mix_set_channel_slots(mix_t *mix, unsigned int);
 bool mix_config(sink_t *, const format_t *requested_format, format_t *actual_format);
