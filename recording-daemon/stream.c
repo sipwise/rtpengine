@@ -73,9 +73,9 @@ static void stream_handler(handler_t *handler) {
 
 		if (forward_to){
 			if (forward_packet(stream->metafile,buf,ret)) // leaves buf intact
-				g_atomic_int_inc(&stream->metafile->forward_failed);
+				__atomic_add_fetch(&stream->metafile->forward_failed, 1, __ATOMIC_RELAXED);
 			else
-				g_atomic_int_inc(&stream->metafile->forward_count);
+				__atomic_add_fetch(&stream->metafile->forward_count, 1, __ATOMIC_RELAXED);
 		}
 		if (decoding_enabled)
 			packet_process(stream, buf, ret); // consumes buf

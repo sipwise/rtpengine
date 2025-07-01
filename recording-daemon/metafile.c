@@ -71,8 +71,8 @@ static void meta_destroy(metafile_t *mf) {
 	//close forward socket
 	if (mf->forward_fd >= 0) {
 		dbg("call [%s%s%s] forwarded %d packets. %d failed sends.", FMT_M(mf->call_id),
-				(int )g_atomic_int_get(&mf->forward_count),
-				(int )g_atomic_int_get(&mf->forward_failed));
+				__atomic_load_n(&mf->forward_count, __ATOMIC_RELAXED),
+				__atomic_load_n(&mf->forward_failed, __ATOMIC_RELAXED));
 		close(mf->forward_fd);
 		mf->forward_fd = -1;
 	}
