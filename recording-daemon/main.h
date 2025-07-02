@@ -56,6 +56,7 @@ extern gboolean notify_purge;
 extern gboolean mix_output_per_media;
 extern volatile int shutdown_flag;
 extern gboolean flush_packets;
+extern int resample_audio;
 
 extern struct rtpengine_common_config rtpe_common_config;
 

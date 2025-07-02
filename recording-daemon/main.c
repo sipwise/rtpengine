@@ -72,6 +72,7 @@ gboolean notify_record;
 gboolean notify_purge;
 gboolean mix_output_per_media = 0;
 gboolean flush_packets = 0;
+int resample_audio;
 
 static GQueue threads = G_QUEUE_INIT; // only accessed from main thread
 

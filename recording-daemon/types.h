@@ -60,6 +60,7 @@ struct sink_s {
 	};
 
 	resample_t resampler;
+	format_t format;
 
 	union {
 		unsigned int mixer_idx;
@@ -198,7 +199,6 @@ struct output_s {
 	const char *kind; // "mixed" or "single"
 	unsigned long long db_id;
 	gboolean skip_filename_extension;
-	unsigned int channel_mult;
 	int64_t start_time_us;
 
 	FILE *fp;

@@ -105,8 +105,6 @@ static void meta_mix_file_output(metafile_t *mf) {
 		return;
 
 	mf->mix_out = output_new_ext(mf, "mix", "mixed", "mix");
-	if (mix_method == MM_CHANNELS)
-		mf->mix_out->channel_mult = mix_num_inputs;
 	mf->mix = mix_new(&mf->mix_lock, &mf->mix_out->sink, mf->media_rec_slots);
 	db_do_stream(mf, mf->mix_out, NULL, 0);
 }
@@ -127,6 +125,8 @@ static void meta_mix_tls_output(metafile_t *mf) {
 
 	if (!tls_fwd_new(&mf->mix_tls_fwd))
 		return;
+	if (mix_method == MM_CHANNELS)
+		mf->mix_tls_fwd->sink.format.channels = mix_num_inputs;
 	if (!mf->tls_mix)
 		mf->tls_mix = mix_new(&mf->mix_lock, &mf->mix_tls_fwd->sink, mf->media_rec_slots);
 

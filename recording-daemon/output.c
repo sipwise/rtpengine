@@ -13,6 +13,7 @@
 #include "recaux.h"
 #include "notify.h"
 #include "resample.h"
+#include "fix_frame_channel_layout.h"
 
 
 #define DEFAULT_AVIO_BUFSIZE 4096
@@ -45,12 +46,20 @@ static int output_got_packet(encoder_t *enc, void *u1, void *u2) {
 }
 
 
-bool sink_add(sink_t *sink, AVFrame *frame, const format_t *requested_format) {
+bool sink_add(sink_t *sink, AVFrame *frame) {
 	if (!sink)
 		return false;
 
+	// copy/init from frame
+	if (G_UNLIKELY(sink->format.format == -1))
+		sink->format.format = frame->format;
+	if (G_UNLIKELY(sink->format.channels == -1))
+		sink->format.channels = GET_CHANNELS(frame);
+	if (G_UNLIKELY(sink->format.clockrate == -1))
+		sink->format.clockrate = frame->sample_rate;
+
 	format_t actual_format;
-	if (!sink->config(sink, requested_format, &actual_format))
+	if (!sink->config(sink, &sink->format, &actual_format))
 		return false;
 
 	AVFrame *copy_frame = av_frame_clone(frame);
@@ -125,6 +134,7 @@ void sink_init(sink_t *sink) {
 	*sink = (__typeof(*sink)) {
 		.mixer_idx = -1u,
 	};
+	format_init(&sink->format);
 }
 
 static bool output_config__(sink_t *s, const format_t *requested_format, format_t *actual_format) {
@@ -138,7 +148,6 @@ static output_t *output_alloc(const char *path, const char *name) {
 	ret->full_filename = g_strdup_printf("%s/%s", path, name);
 	ret->file_format = output_file_format;
 	ret->encoder = encoder_new();
-	ret->channel_mult = 1;
 	ret->requested_format.format = -1;
 	ret->actual_format.format = -1;
 	ret->start_time_us = now_us();
@@ -301,6 +310,10 @@ output_t *output_new_ext(metafile_t *mf, const char *type, const char *kind, con
 	else
 		ret = output_new(output_path, mf, type, kind, label);
 
+	ret->sink.format.format = AV_SAMPLE_FMT_S16;
+	if (resample_audio > 0)
+		ret->sink.format.clockrate = resample_audio;
+
 	return ret;
 }
 
@@ -366,13 +379,10 @@ static bool output_config_(sink_t *sink, output_t *output, const format_t *reque
 
 	// mask the channel multiplier from external view
 	output->requested_format = *requested_format;
-	req_fmt.channels *= output->channel_mult;
 
 	if (encoder_config(output->encoder, output_codec, mp3_bitrate, 0, &req_fmt, &output->actual_format))
 		goto err;
 
-	if (output->actual_format.channels == req_fmt.channels)
-		output->actual_format.channels /= output->channel_mult;
 	// save the sample format
 	if (requested_format->format == -1)
 		output->requested_format.format = output->actual_format.format;

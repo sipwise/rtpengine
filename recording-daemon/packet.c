@@ -114,24 +114,12 @@ static void packet_decode(ssrc_t *ssrc, packet_t *packet) {
 		dbg("payload type for %u is %s", payload_type, payload_str);
 
 		pthread_mutex_lock(&mf->mix_lock);
-		format_t dec_format = { .format = -1 };
-		if (mf->mix_out)
-			dec_format = mf->mix_out->requested_format;
-		else if (ssrc->output)
-			dec_format = ssrc->output->requested_format;
-		ssrc->decoders[payload_type] = decoder_new(payload_str, format, ptime, &dec_format);
+		ssrc->decoders[payload_type] = decoder_new(payload_str, format, ptime);
 
-		sink_init(&ssrc->decoders[payload_type]->mix_sink);
-		ssrc->decoders[payload_type]->mix_sink.ssrc = ssrc;
-		ssrc->decoders[payload_type]->mix_sink.mix = &mf->mix;
-		ssrc->decoders[payload_type]->mix_sink.add = mix_add;
-		ssrc->decoders[payload_type]->mix_sink.config = mix_config;
-
-		sink_init(&ssrc->decoders[payload_type]->tls_mix_sink);
-		ssrc->decoders[payload_type]->tls_mix_sink.ssrc = ssrc;
-		ssrc->decoders[payload_type]->tls_mix_sink.mix = &mf->tls_mix;
-		ssrc->decoders[payload_type]->tls_mix_sink.add = mix_add;
-		ssrc->decoders[payload_type]->tls_mix_sink.config = mix_config;
+		mix_sink_init(&ssrc->decoders[payload_type]->mix_sink, ssrc, &mf->mix,
+				resample_audio);
+		mix_sink_init(&ssrc->decoders[payload_type]->tls_mix_sink, ssrc, &mf->tls_mix,
+				tls_resample);
 
 		pthread_mutex_unlock(&mf->mix_lock);
 		if (!ssrc->decoders[payload_type]) {

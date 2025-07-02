@@ -237,13 +237,10 @@ static bool tls_fwd_add(sink_t *sink, AVFrame *frame) {
 }
 
 
-static bool tls_fwd_config(sink_t *sink, const format_t *requested_format, format_t *actual_format)
-{
-	*actual_format = (format_t) {
-		.clockrate = tls_resample,
-		.format = AV_SAMPLE_FMT_S16,
-		.channels = 1,
-	};
+static bool tls_fwd_config(sink_t *sink, const format_t *requested_format, format_t *actual_format) {
+	tls_fwd_t *tls_fwd = *sink->tls_fwd;
+	*actual_format = sink->format;
+	tls_fwd->format = sink->format;
 	return true;
 }
 
@@ -302,16 +299,14 @@ bool tls_fwd_new(tls_fwd_t **tlsp) {
 	if (!*tlsp) // may have been closed
 		return false;
 
-	tls_fwd->format = (format_t) {
-		.clockrate = tls_resample,
-		.channels = 1,
-		.format = AV_SAMPLE_FMT_S16,
-	};
-
 	sink_init(&tls_fwd->sink);
 	tls_fwd->sink.tls_fwd = tlsp;
 	tls_fwd->sink.add = tls_fwd_add;
 	tls_fwd->sink.config = tls_fwd_config;
+
+	tls_fwd->sink.format.format = AV_SAMPLE_FMT_S16;
+	tls_fwd->sink.format.clockrate = tls_resample;
+	tls_fwd->sink.format.channels = 1;
 
 	return true;
 }

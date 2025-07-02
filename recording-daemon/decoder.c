@@ -22,12 +22,8 @@
 #include "tls_send.h"
 
 
-int resample_audio;
-
-
-
 // does not initialise the contained `sink`
-decode_t *decoder_new(const char *payload_str, const char *format, int ptime, const format_t *dec_format) {
+decode_t *decoder_new(const char *payload_str, const char *format, int ptime) {
 	char *slash = strchr(payload_str, '/');
 	if (!slash) {
 		ilog(LOG_WARN, "Invalid payload format: %s", payload_str);
@@ -65,21 +61,11 @@ decode_t *decoder_new(const char *payload_str, const char *format, int ptime, co
 	int rtp_clockrate = clockrate;
 	clockrate = fraction_mult(clockrate, &def->default_clockrate_fact);
 
-	// we can now config our output, which determines the sample format we convert to
 	format_t out_format = {
 		.clockrate = clockrate,
 		.channels = channels,
-		.format = -1,
+		.format = AV_SAMPLE_FMT_S16,
 	};
-
-	if (resample_audio)
-		out_format.clockrate = resample_audio;
-	// mono/stereo mixing goes here: out_format.channels = ...
-	// if the output has been configured already, re-use the same format
-	if (dec_format->format != -1)
-		out_format = *dec_format;
-	else
-		out_format.format = AV_SAMPLE_FMT_S16; // needed for TLS-only scenarios
 
 	str fmtp = STR(format);
 
@@ -106,21 +92,21 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *sp, void *dp)
 			(unsigned int) frame->extended_data[0][3]);
 
 	if (metafile->recording_on) {
-		sink_add(&deco->mix_sink, frame, &dec->dest_format);
+		sink_add(&deco->mix_sink, frame);
 
 		if (output) {
 			dbg("SSRC %lx of stream #%lu has single output", ssrc->ssrc, stream->id);
-			if (!sink_add(&output->sink, frame, &dec->dest_format))
+			if (!sink_add(&output->sink, frame))
 				ilog(LOG_ERR, "Failed to add decoded packet to individual output");
 		}
 	}
 
 	if (metafile->forwarding_on)
-		sink_add(&deco->tls_mix_sink, frame, &dec->dest_format);
+		sink_add(&deco->tls_mix_sink, frame);
 
 	if (ssrc->tls_fwd) {
 		dbg("SSRC %lx of stream #%lu has TLS forwarding stream", ssrc->ssrc, stream->id);
-		if (!sink_add(&ssrc->tls_fwd->sink, frame, &ssrc->tls_fwd->format))
+		if (!sink_add(&ssrc->tls_fwd->sink, frame))
 			ilog(LOG_ERR, "Failed to add decoded packet to TLS/TCP forward output");
 
 	}

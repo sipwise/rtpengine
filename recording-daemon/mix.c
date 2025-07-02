@@ -239,8 +239,6 @@ static int mix_config_(mix_t *mix, const format_t *format) {
 		goto err;
 
 	mix->out_format = mix->in_format;
-	if (mix_method == MM_CHANNELS)
-		mix->out_format.channels *= mix_num_inputs;
 
 	return 0;
 
@@ -394,7 +392,7 @@ static int mix_add_(mix_t *mix, AVFrame *frame, unsigned int idx, void *ptr) {
 			else
 				goto err;
 		}
-		bool ok = sink_add(mix->sink, mix->sink_frame, &mix->out_format);
+		bool ok = sink_add(mix->sink, mix->sink_frame);
 
 		av_frame_unref(mix->sink_frame);
 
@@ -451,10 +449,24 @@ bool mix_config(sink_t *sink, const format_t *requested_format, format_t *actual
 	if (G_UNLIKELY(sink->mixer_idx == -1u))
 		sink->mixer_idx = mix_get_index(mix, ssrc, stream->media_sdp_id, stream->channel_slot);
 
-	if (!mix->sink->config(mix->sink, requested_format, actual_format))
-		return false;
+	if (mix->in_format.format == -1) {
+		format_t req_fmt = *requested_format;
+		if (mix_method == MM_CHANNELS)
+			req_fmt.channels *= mix_num_inputs;
 
-	mix_config_(mix, actual_format);
+		if (!mix->sink->config(mix->sink, &req_fmt, actual_format))
+			return false;
+
+		if (mix_method == MM_CHANNELS && actual_format->channels % mix_num_inputs == 0)
+			actual_format->channels /= mix_num_inputs;
+
+		mix_config_(mix, actual_format);
+	}
+	else {
+		// output to the format that's already set
+		sink->format = mix->in_format;
+		*actual_format = mix->in_format;
+	}
 
 	return true;
 }
@@ -468,4 +480,17 @@ void mix_close(mix_t *mix) {
 
 	mix->sink = NULL;
 	mix->lock = NULL;
+}
+
+
+void mix_sink_init(sink_t *sink, ssrc_t *ssrc, mix_t **mixp, int resample) {
+	sink_init(sink);
+	sink->ssrc = ssrc;
+	sink->mix = mixp;
+	sink->add = mix_add;
+	sink->config = mix_config;
+	if (mix_method == MM_CHANNELS)
+		sink->format.channels = 1;
+	if (resample > 0)
+		sink->format.clockrate = resample;
 }
