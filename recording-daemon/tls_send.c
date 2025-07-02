@@ -227,7 +227,7 @@ static bool tls_fwd_add(sink_t *sink, AVFrame *frame) {
 	if (next_pts > tls_fwd->in_pts)
 		tls_fwd->in_pts = next_pts;
 
-	int linesize = av_get_bytes_per_sample(frame->format) * frame->nb_samples;
+	int linesize = av_get_bytes_per_sample(frame->format) * frame->nb_samples * GET_CHANNELS(frame);
 	dbg("Writing %u bytes PCM to TLS", linesize);
 	streambuf_write(tls_fwd->stream, (char *) frame->extended_data[0], linesize);
 
