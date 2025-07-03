@@ -317,7 +317,11 @@ output_t *output_new_ext(metafile_t *mf, const char *type, const char *kind, con
 	return ret;
 }
 
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(61, 0, 0)
 int output_avio_write(void *opaque, const uint8_t *buf, int buf_size) {
+#else
+int output_avio_write(void *opaque, uint8_t *buf, int buf_size) {
+#endif
 	output_t *o = opaque;
 	ssize_t written = fwrite(buf, buf_size, 1, o->fp);
 	if (written == 1)
@@ -331,7 +335,11 @@ int64_t output_avio_seek(void *opaque, int64_t offset, int whence) {
 	return ftell(o->fp);
 }
 
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(61, 0, 0)
 int output_avio_mem_write(void *opaque, const uint8_t *buf, int buf_size) {
+#else
+int output_avio_mem_write(void *opaque, uint8_t *buf, int buf_size) {
+#endif
 	output_t *o = opaque;
 	g_string_overwrite_len(o->membuf, o->mempos, (const char *) buf, buf_size);
 	o->mempos += buf_size;
