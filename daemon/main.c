@@ -1052,7 +1052,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		die("Missing option --listen-tcp, --listen-udp, --listen-ng, --listen-tcp-ng, "
 				"--listen-http, or --listen-https");
 
-	const static size_t max_buf_size =
+	static const size_t max_buf_size =
 		((1LL << (sizeof(((struct lws_context_creation_info) {}).pt_serv_buf_size) * 8 - 1))
 		 - 1) / 1024;
 	if (rtpe_config.http_buf_size >= max_buf_size)
