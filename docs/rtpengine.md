@@ -989,6 +989,14 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     number as given under __num-threads__ will be used. If no HTTP listeners are
     enabled, then no threads are created.
 
+- __\-\-http-buf-size=__*INT*
+
+    Set the internal buffer size used by the HTTP/HTTPS/WS/WSS library, in
+    kilobytes. If unset or less than or equal to zero, then the
+    implementation-defined default will be used. Set this to 1024 (one
+    megabyte) or larger if you experience high WS activity, to improve
+    performance and prevent possible protocol hiccups.
+
 - __\-\-software-id=__*STRING*
 
     Sets a free-form string that is used to identify this software towards external
