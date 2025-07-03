@@ -71,7 +71,7 @@ static void *kernel_alloc(void) {
 	}
 
 	// find the aligned block
-	void *aligned = (void *) (((size_t) b + BUFFERPOOL_SHARD_SIZE - 1) & BUFFERPOOL_TOP_MASK);
+	void *aligned = (void *) (((intptr_t) b + BUFFERPOOL_SHARD_SIZE - 1) & BUFFERPOOL_TOP_MASK);
 
 	// place a pointer to the real beginning of the block just past the end, so we
 	// know what to free
