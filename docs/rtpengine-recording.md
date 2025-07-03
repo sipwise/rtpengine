@@ -310,6 +310,8 @@ sufficient for a standard installation of rtpengine.
     Configuration for a MySQL storage backend. Details about calls and media files
     that are produced are stored into the database. Optionally the media files
     themselves can be stored as well (see __output-storage__).
+    
+    For MySQL database schema, see [Database schema](#database-schema)
 
 - __\-\-forward-to=__*PATH*
 
@@ -401,6 +403,52 @@ sufficient for a standard installation of rtpengine.
 - `/etc/rtpengine/rtpengine-recording.conf`
 
     Configuration file.
+
+## DATABASE SCHEMA
+
+Saving recording into MySQL database requires correct database schema:
+```
+CREATE TABLE `recording_calls` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `call_id` varchar(250) NOT NULL,
+  `start_timestamp` decimal(13,3) DEFAULT NULL,
+  `end_timestamp` decimal(13,3) DEFAULT NULL,
+  `status` enum('recording','completed','confirmed') DEFAULT 'recording',
+  PRIMARY KEY (`id`),
+  KEY `call_id` (`call_id`)
+);
+
+CREATE TABLE `recording_streams` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `call` int(10) unsigned NOT NULL,
+  `local_filename` varchar(250) NOT NULL,
+  `full_filename` varchar(250) NOT NULL,
+  `file_format` varchar(10) NOT NULL,
+  `stream` mediumblob,
+  `output_type` enum('mixed','single') NOT NULL,
+  `stream_id` int(10) unsigned NOT NULL,
+  `sample_rate` int(10) unsigned NOT NULL DEFAULT '0',
+  `channels` int(10) unsigned NOT NULL DEFAULT '0',
+  `ssrc` int(10) unsigned NOT NULL,
+  `start_timestamp` decimal(13,3) DEFAULT NULL,
+  `end_timestamp` decimal(13,3) DEFAULT NULL,
+  `tag_label` varchar(255) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`),
+  KEY `call` (`call`),
+  CONSTRAINT `fk_call_id` FOREIGN KEY (`call`) REFERENCES `recording_calls` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE `recording_metakeys` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `call` int(10) unsigned NOT NULL,
+  `key` char(255) NOT NULL,
+  `value` char(255) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `prim_lookup` (`value`,`key`),
+  KEY `fk_call_idx` (`call`),
+  CONSTRAINT `fk_call_idx` FOREIGN KEY (`call`) REFERENCES `recording_calls` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+);
+```
 
 ## SEE ALSO
 
