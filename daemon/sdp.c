@@ -477,6 +477,11 @@ static bool parse_address(struct network_address *address) {
 }
 
 #define EXTRACT_TOKEN(field) do { if (!str_token_sep(&output->field, value_str, ' ')) return -1; } while (0)
+#define EXTRACT_TOKEN_EXCL_INCORRECT(field) \
+		do { \
+			if (!str_token_sep(&output->field, value_str, ' ')) \
+				goto error; \
+			} while (0)
 #define EXTRACT_NETWORK_ADDRESS_NP(field)			\
 		do { EXTRACT_TOKEN(field.network_type);		\
 		EXTRACT_TOKEN(field.address_type);		\
@@ -607,9 +612,9 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 	output->attr = ATTR_CRYPTO;
 
 	PARSE_INIT;
-	EXTRACT_TOKEN(crypto.tag_str);
-	EXTRACT_TOKEN(crypto.crypto_suite_str);
-	EXTRACT_TOKEN(crypto.key_params_str);
+	EXTRACT_TOKEN_EXCL_INCORRECT(crypto.tag_str);
+	EXTRACT_TOKEN_EXCL_INCORRECT(crypto.crypto_suite_str);
+	EXTRACT_TOKEN_EXCL_INCORRECT(crypto.key_params_str);
 
 	c = &output->crypto;
 
