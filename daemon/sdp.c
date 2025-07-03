@@ -489,6 +489,9 @@ static bool parse_address(struct network_address *address) {
 #define EXTRACT_NETWORK_ADDRESS(field)				\
 		do { EXTRACT_NETWORK_ADDRESS_NP(field);		\
 		if (!parse_address(&output->field)) return -1; } while (0)
+#define EXTRACT_NETWORK_ADDRESS_ATTR(field)				\
+		do { EXTRACT_NETWORK_ADDRESS_NP(field);		\
+		if (!parse_address(&output->field)) goto error; } while (0)
 #define EXTRACT_NETWORK_ADDRESS_NF(field)			\
 		do { EXTRACT_NETWORK_ADDRESS_NP(field);		\
 		if (!parse_address(&output->field)) {		\
@@ -735,26 +738,26 @@ error:
 
 static int parse_attribute_rtcp(struct sdp_attribute *output) {
 	if (!output->strs.value.s)
-		goto err;
+		goto error;
 	output->attr = ATTR_RTCP;
 
 	PARSE_INIT;
 
 	str portnum;
 	if (!str_token_sep(&portnum, value_str, ' '))
-		goto err;
+		goto error;
 	output->rtcp.port_num = str_to_i(&portnum, 0);
 	if (output->rtcp.port_num <= 0 || output->rtcp.port_num > 0xffff) {
 		output->rtcp.port_num = 0;
-		goto err;
+		goto error;
 	}
 
 	if (value_str->len)
-		EXTRACT_NETWORK_ADDRESS(rtcp.address);
+		EXTRACT_NETWORK_ADDRESS_ATTR(rtcp.address);
 
 	return 0;
 
-err:
+error:
 	ilog(LOG_WARN, "Failed to parse a=rtcp attribute, ignoring");
 	output->attr = ATTR_IGNORE;
 	return -1;
