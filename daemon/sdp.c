@@ -730,7 +730,7 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 error:
 	ilog(LOG_ERROR, "Failed to parse a=crypto attribute, ignoring: %s", err);
 	output->attr = ATTR_IGNORE;
-	return 0;
+	return -1;
 }
 
 static int parse_attribute_rtcp(struct sdp_attribute *output) {
@@ -757,7 +757,7 @@ static int parse_attribute_rtcp(struct sdp_attribute *output) {
 err:
 	ilog(LOG_WARN, "Failed to parse a=rtcp attribute, ignoring");
 	output->attr = ATTR_IGNORE;
-	return 0;
+	return -1;
 }
 
 static int parse_attribute_candidate(struct sdp_attribute *output, bool extended) {
