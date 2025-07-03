@@ -92,7 +92,7 @@ static void meta_destroy(metafile_t *mf) {
 static void meta_mix_output(metafile_t *mf) {
 	LOCK(&mf->mix_lock);
 
-	if (!output_enabled || !output_mixed || !mf->recording_on) {
+	if (!output_enabled || !output_mixed || !mf->recording_on || !mf->random_tag) {
 		mix_destroy(mf->mix);
 		mf->mix = NULL;
 		return;
