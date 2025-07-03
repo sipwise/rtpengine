@@ -610,7 +610,7 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 	gsize ret;
 	str s;
 	uint32_t u32;
-	const char *err;
+	const char *err = NULL;
 
 	output->attr = ATTR_CRYPTO;
 
@@ -731,6 +731,8 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 	return 0;
 
 error:
+	if (!err)
+		err = "generic error";
 	ilog(LOG_ERROR, "Failed to parse a=crypto attribute, ignoring: %s", err);
 	output->attr = ATTR_IGNORE;
 	return -1;
