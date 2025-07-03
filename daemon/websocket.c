@@ -1160,7 +1160,9 @@ int websocket_init(void) {
 			LWS_SERVER_OPTION_FAIL_UPON_UNABLE_TO_BIND |
 #endif
 			0,
+#if LWS_LIBRARY_VERSION_MAJOR >= 3 || (LWS_LIBRARY_VERSION_MAJOR == 2 && LWS_LIBRARY_VERSION_MINOR >= 1)
 		.pt_serv_buf_size = rtpe_config.http_buf_size > 0 ? rtpe_config.http_buf_size * 1024LL : 0,
+#endif
 	};
 	websocket_context = lws_create_context(&wci);
 	err = "Failed to create LWS context";
@@ -1193,7 +1195,9 @@ int websocket_init(void) {
 				.port = ep->port,
 				.iface = g_strdup(sockaddr_print_buf(&ep->address)),
 				.protocols = websocket_protocols,
+#if LWS_LIBRARY_VERSION_MAJOR >= 3 || (LWS_LIBRARY_VERSION_MAJOR == 2 && LWS_LIBRARY_VERSION_MINOR >= 1)
 				.pt_serv_buf_size = wci.pt_serv_buf_size,
+#endif
 			};
 			vhost->vhost_name = vhost->iface;
 			if (ep->address.family->af == AF_INET)
@@ -1244,7 +1248,9 @@ int websocket_init(void) {
 				.ssl_cert_filepath = rtpe_config.https_cert,
 				.ssl_private_key_filepath = rtpe_config.https_key ? : rtpe_config.https_cert,
 				.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT,
+#if LWS_LIBRARY_VERSION_MAJOR >= 3 || (LWS_LIBRARY_VERSION_MAJOR == 2 && LWS_LIBRARY_VERSION_MINOR >= 1)
 				.pt_serv_buf_size = wci.pt_serv_buf_size,
+#endif
 				// XXX cipher list, key password
 			};
 			vhost->vhost_name = vhost->iface;
