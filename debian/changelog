@@ -1,3 +1,12 @@
+ngcp-rtpengine (13.4.1.1+0~mr13.4.1.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [0331470] MT#55283 remove debugging remnants
+  * [9861a7b] MT#55283 fix mem leak
+  * [8bd62e1] MT#55283 fix sdes_accept logic booboo
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 03 Jul 2025 12:17:03 +0200
+
 ngcp-rtpengine (13.4.1.0+0~mr13.4.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
