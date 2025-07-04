@@ -223,6 +223,9 @@ daemon-tests-audio-player-play-media:	daemon-test-deps
 daemon-tests-rtpp-flags:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-rtpp-flags.pl
 
+daemon-tests-unknown-fmtp:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-unknown-fmtp.pl
+
 daemon-tests-sdp-manipulations:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-sdp-manipulations.pl
 
