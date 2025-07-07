@@ -285,8 +285,9 @@ static transcode_job_q transcode_jobs = TYPED_GQUEUE_INIT;
 static tc_code (*__rtp_decode)(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
 		struct transcode_packet *packet, struct media_packet *mp);
 static void transcode_job_free(struct transcode_job *j);
-static void packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
-		str *inout, char *buf, unsigned int pkt_len, const struct fraction *cr_fact);
+static void packet_encoded_tx(struct codec_ssrc_handler *ch, struct media_packet *mp,
+		str *inout, char *buf, unsigned int pkt_len, int64_t pts, int64_t duration,
+		const struct fraction *cr_fact);
 
 static void codec_output_rtp_seq_passthrough(struct media_packet *mp, struct codec_scheduler *csch,
 		struct codec_handler *handler,
@@ -4519,8 +4520,9 @@ static void __free_ssrc_handler(struct codec_ssrc_handler *ch) {
 
 void packet_encoded_packetize(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
 		packetizer_f pkt_f, void *pkt_f_data, const struct fraction *cr_fact,
-		void (*tx_f)(AVPacket *, struct codec_ssrc_handler *, struct media_packet *, str *,
-			char *, unsigned int, const struct fraction *cr_fact))
+		void (*tx_f)(struct codec_ssrc_handler *, struct media_packet *, str *,
+			char *, unsigned int, int64_t pts, int64_t duration,
+			const struct fraction *cr_fact))
 {
 	// run this through our packetizer
 	AVPacket *in_pkt = pkt;
@@ -4538,10 +4540,11 @@ void packet_encoded_packetize(AVPacket *pkt, struct codec_ssrc_handler *ch, stru
 		// and request a packet
 		if (in_pkt)
 			ilogs(transcoding, LOG_DEBUG, "Adding %i bytes to packetizer", in_pkt->size);
+		int64_t pts, duration;
 		int ret = pkt_f(in_pkt,
-				ch->sample_buffer, &inout, pkt_f_data);
+				ch->sample_buffer, &inout, pkt_f_data, &pts, &duration);
 
-		if (G_UNLIKELY(ret == -1 || pkt->pts == AV_NOPTS_VALUE)) {
+		if (G_UNLIKELY(ret == -1 || pts == AV_NOPTS_VALUE)) {
 			// nothing
 			bufferpool_unref(buf);
 			break;
@@ -4549,7 +4552,7 @@ void packet_encoded_packetize(AVPacket *pkt, struct codec_ssrc_handler *ch, stru
 
 		ilogs(transcoding, LOG_DEBUG, "Received packet of %zu bytes from packetizer", inout.len);
 
-		tx_f(pkt, ch, mp, &inout, buf, pkt_len, cr_fact);
+		tx_f(ch, mp, &inout, buf, pkt_len, pts, duration, cr_fact);
 
 		if (ret == 0) {
 			// no more to go
@@ -4598,8 +4601,9 @@ static void codec_output_rtp_seq_own(struct media_packet *mp, struct codec_sched
 			0, payload_type, ts_delay);
 }
 
-static void packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
-		str *inout, char *buf, unsigned int pkt_len, const struct fraction *cr_fact)
+static void packet_encoded_tx(struct codec_ssrc_handler *ch, struct media_packet *mp,
+		str *inout, char *buf, unsigned int pkt_len, int64_t pts, int64_t duration,
+		const struct fraction *cr_fact)
 {
 	// check special payloads
 
@@ -4612,7 +4616,7 @@ static void packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, stru
 	int is_dtmf = 0;
 
 	if (dtmf_pt != -1)
-		is_dtmf = dtmf_event_payload(inout, (uint64_t *) &pkt->pts, pkt->duration,
+		is_dtmf = dtmf_event_payload(inout, (uint64_t *) &pts, duration,
 				&ch->dtmf_event, &ch->dtmf_events);
 	if (is_dtmf) {
 		payload_type = dtmf_pt;
@@ -4628,7 +4632,7 @@ static void packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, stru
 		ts_delay = ntohs(ev_pt->duration) - (ch->handler->dest_pt.ptime * ch->handler->dest_pt.clock_rate / 1000);
 	}
 	else {
-		if (is_silence_event(inout, &ch->silence_events, pkt->pts, pkt->duration))
+		if (is_silence_event(inout, &ch->silence_events, pts, duration))
 			payload_type = ch->handler->cn_payload_type;
 	}
 
@@ -4642,7 +4646,7 @@ static void packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, stru
 			memcpy(send_buf, buf, pkt_len);
 		}
 		ch->codec_output_rtp_seq(mp, &ch->csch, ch->handler, send_buf, inout->len, ch->csch.first_ts
-				+ fraction_divl(pkt->pts, cr_fact),
+				+ fraction_divl(pts, cr_fact),
 				ch->rtp_mark ? 1 : 0,
 				payload_type, ts_delay);
 		mp->ssrc_out->seq_diff++;

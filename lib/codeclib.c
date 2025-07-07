@@ -2159,7 +2159,9 @@ int encoder_input_fifo(encoder_t *enc, AVFrame *frame,
 }
 
 
-int packetizer_passthrough(AVPacket *pkt, GString *buf, str *output, encoder_t *enc) {
+int packetizer_passthrough(AVPacket *pkt, GString *buf, str *output, encoder_t *enc,
+		int64_t *__restrict pts, int64_t *__restrict duration)
+{
 	if (!pkt)
 		return -1;
 	if (output->len < pkt->size) {
@@ -2169,22 +2171,29 @@ int packetizer_passthrough(AVPacket *pkt, GString *buf, str *output, encoder_t *
 	}
 	output->len = pkt->size;
 	memcpy(output->s, pkt->data, pkt->size);
+	*pts = pkt->pts;
+	*duration = pkt->duration;
 	return 0;
 }
 
 // returns: -1 = not enough data, nothing returned; 0 = returned a packet;
 // 1 = returned a packet and there's more
-static int packetizer_samplestream(AVPacket *pkt, GString *buf, str *input_output, encoder_t *enc) {
+static int packetizer_samplestream(AVPacket *pkt, GString *buf, str *input_output, encoder_t *enc,
+		int64_t *__restrict pts, int64_t *__restrict duration)
+{
 	// avoid moving buffers around if possible:
 	// most common case: new input packet has just enough (or more) data as what we need
 	if (G_LIKELY(pkt && buf->len == 0 && pkt->size >= input_output->len)) {
+		*pts = pkt->pts;
+		*duration = pkt->duration;
 		memcpy(input_output->s, pkt->data, input_output->len);
 		// any leftovers?
 		if (pkt->size > input_output->len) {
 			g_string_append_len(buf, (char *) pkt->data + input_output->len,
 					pkt->size - input_output->len);
-			enc->packet_pts = pkt->pts + input_output->len
+			*duration = input_output->len
 				* (fraction_mult(enc->def->bits_per_sample, &enc->clockrate_fact) / 8);
+			enc->packet_pts = pkt->pts + *duration;
 		}
 		return buf->len >= input_output->len ? 1 : 0;
 	}
@@ -2198,9 +2207,9 @@ static int packetizer_samplestream(AVPacket *pkt, GString *buf, str *input_outpu
 	memcpy(input_output->s, buf->str, input_output->len);
 	g_string_erase(buf, 0, input_output->len);
 	// adjust output pts
-	enc->avpkt->pts = enc->packet_pts;
-	enc->packet_pts += input_output->len
-		* fraction_mult(enc->def->bits_per_sample, &enc->clockrate_fact) / 8;
+	*pts = enc->packet_pts;
+	*duration = input_output->len * (fraction_mult(enc->def->bits_per_sample, &enc->clockrate_fact) / 8);
+	enc->packet_pts += *duration;
 	return buf->len >= input_output->len ? 1 : 0;
 }
 
@@ -3313,7 +3322,9 @@ static void amr_encoder_got_packet(encoder_t *enc) {
 	amr_encoder_mode_change(enc);
 	enc->avc.amr.pkt_seq++;
 }
-static int packetizer_amr(AVPacket *pkt, GString *buf, str *output, encoder_t *enc) {
+static int packetizer_amr(AVPacket *pkt, GString *buf, str *output, encoder_t *enc,
+		int64_t *__restrict pts, int64_t *__restrict duration)
+{
 	assert(pkt->size >= 1);
 
 	// CMR + TOC byte (already included) + optional ILL/ILP + optional CRC + payload
@@ -3341,6 +3352,9 @@ static int packetizer_amr(AVPacket *pkt, GString *buf, str *output, encoder_t *e
 	}
 
 	unsigned char *s = (unsigned char *) output->s; // for safe bit shifting
+
+	*pts = pkt->pts;
+	*duration = enc->actual_format.clockrate * 20 / 1000; // 160 or 320
 
 	s[0] = '\xf0'; // no CMR req (4 bits)
 
@@ -3565,13 +3579,15 @@ static void bcg729_encoder_close(encoder_t *enc) {
 	enc->bcg729 = NULL;
 }
 
-static int packetizer_g729(AVPacket *pkt, GString *buf, str *input_output, encoder_t *enc) {
+static int packetizer_g729(AVPacket *pkt, GString *buf, str *input_output, encoder_t *enc,
+		int64_t *__restrict pts, int64_t *__restrict duration)
+{
 	// how many frames do we want?
 	int want_frames = input_output->len / 10;
 
 	// easiest case: we only want one frame. return what we got
 	if (want_frames == 1 && pkt)
-		return packetizer_passthrough(pkt, buf, input_output, enc);
+		return packetizer_passthrough(pkt, buf, input_output, enc, pts, duration);
 
 	// any other case, we go through our buffer
 	str output = *input_output; // remaining output buffer
@@ -3588,12 +3604,15 @@ static int packetizer_g729(AVPacket *pkt, GString *buf, str *input_output, encod
 			&& have_noise_frames != 4)
 		return -1;
 
+	int64_t dur = 0;
+
 	// return non-silence/noise frames while we can
 	while (buf->len >= 10 && want_frames && output.len >= 10) {
 		memcpy(output.s, buf->str, 10);
 		g_string_erase(buf, 0, 10);
 		want_frames--;
 		str_shift(&output, 10);
+		dur += 80;
 	}
 
 	// append silence/noise frames if we can
@@ -3602,7 +3621,12 @@ static int packetizer_g729(AVPacket *pkt, GString *buf, str *input_output, encod
 		g_string_erase(buf, 0, 2);
 		want_frames--;
 		str_shift(&output, 2);
+		dur += 80;
 	}
+
+	*pts = enc->packet_pts;
+	*duration = dur;
+	enc->packet_pts += dur;
 
 	if (output.len == input_output->len)
 		return -1; // got nothing

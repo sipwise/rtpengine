@@ -24,7 +24,8 @@ static int dec_cb(encoder_t *e, void *u1, void *u2) {
 	int plen = 256;
 	char payload[plen];
 	str inout = STR_LEN(payload, plen);
-	e->def->packetizer(e->avpkt, buf, &inout, e);
+	int64_t pts, dur;
+	e->def->packetizer(e->avpkt, buf, &inout, e, &pts, &dur);
 
 	if (inout.len != *expect_len
 			|| memcmp(inout.s, *expect, *expect_len))

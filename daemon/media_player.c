@@ -816,20 +816,21 @@ static void media_player_cache_entry_decoder_thread(void *p) {
 	obj_release(entry);
 }
 
-static void packet_encoded_cache(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
-		str *s, char *buf, unsigned int pkt_len, const struct fraction *cr_fact)
+static void packet_encoded_cache(struct codec_ssrc_handler *ch, struct media_packet *mp,
+		str *s, char *buf, unsigned int pkt_len,
+		int64_t pts, int64_t dur, const struct fraction *cr_fact)
 {
 	struct media_player_cache_entry *entry = mp->cache_entry;
 
 	struct media_player_cache_packet *ep = g_new0(__typeof(*ep), 1);
 
-	long duration = fraction_divl(pkt->duration, cr_fact);
+	long duration = fraction_divl(dur, cr_fact);
 	*ep = (__typeof__(*ep)) {
 		.buf = buf,
 		.s = *s,
-		.pts = pkt->pts,
+		.pts = pts,
 		.duration_ts = duration,
-		.duration = (long long) duration * 1000000LL
+		.duration = duration * 1000000LL
 			/ entry->coder.handler->dest_pt.clock_rate,
 	};
 
@@ -838,9 +839,9 @@ static void packet_encoded_cache(AVPacket *pkt, struct codec_ssrc_handler *ch, s
 
 	if (entry->kernel_idx != -1) {
 		ilog(LOG_DEBUG, "Adding media packet (length %zu, TS %" PRIu64 ", delay %lu ms) to kernel packet stream %i",
-				s->len, pkt->pts, entry->duration, entry->kernel_idx);
-		if (!kernel_add_stream_packet(entry->kernel_idx, s->s, s->len, entry->duration, pkt->pts,
-					pkt->duration))
+				s->len, pts, entry->duration, entry->kernel_idx);
+		if (!kernel_add_stream_packet(entry->kernel_idx, s->s, s->len, entry->duration, pts,
+					dur))
 			ilog(LOG_ERR | LOG_FLAG_LIMIT, "Failed to add packet to kernel player (%s)", strerror(errno));
 	}
 
