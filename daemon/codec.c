@@ -6106,7 +6106,7 @@ void codec_store_transcode(struct codec_store *cs, str_q *offer, struct codec_st
 				continue;
 			}
 			if (t_hash_table_lookup(cs->codecs, GINT_TO_POINTER(pt_num))) {
-				ilogs(codec, LOG_DEBUG, "PT %i (" STR_FORMAT ") already preset", pt_num,
+				ilogs(codec, LOG_DEBUG, "PT %i (" STR_FORMAT ") already present", pt_num,
 						STR_FMT(codec));
 				continue;
 			}
