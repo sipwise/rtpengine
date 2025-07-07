@@ -500,6 +500,40 @@ SDP
 
 if ($extended_tests) {
 
+# GH#1960
+new_call;
+
+offer('duplicate G.729', { codec => { transcode => ['G729'] } }, <<SDP);
+v=0
+o=- 524683 524683 IN IP4 10.10.10.10
+s=-
+c=IN IP4 10.10.10.10
+t=0 0
+m=audio 16398 RTP/AVP 18 101
+a=rtpmap:18 G729a/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=ptime:20
+a=sendrecv
+-----------------------------------------
+v=0
+o=- 524683 524683 IN IP4 10.10.10.10
+s=-
+t=0 0
+m=audio PORT RTP/AVP 18 96 101
+c=IN IP4 203.0.113.1
+a=rtpmap:18 G729a/8000
+a=rtpmap:96 G729/8000
+a=fmtp:96 annexb=yes
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
 new_call;
 
 offer('mismatched G.729 annexb', { }, <<SDP);
