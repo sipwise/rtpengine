@@ -81,6 +81,78 @@ rcv($sock_a, -1, rtpm(96, $seq + 4, $ts + 960 * 4, $ssrc, "\x0c\x88\x02\x70\xe2\
 
 
 
+($sock_a) = new_call([qw(198.51.100.1 2076)]);
+
+push(@cids, cid());
+
+offer('media playback, G.729', { ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2076 RTP/AVP 18
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 18
+c=IN IP4 203.0.113.1
+a=rtpmap:18 G729/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$resp = rtpe_req('play media', 'media playback, G.729', { 'from-tag' => ft(), blob => $wav_file });
+is $resp->{duration}, 100, 'media duration';
+
+(undef, undef, $seq, $ts, $ssrc) = rcv($sock_a, -1, rtpm(18 | 0x80, -1, -1, -1, "\x8b\x7b\xc0\xa0\x00\xfa\xc2\x32\x01\xfc\x8d\xda\x4d\x19\x0b\x95\xaa\x21\x65\x2d"));
+rcv($sock_a, -1, rtpm(18, $seq + 1, $ts + 160 * 1, $ssrc, "\x8d\xb0\x4d\x44\xae\xa8\xf0\x94\x9c\xd1\x8d\xb2\x4c\xb4\x04\x5c\xf2\x19\x02\xbf"));
+rcv($sock_a, -1, rtpm(18, $seq + 2, $ts + 160 * 2, $ssrc, "\x08\xf7\xcc\xe2\x25\x53\xd1\x8b\xd2\xfe\x23\x63\x4d\x5a\x78\xb2\x30\xc8\x8a\x8b"));
+rcv($sock_a, -1, rtpm(18, $seq + 3, $ts + 160 * 3, $ssrc, "\x05\x5e\x8c\xb4\xe2\x92\x30\x5d\x0e\x07\x23\xb6\xcc\xe2\x30\xa3\x32\x27\x1d\x57"));
+rcv($sock_a, -1, rtpm(18, $seq + 4, $ts + 160 * 4, $ssrc, "\x0d\x60\x4c\xe7\x00\xf2\x72\x23\x80\x91\x0d\xc2\x4d\x8d\x8d\x39\x32\xef\x4f\xc7"));
+
+
+
+
+($sock_a) = new_call([qw(198.51.100.1 2096)]);
+
+push(@cids, cid());
+
+offer('media playback, G.729 ptime=30', { ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2096 RTP/AVP 18
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=ptime:30
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 18
+c=IN IP4 203.0.113.1
+a=rtpmap:18 G729/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:30
+SDP
+
+$resp = rtpe_req('play media', 'media playback, G.729 ptime=30', { 'from-tag' => ft(), blob => $wav_file });
+is $resp->{duration}, 100, 'media duration';
+
+(undef, undef, $seq, $ts, $ssrc) = rcv($sock_a, -1, rtpm(18 | 0x80, -1, -1, -1, "\x8b\x7b\xc0\xa0\x00\xfa\xc2\x32\x01\xfc\x8d\xda\x4d\x19\x0b\x95\xaa\x21\x65\x2d\x8d\xb0\x4d\x44\xae\xa8\xf0\x94\x9c\xd1"));
+rcv($sock_a, -1, rtpm(18, $seq + 1, $ts + 240 * 1, $ssrc, "\x8d\xb2\x4c\xb4\x04\x5c\xf2\x19\x02\xbf\x08\xf7\xcc\xe2\x25\x53\xd1\x8b\xd2\xfe\x23\x63\x4d\x5a\x78\xb2\x30\xc8\x8a\x8b"));
+rcv($sock_a, -1, rtpm(18, $seq + 2, $ts + 240 * 2, $ssrc, "\x05\x5e\x8c\xb4\xe2\x92\x30\x5d\x0e\x07\x23\xb6\xcc\xe2\x30\xa3\x32\x27\x1d\x57\x0d\x60\x4c\xe7\x00\xf2\x72\x23\x80\x91"));
+
+
+
+
 ($sock_a) = new_call([qw(198.51.100.1 2020)]);
 
 push(@cids, cid());
@@ -674,13 +746,13 @@ rcv($sock_b, -1, rtpm(8, $seq + 4, $ts + 160 * 4, $ssrc, $pcma_5));
 
 $resp = rtpe_req('statistics', 'check stats', { });
 is $resp->{statistics}{currentstatistics}{mediacache}, 0, "no media cache";
-is $resp->{statistics}{currentstatistics}{playercache}, 966, "player cache size";
+is $resp->{statistics}{currentstatistics}{playercache}, 1156, "player cache size";
 
 $resp = rtpe_req('cli', 'clear cache', { body => 'media evict players' });
 
 $resp = rtpe_req('statistics', 'check stats again', { });
 is $resp->{statistics}{currentstatistics}{mediacache}, 0, "no media cache";
-is $resp->{statistics}{currentstatistics}{playercache}, 966, "references held by calls";
+is $resp->{statistics}{currentstatistics}{playercache}, 1156, "references held by calls";
 
 
 for my $cid (@cids) {
