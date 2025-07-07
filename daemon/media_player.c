@@ -2053,6 +2053,7 @@ static unsigned int media_player_cache_entry_hash(const struct media_player_cach
 	}
 	ret ^= str_hash(&i->dst_pt.encoding_with_full_params);
 	ret ^= i->index.type;
+	ret ^= i->dst_pt.ptime;
 	return ret;
 }
 static gboolean media_player_cache_entry_eq(const struct media_player_cache_index *a,
@@ -2073,6 +2074,8 @@ static gboolean media_player_cache_entry_eq(const struct media_player_cache_inde
 		default:
 			abort();
 	}
+	if (a->dst_pt.ptime != b->dst_pt.ptime)
+		return FALSE;
 	return str_equal(&a->dst_pt.encoding_with_full_params, &b->dst_pt.encoding_with_full_params);
 }
 static void __media_player_cache_entry_free(struct media_player_cache_entry *e) {
