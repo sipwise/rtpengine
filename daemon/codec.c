@@ -5566,6 +5566,14 @@ void codec_store_transcode(struct codec_store *cs, str_q *offer, struct codec_st
 			ilogs(codec, LOG_DEBUG, "Adding codec " STR_FORMAT
 					" for transcoding",
 					STR_FMT(codec));
+			__auto_type pt_num =
+				pt ? t_hash_table_lookup(cs->codecs, GINT_TO_POINTER(pt->payload_type)) : NULL;
+			if (pt_num) {
+				ilogs(codec, LOG_DEBUG, "RFC-defined payload type number %d is already in use, "
+						"using generic number for " STR_FORMAT,
+						pt->payload_type, STR_FMT(codec));
+				pt->payload_type = -1;
+			}
 			// create new payload type
 			pt = codec_add_payload_type_pt(pt, cs->media, NULL, orig);
 			if (!pt)
