@@ -924,11 +924,12 @@ struct codec_handler *codec_handler_make_playback(const rtp_payload_type *src_pt
 	handler->ssrc_handler->rtp_mark = 1;
 
 	ilogs(codec, LOG_DEBUG, "Created media playback context for " STR_FORMAT "/" STR_FORMAT
-		" -> " STR_FORMAT "/" STR_FORMAT "",
+		" -> " STR_FORMAT "/" STR_FORMAT "/%d",
 			STR_FMT(&src_pt->encoding_with_params),
 			STR_FMT0(&src_pt->format_parameters),
 			STR_FMT(&dst_pt->encoding_with_params),
-			STR_FMT0(&dst_pt->format_parameters));
+			STR_FMT0(&dst_pt->format_parameters),
+			dst_pt->ptime);
 
 	return handler;
 }
@@ -4390,11 +4391,11 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 		return NULL;
 
 	ilogs(codec, LOG_DEBUG, "Creating SSRC transcoder from %s/%u/%i to "
-			"%s/%u/%i",
+			"%s/%u/%i/%d",
 			h->source_pt.codec_def->rtpname, h->source_pt.clock_rate,
 			h->source_pt.channels,
 			h->dest_pt.codec_def->rtpname, h->dest_pt.clock_rate,
-			h->dest_pt.channels);
+			h->dest_pt.channels, h->dest_pt.ptime);
 
 	__auto_type ch = obj_alloc0(struct codec_ssrc_handler, __free_ssrc_handler);
 	ch->handler = h;
