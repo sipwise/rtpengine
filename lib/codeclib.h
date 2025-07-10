@@ -112,7 +112,7 @@ typedef void select_encoder_format_f(encoder_t *, format_t *requested_format, co
 		const struct rtp_codec_format *fmtp);
 typedef void select_decoder_format_f(decoder_t *, const struct rtp_codec_format *fmtp);
 
-typedef int format_parse_f(struct rtp_codec_format *, const str *fmtp);
+typedef bool format_parse_f(struct rtp_codec_format *, const str *fmtp);
 typedef void format_answer_f(struct rtp_payload_type *, const struct rtp_payload_type *);
 
 
@@ -397,7 +397,7 @@ bool rtpe_has_cpu_flag(enum rtpe_cpu_flag flag);
 codec_def_t *codec_find(const str *name, enum media_type);
 codec_def_t *codec_find_by_av(enum AVCodecID);
 
-int codec_parse_fmtp(codec_def_t *def, struct rtp_codec_format *fmtp, const str *fmtp_string,
+bool codec_parse_fmtp(codec_def_t *def, struct rtp_codec_format *fmtp, const str *fmtp_string,
 		union codec_format_options *copy);
 
 decoder_t *decoder_new_fmt(codec_def_t *def, int clockrate, int channels, int ptime,

@@ -953,7 +953,7 @@ decoder_t *decoder_new_fmt(codec_def_t *def, int clockrate, int channels, int pt
 	return decoder_new_fmtp(def, clockrate, channels, ptime, resample_fmt, NULL, NULL, NULL);
 }
 
-int codec_parse_fmtp(codec_def_t *def, struct rtp_codec_format *fmtp, const str *fmtp_string,
+bool codec_parse_fmtp(codec_def_t *def, struct rtp_codec_format *fmtp, const str *fmtp_string,
 		union codec_format_options *copy)
 {
 	struct rtp_codec_format fmtp_store;
@@ -962,11 +962,11 @@ int codec_parse_fmtp(codec_def_t *def, struct rtp_codec_format *fmtp, const str 
 		ZERO(*copy);
 
 	if (!def)
-		return -1;
+		return false;
 	if (!def->format_parse)
-		return 0;
+		return true;
 	if (!fmtp_string)
-		return 0;
+		return true;
 	if (!fmtp) {
 		ZERO(fmtp_store);
 		fmtp = &fmtp_store;
@@ -974,11 +974,11 @@ int codec_parse_fmtp(codec_def_t *def, struct rtp_codec_format *fmtp, const str 
 	if (fmtp->fmtp_parsed) {
 		if (copy)
 			*copy = fmtp->parsed;
-		return 0;
+		return true;
 	}
-	int ret = def->format_parse(fmtp, fmtp_string);
-	if (!ret) {
-		fmtp->fmtp_parsed = 1;
+	bool ret = def->format_parse(fmtp, fmtp_string);
+	if (ret) {
+		fmtp->fmtp_parsed = true;
 		if (copy)
 			*copy = fmtp->parsed;
 	}
@@ -1011,7 +1011,7 @@ decoder_t *decoder_new_fmtp(codec_def_t *def, int clockrate, int channels, int p
 		ret->dest_format = *resample_fmt;
 
 	err = "failed to parse \"fmtp\"";
-	if (codec_parse_fmtp(def, fmtp, fmtp_string, &ret->format_options))
+	if (!codec_parse_fmtp(def, fmtp, fmtp_string, &ret->format_options))
 		goto err;
 
 	if (def->select_decoder_format)
@@ -1907,7 +1907,7 @@ int encoder_config_fmtp(encoder_t *enc, codec_def_t *def, int bitrate, int ptime
 		goto err;
 
 	err = "failed to parse \"fmtp\"";
-	if (codec_parse_fmtp(def, fmtp, fmtp_string, &enc->format_options))
+	if (!codec_parse_fmtp(def, fmtp, fmtp_string, &enc->format_options))
 		goto err;
 
 	// select encoder format
@@ -2593,9 +2593,9 @@ static void opus_parse_format_cb(str *key, str *token, void *data) {
 			break;
 	}
 }
-static int opus_format_parse(struct rtp_codec_format *f, const str *fmtp) {
+static bool opus_format_parse(struct rtp_codec_format *f, const str *fmtp) {
 	codeclib_key_value_parse(fmtp, true, opus_parse_format_cb, &f->parsed);
-	return 0;
+	return true;
 }
 static GString *opus_format_print(const struct rtp_payload_type *p) {
 	if (!p->format.fmtp_parsed)
@@ -2664,7 +2664,7 @@ static void opus_format_answer(struct rtp_payload_type *p, const struct rtp_payl
 
 
 
-static int ilbc_format_parse(struct rtp_codec_format *f, const str *fmtp) {
+static bool ilbc_format_parse(struct rtp_codec_format *f, const str *fmtp) {
 	switch (__csh_lookup(fmtp)) {
 		case CSH_LOOKUP("mode=20"):
 			f->parsed.ilbc.mode = 20;
@@ -2673,10 +2673,9 @@ static int ilbc_format_parse(struct rtp_codec_format *f, const str *fmtp) {
 			f->parsed.ilbc.mode = 30;
 			break;
 		default:
-			return -1;
+			return false;
 	}
-	f->fmtp_parsed = 1;
-	return 0;
+	return true;
 }
 
 static int ilbc_mode(int ptime, const union codec_format_options *fmtp, const char *direction) {
@@ -2906,9 +2905,9 @@ static void amr_parse_format_cb(str *key, str *token, void *data) {
 			break;
 	}
 }
-static int amr_format_parse(struct rtp_codec_format *f, const str *fmtp) {
+static bool amr_format_parse(struct rtp_codec_format *f, const str *fmtp) {
 	codeclib_key_value_parse(fmtp, true, amr_parse_format_cb, f);
-	return 0;
+	return true;
 }
 static void amr_set_encdec_options(codec_options_t *opts, codec_def_t *def) {
 	if (!strcmp(def->rtpname, "AMR")) {
@@ -4027,7 +4026,7 @@ static void evs_parse_format_cb(str *key, str *token, void *data) {
 			break;
 	}
 }
-static int evs_format_parse(struct rtp_codec_format *f, const str *fmtp) {
+static bool evs_format_parse(struct rtp_codec_format *f, const str *fmtp) {
 	// initialise
 	f->parsed.evs.max_bw = EVS_BW_UNSPEC;
 	f->parsed.evs.min_bw = EVS_BW_UNSPEC;
@@ -4037,7 +4036,7 @@ static int evs_format_parse(struct rtp_codec_format *f, const str *fmtp) {
 	f->parsed.evs.min_bw_recv = EVS_BW_UNSPEC;
 
 	codeclib_key_value_parse(fmtp, true, evs_parse_format_cb, &f->parsed);
-	return 0;
+	return true;
 }
 static void evs_format_answer(struct rtp_payload_type *p, const struct rtp_payload_type *src) {
 	if (!p->format.fmtp_parsed)

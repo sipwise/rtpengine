@@ -88,7 +88,7 @@ union codec_format_options {
 
 struct rtp_codec_format {
 	union codec_format_options parsed;
-	unsigned int fmtp_parsed:1; // set if fmtp string was successfully parsed
+	bool fmtp_parsed:1; // set if fmtp string was successfully parsed
 };
 
 
