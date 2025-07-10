@@ -275,7 +275,6 @@ static const dtx_method_t dtx_method_evs = {
 
 #ifdef HAVE_BCG729
 static packetizer_f packetizer_g729; // aggregate some frames into packets
-static format_cmp_f format_cmp_g729;
 
 static void bcg729_def_init(struct codec_def_s *);
 static const char *bcg729_decoder_init(decoder_t *, const str *);
@@ -426,7 +425,7 @@ static struct codec_def_s __codec_defs[] = {
 		.default_ptime = 20,
 		.minimum_ptime = 20,
 		.default_fmtp = "annexb=yes",
-		.format_cmp = format_cmp_g729,
+		.format_cmp = format_cmp_ignore,
 		.packetizer = packetizer_g729,
 		.bits_per_sample = 1, // 10 ms frame has 80 samples and encodes as (max) 10 bytes = 80 bits
 		.media_type = MT_AUDIO,
@@ -445,7 +444,7 @@ static struct codec_def_s __codec_defs[] = {
 		.default_ptime = 20,
 		.minimum_ptime = 20,
 		.default_fmtp = "annexb=no",
-		.format_cmp = format_cmp_g729,
+		.format_cmp = format_cmp_ignore,
 		.packetizer = packetizer_g729,
 		.bits_per_sample = 1, // 10 ms frame has 80 samples and encodes as (max) 10 bytes = 80 bits
 		.media_type = MT_AUDIO,
@@ -3381,22 +3380,6 @@ static int packetizer_g729(AVPacket *pkt, GString *buf, str *input_output, encod
 		return -1; // got nothing
 	input_output->len = output.s - input_output->s;
 	return buf->len >= 2 ? 1 : 0;
-}
-
-static bool g729_is_annex_b(const struct rtp_payload_type *p) {
-	// defaults based on codec name (G729 vs G729a)
-	bool annex_b = p->encoding.len && !((p->encoding.s[p->encoding.len - 1] & 0xdf) == 'A');
-	// override per fmtp
-	if (str_str(&p->format_parameters, "annexb=no") != -1)
-		annex_b = false;
-	else if (str_str(&p->format_parameters, "annexb=yes") != -1)
-		annex_b = true;
-	return annex_b;
-}
-static int format_cmp_g729(const struct rtp_payload_type *a, const struct rtp_payload_type *b) {
-	bool a_b = g729_is_annex_b(a);
-	bool b_b = g729_is_annex_b(b);
-	return a_b == b_b ? 0 : -1;
 }
 #endif
 
