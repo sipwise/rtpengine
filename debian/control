@@ -1,10 +1,8 @@
 Source: ngcp-rtpengine
 Section: net
-Priority: optional
 Maintainer: Sipwise Development Team <support@sipwise.com>
 Homepage: https://www.sipwise.com/
-Standards-Version: 4.6.2
-Rules-Requires-Root: no
+Standards-Version: 4.7.2
 Build-Depends:
  debhelper-compat (= 13),
  dh-sequence-dkms,
@@ -60,25 +58,24 @@ Testsuite: autopkgtest-pkg-dkms
 Package: ngcp-rtpengine-daemon
 Architecture: any
 Multi-Arch: foreign
+Pre-Depends:
+ adduser,
+ ${misc:Pre-Depends},
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
 Recommends:
  ngcp-rtpengine-perftest <!pkg.ngcp-rtpengine.no-transcoding>,
  ngcp-rtpengine-recording-daemon,
  ngcp-rtpengine-utils,
 Suggests:
  ngcp-system-tools,
-Provides:
- ngcp-rtpengine-iptables,
 Conflicts:
+ ngcp-rtpengine-iptables,
+Provides:
  ngcp-rtpengine-iptables,
 Replaces:
  ngcp-rtpengine-iptables,
-Pre-Depends:
- adduser,
- ${misc:Pre-Depends},
-Depends:
- sysvinit-utils (>= 3.05-4~) | lsb-base (>= 3.0-6),
- ${misc:Depends},
- ${shlibs:Depends},
 Description: proxy for RTP and media streams used in NGCP, userspace part
  This daemon handles the first stages of proxying media streams and talks to
  the kernel part of the proxy for eventual high-performance packet forwarding.
@@ -87,16 +84,15 @@ Package: ngcp-rtpengine-recording-daemon
 Architecture: any
 Build-Profiles: <!pkg.ngcp-rtpengine.no-transcoding>
 Multi-Arch: foreign
+Depends:
+ nfs-common,
+ ngcp-rtpengine-daemon,
+ ${misc:Depends},
+ ${shlibs:Depends},
 Recommends:
  ngcp-rtpengine-utils,
 Suggests:
  ngcp-system-tools,
-Depends:
- nfs-common,
- ngcp-rtpengine-daemon,
- sysvinit-utils (>= 3.05-4~) | lsb-base (>= 3.0-6),
- ${misc:Depends},
- ${shlibs:Depends},
 Description: recording daemon for RTP and media streams
  This daemon handles the call recording (media intercept) component of rtpengine.
 
@@ -118,11 +114,11 @@ Description: NGCP RTP/media proxy - meta package
 Package: ngcp-rtpengine-kernel-dkms
 Architecture: all
 Section: kernel
-Suggests:
- ngcp-system-tools,
 Depends:
  lsb-release,
  ${misc:Depends},
+Suggests:
+ ngcp-system-tools,
 Description: IPtables kernel module for the NGCP media proxy - DKMS
  Provides the kernel-space part of the NGCP media proxy for high-
  performance packet forwarding.

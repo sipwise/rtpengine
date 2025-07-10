@@ -2,9 +2,10 @@ Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Source: https://www.sipwise.com/
 Upstream-Contact: Sipwise Development Team <support@sipwise.com>
 
-Files: *
+Files:
+ *
 Copyright:
- Copyright © 2007-2023 Sipwise GmbH, Austria
+ 2007-2025 Sipwise GmbH, Austria
 License: GPL-3+ with OpenSSL exception
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
