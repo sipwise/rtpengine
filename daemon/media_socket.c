@@ -3011,8 +3011,10 @@ next_mirror:
 err_next:
 		ilog(LOG_DEBUG | LOG_FLAG_LIMIT ,"Error when sending message. Error: %s", strerror(errno));
 		atomic64_inc_na(&sink->stats_in->errors);
+		mutex_lock(&sink->in_lock);
 		if (sink->selected_sfd)
 			atomic64_inc_na(&sink->selected_sfd->local_intf->stats->out.errors);
+		mutex_unlock(&sink->in_lock);
 		RTPE_STATS_INC(errors_user);
 		goto next;
 
