@@ -422,13 +422,13 @@ struct packet_stream {
 				out_lock;
 
 	struct call_media	*media;		/* RO */
-	call_t		*call;		/* RO */
+	call_t			*call;		/* RO */
 	unsigned int		component;	/* RO, starts with 1 */
 	unsigned int		unique_id;	/* RO */
 	struct recording_stream recording;	/* LOCK: call->master_lock */
 
 	stream_fd_q		sfds;		/* LOCK: call->master_lock */
-	stream_fd *	selected_sfd;
+	stream_fd 		*selected_sfd;
 	endpoint_t		last_local_endpoint;
 	struct dtls_connection	ice_dtls;	/* LOCK: in_lock */
 	sink_handler_q		rtp_sinks;	/* LOCK: call->master_lock, in_lock for streamhandler */
