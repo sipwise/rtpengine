@@ -133,7 +133,6 @@ static void call_timer_iterator(struct call *c, struct iterator_helper *hlp) {
 	unsigned int check;
 	bool good = false;
 	struct packet_stream *ps;
-	struct stream_fd *sfd;
 	int tmp_t_reason = UNKNOWN;
 	struct call_monologue *ml;
 	enum call_stream_state css;
@@ -187,8 +186,16 @@ static void call_timer_iterator(struct call *c, struct iterator_helper *hlp) {
 		timestamp = &ps->last_packet;
 
 		if (!ps->media)
-			goto next;
-		sfd = ps->selected_sfd;
+			continue;
+
+		AUTO_CLEANUP(struct stream_fd *sfd, stream_fd_auto_cleanup) = NULL;
+
+		{
+			LOCK(&ps->in_lock);
+			if (ps->selected_sfd)
+				sfd = obj_get(ps->selected_sfd);
+		}
+
 		if (!sfd)
 			goto no_sfd;
 

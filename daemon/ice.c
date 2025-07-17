@@ -1258,6 +1258,7 @@ static int __check_valid(struct ice_agent *ag) {
 					FMT_M(endpoint_print_buf(&pair->remote_candidate->endpoint)));
 		mutex_unlock(&ps->out_lock);
 
+		LOCK(&ps->in_lock);
 		for (m = ps->sfds.head; m; m = m->next) {
 			sfd = m->data;
 			if (sfd->local_intf != pair->local_intf)
