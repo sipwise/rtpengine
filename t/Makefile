@@ -72,8 +72,7 @@ LDLIBS+=	$(LDLIBS_CODEC_CHAIN)
 
 SRCS=		test-bitstr.c aes-crypt.c aead-aes-crypt.c test-const_str_hash.strhash.c aead-decrypt.c
 LIBSRCS=	loglib.c auxlib.c str.c rtplib.c ssllib.c mix_buffer.c bufferpool.c bencode.c
-DAEMONSRCS=	crypto.c ssrc.c helpers.c rtp.c
-HASHSRCS=	cli.c
+DAEMONSRCS=	crypto.c ssrc.c helpers.c rtp.c cli.strhash.c
 
 ifeq ($(with_transcoding),yes)
 SRCS+=		test-transcode.c test-dtmf-detect.c test-payload-tracker.c test-resample.c test-stats.c
@@ -87,15 +86,13 @@ DAEMONSRCS+=	control_ng_flags_parser.c codec.c call.c ice.c kernel.c media_socke
 		dtls.c recording.c statistics.c rtcp.c redis.c iptables.c graphite.c \
 		cookie_cache.c udp_listener.c homer.c load.c cdr.c dtmf.c timerthread.c \
 		media_player.c jitter_buffer.c t38.c tcp_listener.c mqtt.c websocket.c \
-		audio_player.c arena.c ng_client.c
-HASHSRCS+=	call_interfaces.c control_ng.c sdp.c janus.c
+		audio_player.c arena.c ng_client.c call_interfaces.strhash.c sdp.strhash.c \
+		janus.strhash.c control_ng.strhash.c cli.strhash.c
 LIBASM=		mvr2s_x64_avx2.S mvr2s_x64_avx512.S mix_in_x64_avx2.S mix_in_x64_avx512bw.S mix_in_x64_sse2.S
 endif
 ifneq ($(have_liburing),yes)
 LIBSRCS+=	uring.c
 endif
-
-OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o) $(DAEMONSRCS:.c=.o) $(HASHSRCS:.c=.strhash.o) $(LIBASM:.S=.o)
 
 COMMONOBJS=	str.o auxlib.o rtplib.o loglib.o ssllib.o
 
@@ -118,7 +115,7 @@ TESTS+=		test-amr-decode test-amr-encode
 endif
 endif
 
-ADD_CLEAN=	tests-preload.so time-fudge-preload.so $(TESTS)
+ADD_CLEAN=	tests-preload.so time-fudge-preload.so $(TESTS) aead-decrypt
 
 ifeq ($(with_transcoding),yes)
 all-tests:	unit-tests daemon-tests
@@ -345,7 +342,7 @@ tests-preload.so:	tests-preload.c
 time-fudge-preload.so:	time-fudge-preload.c
 	$(CC) $(PRELOAD_CFLAGS) -o $@ -shared -fPIC $< $(PRELOAD_LIBS)
 
-spandsp_send_fax_pcm.c:	spandsp_logging.h
-spandsp_send_fax_t38.c:	spandsp_logging.h
-spandsp_recv_fax_t38.c:	spandsp_logging.h
-spandsp_recv_fax_pcm.c:	spandsp_logging.h
+spandsp_send_fax_pcm.c:	../lib/spandsp_logging.h
+spandsp_send_fax_t38.c:	../lib/spandsp_logging.h
+spandsp_recv_fax_t38.c:	../lib/spandsp_logging.h
+spandsp_recv_fax_pcm.c:	../lib/spandsp_logging.h

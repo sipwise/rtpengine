@@ -58,11 +58,9 @@ LIBSRCS = codeclib.strhash.c loglib.c auxlib.c resample.c str.c dtmflib.c rtplib
 	  bencode.c uring.c
 LIBASM = mvr2s_x64_avx2.S mvr2s_x64_avx512.S
 
-OBJS = $(SRCS:.c=.o) $(LIBSRCS:.c=.o) $(LIBASM:.S=.o)
-
 include ../lib/common.Makefile
 
-main.o: fix_frame_channel_layout.h
+main.o: ../lib/fix_frame_channel_layout.h
 
 install: $(TARGET)
 	install -m 0755 -D $(TARGET) $(DESTDIR)/usr/bin/$(TARGET)

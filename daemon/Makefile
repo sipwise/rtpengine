@@ -112,7 +112,6 @@ endif
 ifneq ($(have_liburing),yes)
 LIBSRCS+=	uring.c
 endif
-OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o) $(LIBASM:.S=.o)
 
 MDS=		rtpengine.ronn
 MANS=		$(MDS:.ronn=.8)

@@ -4,17 +4,3 @@ rtpengine-perftest
 core
 core.*
 .ycm_extra_conf.pyc
-auxlib.c
-loglib.c
-rtplib.c
-codeclib.c
-resample.c
-str.c
-fix_frame_channel_layout.h
-mvr2s_x64_avx512.S
-mvr2s_x64_avx2.S
-dtmflib.c
-poller.c
-ssllib.c
-bufferpool.c
-uring.c
