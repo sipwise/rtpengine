@@ -1556,6 +1556,7 @@ void rtcp_receiver_reports(GQueue *out, struct ssrc_hash *hash, struct call_mono
 
 
 // call must be locked in R
+// no in_lock or out_lock must be held
 void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 	// figure out where to send it
 	struct packet_stream *ps = media->streams.head->data;
@@ -1570,6 +1571,8 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 		else
 			rtcp_ps = ps;
 	}
+
+	LOCK(&ps->in_lock);
 
 	if (!ps->selected_sfd || !rtcp_ps->selected_sfd)
 		return;
@@ -1597,6 +1600,8 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 	// handle crypto
 
 	str rtcp_packet = STR_INIT_GS(sr);
+
+	LOCK(&ps->out_lock);
 
 	const struct streamhandler *crypt_handler = determine_handler(&transport_protocols[PROTO_RTP_AVP],
 			media, true);
