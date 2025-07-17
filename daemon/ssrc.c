@@ -720,7 +720,9 @@ void ssrc_collect_metrics(struct call_media *media) {
 				s->jitter = s->jitter * 1000 / rpt->clock_rate;
 		}
 
-		if (media->streams.head)
+		if (media->streams.head) {
+			LOCK(&media->streams.head->data->in_lock);
 			RTPE_SAMPLE_SFD(jitter_measured, s->jitter, media->streams.head->data->selected_sfd);
+		}
 	}
 }
