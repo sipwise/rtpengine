@@ -428,7 +428,7 @@ struct packet_stream {
 	struct recording_stream recording;	/* LOCK: call->master_lock */
 
 	stream_fd_q		sfds;		/* LOCK: call->master_lock */
-	stream_fd 		*selected_sfd;
+	stream_fd 		*selected_sfd;	// LOCK: in_lock
 	endpoint_t		last_local_endpoint;
 	struct dtls_connection	ice_dtls;	/* LOCK: in_lock */
 	sink_handler_q		rtp_sinks;	/* LOCK: call->master_lock, in_lock for streamhandler */
