@@ -8,7 +8,11 @@
 #include <stdarg.h>
 #include <time.h>
 
+#ifndef CUSTOM_POLLER
 #include "poller.h"
+#else
+#include "custom_poller.h"
+#endif
 #include "auxlib.h"
 
 
