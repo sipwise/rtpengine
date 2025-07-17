@@ -381,7 +381,7 @@ struct packet_stream {
 	struct recording_stream recording;	/* LOCK: call->master_lock */
 
 	GQueue			sfds;		/* LOCK: call->master_lock */
-	struct stream_fd *	selected_sfd;
+	struct stream_fd *	selected_sfd;	// LOCK: in_lock
 	endpoint_t		last_local_endpoint;
 	struct dtls_connection	ice_dtls;	/* LOCK: in_lock */
 	GQueue			rtp_sinks;	/* LOCK: call->master_lock, in_lock for streamhandler */
