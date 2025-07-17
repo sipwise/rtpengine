@@ -16,6 +16,7 @@ endif
 CFLAGS+=	-pthread
 CFLAGS+=	-std=c11
 CFLAGS+=	-I. -I../kernel-module/ -I../lib/ -I../include/
+CFLAGS+=	-Iprivate
 CFLAGS+=	-D_GNU_SOURCE
 CFLAGS+=	$(CFLAGS_GLIB)
 CFLAGS+=	$(CFLAGS_GTHREAD)
