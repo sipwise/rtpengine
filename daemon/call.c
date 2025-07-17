@@ -185,7 +185,8 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 		timestamp = packet_stream_last_packet(ps);
 
 		if (!ps->media)
-			goto next;
+			continue;
+
 		sfd = ps->selected_sfd;
 		if (!sfd)
 			goto no_sfd;
@@ -215,7 +216,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 
 no_sfd:
 		if (good)
-			goto next;
+			continue;
 
 		check = atomic_get_na(&rtpe_config.timeout_us);
 		tmp_t_reason = TIMEOUT;
@@ -230,9 +231,6 @@ no_sfd:
 
 		if (timestamp > rtpe_now || rtpe_now - timestamp < check)
 			good = true;
-
-next:
-		;
 	}
 
 	for (__auto_type it = c->medias.head; it; it = it->next) {

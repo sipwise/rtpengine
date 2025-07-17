@@ -2190,7 +2190,7 @@ static int media_demux_protocols(struct packet_handler_ctx *phc) {
 #if RTP_LOOP_PROTECT
 // returns: 0 = ok, proceed; -1 = duplicate detected, drop packet
 static int media_loop_detect(struct packet_handler_ctx *phc) {
-	mutex_lock(&phc->mp.stream->in_lock);
+	LOCK(&phc->mp.stream->in_lock);
 
 	for (int i = 0; i < RTP_LOOP_PACKETS; i++) {
 		if (phc->mp.stream->lp_buf[i].len != phc->s.len)
@@ -2204,12 +2204,11 @@ static int media_loop_detect(struct packet_handler_ctx *phc) {
 					"to avoid potential loop",
 					RTP_LOOP_MAX_COUNT,
 					FMT_M(endpoint_print_buf(&phc->mp.fsin)));
-			mutex_unlock(&phc->mp.stream->in_lock);
 			return -1;
 		}
 
 		phc->mp.stream->lp_count++;
-		goto loop_ok;
+		return 0;
 	}
 
 	/* not a dupe */
@@ -2217,8 +2216,6 @@ static int media_loop_detect(struct packet_handler_ctx *phc) {
 	phc->mp.stream->lp_buf[phc->mp.stream->lp_idx].len = phc->s.len;
 	memcpy(phc->mp.stream->lp_buf[phc->mp.stream->lp_idx].buf, phc->s.s, MIN(phc->s.len, RTP_LOOP_PROTECT));
 	phc->mp.stream->lp_idx = (phc->mp.stream->lp_idx + 1) % RTP_LOOP_PACKETS;
-loop_ok:
-	mutex_unlock(&phc->mp.stream->in_lock);
 
 	return 0;
 }
@@ -2331,7 +2328,7 @@ static void media_packet_rtp_out(struct packet_handler_ctx *phc, struct sink_han
 
 static int media_packet_decrypt(struct packet_handler_ctx *phc)
 {
-	mutex_lock(&phc->in_srtp->in_lock);
+	LOCK(&phc->in_srtp->in_lock);
 	struct sink_handler *first_sh = phc->sinks->length ? phc->sinks->head->data : NULL;
 	const struct streamhandler *sh = __determine_handler(phc->in_srtp, first_sh);
 
@@ -2352,8 +2349,6 @@ static int media_packet_decrypt(struct packet_handler_ctx *phc)
 		phc->mp.payload.len -= ori_s.len - phc->s.len;
 	}
 
-	mutex_unlock(&phc->in_srtp->in_lock);
-
 	if (ret == 1) {
 		phc->update = true;
 		ret = 0;
@@ -2362,7 +2357,7 @@ static int media_packet_decrypt(struct packet_handler_ctx *phc)
 }
 static void media_packet_set_encrypt(struct packet_handler_ctx *phc, struct sink_handler *sh)
 {
-	mutex_lock(&phc->in_srtp->in_lock);
+	LOCK(&phc->in_srtp->in_lock);
 	__determine_handler(phc->in_srtp, sh);
 
 	// XXX use an array with index instead of if/else
@@ -2372,7 +2367,6 @@ static void media_packet_set_encrypt(struct packet_handler_ctx *phc, struct sink
 		phc->encrypt_func = sh->handler->out->rtcp_crypt;
 		phc->rtcp_filter = sh->handler->in->rtcp_filter;
 	}
-	mutex_unlock(&phc->in_srtp->in_lock);
 }
 
 int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, struct media_packet *mp) {
@@ -2417,7 +2411,7 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 {
 	bool ret = false;
 
-	mutex_lock(&phc->mp.stream->in_lock);
+	LOCK(&phc->mp.stream->in_lock);
 
 	/* we're OK to (potentially) use the source address of this packet as destination
 	 * in the other direction. */
@@ -2425,11 +2419,11 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 	if (!PS_ISSET(phc->mp.stream, FILLED)) {
 		__C_DBG("stream %s:%d not FILLED", sockaddr_print_buf(&phc->mp.stream->endpoint.address),
 				phc->mp.stream->endpoint.port);
-		goto out;
+		return false;
 	}
 	if (!MEDIA_ISSET(phc->mp.media, PUBLIC)) {
 		__C_DBG("media not answered");
-		goto out;
+		return false;
 	}
 
 	// GH #697 - apparent Asterisk bug where it sends stray RTCP to the RTP port.
@@ -2441,7 +2435,7 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 			ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Ignoring stray RTCP packet from %s%s%s for "
 					"peer address confirmation purposes",
 					FMT_M(endpoint_print_buf(&phc->mp.fsin)));
-			goto out;
+			return false;
 		}
 	}
 
@@ -2496,7 +2490,7 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 			}
 		}
 		phc->kernelize = true;
-		goto out;
+		return ret;
 	}
 
 	/* wait at least 3 seconds after last signal before committing to a particular
@@ -2553,8 +2547,7 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 				FMT_M(endpoint_print_buf(use_endpoint_confirm)));
 			atomic64_inc_na(&phc->mp.stream->stats_in->errors);
 			atomic64_inc_na(&phc->mp.sfd->local_intf->stats->in.errors);
-			ret = true;
-			goto out;
+			return true;
 		}
 	}
 
@@ -2612,9 +2605,6 @@ update_addr:
 			phc->unkernelize_subscriptions = true;
 		}
 	}
-
-out:
-	mutex_unlock(&phc->mp.stream->in_lock);
 
 	return ret;
 }
