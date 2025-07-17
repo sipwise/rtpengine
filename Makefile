@@ -2,23 +2,6 @@
 
 with_transcoding ?= yes
 
-ifeq ($(DO_ASAN_FLAGS),1)
-ASAN_FLAGS = -ggdb -O0 -fsanitize=address -fsanitize=leak -fsanitize=undefined
-ifeq ($(origin CFLAGS),undefined)
-CFLAGS := -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes
-else
-CFLAGS := $(CFLAGS)
-endif
-CFLAGS += $(ASAN_FLAGS)
-CFLAGS += -DASAN_BUILD
-LDFLAGS += $(ASAN_FLAGS)
-export CFLAGS
-export LDFLAGS
-export ASAN_OPTIONS=verify_asan_link_order=0
-export UBSAN_OPTIONS=print_stacktrace=1
-export G_SLICE=always-malloc
-endif
-
 export top_srcdir = $(CURDIR)
 
 # Initialize all flags, so that we only compute them once.
@@ -76,10 +59,13 @@ distclean clean:
 	$(MAKE) -C perf-tester
 	$(MAKE) -C kernel-module $@
 
-.PHONY: check asan-check
+.PHONY: check asan-check asan
 
 check: all
 	$(MAKE) -C t
 
 asan-check:
 	DO_ASAN_FLAGS=1 $(MAKE) check
+
+asan:
+	DO_ASAN_FLAGS=1 $(MAKE)
