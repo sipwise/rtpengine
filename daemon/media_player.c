@@ -249,6 +249,7 @@ struct send_timer *send_timer_new(struct packet_stream *ps) {
 }
 
 // call is locked in R
+// ssrc_out is locked
 static void send_timer_rtcp(struct send_timer *st, struct ssrc_ctx *ssrc_out) {
 	struct call_media *media = st->sink ? st->sink->media : NULL;
 	if (!media)
@@ -345,25 +346,32 @@ static void __send_timer_send_common(struct send_timer *st, struct codec_packet 
 		payload_tracker_add(&cp->ssrc_out->tracker, cp->rtp->m_pt & 0x7f);
 	}
 
-	// do we send RTCP?
-	struct ssrc_ctx *ssrc_out = cp->ssrc_out;
-	if (ssrc_out && ssrc_out->next_rtcp.tv_sec) {
-		mutex_lock(&ssrc_out->parent->h.lock);
-		long long diff = timeval_diff(&ssrc_out->next_rtcp, &rtpe_now);
-		mutex_unlock(&ssrc_out->parent->h.lock);
-		if (diff < 0)
-			send_timer_rtcp(st, ssrc_out);
-	}
-
 out:
 	codec_packet_free(cp);
 	log_info_pop();
+}
+
+static void __send_timer_rtcp(struct send_timer *st, struct ssrc_ctx *ssrc_out) {
+	// do we send RTCP?
+	if (!ssrc_out)
+		return;
+	if (!ssrc_out->next_rtcp.tv_sec)
+		return;
+
+	LOCK(&ssrc_out->parent->h.lock);
+	long long diff = timeval_diff(&ssrc_out->next_rtcp, &rtpe_now);
+	if (diff < 0)
+		send_timer_rtcp(st, ssrc_out);
 }
 
 static void send_timer_send_lock(struct send_timer *st, struct codec_packet *cp) {
 	call_t *call = st->call;
 	if (!call)
 		return;
+
+	struct ssrc_ctx *ssrc_out = cp->ssrc_out;
+	if (ssrc_out)
+		ssrc_ctx_hold(ssrc_out);
 
 	log_info_call(call);
 	rwlock_lock_r(&call->master_lock);
@@ -372,6 +380,10 @@ static void send_timer_send_lock(struct send_timer *st, struct codec_packet *cp)
 	__send_timer_send_common(st, cp);
 
 	mutex_unlock(&st->sink->out_lock);
+
+	__send_timer_rtcp(st, ssrc_out);
+	ssrc_ctx_put(&ssrc_out);
+
 	rwlock_unlock_r(&call->master_lock);
 	log_info_pop();
 
