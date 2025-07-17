@@ -584,7 +584,7 @@ static int try_connect(struct dtls_connection *d) {
 				ilogs(crypto, LOG_INFO, "DTLS data received after handshake, code: %i", code);
 			}
 			break;
-                case SSL_ERROR_ZERO_RETURN:
+		case SSL_ERROR_ZERO_RETURN:
 			if (d->connected) {
 				ilogs(crypto, LOG_INFO, "DTLS peer has closed the connection");
 				ret = -2;
@@ -638,7 +638,7 @@ static long dtls_bio_callback(BIO *bio, int oper, const char *argp, size_t len, 
 	if (fsin->port == 9 || fsin->address.family == NULL)
 		return ret;
 
-	ilogs(srtp, LOG_DEBUG, "Sending DTLS packet");
+	ilogs(srtp, LOG_DEBUG, "Sending DTLS packet to %s", endpoint_print_buf(fsin));
 	socket_sendto(&sfd->socket, argp, len, fsin);
 	atomic64_inc_na(&ps->stats_out->packets);
 	atomic64_add_na(&ps->stats_out->bytes, len);
@@ -877,7 +877,8 @@ int dtls(stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 		return -1;
 
 	if (s) {
-		ilogs(srtp, LOG_DEBUG, "Processing incoming DTLS packet");
+		ilogs(srtp, LOG_DEBUG, "Processing incoming DTLS packet from %s",
+				endpoint_print_buf(fsin));
 		BIO_write(d->r_bio, s->s, s->len);
 		/* we understand this as preference of DTLS over SDES */
 		MEDIA_CLEAR(ps->media, SDES);
