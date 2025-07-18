@@ -1601,6 +1601,8 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 
 	str rtcp_packet = STR_CONST_INIT_LEN(sr->str, sr->len);
 
+	LOCK(&ps->out_lock);
+
 	const struct streamhandler *crypt_handler = determine_handler(&transport_protocols[PROTO_RTP_AVP],
 			media, true);
 
