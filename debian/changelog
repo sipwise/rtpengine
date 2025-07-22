@@ -1,3 +1,11 @@
+ngcp-rtpengine (13.4.1.2+0~mr13.4.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [821dbe5] MT#55283 consider transcoding codecs as symmetric
+  * [4ceec6e] MT#55283 add test for Ie233a4a45b
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 22 Jul 2025 20:24:44 +0200
+
 ngcp-rtpengine (13.4.1.1+0~mr13.4.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
