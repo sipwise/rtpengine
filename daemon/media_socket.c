@@ -683,13 +683,17 @@ bool is_local_endpoint(const struct intf_address *addr, unsigned int port) {
 	return false;
 }
 
+static inline bool port_is_in_range(const struct port_pool *pp, unsigned int port) {
+	return (port >= pp->min && port <= pp->max);
+}
+
 static void release_reserved_port(struct port_pool *pp, ports_q *, unsigned int port);
 
 static void reserve_additional_port_links(ports_q *ret, struct port_pool *pp, unsigned int port) {
 	for (__auto_type l = pp->overlaps.head; l; l = l->next) {
 		__auto_type opp = l->data;
 
-		if (port < opp->min || port > opp->max)
+		if (!port_is_in_range(opp, port))
 			continue;
 
 		LOCK(&opp->free_list_lock);
@@ -718,7 +722,7 @@ bail:
 static ports_q reserve_port(struct port_pool *pp, unsigned int port) {
 	ports_q ret = TYPED_GQUEUE_INIT;
 
-	if (port < pp->min || port > pp->max)
+	if (!port_is_in_range(pp, port))
 		return ret; // empty result
 
 	{
@@ -758,7 +762,7 @@ static void release_reserved_port(struct port_pool *pp, ports_q *list, unsigned 
 			assert(port == GPOINTER_TO_UINT(t_queue_peek_head(list)));
 
 			pp = l->data;
-			if (port < pp->min || port > pp->max)
+			if (!port_is_in_range(pp, port))
 				continue;
 
 			// remove top link from list
@@ -1017,7 +1021,7 @@ void interfaces_exclude_port(endpoint_t *e) {
 		}
 
 		__auto_type pp = &ifa->spec->port_pool;
-		if (e->port < pp->min || e->port > pp->max)
+		if (!port_is_in_range(pp, e->port))
 			continue;
 
 		__auto_type pq = reserve_port(pp, e->port);
