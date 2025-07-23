@@ -715,32 +715,47 @@ bail:
 	release_reserved_port(pp, ret, port);
 }
 
-/**
- * This function just (globally) reserves a port number, it doesn't provide any binding/unbinding.
- * Returns linked list if successful, or NULL if failed.
- */
-static ports_q reserve_port(struct port_pool *pp, unsigned int port) {
+static ports_list *get_port(struct port_pool *pp, unsigned int port) {
+	LOCK(&pp->free_list_lock);
+	__auto_type link = free_ports_link(pp, port);
+	if (!link)
+		return NULL;
+
+	// remove link from free list and return it
+	t_queue_unlink(&pp->free_ports_q, link);
+	free_ports_link(pp, port) = NULL;
+
+	return link;
+}
+
+static ports_q get_port_links(struct port_pool *pp, unsigned int port) {
 	ports_q ret = TYPED_GQUEUE_INIT;
 
-	if (!port_is_in_range(pp, port))
+	__auto_type link = get_port(pp, port);
+	if (!link)
 		return ret; // empty result
 
-	{
-		LOCK(&pp->free_list_lock);
-		__auto_type link = free_ports_link(pp, port);
-		if (!link)
-			return ret; // empty result
-		// move link from free list to output
-		t_queue_unlink(&pp->free_ports_q, link);
-		free_ports_link(pp, port) = NULL;
-		t_queue_push_tail_link(&ret, link);
-	}
+	t_queue_push_tail_link(&ret, link);
 
 	reserve_additional_port_links(&ret, pp, port);
 	// reverts `ret` to empty result on failure
 
 	return ret;
 }
+
+/**
+ * This function reserves a port number, i.e. removes it from the pool.
+ */
+static void reserve_port(struct port_pool *pp, unsigned int port) {
+	if (!port_is_in_range(pp, port))
+		return;
+
+	__auto_type ret = get_port_links(pp, port);
+
+	// and just discard
+	t_queue_clear(&ret);
+}
+
 /**
  * This function just releases reserved port number, it doesn't provide any binding/unbinding.
  */
@@ -942,8 +957,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 			unsigned int port = GPOINTER_TO_UINT(l->data);
 			if (port > 65535)
 				continue;
-			__auto_type pq = reserve_port(&spec->port_pool, port);
-			t_queue_clear(&pq);
+			reserve_port(&spec->port_pool, port);
 		}
 
 		// look for other specs with overlapping port ranges
@@ -1024,8 +1038,7 @@ void interfaces_exclude_port(endpoint_t *e) {
 		if (!port_is_in_range(pp, e->port))
 			continue;
 
-		__auto_type pq = reserve_port(pp, e->port);
-		t_queue_clear(&pq);
+		reserve_port(pp, e->port);
 	}
 }
 
@@ -1154,7 +1167,10 @@ void append_thread_lpr_to_glob_lpr(void) {
 }
 
 static struct socket_port_link get_one_port_link(unsigned int port, struct intf_spec *spec) {
-	__auto_type links = reserve_port(&spec->port_pool, port);
+	if (!port_is_in_range(&spec->port_pool, port))
+		return (struct socket_port_link) {};
+
+	__auto_type links = get_port_links(&spec->port_pool, port);
 	return (struct socket_port_link) { .links = links, .pp = &spec->port_pool, .socket = { .fd = -1 }};
 }
 
