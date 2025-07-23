@@ -665,21 +665,22 @@ static void __insert_local_intf_addr_type(struct intf_address *addr, struct loca
 	l = t_list_prepend(l, intf);
 	t_hash_table_replace(__local_intf_addr_type_hash, addr, l);
 }
-int is_local_endpoint(const struct intf_address *addr, unsigned int port) {
+
+bool is_local_endpoint(const struct intf_address *addr, unsigned int port) {
 	const struct local_intf *intf;
 	const struct intf_spec *spec;
 
 	__auto_type l = t_hash_table_lookup(__local_intf_addr_type_hash, addr);
 	if (!l)
-		return 0;
+		return false;
 	while (l) {
 		intf = l->data;
 		spec = intf->spec;
 		if (spec->port_pool.min <= port && spec->port_pool.max >= port)
-			return 1;
+			return true;
 		l = l->next;
 	}
-	return 0;
+	return false;
 }
 
 static void release_reserved_port(struct port_pool *pp, ports_q *, unsigned int port);

@@ -294,7 +294,7 @@ struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam, i
 struct local_intf *get_interface_address(const struct logical_intf *lif, sockfamily_t *fam);
 struct local_intf *get_any_interface_address(const struct logical_intf *lif, sockfamily_t *fam);
 void interfaces_exclude_port(endpoint_t *);
-int is_local_endpoint(const struct intf_address *addr, unsigned int port);
+bool is_local_endpoint(const struct intf_address *addr, unsigned int port);
 
 struct socket_port_link get_specific_port(unsigned int port,
 		struct intf_spec *spec, const str *label);
