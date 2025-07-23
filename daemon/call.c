@@ -782,10 +782,11 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 		else
 			em->wildcard = 1;
 		em->logical_intf = media->logical_intf;
-		em->num_ports = num_ports;
 		g_queue_init(&em->intf_sfds);
 		g_queue_push_tail(&media->endpoint_maps, em);
 	}
+
+	em->num_ports = num_ports;
 
 	if (num_ports > 16)
 		return NULL;
