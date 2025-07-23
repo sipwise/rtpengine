@@ -1422,7 +1422,7 @@ static int redis_sfds(call_t *c, struct redis_list *sfds) {
 		if (fd != -1) {
 			err = "failed to open ports";
 			__auto_type spl = get_specific_port(port, loc->spec, &c->callid);
-			if (!spl.links.length)
+			if (!spl.socket.family)
 				goto err;
 			set_tos(&spl.socket, c->tos);
 			sfd = stream_fd_new(&spl, c, loc);
