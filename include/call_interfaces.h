@@ -79,7 +79,7 @@ struct sdp_ng_flags {
 	str set_label;
 	str to_label;
 	str address;
-	sockaddr_t xmlrpc_callback;
+	str xmlrpc_callback;
 	endpoint_t dtmf_log_dest;
 	str_case_value_ht codec_set;
 	int ptime,
@@ -308,13 +308,12 @@ str call_lookup_tcp(char **);
 void call_delete_tcp(char **);
 void calls_status_tcp(struct streambuf_stream *);
 
-str call_update_udp(char **, const char*, const endpoint_t *);
+str call_update_udp(char **, const char *);
 str call_lookup_udp(char **);
 str call_delete_udp(char **);
 str call_query_udp(char **);
 
-const char *call_offer_ng(ng_command_ctx_t *, const char*,
-		const endpoint_t *);
+const char *call_offer_ng(ng_command_ctx_t *, const char *);
 const char *call_answer_ng(ng_command_ctx_t *);
 const char *call_delete_ng(ng_command_ctx_t *);
 const char *call_query_ng(ng_command_ctx_t *);
@@ -335,8 +334,7 @@ const char *call_stop_media_ng(ng_command_ctx_t *);
 const char *call_play_dtmf_ng(ng_command_ctx_t *);
 void ng_call_stats(ng_command_ctx_t *, call_t *call, const str *fromtag, const str *totag,
 		struct call_stats *totals);
-const char *call_publish_ng(ng_command_ctx_t *, const char *,
-		const endpoint_t *);
+const char *call_publish_ng(ng_command_ctx_t *, const char *);
 const char *call_subscribe_request_ng(ng_command_ctx_t *);
 const char *call_subscribe_answer_ng(ng_command_ctx_t *);
 const char *call_unsubscribe_ng(ng_command_ctx_t *);

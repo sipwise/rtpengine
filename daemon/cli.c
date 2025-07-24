@@ -693,7 +693,7 @@ static void cli_list_call_info(struct cli_writer *cw, call_t *c) {
 			 "callid: %s\n"
 			 "deletionmark: %s\n"
 			 "created: %" PRId64 "\n"
-			 "proxy: %s\n"
+			 "proxy: " STR_FORMAT "\n"
 			 "tos: %u\n"
 			 "last_signal: %" PRId64 "\n"
 			 "redis_keyspace: %i\n"
@@ -701,7 +701,8 @@ static void cli_list_call_info(struct cli_writer *cw, call_t *c) {
 			 "foreign: %s\n"
 			 "recording: %s\n"
 			 "\n",
-			 c->callid.s, c->ml_deleted_us ? "yes" : "no", c->created / 1000000, c->created_from,
+			 c->callid.s, c->ml_deleted_us ? "yes" : "no", c->created / 1000000,
+			 STR_FMT(&c->created_from),
 			 (unsigned int) c->tos, c->last_signal_us / 1000000L, c->redis_hosted_db,
 			 atomic64_get_na(&c->last_redis_update_us),
 			 IS_FOREIGN_CALL(c) ? "yes" : "no", c->recording ? "yes" : "no");
@@ -868,10 +869,10 @@ static void cli_incoming_list_sessions(str *instr, struct cli_writer *cw, const 
 		}
 		found = true;
 
-		cw->cw_printf(cw, "ID: %60s | del:%s | creat:%12" PRId64 " | prx:%s | redis:%2i | frgn:%s | rec:%s\n",
+		cw->cw_printf(cw, "ID: %60s | del:%s | creat:%12" PRId64 " | prx:" STR_FORMAT " | redis:%2i | frgn:%s | rec:%s\n",
 				call->callid.s, call->ml_deleted_us ? "y" : "n",
 				call->created / 1000000,
-				call->created_from, call->redis_hosted_db,
+				STR_FMT(&call->created_from), call->redis_hosted_db,
 				IS_FOREIGN_CALL(call) ? "y" : "n",
 				call->recording ? "y" : "n");
 

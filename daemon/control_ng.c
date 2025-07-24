@@ -748,7 +748,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 			break;
 		case CSH_LOOKUP("offer"):
 			command_ctx.opmode = OP_OFFER;
-			errstr = call_offer_ng(&command_ctx, addr, sin);
+			errstr = call_offer_ng(&command_ctx, addr);
 			break;
 		case CSH_LOOKUP("answer"):
 			command_ctx.opmode = OP_ANSWER;
@@ -828,7 +828,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 			break;
 		case CSH_LOOKUP("publish"):
 			command_ctx.opmode = OP_PUBLISH;
-			errstr = call_publish_ng(&command_ctx, addr, sin);
+			errstr = call_publish_ng(&command_ctx, addr);
 			break;
 		case CSH_LOOKUP("subscribe request"):
 			command_ctx.opmode = OP_SUBSCRIBE_REQ;

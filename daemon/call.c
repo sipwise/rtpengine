@@ -470,15 +470,15 @@ void kill_calls_timer(GSList *list, const char *url) {
 
 		rwlock_lock_r(&ca->master_lock);
 
-		const sockaddr_t *cb_addr;
-		if (ca->xmlrpc_callback.family)
-			cb_addr = &ca->xmlrpc_callback;
-		else
-			cb_addr = &ca->created_from_addr;
-
 		if (url_prefix) {
-			snprintf(url_buf, sizeof(url_buf), "%s%s%s",
-					url_prefix, sockaddr_print_p_buf(cb_addr),
+			str cb_addr;
+			if (ca->xmlrpc_callback.len)
+				cb_addr = ca->xmlrpc_callback;
+			else
+				cb_addr = ca->created_from;
+
+			snprintf(url_buf, sizeof(url_buf), "%s" STR_FORMAT "%s",
+					url_prefix, STR_FMT(&cb_addr),
 					url_suffix);
 		}
 		else

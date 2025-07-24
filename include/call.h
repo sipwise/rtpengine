@@ -773,9 +773,8 @@ struct call {
 	int64_t			deleted_us;
 	int64_t			ml_deleted_us;
 	unsigned char		tos;
-	char			*created_from;
-	sockaddr_t		created_from_addr;
-	sockaddr_t		xmlrpc_callback;
+	str			created_from;
+	str			xmlrpc_callback;
 	endpoint_t		dtmf_log_dest;
 
 	int			redis_hosted_db;

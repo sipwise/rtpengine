@@ -2163,12 +2163,7 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	redis_hash_get_time_t(&c->deleted_us, &call, "deleted");
 	redis_hash_get_time_t(&c->ml_deleted_us, &call, "ml_deleted");
 	if (!redis_hash_get_str(&id, &call, "created_from"))
-		c->created_from = call_strdup_str(&id);
-	if (!redis_hash_get_str(&id, &call, "created_from_addr")) {
-		err = "failed to parse 'created_from_addr'";
-		if (!sockaddr_parse_any_str(&c->created_from_addr, &id))
-			goto err8;
-	}
+		c->created_from = call_str_cpy(&id);
 	if (!redis_hash_get_int(&i, &call, "block_dtmf"))
 		c->block_dtmf = i;
 	if (!redis_hash_get_a64(&a64, &call, "call_flags"))
@@ -2519,13 +2514,13 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 			JSON_SET_SIMPLE("num_tags","%u", t_queue_get_length(&c->monologues));
 			JSON_SET_SIMPLE("num_maps","%u", t_queue_get_length(&c->endpoint_maps));
 			JSON_SET_SIMPLE("ml_deleted","%" PRId64, c->ml_deleted_us);
-			JSON_SET_SIMPLE_CSTR("created_from", c->created_from);
-			JSON_SET_SIMPLE_CSTR("created_from_addr", sockaddr_print_buf(&c->created_from_addr));
 			JSON_SET_SIMPLE("redis_hosted_db","%u", c->redis_hosted_db);
 			JSON_SET_SIMPLE_STR("recording_metadata", &c->metadata);
 			JSON_SET_SIMPLE("block_dtmf","%i", c->block_dtmf);
 			JSON_SET_SIMPLE("call_flags", "%" PRIu64, atomic64_get_na(&c->call_flags));
 
+			if (c->created_from.len)
+				JSON_SET_SIMPLE_STR("created_from", &c->created_from);
 			if (c->recording_meta_prefix.len)
 				JSON_SET_SIMPLE_STR("recording_meta_prefix", &c->recording_meta_prefix);
 			if (c->recording_file.len)

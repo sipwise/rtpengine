@@ -161,17 +161,12 @@ fail:
 	return -1;
 }
 
-static void updated_created_from(call_t *c, const char *addr, const endpoint_t *sin) {
-	if (!c->created_from && addr) {
-		c->created_from = call_strdup(addr);
-		if (sin)
-			c->created_from_addr = sin->address;
-	}
+static void updated_created_from(call_t *c, const char *addr) {
+	if (!c->created_from.len && addr)
+		c->created_from = call_str_cpy_c(addr);
 }
 
-static str call_update_lookup_udp(char **out, enum ng_opmode opmode, const char* addr,
-		const endpoint_t *sin)
-{
+static str call_update_lookup_udp(char **out, enum ng_opmode opmode, const char* addr) {
 	call_t *c;
 	struct call_monologue *monologues[2]; /* subscriber lists of both monologues */
 	sdp_streams_q q = TYPED_GQUEUE_INIT;
@@ -195,7 +190,7 @@ static str call_update_lookup_udp(char **out, enum ng_opmode opmode, const char*
 		return str_sprintf("%s 0 0.0.0.0\n", out[RE_UDP_COOKIE]);
 	}
 
-	updated_created_from(c, addr, sin);
+	updated_created_from(c, addr);
 
 	if (call_get_mono_dialogue(monologues, c, &fromtag, &totag, NULL, NULL))
 		goto ml_fail;
@@ -247,11 +242,11 @@ out:
 	return ret;
 }
 
-str call_update_udp(char **out, const char* addr, const endpoint_t *sin) {
-	return call_update_lookup_udp(out, OP_OFFER, addr, sin);
+str call_update_udp(char **out, const char* addr) {
+	return call_update_lookup_udp(out, OP_OFFER, addr);
 }
 str call_lookup_udp(char **out) {
-	return call_update_lookup_udp(out, OP_ANSWER, NULL, NULL);
+	return call_update_lookup_udp(out, OP_ANSWER, NULL);
 }
 
 
@@ -2349,9 +2344,7 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			break;
 		case CSH_LOOKUP("xmlrpc-callback"):
 		case CSH_LOOKUP("XMLRPC-callback"):
-			if (!sockaddr_parse_any_str(&out->xmlrpc_callback, &s))
-				ilog(LOG_WARN, "Failed to parse 'xmlrpc-callback' address '" STR_FORMAT "'",
-						STR_FMT(&s));
+			out->xmlrpc_callback = s;
 			break;
 		default:
 			ilog(LOG_WARN, "Unknown dictionary key encountered: '" STR_FORMAT "'", STR_FMT(key));
@@ -2513,9 +2506,7 @@ static const char *call_offer_get_call(call_t **callp, sdp_ng_flags *flags) {
 	return NULL;
 }
 
-static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char* addr,
-		const endpoint_t *sin)
-{
+static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char* addr) {
 	const char *errstr;
 	str sdp = STR_NULL;
 	g_auto(sdp_sessions_q) parsed = TYPED_GQUEUE_INIT;
@@ -2579,10 +2570,10 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char* addr,
 	if (rtpe_config.active_switchover && IS_FOREIGN_CALL(call))
 		call_make_own_foreign(call, false);
 
-	updated_created_from(call, addr, sin);
+	updated_created_from(call, addr);
 
-	if (flags.xmlrpc_callback.family)
-		call->xmlrpc_callback = flags.xmlrpc_callback;
+	if (flags.xmlrpc_callback.len)
+		call->xmlrpc_callback = call_str_cpy(&flags.xmlrpc_callback);
 	if (flags.dtmf_log_dest.address.family)
 		call->dtmf_log_dest = flags.dtmf_log_dest;
 
@@ -2682,14 +2673,13 @@ out:
 }
 
 const char *call_offer_ng(ng_command_ctx_t *ctx,
-		const char* addr,
-		const endpoint_t *sin)
+		const char *addr)
 {
-	return call_offer_answer_ng(ctx, addr, sin);
+	return call_offer_answer_ng(ctx, addr);
 }
 
 const char *call_answer_ng(ng_command_ctx_t *ctx) {
-	return call_offer_answer_ng(ctx, NULL, NULL);
+	return call_offer_answer_ng(ctx, NULL);
 }
 
 const char *call_delete_ng(ng_command_ctx_t *ctx) {
@@ -4031,10 +4021,7 @@ found_sink:
 }
 
 
-const char *call_publish_ng(ng_command_ctx_t *ctx,
-		const char *addr,
-		const endpoint_t *sin)
-{
+const char *call_publish_ng(ng_command_ctx_t *ctx, const char *addr) {
 	g_auto(sdp_ng_flags) flags;
 	g_auto(sdp_sessions_q) parsed = TYPED_GQUEUE_INIT;
 	g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
@@ -4062,7 +4049,7 @@ const char *call_publish_ng(ng_command_ctx_t *ctx,
 	if (trickle_ice_update(ctx->ngbuf, call, &flags, &streams))
 		return NULL;
 
-	updated_created_from(call, addr, sin);
+	updated_created_from(call, addr);
 	struct call_monologue *ml = call_get_or_create_monologue(call, &flags.from_tag);
 
 	ret = monologue_publish(ml, &streams, &flags);

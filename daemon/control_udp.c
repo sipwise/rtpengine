@@ -88,7 +88,7 @@ static void control_udp_incoming(struct obj *obj, struct udp_buffer *udp_buf) {
 		log_info_c_string(out[RE_UDP_DQ_CALLID]);
 
 	if (chrtoupper(out[RE_UDP_UL_CMD][0]) == 'U')
-		reply = call_update_udp(out, udp_buf->addr, &udp_buf->sin);
+		reply = call_update_udp(out, udp_buf->addr);
 	else if (chrtoupper(out[RE_UDP_UL_CMD][0]) == 'L')
 		reply = call_lookup_udp(out);
 	else if (chrtoupper(out[RE_UDP_DQ_CMD][0]) == 'D')
