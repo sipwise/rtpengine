@@ -94,6 +94,10 @@ static int redisCommandNR(redisContext *r, const char *fmt, ...)
 
 #define REDIS_FMT(x) (int) (x)->len, (x)->str
 
+#define rlog(l, x...) ilog(l | LOG_FLAG_RESTORE, x)
+
+
+
 // To protect against a restore race condition: Keyspace notifications are set up
 // before existing calls are restored (restore_thread). Therefore the following
 // scenario is possible:
@@ -1128,6 +1132,21 @@ static int64_t time_t_conv(const char *c, char **endp, int base) {
 	return us;
 }
 
+
+
+#define define_get_int_type(name, type, func)								\
+	static int redis_hash_get_ ## name(type *out, const struct redis_hash *h, const char *k) {	\
+		str* s;										\
+													\
+		s = g_hash_table_lookup(h->ht, k);							\
+		if (!s)											\
+			return -1;									\
+		*out = func(s->s, NULL, 10);								\
+		return 0;										\
+	}
+
+
+
 define_get_int_type(time_t, int64_t, time_t_conv);
 define_get_int_type(int64_t, int64_t, strtoll);
 define_get_int_type(int, int, strtol);
@@ -1137,6 +1156,30 @@ define_get_int_type(unsigned, unsigned int, strtol);
 //define_get_int_type(u16, uint16_t, strtol);
 //define_get_int_type(u64, uint64_t, strtoull);
 define_get_int_type(a64, atomic64, strtoa64);
+
+
+
+
+#define define_get_type_format(name, type)									\
+	static int redis_hash_get_ ## name ## _v(type *out, const struct redis_hash *h, const char *f,		\
+			va_list ap)										\
+	{													\
+		char key[64];											\
+														\
+		vsnprintf(key, sizeof(key), f, ap);								\
+		return redis_hash_get_ ## name(out, h, key);							\
+	}													\
+	static int redis_hash_get_ ## name ## _f(type *out, const struct redis_hash *h, const char *f, ...) {	\
+		va_list ap;											\
+		int ret;											\
+														\
+		va_start(ap, f);										\
+		ret = redis_hash_get_ ## name ## _v(out, h, f, ap);						\
+		va_end(ap);											\
+		return ret;											\
+	}
+
+
 
 define_get_type_format(str, str);
 define_get_type_format(int, int);
