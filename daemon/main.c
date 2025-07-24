@@ -706,7 +706,6 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "interfaces-config",0,0, G_OPTION_ARG_STRING, &interfaces_config,	"Config section prefix for interfaces",			"STR"},
 		{ "templates", 0, 0,	G_OPTION_ARG_STRING,	&templates_section,	"Config section to read signalling templates from ",	"STR"},
 		{ "save-interface-ports",'S', 0, G_OPTION_ARG_NONE,	&rtpe_config.save_interface_ports,	"Bind ports only on first available interface of desired family", NULL },
-		{ "subscribe-keyspace", 'k', 0, G_OPTION_ARG_STRING_ARRAY,&ks_a,	"Subscription keyspace list",	"INT INT ..."},
 		{ "listen-ng",	'n', 0, G_OPTION_ARG_STRING_ARRAY,	&listenngs,	"UDP ports to listen on, NG protocol","[IP46|HOSTNAME:]PORT ..."	},
 		{ "listen-tcp-ng",	'N', 0, G_OPTION_ARG_STRING_ARRAY,&listenngtcps,"TCP ports to listen on, NG protocol","[IP46|HOSTNAME:]PORT ..."	},
 		{ "listen-cli", 'c', 0, G_OPTION_ARG_STRING_ARRAY,	&listencli,	"TCP port to listen on, CLI",	"[IP46|HOSTNAME:]PORT ..."     },
@@ -737,6 +736,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "redis-cmd-timeout", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_cmd_timeout, "Sets a timeout in milliseconds for redis commands", "INT" },
 		{ "redis-connect-timeout", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_connect_timeout, "Sets a timeout in milliseconds for redis connections", "INT" },
 		{ "redis-format", 0, 0,	G_OPTION_ARG_STRING, &redis_format,		"Format for persistent storage in Redis/KeyDB", "native|bencode|JSON" },
+		{ "subscribe-keyspace", 'k', 0, G_OPTION_ARG_STRING_ARRAY,&ks_a,	"Subscription keyspace list",	"INT INT ..."},
 #if 0
 		// temporarily disabled, see discussion on https://github.com/sipwise/rtpengine/commit/2ebf5a1526c1ce8093b3011a1e23c333b3f99400
 		// related to Change-Id: I83d9b9a844f4f494ad37b44f5d1312f272beff3f
