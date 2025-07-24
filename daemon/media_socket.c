@@ -1167,9 +1167,6 @@ void append_thread_lpr_to_glob_lpr(void) {
 }
 
 static struct socket_port_link get_one_port_link(unsigned int port, struct intf_spec *spec) {
-	if (!port_is_in_range(&spec->port_pool, port))
-		return (struct socket_port_link) {};
-
 	__auto_type links = get_port_links(&spec->port_pool, port);
 	return (struct socket_port_link) { .links = links, .pp = &spec->port_pool, .socket = { .fd = -1 }};
 }
@@ -1217,7 +1214,14 @@ static bool open_port_link_sockets(socket_port_q *out, struct intf_spec *spec, c
 struct socket_port_link get_specific_port(unsigned int port,
 		struct intf_spec *spec, const str *label)
 {
-	ilog(LOG_DEBUG, "A specific port value is requested: '%d'", port);
+	if (!port_is_in_range(&spec->port_pool, port)) {
+		ilog(LOG_DEBUG, "A specific out-of-pool port is requested: '%d'", port);
+		struct socket_port_link spl = {0};
+		add_socket(&spl.socket, port, spec, label);
+		return spl;
+	}
+
+	ilog(LOG_DEBUG, "A specific in-pool port is requested: '%d'", port);
 	__auto_type spl = get_one_port_link(port, spec);
 	if (spl.links.length) {
 		if (add_socket(&spl.socket, port, spec, label))
@@ -1307,7 +1311,8 @@ new_cycle:
 		port = GPOINTER_TO_UINT(spl.links.head->data); /* RTP */
 
 		/* ports for RTP must be even, if there is an additional port for RTCP */
-		if (num_ports > 1 && (port & 1)) {
+		// also bail if end port is out of range of the pool
+		if ((num_ports > 1 && (port & 1)) || port + num_ports - 1 > spec->port_pool.max) {
 			/* return port for RTP back and try again */
 			release_reserved_port(pp, &spl.links, port);
 			continue;
