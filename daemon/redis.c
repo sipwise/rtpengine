@@ -1679,8 +1679,8 @@ static int json_medias(call_t *c, struct redis_list *medias, struct redis_list *
 			return -1;
 		med->desired_family = get_socket_family_rfc(&s);
 
-		if (redis_hash_get_str(&s, rh, "logical_intf")
-				|| !(med->logical_intf = get_logical_interface(&s, med->desired_family, 0)))
+		if (!redis_hash_get_str(&s, rh, "logical_intf")
+				&& !(med->logical_intf = get_logical_interface(&s, med->desired_family, 0)))
 		{
 			rlog(LOG_ERR, "unable to find specified local interface");
 			med->logical_intf = get_logical_interface(NULL, med->desired_family, 0);
@@ -2715,7 +2715,8 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 					JSON_SET_SIMPLE_STR("media_id", &media->media_id);
 				JSON_SET_SIMPLE_CSTR("protocol", media->protocol ? media->protocol->name : "");
 				JSON_SET_SIMPLE_CSTR("desired_family", media->desired_family ? media->desired_family->rfc_name : "");
-				JSON_SET_SIMPLE_STR("logical_intf", &media->logical_intf->name);
+				if (media->logical_intf)
+					JSON_SET_SIMPLE_STR("logical_intf", &media->logical_intf->name);
 				JSON_SET_SIMPLE("ptime","%i", media->ptime);
 				JSON_SET_SIMPLE("maxptime","%i", media->maxptime);
 				JSON_SET_SIMPLE("media_flags", "%" PRIu64, atomic64_get_na(&media->media_flags));
