@@ -66,16 +66,8 @@ static void reset_jitter_buffer(struct jitter_buffer *jb) {
 		jb->disabled = 1;
 }
 
-static rtp_payload_type *codec_rtp_pt(struct media_packet *mp, int payload_type) {
-	rtp_payload_type *rtp_pt = NULL;
-	struct codec_handler *transcoder = codec_handler_get(mp->media, payload_type, mp->media_out, NULL);
-	if(transcoder) {
-		if(transcoder->source_pt.payload_type == payload_type)
-			rtp_pt = &transcoder->source_pt;
-		if(transcoder->dest_pt.payload_type == payload_type)
-			rtp_pt = &transcoder->dest_pt;
-	}
-	return rtp_pt;
+static inline rtp_payload_type *codec_rtp_pt(struct media_packet *mp, int payload_type) {
+	return t_hash_table_lookup(mp->media->codecs.codecs, GINT_TO_POINTER(payload_type));
 }
 
 static int get_clock_rate(struct media_packet *mp, int payload_type) {
