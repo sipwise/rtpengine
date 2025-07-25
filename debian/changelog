@@ -1,3 +1,11 @@
+ngcp-rtpengine (11.5.1.45+0~mr11.5.1.45) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [722b5ea] MT#55283 locking updates
+  * [ebf6283] MT#55283 fix num_ports not being set
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 25 Jul 2025 15:02:43 +0200
+
 ngcp-rtpengine (11.5.1.44+0~mr11.5.1.44) unstable; urgency=medium
 
   [ Richard Fuchs ]
