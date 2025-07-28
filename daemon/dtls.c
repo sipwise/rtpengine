@@ -40,6 +40,25 @@
 
 #define CERT_EXPIRY_TIME (60*60*24*30) /* 30 days */
 
+#define DTLS_CT_CHANGE_CIPHER_SPEC 20
+#define DTLS_CT_ALERT 21
+#define DTLS_CT_HANDSHAKE 22
+#define DTLS_CT_APPLICATION_DATA 23
+
+// https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-7
+#define DTLS_HT_HELLO_REQUEST 0
+#define DTLS_HT_CLIENT_HELLO 1
+#define DTLS_HT_SERVER_HELLO 2
+#define DTLS_HT_HELLO_VERIFY_REQUEST 3
+#define DTLS_HT_NEW_SESSION_TICKET 4
+#define DTLS_HT_CERTIFICATE 11
+#define DTLS_HT_SERVER_KEY_EXCHANGE 12
+#define DTLS_HT_CERTIFICATE_REQUEST 13
+#define DTLS_HT_SERVER_HELLO_DONE 14
+#define DTLS_HT_CERTIFICATE_VERIFY 15
+#define DTLS_HT_CLIENT_KEY_EXCHANGE 16
+#define DTLS_HT_FINISHED 20
+
 struct dtls_connection *dtls_ptr(stream_fd *sfd) {
 	if (!sfd)
 		return NULL;
@@ -50,11 +69,7 @@ struct dtls_connection *dtls_ptr(stream_fd *sfd) {
 }
 
 
-
-
-
 static char ciphers_str[1024];
-
 
 
 static unsigned int sha_1_func(unsigned char *, X509 *);
@@ -64,6 +79,8 @@ static unsigned int sha_384_func(unsigned char *, X509 *);
 static unsigned int sha_512_func(unsigned char *, X509 *);
 
 
+static const char *dtls_content_type_str(unsigned char type);
+static const char *dlts_handshake_type_str(unsigned char type);
 
 
 static const struct dtls_hash_func hash_funcs[] = {
@@ -583,7 +600,7 @@ static int try_connect(struct dtls_connection *d) {
 			if (d->connected) {
 				ilogs(crypto, LOG_INFO, "DTLS data received after handshake, code: %i", code);
 			} else {
-				ilogs(crypto, LOG_INFO, "DTLS handshake not completed yet, current state: %s", 
+				ilogs(crypto, LOG_DEBUG, "DTLS handshake not completed yet, current state: %s", 
 					SSL_state_string_long(d->ssl));
 			}
 			break;
@@ -642,7 +659,7 @@ static long dtls_bio_callback(BIO *bio, int oper, const char *argp, size_t len, 
 		return ret;
 	
 	if(len > 13 && (unsigned char)argp[0] == DTLS_CT_HANDSHAKE) {
-		ilogs(srtp, LOG_DEBUG, "Sending DTLS handshak %02x %s packet to %s",
+		ilogs(srtp, LOG_INFO, "Sending DTLS handshake %02x %s packet to %s",
             argp[13],
 			dlts_handshake_type_str((unsigned char)argp[13]),
 			endpoint_print_buf(fsin));
@@ -891,7 +908,7 @@ int dtls(stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 
 	if (s) {
 		if(s->len > 13 && (unsigned char)s->s[0] == DTLS_CT_HANDSHAKE) {
-			ilogs(srtp, LOG_DEBUG, "Processing incoming DTLS Handshake %02x %s packet from %s",
+			ilogs(srtp, LOG_INFO, "Processing incoming DTLS Handshake %02x %s packet from %s",
                     (unsigned char)s->s[13],
 					dlts_handshake_type_str((unsigned char)s->s[13]),
 					endpoint_print_buf(fsin));
@@ -1005,7 +1022,7 @@ void dtls_connection_cleanup(struct dtls_connection *c) {
 }
 
 
-const char *dtls_content_type_str(unsigned char type) {
+static const char *dtls_content_type_str(unsigned char type) {
 	switch (type) {
 		case DTLS_CT_CHANGE_CIPHER_SPEC:
 			return "ChangeCipherSpec";
@@ -1019,7 +1036,8 @@ const char *dtls_content_type_str(unsigned char type) {
 			return "Unknown";
 	}
 }
-const char *dlts_handshake_type_str(unsigned char type) {
+
+static const char *dlts_handshake_type_str(unsigned char type) {
 	switch (type) {
 		case DTLS_HT_HELLO_REQUEST:
 			return "HelloRequest";
