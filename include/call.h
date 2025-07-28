@@ -378,6 +378,7 @@ struct stream_params {
 	int			media_sdp_id;
 	struct session_bandwidth media_session_bandiwdth;
 	str			sdp_information;
+	extmap_q		extmap;
 };
 
 struct endpoint_map {
@@ -483,6 +484,8 @@ struct call_media {
 	struct logical_intf	*logical_intf;
 
 	struct ice_agent	*ice_agent;
+
+	extmap_q		extmap; // container
 
 	str			media_id;
 	str			label;

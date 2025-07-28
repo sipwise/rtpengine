@@ -4386,13 +4386,13 @@ a=rtpmap:126 H264/90000
 a=fmtp:126 profile-level-id=428016;packetization-mode=1;max-mbps=490000;max-fs=8160;max-cpb=200;max-dpb=16320;max-br=5000;max-smbps=490000;max-fps=6000
 a=rtpmap:123 X-ULPFECUC/90000
 a=fmtp:123  multi_ssrc=1;feedback=0;max_esel=1450;m=8;max_n=42;FEC_ORDER=FEC_SRTP;non_seq=1
+a=extmap:4 http://protocols.cisco.com/timestamp#100us
 a=rtcp-fb:* ccm pan
 a=rtcp-fb:* nack pli
 a=rtcp-fb:* ccm fir
 a=rtcp-fb:* ccm tmmbr
 a=label:11
 a=answer:full
-a=extmap:4 http://protocols.cisco.com/timestamp#100us
 a=cisco-mari-psre:97 ltrf=3
 a=cisco-mari-psre:126 ltrf=3
 a=content:main
@@ -21518,6 +21518,7 @@ t=0 0
 m=audio 2000 RTP/AVP 0
 c=IN IP4 198.51.100.1
 a=extmap:0 foobar
+a=extmap:1 quux
 a=sendrecv
 ----------------------------------
 v=0
@@ -21527,7 +21528,7 @@ t=0 0
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
 a=rtpmap:0 PCMU/8000
-a=extmap:0 foobar
+a=extmap:1 quux
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -21542,6 +21543,7 @@ t=0 0
 m=audio 2000 RTP/AVP 0
 c=IN IP4 198.51.100.1
 a=extmap:0 foobar
+a=extmap:1 quux
 a=sendrecv
 ----------------------------------
 v=0

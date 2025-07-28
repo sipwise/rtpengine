@@ -6,7 +6,7 @@
 
 
 
-struct rtp_extension {
+struct rtp_exthdr {
 	uint16_t undefined;
 	uint16_t length;
 } __attribute__ ((packed));
@@ -61,7 +61,6 @@ const int num_rfc_rtp_payload_types = G_N_ELEMENTS(rfc_rtp_payload_types);
 
 struct rtp_header *rtp_payload(str *p, const str *s) {
 	struct rtp_header *rtp;
-	struct rtp_extension *ext;
 	const char *err;
 
 	err = "short packet (header)";
@@ -86,6 +85,7 @@ struct rtp_header *rtp_payload(str *p, const str *s) {
 
 	if ((rtp->v_p_x_cc & 0x10)) {
 		/* extension */
+		struct rtp_exthdr *ext;
 		err = "short packet (extension header)";
 		if (p->len < sizeof(*ext))
 			goto error;

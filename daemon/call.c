@@ -2849,6 +2849,25 @@ static void media_set_siprec_label(struct call_media *other_media, struct call_m
 }
 
 __attribute__((nonnull(1, 2)))
+static void media_init_extmap(struct call_media *media, struct rtp_extension *ext) {
+	ext->name = call_str_cpy(&ext->name);
+}
+
+__attribute__((nonnull(1, 2)))
+static void media_update_extmap(struct call_media *media, struct stream_params *sp) {
+	// empty out old queue and take over from `sp`
+	t_queue_clear_full(&media->extmap, rtp_extension_free);
+	media->extmap = sp->extmap;
+	t_queue_init(&sp->extmap);
+
+	// copy strings
+	for (__auto_type ll = media->extmap.head; ll; ll = ll->next) {
+		__auto_type ext = ll->data;
+		media_init_extmap(media, ext);
+	}
+}
+
+__attribute__((nonnull(1, 2)))
 static void media_init_from_flags(struct call_media *media, sdp_ng_flags *flags) {
 	if (flags->opmode == OP_OFFER && flags->reset) {
 		MEDIA_CLEAR(media, INITIALIZED);
@@ -3086,6 +3105,7 @@ static struct call_media * monologue_add_zero_media(struct call_monologue *sende
 	media_update_attrs(sender_media, sp);
 	media_update_format(sender_media, sp);
 	media_set_ptime(sender_media, sp, flags->rev_ptime, flags->ptime);
+	media_update_extmap(sender_media, sp);
 	*num_ports_other = proto_num_ports(sp->num_ports, sender_media, flags,
 			(flags->rtcp_mux_demux || flags->rtcp_mux_accept) ? true : false);
 	__disable_streams(sender_media, *num_ports_other);
@@ -3216,6 +3236,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		media_set_address_family(receiver_media, sender_media, flags);
 		media_set_ptime(sender_media, sp, flags->rev_ptime, flags->ptime);
 		media_set_ptime(receiver_media, sp, flags->ptime, flags->rev_ptime);
+		media_update_extmap(sender_media, sp);
 
 		if (flags->opmode == OP_OFFER) {
 			ilog(LOG_DEBUG, "Setting media recording slots to %u", flags->media_rec_slot_offer);
@@ -3631,6 +3652,7 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		media_update_attrs(media, sp);
 		media_update_format(media, sp);
 		media_set_ptime(media, sp, flags->ptime, 0);
+		media_update_extmap(media, sp);
 
 		codec_store_populate(&media->codecs, &sp->codecs,
 				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
@@ -4375,6 +4397,7 @@ void call_media_free(struct call_media **mdp) {
 	mutex_destroy(&md->dtmf_lock);
 	ssrc_hash_destroy(&md->ssrc_hash_in);
 	ssrc_hash_destroy(&md->ssrc_hash_out);
+	t_queue_clear_full(&md->extmap, rtp_extension_free);
 	g_free(md);
 	*mdp = NULL;
 }

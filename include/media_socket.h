@@ -280,6 +280,16 @@ struct media_packet {
 	int ptime; // returned from decoding
 };
 
+struct rtp_extension {
+	unsigned int id;
+	str name; // urn:ietf:params:rtp- hdrext:... or URI
+};
+
+static inline void rtp_extension_free(struct rtp_extension *r) {
+	g_free(r);
+}
+
+TYPED_GQUEUE(extmap, struct rtp_extension);
 
 
 extern local_intf_q all_local_interfaces; // read-only during runtime

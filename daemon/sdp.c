@@ -66,6 +66,7 @@ enum attr_id {
 	ATTR_TLS_ID,
 	ATTR_END_OF_CANDIDATES,
 	ATTR_MOH_ATTR_NAME,
+	ATTR_EXTMAP,
 };
 // make sure g_direct_hash can be used
 static_assert(sizeof(void *) >= sizeof(enum attr_id), "sizeof enum attr_id wrong");
@@ -255,9 +256,15 @@ struct attribute_t38faxudpecdepth {
 	int maxred;
 };
 
+struct attribute_extmap {
+	str id_str;
+	str ext;
+
+	int id;
+};
+
 enum attribute_other {
 	ATTR_OTHER_UNKNOWN = 0,
-	ATTR_OTHER_EXTMAP,
 };
 
 struct sdp_attribute {
@@ -283,6 +290,7 @@ struct sdp_attribute {
 		int i;
 		struct attribute_t38faxudpecdepth t38faxudpecdepth;
 		struct attribute_t38faxratemanagement t38faxratemanagement;
+		struct attribute_extmap extmap;
 		enum attribute_other other;
 	};
 };
@@ -1147,6 +1155,22 @@ static bool parse_attribute_t38faxudpecdepth(struct sdp_attribute *output) {
 	return true;
 }
 
+static bool parse_attribute_extmap(struct sdp_attribute *output) {
+	output->attr = ATTR_EXTMAP;
+
+	PARSE_INIT;
+	EXTRACT_TOKEN(extmap.id_str);
+	EXTRACT_TOKEN(extmap.ext);
+
+	output->extmap.id = str_to_i(&output->extmap.id_str, 0);
+	// RFC 8285, valid range: 1-14, 15 reserved, 16-255, 256 appbits (not supported),
+	// 256-4095 invalid, 4096-4351 remap (not supported)
+	if (output->extmap.id <= 0 || output->extmap.id == 15 || output->extmap.id >= 256)
+		return false;
+
+	return true;
+}
+
 
 static bool parse_attribute(struct sdp_attribute *a) {
 	a->strs.name = a->strs.line_value;
@@ -1194,7 +1218,7 @@ static bool parse_attribute(struct sdp_attribute *a) {
 			ret = parse_attribute_crypto(a);
 			break;
 		case CSH_LOOKUP("extmap"):
-			a->other = ATTR_OTHER_EXTMAP;
+			ret = parse_attribute_extmap(a);
 			break;
 		case CSH_LOOKUP("rtpmap"):
 			ret = parse_attribute_rtpmap(a);
@@ -1750,6 +1774,7 @@ static void sp_free(struct stream_params *s) {
 	crypto_params_sdes_queue_clear(&s->sdes_params);
 	t_queue_clear_full(&s->generic_attributes, sdp_attr_free);
 	t_queue_clear_full(&s->all_attributes, sdp_attr_free);
+	t_queue_clear_full(&s->extmap, rtp_extension_free);
 	g_free(s);
 }
 
@@ -2078,6 +2103,18 @@ bool sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_
 
 			__sdp_t38(sp, media);
 
+			// a=extmap
+			attrs = attr_list_get_by_id(&media->attributes, ATTR_EXTMAP);
+			if (!attrs)
+				attrs = attr_list_get_by_id(&session->attributes, ATTR_EXTMAP);
+			for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+				attr = ll->data;
+				__auto_type ext = g_new0(struct rtp_extension, 1);
+				ext->id = attr->extmap.id;
+				ext->name = attr->extmap.ext;
+				t_queue_push_tail(&sp->extmap, ext);
+			}
+
 			/* determine RTCP endpoint */
 
 			if (attr_get_by_id(&media->attributes, ATTR_RTCP_MUX))
@@ -2188,8 +2225,6 @@ void sdp_insert_media_attributes(GString *gs, struct call_media *media, struct c
 		return;
 	for (__auto_type l = source_media->generic_attributes.head; l; l = l->next) {
 		__auto_type s = l->data;
-		if (s->other == ATTR_OTHER_EXTMAP && flags->strip_extmap && !MEDIA_ISSET(source_media, PASSTHRU))
-			continue;
 		append_gen_attr_to_gstring(gs, &s->strs.name, &s->strs.value, flags, source_media->type_id);
 	}
 }
@@ -2203,8 +2238,6 @@ void sdp_insert_monologue_attributes(GString *gs, struct call_monologue *ml, con
 
 	for (__auto_type l = source_ml->generic_attributes.head; l; l = l->next) {
 		__auto_type s = l->data;
-		if (s->other == ATTR_OTHER_EXTMAP && flags->strip_extmap)
-			continue;
 		append_gen_attr_to_gstring(gs, &s->strs.name, &s->strs.value, flags, MT_UNKNOWN);
 	}
 }
@@ -2216,6 +2249,19 @@ void sdp_insert_all_attributes(GString *s, struct call_media *media, struct sdp_
 		if (a->attr == ATTR_END_OF_CANDIDATES)
 			continue;
 		append_gen_attr_to_gstring(s, &a->strs.name, &a->strs.value, flags, media->type_id);
+	}
+}
+
+static void sdp_print_extmap(GString *s, struct call_media *source_media, const sdp_ng_flags *flags) {
+	if (!source_media)
+		return;
+	if (flags->strip_extmap && !MEDIA_ISSET(source_media, PASSTHRU))
+		return;
+
+	for (__auto_type l = source_media->extmap.head; l; l = l->next) {
+		__auto_type ext = l->data;
+		sdp_append_attr(s, flags, source_media->type_id,
+				"extmap", "%u " STR_FORMAT, ext->id, STR_FMT(&ext->name));
 	}
 }
 
@@ -2805,6 +2851,8 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 
 	if (proto_is_rtp(media->protocol))
 		insert_codec_parameters(s, media, flags);
+
+	sdp_print_extmap(s, source_media, flags);
 
 	/* all unknown type attributes will be added here */
 	media->sdp_attr_print(s, media, source_media, flags);
