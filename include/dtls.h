@@ -15,6 +15,25 @@
 #define DTLS_MAX_DIGEST_LEN 64
 #define DTLS_MTU_OVERHEAD 48 // 40 bytes IPv6 + 8 bytes UDP
 
+#define DTLS_CT_CHANGE_CIPHER_SPEC 20
+#define DTLS_CT_ALERT 21
+#define DTLS_CT_HANDSHAKE 22
+#define DTLS_CT_APPLICATION_DATA 23
+
+// https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-7
+#define DTLS_HT_HELLO_REQUEST 0
+#define DTLS_HT_CLIENT_HELLO 1
+#define DTLS_HT_SERVER_HELLO 2
+#define DTLS_HT_HELLO_VERIFY_REQUEST 3
+#define DTLS_HT_NEW_SESSION_TICKET 4
+#define DTLS_HT_CERTIFICATE 11
+#define DTLS_HT_SERVER_KEY_EXCHANGE 12
+#define DTLS_HT_CERTIFICATE_REQUEST 13
+#define DTLS_HT_SERVER_HELLO_DONE 14
+#define DTLS_HT_CERTIFICATE_VERIFY 15
+#define DTLS_HT_CLIENT_KEY_EXCHANGE 16
+#define DTLS_HT_FINISHED 20
+
 struct packet_stream;
 struct sockaddr_in6;
 
@@ -65,7 +84,8 @@ int dtls(stream_fd *, const str *s, const endpoint_t *sin);
 void dtls_connection_cleanup(struct dtls_connection *);
 void dtls_shutdown(struct packet_stream *ps);
 
-
+const char *dtls_content_type_str(unsigned char type);
+const char *dlts_handshake_type_str(unsigned char type);
 
 
 INLINE void __dtls_hash(const struct dtls_hash_func *hash_func, X509 *cert, unsigned char *out,
