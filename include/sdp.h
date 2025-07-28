@@ -44,8 +44,8 @@ void sdp_attr_free(struct sdp_attr *);
 sdp_origin *sdp_orig_dup(const sdp_origin *orig);
 void sdp_orig_free(sdp_origin *o);
 
-int sdp_parse(str *body, sdp_sessions_q *sessions, const sdp_ng_flags *);
-int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_flags *);
+bool sdp_parse(str *body, sdp_sessions_q *sessions, const sdp_ng_flags *);
+bool sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_flags *);
 void sdp_streams_clear(sdp_streams_q *);
 void sdp_sessions_clear(sdp_sessions_q *sessions);
 int sdp_is_duplicate(sdp_sessions_q *sessions);

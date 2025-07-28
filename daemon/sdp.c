@@ -1298,7 +1298,7 @@ static bool parse_attribute(struct sdp_attribute *a) {
 	return ret;
 }
 
-int sdp_parse(str *body, sdp_sessions_q *sessions, const sdp_ng_flags *flags) {
+bool sdp_parse(str *body, sdp_sessions_q *sessions, const sdp_ng_flags *flags) {
 	str b;
 	struct sdp_session *session = NULL;
 	struct sdp_media *media = NULL;
@@ -1485,12 +1485,12 @@ new_session:
 		adj_s->len = b.s - adj_s->s;
 	}
 
-	return 0;
+	return true;
 
 error:
 	ilog(LOG_WARNING, "Error parsing SDP at offset %zu: %s", (size_t) (b.s - body->s), errstr);
 	sdp_sessions_clear(sessions);
-	return -1;
+	return false;
 }
 
 static void attr_free(struct sdp_attribute *p) {
@@ -1883,7 +1883,7 @@ static void sdp_attr_append_other(sdp_attr_q *dst, struct sdp_attributes *src) {
 }
 
 /* XXX split this function up */
-int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_flags *flags) {
+bool sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_flags *flags) {
 	struct sdp_session *session;
 	struct sdp_media *media;
 	struct stream_params *sp;
@@ -2104,12 +2104,12 @@ next:
 		}
 	}
 
-	return 0;
+	return true;
 
 error:
 	ilog(LOG_WARNING, "Failed to extract streams from SDP: %s", errstr);
 	g_free(sp);
-	return -1;
+	return false;
 }
 
 void sdp_streams_clear(sdp_streams_q *q) {

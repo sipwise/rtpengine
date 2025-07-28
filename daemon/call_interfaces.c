@@ -2543,7 +2543,7 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char* addr)
 	sdp = call_str_cpy(&flags.sdp);
 
 	errstr = "Failed to parse SDP";
-	if (sdp_parse(&sdp, &parsed, &flags))
+	if (!sdp_parse(&sdp, &parsed, &flags))
 		goto out;
 
 	if (flags.loop_protect && sdp_is_duplicate(&parsed)) {
@@ -2554,7 +2554,7 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char* addr)
 	}
 
 	errstr = "Incomplete SDP specification";
-	if (sdp_streams(&parsed, &streams, &flags))
+	if (!sdp_streams(&parsed, &streams, &flags))
 		goto out;
 
 	// SDP fragments for trickle ICE must always operate on an existing call
@@ -4040,10 +4040,10 @@ const char *call_publish_ng(ng_command_ctx_t *ctx, const char *addr) {
 
 	sdp_in = call_str_cpy(&flags.sdp);
 
-	if (sdp_parse(&sdp_in, &parsed, &flags))
+	if (!sdp_parse(&sdp_in, &parsed, &flags))
 		return "Failed to parse SDP";
 
-	if (sdp_streams(&parsed, &streams, &flags))
+	if (!sdp_streams(&parsed, &streams, &flags))
 		return "Incomplete SDP specification";
 
 	if (trickle_ice_update(ctx->ngbuf, call, &flags, &streams))
@@ -4200,10 +4200,10 @@ const char *call_subscribe_answer_ng(ng_command_ctx_t *ctx) {
 	if (!call)
 		return "Unknown call-ID";
 
-	if (sdp_parse(&flags.sdp, &parsed, &flags))
+	if (!sdp_parse(&flags.sdp, &parsed, &flags))
 		return "Failed to parse SDP";
 
-	if (sdp_streams(&parsed, &streams, &flags))
+	if (!sdp_streams(&parsed, &streams, &flags))
 		return "Incomplete SDP specification";
 
 	if (trickle_ice_update(ctx->ngbuf, call, &flags, &streams))

@@ -854,9 +854,9 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 		g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
 		call_ng_flags_init(&flags, OP_PUBLISH);
 		*retcode = 512;
-		if (sdp_parse(&sdp_in, &parsed, &flags))
+		if (!sdp_parse(&sdp_in, &parsed, &flags))
 			return "Failed to parse SDP";
-		if (sdp_streams(&parsed, &streams, &flags))
+		if (!sdp_streams(&parsed, &streams, &flags))
 			return "Incomplete SDP specification";
 
 		ml = janus_get_monologue(handle->id, call, call_get_or_create_monologue);
@@ -967,11 +967,11 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 	g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
 	call_ng_flags_init(&flags, OP_PUBLISH);
 	*retcode = 512;
-	if (sdp_parse(&sdp_in, &parsed, &flags))
+	if (!sdp_parse(&sdp_in, &parsed, &flags))
 		return "Failed to parse SDP";
 
 	*retcode = 512;
-	if (sdp_streams(&parsed, &streams, &flags))
+	if (!sdp_streams(&parsed, &streams, &flags))
 		return "Incomplete SDP specification";
 
 	*retcode = 456;
