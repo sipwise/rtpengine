@@ -67,6 +67,7 @@ void dtls_shutdown(struct packet_stream *ps);
 
 
 
+
 INLINE void __dtls_hash(const struct dtls_hash_func *hash_func, X509 *cert, unsigned char *out,
 		unsigned int bufsize)
 {

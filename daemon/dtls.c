@@ -600,7 +600,7 @@ static int try_connect(struct dtls_connection *d) {
 			if (d->connected) {
 				ilogs(crypto, LOG_INFO, "DTLS data received after handshake, code: %i", code);
 			} else {
-				ilogs(crypto, LOG_DEBUG, "DTLS handshake not completed yet, current state: %s", 
+				ilogs(crypto, LOG_DEBUG, "DTLS handshake not completed yet, current state: %s",
 					SSL_state_string_long(d->ssl));
 			}
 			break;
