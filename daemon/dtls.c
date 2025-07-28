@@ -40,6 +40,25 @@
 
 #define CERT_EXPIRY_TIME (60*60*24*30) /* 30 days */
 
+#define DTLS_CT_CHANGE_CIPHER_SPEC 20
+#define DTLS_CT_ALERT 21
+#define DTLS_CT_HANDSHAKE 22
+#define DTLS_CT_APPLICATION_DATA 23
+
+// https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-7
+#define DTLS_HT_HELLO_REQUEST 0
+#define DTLS_HT_CLIENT_HELLO 1
+#define DTLS_HT_SERVER_HELLO 2
+#define DTLS_HT_HELLO_VERIFY_REQUEST 3
+#define DTLS_HT_NEW_SESSION_TICKET 4
+#define DTLS_HT_CERTIFICATE 11
+#define DTLS_HT_SERVER_KEY_EXCHANGE 12
+#define DTLS_HT_CERTIFICATE_REQUEST 13
+#define DTLS_HT_SERVER_HELLO_DONE 14
+#define DTLS_HT_CERTIFICATE_VERIFY 15
+#define DTLS_HT_CLIENT_KEY_EXCHANGE 16
+#define DTLS_HT_FINISHED 20
+
 struct dtls_connection *dtls_ptr(stream_fd *sfd) {
 	if (!sfd)
 		return NULL;
@@ -50,11 +69,7 @@ struct dtls_connection *dtls_ptr(stream_fd *sfd) {
 }
 
 
-
-
-
 static char ciphers_str[1024];
-
 
 
 static unsigned int sha_1_func(unsigned char *, X509 *);
@@ -64,6 +79,8 @@ static unsigned int sha_384_func(unsigned char *, X509 *);
 static unsigned int sha_512_func(unsigned char *, X509 *);
 
 
+static const char *dtls_content_type_str(unsigned char type);
+static const char *dlts_handshake_type_str(unsigned char type);
 
 
 static const struct dtls_hash_func hash_funcs[] = {
@@ -582,6 +599,9 @@ static int try_connect(struct dtls_connection *d) {
 		case SSL_ERROR_WANT_WRITE:
 			if (d->connected) {
 				ilogs(crypto, LOG_INFO, "DTLS data received after handshake, code: %i", code);
+			} else {
+				ilogs(crypto, LOG_DEBUG, "DTLS handshake not completed yet, current state: %s",
+					SSL_state_string_long(d->ssl));
 			}
 			break;
 		case SSL_ERROR_ZERO_RETURN:
@@ -637,8 +657,18 @@ static long dtls_bio_callback(BIO *bio, int oper, const char *argp, size_t len, 
 	const endpoint_t *fsin = &ps->endpoint;
 	if (fsin->port == 9 || fsin->address.family == NULL)
 		return ret;
+	
+	if(len > 13 && (unsigned char)argp[0] == DTLS_CT_HANDSHAKE) {
+		ilogs(srtp, LOG_INFO, "Sending DTLS handshake %02x %s packet to %s",
+            argp[13],
+			dlts_handshake_type_str((unsigned char)argp[13]),
+			endpoint_print_buf(fsin));
+	} else {
+		ilogs(srtp, LOG_DEBUG, "Sending DTLS %s packet to %s",
+			dtls_content_type_str((unsigned char)argp[0]),
+			endpoint_print_buf(fsin));
+	}
 
-	ilogs(srtp, LOG_DEBUG, "Sending DTLS packet to %s", endpoint_print_buf(fsin));
 	socket_sendto(&sfd->socket, argp, len, fsin);
 	atomic64_inc_na(&ps->stats_out->packets);
 	atomic64_add_na(&ps->stats_out->bytes, len);
@@ -877,8 +907,18 @@ int dtls(stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 		return -1;
 
 	if (s) {
-		ilogs(srtp, LOG_DEBUG, "Processing incoming DTLS packet from %s",
-				endpoint_print_buf(fsin));
+		if(s->len > 13 && (unsigned char)s->s[0] == DTLS_CT_HANDSHAKE) {
+			ilogs(srtp, LOG_INFO, "Processing incoming DTLS Handshake %02x %s packet from %s",
+                    (unsigned char)s->s[13],
+					dlts_handshake_type_str((unsigned char)s->s[13]),
+					endpoint_print_buf(fsin));
+		} else {
+			ilogs(srtp, LOG_DEBUG, "Processing incoming DTLS %s packet from %s",
+					dtls_content_type_str((unsigned char)s->s[0]),
+					endpoint_print_buf(fsin));
+		}
+
+
 		BIO_write(d->r_bio, s->s, s->len);
 		/* we understand this as preference of DTLS over SDES */
 		MEDIA_CLEAR(ps->media, SDES);
@@ -979,4 +1019,51 @@ void dtls_connection_cleanup(struct dtls_connection *c) {
 			BIO_free(c->w_bio);
 	}
 	ZERO(*c);
+}
+
+
+static const char *dtls_content_type_str(unsigned char type) {
+	switch (type) {
+		case DTLS_CT_CHANGE_CIPHER_SPEC:
+			return "ChangeCipherSpec";
+		case DTLS_CT_ALERT:
+			return "Alert";
+		case DTLS_CT_HANDSHAKE:
+			return "Handshake";
+		case DTLS_CT_APPLICATION_DATA:
+			return "ApplicationData";
+		default:
+			return "Unknown";
+	}
+}
+
+static const char *dlts_handshake_type_str(unsigned char type) {
+	switch (type) {
+		case DTLS_HT_HELLO_REQUEST:
+			return "HelloRequest";
+		case DTLS_HT_CLIENT_HELLO:
+			return "ClientHello";
+		case DTLS_HT_SERVER_HELLO:
+			return "ServerHello";
+		case DTLS_HT_HELLO_VERIFY_REQUEST:
+			return "HelloVerifyRequest";
+		case DTLS_HT_NEW_SESSION_TICKET:
+			return "NewSessionTicket";
+		case DTLS_HT_CERTIFICATE:
+			return "Certificate";
+		case DTLS_HT_SERVER_KEY_EXCHANGE:
+			return "ServerKeyExchange";
+		case DTLS_HT_CERTIFICATE_REQUEST:
+			return "CertificateRequest";
+		case DTLS_HT_SERVER_HELLO_DONE:
+			return "ServerHelloDone";
+		case DTLS_HT_CERTIFICATE_VERIFY:
+			return "CertificateVerify";
+		case DTLS_HT_CLIENT_KEY_EXCHANGE:
+			return "ClientKeyExchange";
+		case DTLS_HT_FINISHED:
+			return "Finished";
+		default:
+			return "Unknown";
+	}
 }
