@@ -540,7 +540,7 @@ static bool parse_address(struct network_address *address) {
 			&address->address_type, &address->address);
 }
 
-#define EXTRACT_TOKEN(field) do { if (!str_token_sep(&output->field, value_str, ' ')) return -1; } while (0)
+#define EXTRACT_TOKEN(field) do { if (!str_token_sep(&output->field, value_str, ' ')) return false; } while (0)
 #define EXTRACT_TOKEN_EXCL_INCORRECT(field) \
 		do { \
 			if (!str_token_sep(&output->field, value_str, ' ')) \
@@ -552,7 +552,7 @@ static bool parse_address(struct network_address *address) {
 		EXTRACT_TOKEN(field.address); } while (0)
 #define EXTRACT_NETWORK_ADDRESS(field)				\
 		do { EXTRACT_NETWORK_ADDRESS_NP(field);		\
-		if (!parse_address(&output->field)) return -1; } while (0)
+		if (!parse_address(&output->field)) return false; } while (0)
 #define EXTRACT_NETWORK_ADDRESS_ATTR(field)				\
 		do { EXTRACT_NETWORK_ADDRESS_NP(field);		\
 		if (!parse_address(&output->field)) goto error; } while (0)
@@ -565,9 +565,9 @@ static bool parse_address(struct network_address *address) {
 
 #define PARSE_INIT str v_str = output->strs.value; str *value_str = &v_str
 
-static int parse_origin(str *value_str, sdp_origin *output) {
+static bool parse_origin(str *value_str, sdp_origin *output) {
 	if (output->parsed)
-		return -1;
+		return false;
 
 	EXTRACT_TOKEN(username);
 	EXTRACT_TOKEN(session_id);
@@ -576,22 +576,22 @@ static int parse_origin(str *value_str, sdp_origin *output) {
 
 	output->version_num = strtoull(output->version_str.s, NULL, 10);
 	output->parsed = 1;
-	return 0;
+	return true;
 }
 
-static int parse_connection(str *value_str, struct sdp_connection *output) {
+static bool parse_connection(str *value_str, struct sdp_connection *output) {
 	if (output->parsed)
-		return -1;
+		return false;
 
 	output->s = *value_str;
 
 	EXTRACT_NETWORK_ADDRESS(address);
 
 	output->parsed = 1;
-	return 0;
+	return true;
 }
 
-static int parse_media(str *value_str, struct sdp_media *output) {
+static bool parse_media(str *value_str, struct sdp_media *output) {
 	char *ep;
 	str *sp;
 
@@ -603,16 +603,16 @@ static int parse_media(str *value_str, struct sdp_media *output) {
 	output->media_type_id = codec_get_type(&output->media_type_str);
 	output->port_num = strtol(output->port.s, &ep, 10);
 	if (ep == output->port.s)
-		return -1;
+		return false;
 	if (output->port_num < 0 || output->port_num > 0xffff)
-		return -1;
+		return false;
 
 	if (*ep == '/') {
 		output->port_count = atoi(ep + 1);
 		if (output->port_count <= 0)
-			return -1;
+			return false;
 		if (output->port_count > 10) /* unsupported */
-			return -1;
+			return false;
 	}
 	else
 		output->port_count = 1;
@@ -625,7 +625,7 @@ static int parse_media(str *value_str, struct sdp_media *output) {
 		t_queue_push_tail(&output->format_list, sp);
 	}
 
-	return 0;
+	return true;
 }
 
 static void attrs_init(struct sdp_attributes *a) {
@@ -656,17 +656,17 @@ static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr
 	g_queue_push_tail(attr_queue, attr); */
 }
 
-static int parse_attribute_group(struct sdp_attribute *output) {
+static bool parse_attribute_group(struct sdp_attribute *output) {
 	output->attr = ATTR_GROUP;
 
 	output->group.semantics = GROUP_OTHER;
 	if (output->strs.value.len >= 7 && !strncmp(output->strs.value.s, "BUNDLE ", 7))
 		output->group.semantics = GROUP_BUNDLE;
 
-	return 0;
+	return true;
 }
 
-static int parse_attribute_crypto(struct sdp_attribute *output) {
+static bool parse_attribute_crypto(struct sdp_attribute *output) {
 	char *endp;
 	struct attribute_crypto *c;
 	int salt_key_len, enc_salt_key_len;
@@ -793,17 +793,17 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 			c->unauthenticated_srtp = 1;
 	}
 
-	return 0;
+	return true;
 
 error:
 	if (!err)
 		err = "generic error";
 	ilog(LOG_ERROR, "Failed to parse a=crypto attribute, ignoring: %s", err);
 	output->attr = ATTR_IGNORE;
-	return -1;
+	return false;
 }
 
-static int parse_attribute_rtcp(struct sdp_attribute *output) {
+static bool parse_attribute_rtcp(struct sdp_attribute *output) {
 	if (!output->strs.value.s)
 		goto error;
 	output->attr = ATTR_RTCP;
@@ -822,15 +822,15 @@ static int parse_attribute_rtcp(struct sdp_attribute *output) {
 	if (value_str->len)
 		EXTRACT_NETWORK_ADDRESS_ATTR(rtcp.address);
 
-	return 0;
+	return true;
 
 error:
 	ilog(LOG_WARN, "Failed to parse a=rtcp attribute, ignoring");
 	output->attr = ATTR_IGNORE;
-	return -1;
+	return false;
 }
 
-static int parse_attribute_candidate(struct sdp_attribute *output, bool extended) {
+static bool parse_attribute_candidate(struct sdp_attribute *output, bool extended) {
 	char *ep;
 	struct attribute_candidate *c;
 
@@ -849,29 +849,29 @@ static int parse_attribute_candidate(struct sdp_attribute *output, bool extended
 
 	c->cand_parsed.component_id = strtoul(c->component_str.s, &ep, 10);
 	if (ep == c->component_str.s)
-		return -1;
+		return false;
 
 	c->cand_parsed.transport = get_socket_type(&c->transport_str);
 	if (!c->cand_parsed.transport)
-		return 0;
+		return true;
 
 	c->cand_parsed.priority = strtoul(c->priority_str.s, &ep, 10);
 	if (ep == c->priority_str.s)
-		return -1;
+		return false;
 
 	if (!sockaddr_parse_any_str(&c->cand_parsed.endpoint.address, &c->address_str))
-		return 0;
+		return true;
 
 	c->cand_parsed.endpoint.port = strtoul(c->port_str.s, &ep, 10);
 	if (ep == c->port_str.s)
-		return -1;
+		return false;
 
 	if (str_cmp(&c->typ_str, "typ"))
-		return -1;
+		return false;
 
 	c->cand_parsed.type = ice_candidate_type(&c->type_str);
 	if (!c->cand_parsed.type)
-		return 0;
+		return true;
 
 	if (ice_has_related(c->cand_parsed.type)) {
 		// XXX guaranteed to be in order even with extended syntax?
@@ -881,16 +881,16 @@ static int parse_attribute_candidate(struct sdp_attribute *output, bool extended
 		EXTRACT_TOKEN(candidate.related_port_str);
 
 		if (str_cmp(&c->raddr_str, "raddr"))
-			return -1;
+			return false;
 		if (str_cmp(&c->rport_str, "rport"))
-			return -1;
+			return false;
 
 		if (!sockaddr_parse_any_str(&c->cand_parsed.related.address, &c->related_address_str))
-			return 0;
+			return true;
 
 		c->cand_parsed.related.port = strtoul(c->related_port_str.s, &ep, 10);
 		if (ep == c->related_port_str.s)
-			return -1;
+			return false;
 	}
 
 	if (extended) {
@@ -906,7 +906,7 @@ static int parse_attribute_candidate(struct sdp_attribute *output, bool extended
 	}
 
 	c->parsed = 1;
-	return 0;
+	return true;
 }
 
 // 0 = success
@@ -919,7 +919,7 @@ int sdp_parse_candidate(struct ice_candidate *cand, const str *s) {
 		},
 	};
 
-	if (parse_attribute_candidate(&attr, true))
+	if (!parse_attribute_candidate(&attr, true))
 		return -1;
 	if (!attr.candidate.parsed)
 		return 1;
@@ -929,7 +929,7 @@ int sdp_parse_candidate(struct ice_candidate *cand, const str *s) {
 }
 
 
-static int parse_attribute_fingerprint(struct sdp_attribute *output) {
+static bool parse_attribute_fingerprint(struct sdp_attribute *output) {
 	unsigned char *c;
 	int i;
 
@@ -941,7 +941,7 @@ static int parse_attribute_fingerprint(struct sdp_attribute *output) {
 
 	output->fingerprint.hash_func = dtls_find_hash_func(&output->fingerprint.hash_func_str);
 	if (!output->fingerprint.hash_func)
-		return -1;
+		return false;
 
 	assert(sizeof(output->fingerprint.fingerprint) >= output->fingerprint.hash_func->num_bytes);
 
@@ -954,7 +954,7 @@ static int parse_attribute_fingerprint(struct sdp_attribute *output) {
 		else if (c[0] >= 'A' && c[0] <= 'F')
 			output->fingerprint.fingerprint[i] = c[0] - 'A' + 10;
 		else
-			return -1;
+			return false;
 
 		output->fingerprint.fingerprint[i] <<= 4;
 
@@ -965,7 +965,7 @@ static int parse_attribute_fingerprint(struct sdp_attribute *output) {
 		else if (c[1] >= 'A' && c[1] <= 'F')
 			output->fingerprint.fingerprint[i] |= c[1] - 'A' + 10;
 		else
-			return -1;
+			return false;
 
 		if (c[2] != ':')
 			goto done;
@@ -973,16 +973,16 @@ static int parse_attribute_fingerprint(struct sdp_attribute *output) {
 		c += 3;
 	}
 
-	return -1;
+	return false;
 
 done:
 	if (++i != output->fingerprint.hash_func->num_bytes)
-		return -1;
+		return false;
 
-	return 0;
+	return true;
 }
 
-static int parse_attribute_setup(struct sdp_attribute *output) {
+static bool parse_attribute_setup(struct sdp_attribute *output) {
 	output->attr = ATTR_SETUP;
 
 	if (!str_cmp(&output->strs.value, "actpass"))
@@ -994,10 +994,10 @@ static int parse_attribute_setup(struct sdp_attribute *output) {
 	else if (!str_cmp(&output->strs.value, "holdconn"))
 		output->setup.value = SETUP_HOLDCONN;
 
-	return 0;
+	return true;
 }
 
-static int parse_attribute_rtcp_fb(struct sdp_attribute *output) {
+static bool parse_attribute_rtcp_fb(struct sdp_attribute *output) {
 	struct attribute_rtcp_fb *a;
 
 	output->attr = ATTR_RTCP_FB;
@@ -1012,13 +1012,13 @@ static int parse_attribute_rtcp_fb(struct sdp_attribute *output) {
 	else {
 		a->payload_type = str_to_i(&a->payload_type_str, -1);
 		if (a->payload_type == -1)
-			return -1;
+			return false;
 	}
 
-	return 0;
+	return true;
 }
 
-static int parse_attribute_rtpmap(struct sdp_attribute *output) {
+static bool parse_attribute_rtpmap(struct sdp_attribute *output) {
 	char *ep;
 	struct attribute_rtpmap *a;
 	rtp_payload_type *pt;
@@ -1036,10 +1036,10 @@ static int parse_attribute_rtpmap(struct sdp_attribute *output) {
 
 	pt->payload_type = strtoul(a->payload_type_str.s, &ep, 10);
 	if (ep == a->payload_type_str.s)
-		return -1;
+		return false;
 
 	if (!str_chr_str(&a->clock_rate_str, &a->encoding_str, '/'))
-		return -1;
+		return false;
 
 	pt->encoding = a->encoding_str;
 	pt->encoding.len -= a->clock_rate_str.len;
@@ -1058,16 +1058,16 @@ static int parse_attribute_rtpmap(struct sdp_attribute *output) {
 	}
 
 	if (!a->clock_rate_str.len)
-		return -1;
+		return false;
 
 	pt->clock_rate = strtoul(a->clock_rate_str.s, &ep, 10);
 	if (ep && ep != a->clock_rate_str.s + a->clock_rate_str.len)
-		return -1;
+		return false;
 
-	return 0;
+	return true;
 }
 
-static int parse_attribute_fmtp(struct sdp_attribute *output) {
+static bool parse_attribute_fmtp(struct sdp_attribute *output) {
 	struct attribute_fmtp *a;
 
 	output->attr = ATTR_FMTP;
@@ -1079,19 +1079,19 @@ static int parse_attribute_fmtp(struct sdp_attribute *output) {
 
 	a->payload_type = str_to_i(&a->payload_type_str, -1);
 	if (a->payload_type == -1)
-		return -1;
+		return false;
 
-	return 0;
+	return true;
 }
 
-static int parse_attribute_int(struct sdp_attribute *output, enum attr_id attr_id, int defval) {
+static bool parse_attribute_int(struct sdp_attribute *output, enum attr_id attr_id, int defval) {
 	output->attr = attr_id;
 	output->i = str_to_i(&output->strs.value, defval);
-	return 0;
+	return true;
 }
 
 // XXX combine this with parse_attribute_setup ?
-static int parse_attribute_t38faxudpec(struct sdp_attribute *output) {
+static bool parse_attribute_t38faxudpec(struct sdp_attribute *output) {
 	output->attr = ATTR_T38FAXUDPEC;
 
 	switch (__csh_lookup(&output->strs.value)) {
@@ -1109,11 +1109,11 @@ static int parse_attribute_t38faxudpec(struct sdp_attribute *output) {
 			break;
 	}
 
-	return 0;
+	return true;
 }
 
 // XXX combine this with parse_attribute_setup ?
-static int parse_attribute_t38faxratemanagement(struct sdp_attribute *output) {
+static bool parse_attribute_t38faxratemanagement(struct sdp_attribute *output) {
 	output->attr = ATTR_T38FAXRATEMANAGEMENT;
 
 	switch (__csh_lookup(&output->strs.value)) {
@@ -1128,10 +1128,10 @@ static int parse_attribute_t38faxratemanagement(struct sdp_attribute *output) {
 			break;
 	}
 
-	return 0;
+	return true;
 }
 
-static int parse_attribute_t38faxudpecdepth(struct sdp_attribute *output) {
+static bool parse_attribute_t38faxudpecdepth(struct sdp_attribute *output) {
 	struct attribute_t38faxudpecdepth *a;
 
 	output->attr = ATTR_T38FAXUDPECDEPTH;
@@ -1144,13 +1144,11 @@ static int parse_attribute_t38faxudpecdepth(struct sdp_attribute *output) {
 	a->minred = str_to_i(&a->minred_str, 0);
 	a->maxred = str_to_i(&a->maxred_str, -1);
 
-	return 0;
+	return true;
 }
 
 
-static int parse_attribute(struct sdp_attribute *a) {
-	int ret;
-
+static bool parse_attribute(struct sdp_attribute *a) {
 	a->strs.name = a->strs.line_value;
 	if (str_chr_str(&a->strs.value, &a->strs.name, ':')) {
 		a->strs.name.len -= a->strs.value.len;
@@ -1172,7 +1170,7 @@ static int parse_attribute(struct sdp_attribute *a) {
 			a->strs.key.len += 1 + a->strs.value.len;
 	}
 
-	ret = 0;
+	bool ret = true;
 	switch (__csh_lookup(&a->strs.name)) {
 		case CSH_LOOKUP("mid"):
 			a->attr = ATTR_MID;
@@ -1367,7 +1365,7 @@ new_session:
 				if (media)
 					goto error;
 				errstr = "Error parsing o= line";
-				if (parse_origin(&value, &session->origin))
+				if (!parse_origin(&value, &session->origin))
 					goto error;
 
 				break;
@@ -1377,7 +1375,7 @@ new_session:
 				media->session = session;
 				attrs_init(&media->attributes);
 				errstr = "Error parsing m= line";
-				if (parse_media(&value, media))
+				if (!parse_media(&value, media))
 					goto error;
 				t_queue_push_tail(&session->media_streams, media);
 				media->s = full_line;
@@ -1387,7 +1385,7 @@ new_session:
 
 			case 'c':
 				errstr = "Error parsing c= line";
-				if (parse_connection(&value,
+				if (!parse_connection(&value,
 						media ? &media->connection : &session->connection))
 					goto error;
 
@@ -1399,7 +1397,7 @@ new_session:
 				attr->full_line = full_line;
 				attr->strs.line_value = value;
 
-				if (parse_attribute(attr)) {
+				if (!parse_attribute(attr)) {
 					attr_free(attr);
 					break;
 				}
