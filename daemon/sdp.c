@@ -67,8 +67,8 @@ enum attr_id {
 	ATTR_END_OF_CANDIDATES,
 	ATTR_MOH_ATTR_NAME,
 };
-// make sure g_int_hash can be used
-static_assert(sizeof(gint) == sizeof(enum attr_id), "sizeof enum attr_id wrong");
+// make sure g_direct_hash can be used
+static_assert(sizeof(void *) >= sizeof(enum attr_id), "sizeof enum attr_id wrong");
 
 struct sdp_connection {
 	str s;
@@ -76,17 +76,9 @@ struct sdp_connection {
 	unsigned int parsed:1;
 };
 
-INLINE unsigned int attr_id_hash(const enum attr_id *e) {
-	int i = *e;
-	return g_int_hash(&i);
-}
-INLINE gboolean attr_id_eq(const enum attr_id *a, const enum attr_id *b) {
-	return *a == *b;
-}
-
 TYPED_GQUEUE(attributes, struct sdp_attribute)
-TYPED_GHASHTABLE(attr_id_ht, enum attr_id, struct sdp_attribute, attr_id_hash, attr_id_eq, NULL, NULL)
-TYPED_GHASHTABLE(attr_list_ht, enum attr_id, attributes_q, attr_id_hash, attr_id_eq, NULL, g_queue_free)
+TYPED_GHASHTABLE(attr_id_ht, void, struct sdp_attribute, g_direct_hash, g_direct_equal, NULL, NULL)
+TYPED_GHASHTABLE(attr_list_ht, void, attributes_q, g_direct_hash, g_direct_equal, NULL, g_queue_free)
 TYPED_GHASHTABLE_LOOKUP_INSERT(attr_list_ht, NULL, attributes_q_new)
 
 struct sdp_attributes {
@@ -431,10 +423,10 @@ INLINE void append_attr_to_gstring(GString *s, const char * name, const str * va
 	append_str_attr_to_gstring(s, STR_PTR(name), value, flags, media_type);
 }
 INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, enum attr_id id) {
-	return t_hash_table_lookup(a->id_hash, &id);
+	return t_hash_table_lookup(a->id_hash, GINT_TO_POINTER(id));
 }
 INLINE attributes_q *attr_list_get_by_id(struct sdp_attributes *a, enum attr_id id) {
-	return t_hash_table_lookup(a->id_lists_hash, &id);
+	return t_hash_table_lookup(a->id_lists_hash, GINT_TO_POINTER(id));
 }
 
 static struct sdp_attribute *attr_get_by_id_m_s(struct sdp_media *m, enum attr_id id) {
@@ -576,10 +568,11 @@ static void attrs_init(struct sdp_attributes *a) {
 static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr) {
 	t_queue_push_tail(&attrs->list, attr);
 
-	if (!t_hash_table_lookup(attrs->id_hash, &attr->attr))
-		t_hash_table_insert(attrs->id_hash, &attr->attr, attr);
+	if (!t_hash_table_lookup(attrs->id_hash, GINT_TO_POINTER(attr->attr)))
+		t_hash_table_insert(attrs->id_hash, GINT_TO_POINTER(attr->attr), attr);
 
-	attributes_q *attr_queue = attr_list_ht_lookup_insert(attrs->id_lists_hash, &attr->attr);
+	attributes_q *attr_queue = attr_list_ht_lookup_insert(attrs->id_lists_hash,
+			GINT_TO_POINTER(attr->attr));
 
 	t_queue_push_tail(attr_queue, attr);
 
@@ -1491,20 +1484,21 @@ static bool __rtp_payload_types(struct stream_params *sp, struct sdp_media *medi
 		return true;
 
 	/* first go through a=rtpmap and build a hash table of attrs */
-	g_autoptr(GHashTable) ht_rtpmap = g_hash_table_new(g_int_hash, g_int_equal);
+	g_autoptr(GHashTable) ht_rtpmap = g_hash_table_new(g_direct_hash, g_direct_equal);
 	attributes_q *q = attr_list_get_by_id(&media->attributes, ATTR_RTPMAP);
 	for (__auto_type ql = q ? q->head : NULL; ql; ql = ql->next) {
 		rtp_payload_type *pt;
 		attr = ql->data;
 		pt = &attr->rtpmap.rtp_pt;
-		g_hash_table_insert(ht_rtpmap, &pt->payload_type, pt);
+		g_hash_table_insert(ht_rtpmap, GINT_TO_POINTER(pt->payload_type), pt);
 	}
 	// do the same for a=fmtp
-	g_autoptr(GHashTable) ht_fmtp = g_hash_table_new(g_int_hash, g_int_equal);
+	g_autoptr(GHashTable) ht_fmtp = g_hash_table_new(g_direct_hash, g_direct_equal);
 	q = attr_list_get_by_id(&media->attributes, ATTR_FMTP);
 	for (__auto_type ql = q ? q->head : NULL; ql; ql = ql->next) {
 		attr = ql->data;
-		g_hash_table_insert(ht_fmtp, &attr->fmtp.payload_type, &attr->fmtp.format_parms_str);
+		g_hash_table_insert(ht_fmtp, GINT_TO_POINTER(attr->fmtp.payload_type),
+				&attr->fmtp.format_parms_str);
 	}
 	// do the same for a=rtcp-fb
 	g_autoptr(GHashTable) ht_rtcp_fb = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, (GDestroyNotify) g_queue_free);
@@ -1536,7 +1530,7 @@ static bool __rtp_payload_types(struct stream_params *sp, struct sdp_media *medi
 		/* first look in rtpmap for a match, then check RFC types,
 		 * else fall back to an "unknown" type */
 		ptrfc = rtp_get_rfc_payload_type(i);
-		ptl = g_hash_table_lookup(ht_rtpmap, &i);
+		ptl = g_hash_table_lookup(ht_rtpmap, GINT_TO_POINTER(i));
 
 		pt = memory_arena_alloc0(rtp_payload_type);
 		if (ptl)
@@ -1546,7 +1540,7 @@ static bool __rtp_payload_types(struct stream_params *sp, struct sdp_media *medi
 		else
 			pt->payload_type = i;
 
-		s = g_hash_table_lookup(ht_fmtp, &i);
+		s = g_hash_table_lookup(ht_fmtp, GINT_TO_POINTER(i));
 		if (s)
 			pt->format_parameters = *s;
 		else
