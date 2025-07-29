@@ -2350,7 +2350,7 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc)
 			g_atomic_pointer_set(&phc->mp.stream->rtp_stats_cache, rtp_s);
 		}
 	}
-	else if (phc->rtcp && !rtcp_payload(&phc->mp.rtcp, NULL, &phc->s)) {
+	else if (phc->rtcp && (phc->mp.rtcp = rtcp_payload(NULL, &phc->s))) {
 		unkern = __stream_ssrc_in(phc->in_srtp, phc->mp.rtcp->ssrc, &phc->mp.ssrc_in,
 				&phc->mp.media->ssrc_hash_in);
 	}

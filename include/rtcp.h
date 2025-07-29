@@ -20,7 +20,8 @@ extern struct rtcp_handler *rtcp_sink_handler;
 int rtcp_avp2savp(str *, struct crypto_context *, struct ssrc_entry_call *);
 int rtcp_savp2avp(str *, struct crypto_context *, struct ssrc_entry_call *);
 
-int rtcp_payload(struct rtcp_packet **out, str *p, const str *s);
+__attribute__((nonnull(2)))
+struct rtcp_packet *rtcp_payload(str *p, const str *s);
 
 int rtcp_parse(GQueue *q, struct media_packet *);
 void rtcp_list_free(GQueue *q);

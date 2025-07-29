@@ -797,7 +797,7 @@ error:
 	return -1;
 }
 
-int rtcp_payload(struct rtcp_packet **out, str *p, const str *s) {
+struct rtcp_packet *rtcp_payload(str *p, const str *s) {
 	struct rtcp_packet *rtcp;
 	const char *err;
 
@@ -829,17 +829,16 @@ int rtcp_payload(struct rtcp_packet **out, str *p, const str *s) {
 
 ok:
 	if (!p)
-		goto done;
+		return rtcp;
 
 	*p = *s;
 	str_shift(p, sizeof(*rtcp));
 
-done:
-	*out = rtcp;
-	return 0;
+	return rtcp;
+
 error:
 	ilogs(rtcp, LOG_DEBUG | LOG_FLAG_LIMIT, "Error parsing RTCP header: %s", err);
-	return -1;
+	return NULL;
 }
 
 /* rfc 3711 section 3.4 */
@@ -851,7 +850,7 @@ int rtcp_avp2savp(str *s, struct crypto_context *c, struct ssrc_entry_call *ssrc
 
 	if (G_UNLIKELY(!ssrc_ctx))
 		return -1;
-	if (rtcp_payload(&rtcp, &payload, s))
+	if (!(rtcp = rtcp_payload(&payload, s)))
 		return -1;
 	if (check_session_keys(c))
 		return -1;
@@ -900,7 +899,7 @@ int rtcp_savp2avp(str *s, struct crypto_context *c, struct ssrc_entry_call *ssrc
 
 	if (G_UNLIKELY(!ssrc_ctx))
 		return -1;
-	if (rtcp_payload(&rtcp, &payload, s))
+	if (!(rtcp = rtcp_payload(&payload, s)))
 		return -1;
 	if (check_session_keys(c))
 		return -1;
