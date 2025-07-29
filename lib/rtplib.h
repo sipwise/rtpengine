@@ -127,7 +127,8 @@ extern const struct rtp_payload_type rfc_rtp_payload_types[];
 extern const int num_rfc_rtp_payload_types;
 
 
-int rtp_payload(struct rtp_header **out, str *p, const str *s);
+__attribute__((nonnull(2)))
+struct rtp_header *rtp_payload(str *p, const str *s);
 int rtp_padding(const struct rtp_header *header, str *payload);
 const struct rtp_payload_type *rtp_get_rfc_payload_type(unsigned int type);
 const struct rtp_payload_type *rtp_get_rfc_codec(const str *codec);

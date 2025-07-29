@@ -59,7 +59,7 @@ const int num_rfc_rtp_payload_types = G_N_ELEMENTS(rfc_rtp_payload_types);
 
 
 
-int rtp_payload(struct rtp_header **out, str *p, const str *s) {
+struct rtp_header *rtp_payload(str *p, const str *s) {
 	struct rtp_header *rtp;
 	struct rtp_extension *ext;
 	const char *err;
@@ -74,7 +74,7 @@ int rtp_payload(struct rtp_header **out, str *p, const str *s) {
 		goto error;
 
 	if (!p)
-		goto done;
+		return rtp;
 
 	*p = *s;
 	/* fixed header */
@@ -95,14 +95,11 @@ int rtp_payload(struct rtp_header **out, str *p, const str *s) {
 			goto error;
 	}
 
-done:
-	*out = rtp;
-
-	return 0;
+	return rtp;
 
 error:
 	ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Error parsing RTP header: %s", err);
-	return -1;
+	return NULL;
 }
 
 

@@ -2320,7 +2320,7 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc)
 
 	const char *unkern = NULL;
 
-	if (G_LIKELY(!phc->rtcp && !rtp_payload(&phc->mp.rtp, &phc->mp.payload, &phc->s))) {
+	if (G_LIKELY(!phc->rtcp && (phc->mp.rtp = rtp_payload(&phc->mp.payload, &phc->s)))) {
 		unkern = __stream_ssrc_in(phc->in_srtp, phc->mp.rtp->ssrc, &phc->mp.ssrc_in,
 				&phc->mp.media->ssrc_hash_in);
 
