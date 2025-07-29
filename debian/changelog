@@ -1,3 +1,15 @@
+ngcp-rtpengine (10.5.10.0+0~mr10.5.10.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [af82915] MT#55283 fix kernel compilation for >= 6.13
+  * [0bb1cdb] MT#55283 fork to background before init HTTP/WS
+  * [e87bf9d] MT#55283 el: don't fork to background
+  * [3ee2327] MT#55283 fix off by one bug
+  * [ea6f3fa] MT#62735 fix heuristic learning mode
+  * [3c58307] MT#62735 add tests for heuristic learning mode
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 29 Jul 2025 11:33:18 +0200
+
 ngcp-rtpengine (10.5.9.0+0~mr10.5.9.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
