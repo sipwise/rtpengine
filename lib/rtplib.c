@@ -59,7 +59,7 @@ const int num_rfc_rtp_payload_types = G_N_ELEMENTS(rfc_rtp_payload_types);
 
 
 
-struct rtp_header *rtp_payload(str *p, const str *s) {
+struct rtp_header *rtp_payload(str *p, const str *s, str *exts) {
 	struct rtp_header *rtp;
 	const char *err;
 
@@ -90,8 +90,11 @@ struct rtp_header *rtp_payload(str *p, const str *s) {
 		if (p->len < sizeof(*ext))
 			goto error;
 		ext = (void *) p->s;
+		size_t ext_len = sizeof(*ext) + ntohs(ext->length) * 4;
+		if (exts)
+			*exts = STR_LEN(p->s, ext_len);
 		err = "short packet (header extensions)";
-		if (str_shift(p, sizeof(*ext) + ntohs(ext->length) * 4))
+		if (str_shift(p, ext_len))
 			goto error;
 	}
 

@@ -184,7 +184,7 @@ void packet_process(stream_t *stream, unsigned char *buf, unsigned len) {
 	if (rtcp_demux_is_rtcp(&bufstr))
 		goto ignore; // for now
 
-	if (!(packet->rtp = rtp_payload(&packet->payload, &bufstr)))
+	if (!(packet->rtp = rtp_payload(&packet->payload, &bufstr, NULL)))
 		goto err;
 	if (!rtp_padding(packet->rtp, &packet->payload))
 		goto err;

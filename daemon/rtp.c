@@ -109,7 +109,7 @@ int rtp_avp2savp(str *s, struct crypto_context *c, struct ssrc_entry_call *ssrc_
 
 	if (G_UNLIKELY(!ssrc_ctx))
 		return -1;
-	if (!(rtp = rtp_payload(&payload, s)))
+	if (!(rtp = rtp_payload(&payload, s, NULL)))
 		return -1;
 	if (check_session_keys(c))
 		return -1;
@@ -149,7 +149,7 @@ int rtp_update_index(str *s, struct packet_stream *ps, struct ssrc_entry_call *s
 
 	if (G_UNLIKELY(!ssrc))
 		return -1;
-	if (!(rtp = rtp_payload(NULL, s)))
+	if (!(rtp = rtp_payload(NULL, s, NULL)))
 		return -1;
 	g_autoptr(crypto_debug_string) cds = NULL;
 	packet_index(ssrc, rtp, &cds);
@@ -165,7 +165,7 @@ int rtp_savp2avp(str *s, struct crypto_context *c, struct ssrc_entry_call *ssrc_
 
 	if (G_UNLIKELY(!ssrc_ctx))
 		return -1;
-	if (!(rtp = rtp_payload(&payload, s)))
+	if (!(rtp = rtp_payload(&payload, s, NULL)))
 		return -1;
 	if (check_session_keys(c))
 		return -1;

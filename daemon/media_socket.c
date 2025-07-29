@@ -2296,7 +2296,7 @@ static void media_packet_parse(struct packet_handler_ctx *phc) {
 		return;
 
 	if (!phc->rtcp) {
-		phc->mp.rtp = rtp_payload(&phc->mp.payload, &phc->s);
+		phc->mp.rtp = rtp_payload(&phc->mp.payload, &phc->s, NULL);
 		if (G_LIKELY(phc->mp.rtp)) {
 			// check the payload type
 			// XXX redundant between SSRC handling and codec_handler stuff -> combine
