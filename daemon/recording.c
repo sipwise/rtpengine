@@ -738,6 +738,8 @@ static void stream_pcap_dump(struct media_packet *mp, const str *s) {
 static void dump_packet_pcap(struct media_packet *mp, const str *s) {
 	if (ML_ISSET(mp->media->monologue, NO_RECORDING))
 		return;
+	if (!CALL_ISSET(mp->call, RECORDING_ON))
+		return;
 	struct recording *recording = mp->call->recording;
 	mutex_lock(&recording->pcap.recording_lock);
 	stream_pcap_dump(mp, s);
@@ -1035,6 +1037,8 @@ static void setup_media_proc(struct call_media *media) {
 static void dump_packet_proc(struct media_packet *mp, const str *s) {
 	struct packet_stream *stream = mp->stream;
 	if (stream->recording.proc.stream_idx == UNINIT_IDX)
+		return;
+	if (!CALL_ISSET(mp->call, RECORDING_ON))
 		return;
 
 	struct rtpengine_command_packet *cmd;
