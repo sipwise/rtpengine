@@ -290,6 +290,7 @@ static inline void rtp_extension_free(struct rtp_extension *r) {
 }
 
 TYPED_GQUEUE(extmap, struct rtp_extension);
+TYPED_GHASHTABLE(extmap_ht, void, struct rtp_extension, g_direct_hash, g_direct_equal, NULL, NULL);
 
 
 extern local_intf_q all_local_interfaces; // read-only during runtime

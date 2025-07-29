@@ -486,6 +486,9 @@ struct call_media {
 	struct ice_agent	*ice_agent;
 
 	extmap_q		extmap; // container
+	struct rtp_extension	*extmap_a[14]; // 1-14 -> [0..13]
+	extmap_ht		extmap_ht;
+	struct rtp_extension	*(*extmap_lookup)(struct call_media *, unsigned int);
 
 	str			media_id;
 	str			label;

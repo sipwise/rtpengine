@@ -658,6 +658,16 @@ void call_free(void) {
 
 
 
+static struct rtp_extension *call_media_ext_lookup_array(struct call_media *m, unsigned int id) {
+	if (id == 0 || id > 14)
+		return NULL;
+	return m->extmap_a[id - 1];
+}
+static struct rtp_extension *call_media_ext_lookup_ht(struct call_media *m, unsigned int id) {
+	return t_hash_table_lookup(m->extmap_ht, GUINT_TO_POINTER(id));
+}
+
+
 struct call_media *call_media_new(call_t *call) {
 	struct call_media *med;
 	med = uid_alloc(&call->medias);
@@ -671,6 +681,8 @@ struct call_media *call_media_new(call_t *call) {
 	RESET_BANDWIDTH(med->sdp_media_bandwidth, -1);
 	ssrc_hash_call_init(&med->ssrc_hash_in);
 	ssrc_hash_call_init(&med->ssrc_hash_out);
+	med->extmap_ht = extmap_ht_new();
+	med->extmap_lookup = call_media_ext_lookup_array;
 	return med;
 }
 
@@ -2851,6 +2863,13 @@ static void media_set_siprec_label(struct call_media *other_media, struct call_m
 __attribute__((nonnull(1, 2)))
 static void media_init_extmap(struct call_media *media, struct rtp_extension *ext) {
 	ext->name = call_str_cpy(&ext->name);
+
+	t_hash_table_insert(media->extmap_ht, GUINT_TO_POINTER(ext->id), ext);
+
+	if (ext->id > 0 && ext->id <= 14)
+		media->extmap_a[ext->id - 1] = ext;
+	else
+		media->extmap_lookup = call_media_ext_lookup_ht;
 }
 
 __attribute__((nonnull(1, 2)))
@@ -2860,7 +2879,11 @@ static void media_update_extmap(struct call_media *media, struct stream_params *
 	media->extmap = sp->extmap;
 	t_queue_init(&sp->extmap);
 
-	// copy strings
+	t_hash_table_remove_all(media->extmap_ht);
+	memset(media->extmap_a, 0, sizeof(media->extmap_a));
+	media->extmap_lookup = call_media_ext_lookup_array;
+
+	// init entries
 	for (__auto_type ll = media->extmap.head; ll; ll = ll->next) {
 		__auto_type ext = ll->data;
 		media_init_extmap(media, ext);
@@ -4397,6 +4420,7 @@ void call_media_free(struct call_media **mdp) {
 	mutex_destroy(&md->dtmf_lock);
 	ssrc_hash_destroy(&md->ssrc_hash_in);
 	ssrc_hash_destroy(&md->ssrc_hash_out);
+	t_hash_table_destroy(md->extmap_ht);
 	t_queue_clear_full(&md->extmap, rtp_extension_free);
 	g_free(md);
 	*mdp = NULL;
