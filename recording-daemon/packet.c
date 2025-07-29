@@ -186,7 +186,7 @@ void packet_process(stream_t *stream, unsigned char *buf, unsigned len) {
 
 	if (!(packet->rtp = rtp_payload(&packet->payload, &bufstr)))
 		goto err;
-	if (rtp_padding(packet->rtp, &packet->payload))
+	if (!rtp_padding(packet->rtp, &packet->payload))
 		goto err;
 
 	packet->p.seq = ntohs(packet->rtp->seq_num);

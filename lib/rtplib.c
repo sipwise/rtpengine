@@ -103,18 +103,18 @@ error:
 }
 
 
-int rtp_padding(const struct rtp_header *header, str *payload) {
+bool rtp_padding(const struct rtp_header *header, str *payload) {
 	if (!header || !payload->s)
-		return 0;
+		return true;
 	if (!(header->v_p_x_cc & 0x20))
-		return 0; // no padding
+		return true; // no padding
 	if (payload->len == 0)
-		return -1;
+		return false;
 	unsigned int padding = (unsigned char) payload->s[payload->len - 1];
 	if (payload->len < padding)
-		return -1;
+		return false;
 	payload->len -= padding;
-	return 0;
+	return true;
 }
 
 
