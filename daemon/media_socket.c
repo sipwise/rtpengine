@@ -112,10 +112,14 @@ static int __k_null(struct rtpengine_srtp *s, struct packet_stream *);
 static int __k_srtp_encrypt(struct rtpengine_srtp *s, struct packet_stream *);
 static int __k_srtp_decrypt(struct rtpengine_srtp *s, struct packet_stream *);
 
-static int call_avp2savp_rtp(str *s, struct packet_stream *, struct ssrc_entry_call *);
-static int call_savp2avp_rtp(str *s, struct packet_stream *, struct ssrc_entry_call *);
-static int call_avp2savp_rtcp(str *s, struct packet_stream *, struct ssrc_entry_call *);
-static int call_savp2avp_rtcp(str *s, struct packet_stream *, struct ssrc_entry_call *);
+static int call_avp2savp_rtp(const struct rtp_header *, str *s, str *payload, struct packet_stream *,
+		struct ssrc_entry_call *);
+static int call_savp2avp_rtp(const struct rtp_header *, str *s, str *payload, struct packet_stream *,
+		struct ssrc_entry_call *);
+static int call_avp2savp_rtcp(const struct rtcp_packet *, str *s, str *payload, struct packet_stream *,
+		struct ssrc_entry_call *);
+static int call_savp2avp_rtcp(const struct rtcp_packet *, str *s, str *payload, struct packet_stream *,
+		struct ssrc_entry_call *);
 
 
 static struct logical_intf *__get_logical_interface(const str *name, sockfamily_t *fam);
@@ -1470,21 +1474,25 @@ static void stream_fd_closed(int fd, void *p) {
 
 
 
-static int call_avp2savp_rtp(str *s, struct packet_stream *stream, struct ssrc_entry_call *ssrc_ctx)
+static int call_avp2savp_rtp(const struct rtp_header *rtp, str *s, str *payload, struct packet_stream *stream,
+		struct ssrc_entry_call *ssrc_ctx)
 {
-	return rtp_avp2savp(s, &stream->crypto, ssrc_ctx);
+	return rtp_avp2savp(rtp, s, payload, &stream->crypto, ssrc_ctx);
 }
-static int call_avp2savp_rtcp(str *s, struct packet_stream *stream, struct ssrc_entry_call *ssrc_ctx)
+static int call_avp2savp_rtcp(const struct rtcp_packet *rtcp, str *s, str *payload, struct packet_stream *stream,
+		struct ssrc_entry_call *ssrc_ctx)
 {
-	return rtcp_avp2savp(s, &stream->crypto, ssrc_ctx);
+	return rtcp_avp2savp(rtcp, s, payload, &stream->crypto, ssrc_ctx);
 }
-static int call_savp2avp_rtp(str *s, struct packet_stream *stream, struct ssrc_entry_call *ssrc_ctx)
+static int call_savp2avp_rtp(const struct rtp_header *rtp, str *s, str *payload, struct packet_stream *stream,
+		struct ssrc_entry_call *ssrc_ctx)
 {
-	return rtp_savp2avp(s, &stream->selected_sfd->crypto, ssrc_ctx);
+	return rtp_savp2avp(rtp, s, payload, &stream->selected_sfd->crypto, ssrc_ctx);
 }
-static int call_savp2avp_rtcp(str *s, struct packet_stream *stream, struct ssrc_entry_call *ssrc_ctx)
+static int call_savp2avp_rtcp(const struct rtcp_packet *rtcp, str *s, str *payload, struct packet_stream *stream,
+		struct ssrc_entry_call *ssrc_ctx)
 {
-	return rtcp_savp2avp(s, &stream->selected_sfd->crypto, ssrc_ctx);
+	return rtcp_savp2avp(rtcp, s, payload, &stream->selected_sfd->crypto, ssrc_ctx);
 }
 
 
@@ -2411,18 +2419,22 @@ static int media_packet_decrypt(struct packet_handler_ctx *phc)
 	struct sink_handler *first_sh = phc->sinks->length ? phc->sinks->head->data : NULL;
 	const struct streamhandler *sh = __determine_handler(phc->in_srtp, first_sh);
 
-	// XXX use an array with index instead of if/else
-	if (G_LIKELY(!phc->rtcp))
+	rewrite_arg header;
+	if (G_LIKELY(!phc->rtcp)) {
 		phc->decrypt_func = sh->in->rtp_crypt;
-	else
+		header.rtp = phc->mp.rtp;
+	}
+	else {
 		phc->decrypt_func = sh->in->rtcp_crypt;
+		header.rtcp = phc->mp.rtcp;
+	}
 
 	/* return values are: 0 = forward packet, -1 = error/don't forward,
 	 * 1 = forward and push update to redis */
 	int ret = 0;
 	if (phc->decrypt_func) {
 		str ori_s = phc->s;
-		ret = phc->decrypt_func(&phc->s, phc->in_srtp, phc->mp.ssrc_in);
+		ret = phc->decrypt_func(header, &phc->s, &phc->mp.payload, phc->in_srtp, phc->mp.ssrc_in);
 		// XXX for stripped auth tag and duplicate invocations of rtp_payload
 		// XXX transcoder uses phc->mp.payload
 		phc->mp.payload.len -= ori_s.len - phc->s.len;
@@ -2463,7 +2475,16 @@ int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, s
 			memcpy(p->plain.s, p->s.s, p->s.len);
 			p->plain_free_func = bufferpool_unref;
 		}
-		int encret = encrypt_func(&p->s, out, mp->ssrc_out);
+
+		rewrite_arg header = {};
+		str payload = STR_NULL;
+		if (mp->rtp)
+			header.rtp = rtp_payload(&payload, &p->s, NULL);
+		else if (mp->rtcp)
+			header.rtcp = rtcp_payload(&payload, &p->s);
+
+		int encret = encrypt_func(header, &p->s, &payload, out, mp->ssrc_out);
+
 		if (encret == 1)
 			ret |= 0x02;
 		else if (encret != 0)

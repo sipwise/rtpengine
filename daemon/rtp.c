@@ -43,7 +43,7 @@ error:
 	return -1;
 }
 
-static unsigned int packet_index(struct ssrc_entry_call *ssrc_ctx, struct rtp_header *rtp,
+static unsigned int packet_index(struct ssrc_entry_call *ssrc_ctx, const struct rtp_header *rtp,
 		crypto_debug_string **cds)
 {
 	uint16_t seq;
@@ -102,14 +102,15 @@ void rtp_append_mki(str *s, struct crypto_context *c, crypto_debug_string *cds) 
 }
 
 /* rfc 3711, section 3.3 */
-int rtp_avp2savp(str *s, struct crypto_context *c, struct ssrc_entry_call *ssrc_ctx) {
-	struct rtp_header *rtp;
-	str payload, to_auth;
+int rtp_avp2savp(const struct rtp_header *rtp, str *s, str *payload, struct crypto_context *c,
+		struct ssrc_entry_call *ssrc_ctx)
+{
+	str to_auth;
 	unsigned int index;
 
 	if (G_UNLIKELY(!ssrc_ctx))
 		return -1;
-	if (!(rtp = rtp_payload(&payload, s, NULL)))
+	if (G_UNLIKELY(!rtp))
 		return -1;
 	if (check_session_keys(c))
 		return -1;
@@ -118,16 +119,16 @@ int rtp_avp2savp(str *s, struct crypto_context *c, struct ssrc_entry_call *ssrc_
 	index = packet_index(ssrc_ctx, rtp, &cds);
 
 	crypto_debug_printf(cds, ", plain pl: ");
-	crypto_debug_dump(cds, &payload);
+	crypto_debug_dump(cds, payload);
 
 	/* rfc 3711 section 3.1 */
-	int prev_len = payload.len;
-	if (!c->params.session_params.unencrypted_srtp && crypto_encrypt_rtp(c, rtp, &payload, index))
+	size_t prev_len = payload->len;
+	if (!c->params.session_params.unencrypted_srtp && crypto_encrypt_rtp(c, rtp, payload, index))
 		return -1;
-	s->len += payload.len - prev_len;
+	s->len += payload->len - prev_len;
 
 	crypto_debug_printf(cds, ", enc pl: ");
-	crypto_debug_dump(cds, &payload);
+	crypto_debug_dump(cds, payload);
 
 	to_auth = *s;
 
@@ -144,12 +145,12 @@ int rtp_avp2savp(str *s, struct crypto_context *c, struct ssrc_entry_call *ssrc_
 }
 
 // just updates the ext_seq in ssrc
-int rtp_update_index(str *s, struct packet_stream *ps, struct ssrc_entry_call *ssrc) {
-	struct rtp_header *rtp;
-
+int rtp_update_index(const struct rtp_header *rtp, str *s, str *payload, struct packet_stream *ps,
+		struct ssrc_entry_call *ssrc)
+{
 	if (G_UNLIKELY(!ssrc))
 		return -1;
-	if (!(rtp = rtp_payload(NULL, s, NULL)))
+	if (G_UNLIKELY(!rtp))
 		return -1;
 	g_autoptr(crypto_debug_string) cds = NULL;
 	packet_index(ssrc, rtp, &cds);
@@ -157,15 +158,16 @@ int rtp_update_index(str *s, struct packet_stream *ps, struct ssrc_entry_call *s
 }
 
 /* rfc 3711, section 3.3 */
-int rtp_savp2avp(str *s, struct crypto_context *c, struct ssrc_entry_call *ssrc_ctx) {
-	struct rtp_header *rtp;
+int rtp_savp2avp(const struct rtp_header *rtp, str *s, str *payload, struct crypto_context *c,
+		struct ssrc_entry_call *ssrc_ctx)
+{
 	unsigned int index;
-	str payload, to_auth, to_decrypt, auth_tag;
+	str to_auth, to_decrypt, auth_tag;
 	char hmac[20];
 
 	if (G_UNLIKELY(!ssrc_ctx))
 		return -1;
-	if (!(rtp = rtp_payload(&payload, s, NULL)))
+	if (G_UNLIKELY(!rtp))
 		return -1;
 	if (check_session_keys(c))
 		return -1;
@@ -175,7 +177,7 @@ int rtp_savp2avp(str *s, struct crypto_context *c, struct ssrc_entry_call *ssrc_
 	if (srtp_payloads(&to_auth, &to_decrypt, &auth_tag, NULL,
 			c->params.session_params.unauthenticated_srtp ? 0 : c->params.crypto_suite->srtp_auth_tag,
 			c->params.mki_len,
-			s, &payload))
+			s, payload))
 		return -1;
 
 	crypto_debug_printf(cds, ", enc pl: ");

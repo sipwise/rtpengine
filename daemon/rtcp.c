@@ -842,15 +842,16 @@ error:
 }
 
 /* rfc 3711 section 3.4 */
-int rtcp_avp2savp(str *s, struct crypto_context *c, struct ssrc_entry_call *ssrc_ctx) {
-	struct rtcp_packet *rtcp;
+int rtcp_avp2savp(const struct rtcp_packet *rtcp, str *s, str *payload, struct crypto_context *c,
+		struct ssrc_entry_call *ssrc_ctx)
+{
 	unsigned int i;
 	uint32_t *idx;
-	str to_auth, payload;
+	str to_auth;
 
 	if (G_UNLIKELY(!ssrc_ctx))
 		return -1;
-	if (!(rtcp = rtcp_payload(&payload, s)))
+	if (G_UNLIKELY(!rtcp))
 		return -1;
 	if (check_session_keys(c))
 		return -1;
@@ -859,15 +860,15 @@ int rtcp_avp2savp(str *s, struct crypto_context *c, struct ssrc_entry_call *ssrc
 	g_autoptr(crypto_debug_string) cds = crypto_debug_init(true);
 	crypto_debug_printf(cds, "RTCP SSRC %" PRIx32 ", idx %u, plain pl: ",
 			rtcp->ssrc, i);
-	crypto_debug_dump(cds, &payload);
+	crypto_debug_dump(cds, payload);
 
-	int prev_len = payload.len;
-	if (!c->params.session_params.unencrypted_srtcp && crypto_encrypt_rtcp(c, rtcp, &payload, i))
+	size_t prev_len = payload->len;
+	if (!c->params.session_params.unencrypted_srtcp && crypto_encrypt_rtcp(c, rtcp, payload, i))
 		return -1;
-	s->len += payload.len - prev_len;
+	s->len += payload->len - prev_len;
 
 	crypto_debug_printf(cds, ", enc pl: ");
-	crypto_debug_dump(cds, &payload);
+	crypto_debug_dump(cds, payload);
 
 	idx = (void *) s->s + s->len;
 	*idx = htonl((c->params.session_params.unencrypted_srtcp ? 0ULL : 0x80000000ULL) | i);
@@ -890,16 +891,17 @@ int rtcp_avp2savp(str *s, struct crypto_context *c, struct ssrc_entry_call *ssrc
 
 
 /* rfc 3711 section 3.4 */
-int rtcp_savp2avp(str *s, struct crypto_context *c, struct ssrc_entry_call *ssrc_ctx) {
-	struct rtcp_packet *rtcp;
-	str payload, to_auth, to_decrypt, auth_tag;
+int rtcp_savp2avp(const struct rtcp_packet *rtcp, str *s, str *payload, struct crypto_context *c,
+		struct ssrc_entry_call *ssrc_ctx)
+{
+	str to_auth, to_decrypt, auth_tag;
 	uint32_t idx;
 	char hmac[20];
 	const char *err;
 
 	if (G_UNLIKELY(!ssrc_ctx))
 		return -1;
-	if (!(rtcp = rtcp_payload(&payload, s)))
+	if (G_UNLIKELY(!rtcp))
 		return -1;
 	if (check_session_keys(c))
 		return -1;
@@ -908,7 +910,7 @@ int rtcp_savp2avp(str *s, struct crypto_context *c, struct ssrc_entry_call *ssrc
 
 	if (srtp_payloads(&to_auth, &to_decrypt, &auth_tag, NULL,
 			c->params.crypto_suite->srtcp_auth_tag, c->params.mki_len,
-			s, &payload))
+			s, payload))
 		return -1;
 
 	crypto_debug_printf(cds, "RTCP SSRC %" PRIx32 ", enc pl: ",
@@ -1601,7 +1603,9 @@ void rtcp_send_report(struct call_media *media, struct ssrc_entry_call *ssrc_out
 	if (crypt_handler && crypt_handler->out->rtcp_crypt) {
 		g_string_set_size(sr, sr->len + RTP_BUFFER_TAIL_ROOM);
 		rtcp_packet = STR_LEN(sr->str, sr->len - RTP_BUFFER_TAIL_ROOM);
-		crypt_handler->out->rtcp_crypt(&rtcp_packet, ps, ssrc_out);
+		str payload;
+		struct rtcp_packet *header = rtcp_payload(&payload, &rtcp_packet);
+		crypt_handler->out->rtcp_crypt(header, &rtcp_packet, &payload, ps, ssrc_out);
 	}
 
 	socket_sendto(&ps->selected_sfd->socket, rtcp_packet.s, rtcp_packet.len, &ps->endpoint);

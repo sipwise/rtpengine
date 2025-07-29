@@ -61,7 +61,9 @@ int main(int argc, char **argv) {
 		.stats = &stats,
 	};
 
-	int ret = rtp_savp2avp(&s, &cc, &se);
+	str payload;
+	struct rtp_header *rtp = rtp_payload(&payload, &s, NULL);
+	int ret = rtp_savp2avp(rtp, &s, &payload, &cc, &se);
 	assert(ret == 0);
 	printf("idx %d ROC %d\n", se.stats->ext_seq, se.stats->ext_seq >> 16);
 	return 0;

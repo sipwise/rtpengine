@@ -17,8 +17,10 @@ extern struct rtcp_handler *rtcp_transcode_handler;
 extern struct rtcp_handler *rtcp_sink_handler;
 
 
-int rtcp_avp2savp(str *, struct crypto_context *, struct ssrc_entry_call *);
-int rtcp_savp2avp(str *, struct crypto_context *, struct ssrc_entry_call *);
+int rtcp_avp2savp(const struct rtcp_packet *, str *packet, str *payload, struct crypto_context *,
+		struct ssrc_entry_call *);
+int rtcp_savp2avp(const struct rtcp_packet *, str *packet, str *payload, struct crypto_context *,
+		struct ssrc_entry_call *);
 
 __attribute__((nonnull(2)))
 struct rtcp_packet *rtcp_payload(str *p, const str *s);

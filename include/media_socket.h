@@ -29,7 +29,13 @@ TYPED_GQUEUE(stream_fd, stream_fd)
 
 
 typedef int rtcp_filter_func(struct media_packet *, GQueue *);
-typedef int (*rewrite_func)(str *, struct packet_stream *, struct ssrc_entry_call *);
+
+typedef union {
+	const struct rtp_header *rtp;
+	const struct rtcp_packet *rtcp;
+} rewrite_arg __attribute__ ((__transparent_union__));
+typedef int (*rewrite_func)(rewrite_arg header, str *packet, str *payload, struct packet_stream *,
+		struct ssrc_entry_call *);
 
 
 enum transport_protocol_index {
