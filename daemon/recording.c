@@ -495,8 +495,12 @@ void detect_setup_recording(call_t *call, const sdp_ng_flags *flags) {
 
 	const str *recordcall = &flags->record_call_str;
 
-	if (!str_cmp(recordcall, "yes") || !str_cmp(recordcall, "on") || flags->record_call)
-		recording_start(call);
+	if (!str_cmp(recordcall, "yes") || !str_cmp(recordcall, "on") || flags->record_call) {
+		// Don't auto-start recording if it's currently paused
+		// Only start if there's no existing recording or if recording is not paused
+		if (!call->recording || CALL_ISSET(call, RECORDING_ON))
+			recording_start(call);
+	}
 	else if (!str_cmp(recordcall, "no") || !str_cmp(recordcall, "off"))
 		recording_stop(call);
 	else if (!str_cmp(recordcall, "discard") || flags->discard_recording)
