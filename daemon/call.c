@@ -2937,6 +2937,8 @@ static void media_init_extmap(struct call_media *media, struct rtp_extension *ex
 	t_hash_table_insert(media->ext_name_ht, &ext->name, ext);
 	t_hash_table_insert(media->extmap_ht, GUINT_TO_POINTER(ext->id), ext);
 
+	ext->handler = rtp_extension_get_handler(&ext->name);
+
 	if (ext->id > 0 && ext->id <= 14)
 		media->extmap_a[ext->id - 1] = ext;
 	else

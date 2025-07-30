@@ -2668,6 +2668,25 @@ static void media_packet_rtcp_mux(struct packet_handler_ctx *phc, struct sink_ha
 }
 
 
+static void rtp_ext_mid_parse(struct packet_handler_ctx *phc, const struct rtp_extension_data *data) {
+	__auto_type media = t_hash_table_lookup(phc->mp.media->monologue->media_ids, &data->content);
+	if (!media)
+		return; // XXX log error?
+
+	media_packet_reset_media(phc, media);
+}
+
+static const rtp_ext_handler rtp_ext_mid = {
+	.parse = rtp_ext_mid_parse,
+	.id = RTP_EXT_MID,
+};
+
+rtp_ext_handler rtp_extension_get_handler(const str *name) {
+	if (!str_cmp(name, "urn:ietf:params:rtp-hdrext:sdes:mid"))
+		return rtp_ext_mid;
+	return (rtp_ext_handler) { .id = RTP_EXT_UNKNOWN };
+}
+
 static void media_packet_rtp_extension(struct packet_handler_ctx *phc, unsigned int id, const str *data) {
 	__auto_type ext = phc->mp.media->extmap_ops->lookup(phc->mp.media, id);
 	if (!ext)
@@ -2679,6 +2698,9 @@ static void media_packet_rtp_extension(struct packet_handler_ctx *phc, unsigned 
 	edata->content = *data;
 
 	t_queue_push_tail_link(&phc->mp.extmap, &edata->link);
+
+	if (ext->handler.parse)
+		ext->handler.parse(phc, edata);
 }
 
 static void media_packet_rtp_extensions(struct packet_handler_ctx *phc) {

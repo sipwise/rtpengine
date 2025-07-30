@@ -305,9 +305,30 @@ struct media_packet {
 	int ptime; // returned from decoding
 };
 
+struct packet_handler_ctx;
+
+
+struct rtp_extension;
+
+typedef struct {
+	void (*parse)(struct packet_handler_ctx *, const struct rtp_extension_data *);
+
+	ssize_t (*len)(struct call_media *);
+	ssize_t (*print)(void *dst, struct rtp_extension *, struct call_media *);
+
+	enum {
+		RTP_EXT_MID = 0,
+
+		RTP_EXT_NUM,
+
+		RTP_EXT_UNKNOWN,
+	} id;
+} rtp_ext_handler;
+
 struct rtp_extension {
 	unsigned int id;
 	str name; // urn:ietf:params:rtp- hdrext:... or URI
+	rtp_ext_handler handler;
 	bool accepted:1;
 };
 
@@ -336,6 +357,8 @@ size_t extmap_length_long(const struct media_packet *);
 void extmap_header_long(void *);
 size_t extmap_print_long(void *, const struct rtp_extension_data *);
 
+
+rtp_ext_handler rtp_extension_get_handler(const str *);
 
 
 extern local_intf_q all_local_interfaces; // read-only during runtime
