@@ -499,7 +499,7 @@ struct rtcp_header {
 	uint16_t length;
 	uint32_t ssrc;
 } __attribute__ ((packed));
-struct rtp_extension {
+struct rtp_exthdr {
 	uint16_t undefined;
 	uint16_t length;
 } __attribute__ ((packed));
@@ -5131,7 +5131,7 @@ drop:
 
 /* XXX shared code */
 static void parse_rtp(struct rtp_parsed *rtp, struct sk_buff *skb) {
-	struct rtp_extension *ext;
+	struct rtp_exthdr *ext;
 	size_t ext_len;
 
 	if (skb->len < sizeof(*rtp->rtp_header))
