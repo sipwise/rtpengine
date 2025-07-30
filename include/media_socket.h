@@ -281,6 +281,7 @@ struct media_packet {
 	struct rtcp_packet *rtcp;
 	struct ssrc_entry_call *ssrc_in, *ssrc_out; // SSRC contexts from in_srtp and out_srtp
 	str payload;
+	str extensions;
 
 	codec_packet_q packets_out;
 	int ptime; // returned from decoding

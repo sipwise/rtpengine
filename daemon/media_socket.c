@@ -2304,7 +2304,7 @@ static void media_packet_parse(struct packet_handler_ctx *phc) {
 		return;
 
 	if (!phc->rtcp) {
-		phc->mp.rtp = rtp_payload(&phc->mp.payload, &phc->s, NULL);
+		phc->mp.rtp = rtp_payload(&phc->mp.payload, &phc->s, &phc->mp.extensions);
 		if (G_LIKELY(phc->mp.rtp)) {
 			// check the payload type
 			// XXX redundant between SSRC handling and codec_handler stuff -> combine
@@ -2346,6 +2346,24 @@ static void media_packet_rtcp_mux(struct packet_handler_ctx *phc, struct sink_ha
 }
 
 
+static void media_packet_rtp_extension(struct packet_handler_ctx *phc, unsigned int id, const str *data) {
+	__auto_type ext = phc->mp.media->extmap_lookup(phc->mp.media, id);
+	if (!ext)
+		return;
+
+	// stub
+}
+
+static void media_packet_rtp_extensions(struct packet_handler_ctx *phc) {
+	if (!phc->mp.media->extmap.length)
+		return;
+	if (!phc->mp.extensions.len)
+		return;
+
+	rtp_rfc8285_iterate(&phc->mp.extensions, media_packet_rtp_extension, phc);
+}
+
+
 // sets ssrc_in and tracks stats
 static void media_packet_rtp_in(struct packet_handler_ctx *phc) {
 	if (G_UNLIKELY(!phc->mp.media))
@@ -2381,6 +2399,8 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc) {
 			atomic64_add(&rtp_s->bytes, phc->s.len);
 			g_atomic_pointer_set(&phc->mp.stream->rtp_stats_cache, rtp_s);
 		}
+
+		media_packet_rtp_extensions(phc);
 	}
 	else if (phc->rtcp) {
 		unkern = __stream_ssrc_in(phc->in_srtp, phc->mp.rtcp->ssrc, &phc->mp.ssrc_in,
@@ -2775,6 +2795,7 @@ void media_packet_copy(struct media_packet *dst, const struct media_packet *src)
 	dst->rtcp = __g_memdup(src->rtcp, sizeof(*src->rtcp));
 	dst->payload = STR_NULL;
 	dst->raw = STR_NULL;
+	dst->extensions = STR_NULL;
 }
 void media_packet_release(struct media_packet *mp) {
 	if (mp->sfd)

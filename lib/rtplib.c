@@ -11,6 +11,17 @@ struct rtp_exthdr {
 	uint16_t length;
 } __attribute__ ((packed));
 
+struct rtp_rfc8285_hdr {
+	uint8_t be;
+	uint8_t de;
+	uint16_t length;
+} __attribute__ ((packed));
+
+struct rtp_rfc8285_item {
+	uint8_t id;
+	uint8_t length;
+} __attribute__ ((packed));
+
 
 
 
@@ -55,8 +66,71 @@ const struct rtp_payload_type rfc_rtp_payload_types[] =
 const int num_rfc_rtp_payload_types = G_N_ELEMENTS(rfc_rtp_payload_types);
 
 
+static void rtp_rfc8285_iterate_short(str s, const struct rtp_rfc8285_hdr *hdr,
+		rtp_rfc8285_handler cb, struct packet_handler_ctx *arg)
+{
+	str_shift(&s, sizeof(*hdr));
 
+	while (s.len) {
+		uint8_t id_len = s.s[0];
+		if (id_len == '\0') {
+			// padding
+			str_shift(&s, 1);
+			continue;
+		}
+		uint8_t id = id_len >> 4;
+		uint8_t len = (id_len & 0xf) + 1;
+		str_shift(&s, 1);
 
+		if (s.len < len)
+			return;
+
+		cb(arg, id, &STR_LEN(s.s, len));
+
+		str_shift(&s, len);
+	}
+}
+
+static void rtp_rfc8285_iterate_long(str s, const struct rtp_rfc8285_hdr *hdr,
+		rtp_rfc8285_handler cb, struct packet_handler_ctx *arg)
+{
+	str_shift(&s, sizeof(*hdr));
+
+	struct rtp_rfc8285_item *item;
+
+	while (s.len >= sizeof(*item)) {
+		if (s.s[0] == '\0') {
+			// padding
+			str_shift(&s, 1);
+			continue;
+		}
+
+		item = (struct rtp_rfc8285_item *) s.s;
+
+		str_shift(&s, sizeof(*item));
+
+		if (s.len < item->length)
+			return;
+
+		cb(arg, item->id, &STR_LEN(s.s, item->length));
+
+		str_shift(&s, item->length);
+	}
+}
+
+void rtp_rfc8285_iterate(const str *extensions, rtp_rfc8285_handler cb, struct packet_handler_ctx *arg) {
+	const struct rtp_rfc8285_hdr *hdr;
+
+	if (extensions->len < sizeof(*hdr))
+		return;
+
+	hdr = (struct rtp_rfc8285_hdr *) extensions->s;
+
+	if (hdr->be == 0xbe && hdr->de == 0xde)
+		rtp_rfc8285_iterate_short(*extensions, hdr, cb, arg);
+	else if (hdr->be == 0x10 && (hdr->de & 0xf0) == 0x00)
+		rtp_rfc8285_iterate_long(*extensions, hdr, cb, arg);
+}
 
 
 struct rtp_header *rtp_payload(str *p, const str *s, str *exts) {
