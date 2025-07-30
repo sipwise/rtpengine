@@ -4202,7 +4202,7 @@ drop:
 /* XXX shared code */
 static void parse_rtp(struct rtp_parsed *rtp, struct sk_buff *skb) {
 	struct rtp_extension *ext;
-	int ext_len;
+	size_t ext_len;
 
 	if (skb->len < sizeof(*rtp->rtp_header))
 		goto error;
@@ -4223,7 +4223,7 @@ static void parse_rtp(struct rtp_parsed *rtp, struct sk_buff *skb) {
 		if (rtp->payload_len < sizeof(*ext))
 			goto error;
 		ext = (void *) rtp->payload;
-		ext_len = 4 + ntohs(ext->length) * 4;
+		ext_len = sizeof(*ext) + 4 + ntohs(ext->length) * 4;
 		if (rtp->payload_len < ext_len)
 			goto error;
 		rtp->payload += ext_len;
