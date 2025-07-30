@@ -2278,28 +2278,57 @@ static int media_loop_detect(struct packet_handler_ctx *phc) {
 
 
 
-// in_srtp is set to point to the SRTP context to use
-// sinks is set to where to forward the packet to
-static void media_packet_rtcp_demux(struct packet_handler_ctx *phc)
-{
+// sets rtcp flag
+static void media_packet_rtcp_demux(struct packet_handler_ctx *phc) {
+	if (!proto_is_rtp(phc->mp.media->protocol))
+		return;
+
+	phc->rtcp = rtcp_demux_is_rtcp(&phc->s);
+}
+
+// sets RTP payload, RTP/RTCP header, and payload type
+static void media_packet_parse(struct packet_handler_ctx *phc) {
+	phc->payload_type = -1;
+
+	if (G_UNLIKELY(!phc->mp.media))
+		return;
+	if (G_UNLIKELY(!proto_is_rtp(phc->mp.media->protocol)))
+		return;
+
+	if (!phc->rtcp) {
+		phc->mp.rtp = rtp_payload(&phc->mp.payload, &phc->s);
+		if (G_LIKELY(phc->mp.rtp)) {
+			// check the payload type
+			// XXX redundant between SSRC handling and codec_handler stuff -> combine
+			phc->payload_type = (phc->mp.rtp->m_pt & 0x7f);
+		}
+	}
+	else {
+		phc->mp.rtcp = rtcp_payload(NULL, &phc->s);
+		if (G_UNLIKELY(!phc->mp.rtcp))
+			phc->rtcp = false;
+	}
+}
+
+// sets in_srtp and sinks
+static void media_packet_set_streams(struct packet_handler_ctx *phc) {
 	phc->in_srtp = phc->mp.stream;
 	phc->sinks = &phc->mp.stream->rtp_sinks;
 
-	// is this RTCP?
-	if (!proto_is_rtp(phc->mp.media->protocol))
-		return; // no
+	if (G_UNLIKELY(!phc->mp.media))
+		return;
+	if (G_UNLIKELY(!proto_is_rtp(phc->mp.media->protocol)))
+		return;
 
-	bool is_rtcp = rtcp_demux_is_rtcp(&phc->s);
-	if (is_rtcp) {
+	if (phc->rtcp) {
 		if (phc->mp.stream->rtcp_sibling)
 			phc->in_srtp = phc->mp.stream->rtcp_sibling; // use RTCP SRTP context
 		phc->sinks = &phc->mp.stream->rtcp_sinks;
-		phc->rtcp = true;
 	}
 }
+
 // out_srtp is set to point to the SRTP context to use
-static void media_packet_rtcp_mux(struct packet_handler_ctx *phc, struct sink_handler *sh)
-{
+static void media_packet_rtcp_mux(struct packet_handler_ctx *phc, struct sink_handler *sh) {
 	phc->out_srtp = sh->sink;
 	if (phc->rtcp && sh->sink->rtcp_sibling)
 		phc->out_srtp = sh->sink->rtcp_sibling; // use RTCP SRTP context
@@ -2309,10 +2338,8 @@ static void media_packet_rtcp_mux(struct packet_handler_ctx *phc, struct sink_ha
 }
 
 
-static void media_packet_rtp_in(struct packet_handler_ctx *phc)
-{
-	phc->payload_type = -1;
-
+// sets ssrc_in and tracks stats
+static void media_packet_rtp_in(struct packet_handler_ctx *phc) {
 	if (G_UNLIKELY(!phc->mp.media))
 		return;
 	if (G_UNLIKELY(!proto_is_rtp(phc->mp.media->protocol)))
@@ -2320,13 +2347,10 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc)
 
 	const char *unkern = NULL;
 
-	if (G_LIKELY(!phc->rtcp && (phc->mp.rtp = rtp_payload(&phc->mp.payload, &phc->s)))) {
+	if (phc->mp.rtp) {
 		unkern = __stream_ssrc_in(phc->in_srtp, phc->mp.rtp->ssrc, &phc->mp.ssrc_in,
 				&phc->mp.media->ssrc_hash_in);
 
-		// check the payload type
-		// XXX redundant between SSRC handling and codec_handler stuff -> combine
-		phc->payload_type = (phc->mp.rtp->m_pt & 0x7f);
 		if (G_LIKELY(phc->mp.ssrc_in))
 			payload_tracker_add(&phc->mp.ssrc_in->tracker, phc->payload_type);
 
@@ -2350,7 +2374,7 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc)
 			g_atomic_pointer_set(&phc->mp.stream->rtp_stats_cache, rtp_s);
 		}
 	}
-	else if (phc->rtcp && (phc->mp.rtcp = rtcp_payload(NULL, &phc->s))) {
+	else if (phc->rtcp) {
 		unkern = __stream_ssrc_in(phc->in_srtp, phc->mp.rtcp->ssrc, &phc->mp.ssrc_in,
 				&phc->mp.media->ssrc_hash_in);
 	}
@@ -2829,10 +2853,12 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	}
 #endif
 
-	// this sets rtcp, in_srtp, and sinks
 	media_packet_rtcp_demux(phc);
 
-	// this set payload_type, ssrc_in, and mp payloads
+	media_packet_parse(phc);
+
+	media_packet_set_streams(phc);
+
 	media_packet_rtp_in(phc);
 
 	// decrypt in place
