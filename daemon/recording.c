@@ -402,7 +402,22 @@ void recording_start_daemon(call_t *call) {
 }
 // lock must be held
 void recording_start(call_t *call) {
+	bool was_paused = call->recording && !CALL_ISSET(call, RECORDING_ON);
 	CALL_SET(call, RECORDING_ON);
+
+	// Write resume timestamp to metadata file if resuming a paused recording
+	if (was_paused && call->recording->pcap.meta_fp) {
+		time_t now = rtpe_now / 1000000;
+		char timebuffer[32];
+		struct tm timeinfo;
+		if (localtime_r(&now, &timeinfo) != NULL) {
+			strftime(timebuffer, sizeof(timebuffer), "%FT%T", &timeinfo);
+			fprintf(call->recording->pcap.meta_fp,
+				"\nRecording resumed at: %s (%.3lf ms)\n",
+				timebuffer, rtpe_now / 1000.0);
+		}
+	}
+
 	recording_start_daemon(call);
 }
 // lock must be held
@@ -438,6 +453,20 @@ void recording_pause(call_t *call) {
 	if (!call->recording)
 		return;
 	ilog(LOG_NOTICE, "Pausing call recording.");
+
+	// Write pause timestamp to metadata file
+	if (call->recording->pcap.meta_fp) {
+		time_t now = rtpe_now / 1000000;
+		char timebuffer[32];
+		struct tm timeinfo;
+		if (localtime_r(&now, &timeinfo) != NULL) {
+			strftime(timebuffer, sizeof(timebuffer), "%FT%T", &timeinfo);
+			fprintf(call->recording->pcap.meta_fp,
+				"\nRecording paused at: %s (%.3lf ms)\n",
+				timebuffer, rtpe_now / 1000.0);
+		}
+	}
+
 	recording_update_flags(call, true);
 }
 // lock must be held
