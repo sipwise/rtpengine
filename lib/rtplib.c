@@ -91,7 +91,7 @@ int rtp_payload(struct rtp_header **out, str *p, const str *s) {
 			goto error;
 		ext = (void *) p->s;
 		err = "short packet (header extensions)";
-		if (str_shift(p, 4 + ntohs(ext->length) * 4))
+		if (str_shift(p, sizeof(*ext) + 4 + ntohs(ext->length) * 4))
 			goto error;
 	}
 
