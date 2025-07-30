@@ -220,10 +220,38 @@ sub srtp_snd {
 	$srtp_ctx->{roc} = $out_roc;
 	$sock->send($enc, 0, pack_sockaddr_in($dest, inet_aton($addr // '203.0.113.1'))) or die;
 }
+sub exts {
+	my ($exts) = @_;
+	$exts && @$exts or return '';
+	my $e = '';
+	my $h;
+	# long format needed if IDs 16+ are used, or if the length is more than 16, or if
+	# the length is zero for non-padding entries
+	if (grep {$_->[0] >= 16 || length($_->[1]) > 16 || (length($_->[1]) == 0 && $_->[0] != 0)} @$exts) {
+		$h = "\x10\x00";
+		for my $x (@$exts) {
+			$e .= pack("CC a*", $x->[0], length($x->[1]), $x->[1]);
+		}
+	}
+	else {
+		$h = "\xbe\xde";
+		for my $x (@$exts) {
+			$e .= pack("C a*", $x->[0] << 4 | (length($x->[1]) - 1), $x->[1]);
+		}
+	}
+	# pad
+	while (length($e) % 4 != 0) {
+		$e .= "\x00";
+	}
+	return pack("a* n a*", $h, length($e) / 4, $e);
+}
 sub rtp {
-	my ($pt, $seq, $ts, $ssrc, $payload) = @_;
-	print("rtp in $pt $seq $ts $ssrc\n");
-	return pack('CCnNN a*', 0x80, $pt, $seq, $ts, $ssrc, $payload);
+	my ($pt, $seq, $ts, $ssrc, $payload, $exts) = @_;
+	$exts //= [];
+	my $c = @{$exts};
+	print("rtp in $pt $seq $ts $ssrc $c exts\n");
+	my $x = exts($exts);
+	return pack('CCnNN a* a*', 0x80 | ($x ? 0x90 : 0x00), $pt, $seq, $ts, $ssrc, $x, $payload);
 }
 sub rcv {
 	my ($sock, $port, $match, $cb, $cb_arg) = @_;
@@ -301,23 +329,31 @@ sub escape {
 	return "\Q$_[0]\E";
 }
 sub rtpmre {
-	my ($pt, $seq, $ts, $ssrc, $xre) = @_;
+	my ($pt, $seq, $ts, $ssrc, $xre, $exts) = @_;
+	$exts //= [];
+	my $x = exts($exts);
 	#print("rtp matcher $pt $seq $ts $ssrc $xre\n");
 	my $re = '';
-	$re .= escape(pack('C', 0x80));
+	$re .= escape(pack('C', 0x80 | ($x ? 0x90 : 0x00)));
 	$re .= escape(pack('C', $pt));
 	$re .= $seq >= 0 ? escape(pack('n', $seq)) : '(..)';
 	$re .= $ts >= 0 ? escape(pack('N', $ts)) : '(....)';
 	$re .= $ssrc >= 0 ? escape(pack('N', $ssrc)) : '(....)';
+	$re .= $x;
 	$re .= $xre;
 	return qr/^$re$/s;
 }
 sub rtpm {
-	my ($pt, $seq, $ts, $ssrc, $payload, $alt_payload) = @_;
-	if (!$alt_payload) {
-		return rtpmre($pt, $seq, $ts, $ssrc, escape($payload));
+	my ($pt, $seq, $ts, $ssrc, $payload, $alt_payload, $exts) = @_;
+	$exts //= [];
+	if (ref($alt_payload) eq 'ARRAY') {
+		$exts = $alt_payload;
+		undef($alt_payload);
 	}
-	return rtpmre($pt, $seq, $ts, $ssrc, '(' . escape($payload) . '|' . escape($alt_payload) . ')');
+	if (!$alt_payload) {
+		return rtpmre($pt, $seq, $ts, $ssrc, escape($payload), $exts);
+	}
+	return rtpmre($pt, $seq, $ts, $ssrc, '(' . escape($payload) . '|' . escape($alt_payload) . ')', $exts);
 }
 
 sub ft { return $ft; }
