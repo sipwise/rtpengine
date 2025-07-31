@@ -220,6 +220,9 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 	} \
 	static inline void type_name##_q_clear(type_name##_q *q) { \
 		g_queue_clear(&q->q); \
+	} \
+	static inline void type_name##_q_free(type_name##_q *q) { \
+		g_queue_free(&q->q); \
 	}
 
 #define TYPED_GQUEUE_INIT { .q = G_QUEUE_INIT }
