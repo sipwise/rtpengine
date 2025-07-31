@@ -113,8 +113,18 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 
 #define TYPED_GHASHTABLE_IMPL(type_name, hash_func, eq_func, key_free_func, value_free_func) \
 	static inline type_name type_name##_new(void) { \
-		unsigned int (*__hash_func)(__typeof__(((type_name *)0)->__ckey)) = hash_func; \
-		gboolean (*__eq_func)(__typeof__(((type_name *)0)->__ckey), __typeof__(((type_name *)0)->__ckey)) = eq_func; \
+		unsigned int (*__hash_func)(__typeof__(((type_name *)0)->__ckey)) = _Generic((hash_func), \
+			unsigned int (*)(const void *): \
+				(unsigned int (*)(__typeof__(((type_name *)0)->__ckey))) (hash_func), \
+			default: (hash_func) \
+		); \
+		gboolean (*__eq_func)(__typeof__(((type_name *)0)->__ckey), \
+			__typeof__(((type_name *)0)->__ckey)) = _Generic((eq_func), \
+				gboolean (*)(const void *, const void *): \
+					(gboolean (*)(__typeof__(((type_name *)0)->__ckey), \
+						__typeof__(((type_name *)0)->__ckey))) (eq_func), \
+				default: (eq_func) \
+		); \
 		GHashTable *ht = g_hash_table_new_full((GHashFunc) __hash_func, (GEqualFunc) __eq_func, \
 				(GDestroyNotify) key_free_func, \
 				(GDestroyNotify) value_free_func); \
