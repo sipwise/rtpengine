@@ -233,6 +233,7 @@ enum {
 #define ML_FLAG_MOH_SENDRECV			(1LL << 25)
 #define ML_FLAG_MOH_ZEROCONN			(1LL << 26)
 #define ML_FLAG_FORCE_TRANSCODING		(1LL << 27)
+#define ML_FLAG_BUNDLE				(1LL << 28)
 
 /* call_t */
 #define CALL_FLAG_IPV4_OFFER			(1LL << 16)
@@ -507,6 +508,7 @@ struct call_media {
 
 	str			media_id;
 	str			label;
+	struct call_media	*bundle;
 	sdes_q			sdes_in, sdes_out;
 	struct dtls_fingerprint fingerprint;			/* as received */
 	const struct dtls_hash_func *fp_hash_func;		/* outgoing */

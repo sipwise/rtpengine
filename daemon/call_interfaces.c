@@ -2424,6 +2424,7 @@ RTPE_NG_FLAGS_SDP_ATTR_Q_PARAMS
 RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 #undef X
 
+	str_ht_destroy_ptr(&flags->bundles);
 	ng_sdp_attr_manipulations_free(flags->sdp_manipulations);
 
 	t_queue_clear_full(&flags->medias, ng_media_free);

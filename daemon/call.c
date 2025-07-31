@@ -2327,8 +2327,6 @@ static void media_update_media_id(struct call_media *media, struct stream_params
 			}
 		}
 		else {
-			// we already have a media ID, but re-invite offer did not specify
-			// one. we keep what we already have.
 			;
 		}
 	}
@@ -2798,6 +2796,11 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 		t_queue_clear(&ml->groups_other);
 		for (__auto_type ll = flags->groups_other.head; ll; ll = ll->next)
 			t_queue_push_tail(&ml->groups_other, call_str_dup(ll->data));
+
+		if (t_hash_table_is_set(flags->bundles))
+			ML_SET(ml, BUNDLE);
+		else
+			ML_CLEAR(ml, BUNDLE);
 
 		ml->sdp_session_uri = call_str_cpy(&flags->session_uri);
 		ml->sdp_session_email = call_str_cpy(&flags->session_email);
@@ -3272,6 +3275,39 @@ static struct call_media * monologue_add_zero_media(struct call_monologue *sende
 	return sender_media;
 }
 
+__attribute__((nonnull(1, 2)))
+static void monologue_bundle_accept(struct call_monologue *ml, sdp_ng_flags *flags) {
+	if (!ML_ISSET(ml, BUNDLE))
+		return;
+	if (!t_hash_table_is_set(flags->bundles))
+		return;
+
+	// iterate all medias and set up bundle groups as requested
+	for (unsigned int i = 0; i < ml->medias->len; i++) {
+		__auto_type media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+
+		// set bundle group
+		media->bundle = NULL;
+
+		if (!media->media_id.len)
+			continue;
+
+		str *bundle_head = t_hash_table_lookup(flags->bundles, &media->media_id);
+		if (!bundle_head)
+			continue;
+
+		__auto_type bundle = media->bundle = t_hash_table_lookup(ml->media_ids, bundle_head);
+		if (!bundle) {
+			ilog(LOG_WARN, "Tagged media '" STR_FORMAT "' from BUNDLE group "
+					"doesn't exist",
+					STR_FMT(bundle_head));
+			continue;
+		}
+	}
+}
+
 /* called with call->master_lock held in W */
 int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *streams,
 		sdp_ng_flags *flags)
@@ -3512,6 +3548,8 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		media_update_transcoding_flag(receiver_media);
 		media_update_transcoding_flag(sender_media);
 	}
+
+	monologue_bundle_accept(sender_ml, flags);
 
 	// set ipv4/ipv6/mixed media stats
 	if (flags->opmode == OP_OFFER || flags->opmode == OP_ANSWER) {

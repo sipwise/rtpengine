@@ -185,10 +185,14 @@ struct attribute_ssrc {
 };
 
 struct attribute_group {
+	str semantics_str;
+
 	enum {
 		GROUP_OTHER = 0,
 		GROUP_BUNDLE,
 	} semantics;
+
+	str_q bundle;
 };
 
 struct attribute_fingerprint {
@@ -667,10 +671,20 @@ static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr
 
 static bool parse_attribute_group(struct sdp_attribute *output) {
 	output->attr = ATTR_GROUP;
-
 	output->group.semantics = GROUP_OTHER;
-	if (output->strs.value.len >= 7 && !strncmp(output->strs.value.s, "BUNDLE ", 7))
-		output->group.semantics = GROUP_BUNDLE;
+
+	PARSE_INIT;
+
+	if (!str_token_sep(&output->group.semantics_str, value_str, ' '))
+		return true;
+
+	if (str_cmp(&output->group.semantics_str, "BUNDLE"))
+		return true;
+
+	output->group.semantics = GROUP_BUNDLE;
+	str mid;
+	while (str_token_sep(&mid, value_str, ' '))
+		t_queue_push_tail(&output->group.bundle, str_slice_dup(&mid));
 
 	return true;
 }
@@ -1522,6 +1536,8 @@ error:
 }
 
 static void attr_free(struct sdp_attribute *p) {
+	if (p->attr == ATTR_GROUP)
+		t_queue_clear_full(&p->group.bundle, str_slice_free);
 	g_free(p);
 }
 static void free_attributes(struct sdp_attributes *a) {
@@ -1911,6 +1927,39 @@ static void sdp_attr_append_other(sdp_attr_q *dst, struct sdp_attributes *src) {
 	sdp_attr_append(dst, attr_list_get_by_id(src, ATTR_OTHER));
 }
 
+static void sdp_bundle_group(sdp_ng_flags *flags, struct attribute_group *group) {
+	if (!group->bundle.head) {
+		ilog(LOG_WARN, "Empty BUNDLE group in SDP, ignoring");
+		return;
+	}
+
+	if (!t_hash_table_is_set(flags->bundles))
+		flags->bundles = str_ht_new();
+
+	str *first = group->bundle.head->data;
+	if (t_hash_table_lookup(flags->bundles, first)) {
+		ilog(LOG_WARN, "Tagged media section '" STR_FORMAT "' found in multiple BUNDLE groups, "
+				"ignoring BUNDLE group",
+				STR_FMT(first));
+		return;
+	}
+
+	// first entry points to itself
+	t_hash_table_insert(flags->bundles, first, first);
+
+	for (__auto_type kk = group->bundle.head->next; kk; kk = kk->next) {
+		str *mid = kk->data;
+		if (t_hash_table_lookup(flags->bundles, mid)) {
+			ilog(LOG_WARN, "Media section '" STR_FORMAT "' found in multiple BUNDLE groups",
+					STR_FMT(mid));
+			continue;
+		}
+
+		// the remaining entries point to the first one
+		t_hash_table_insert(flags->bundles, mid, first);
+	}
+}
+
 /* XXX split this function up */
 bool sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_flags *flags) {
 	struct sdp_session *session;
@@ -1944,7 +1993,10 @@ bool sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_
 		__auto_type attrs = attr_list_get_by_id(&session->attributes, ATTR_GROUP);
 		for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 			attr = ll->data;
-			t_queue_push_tail(&flags->groups_other, &attr->strs.value);
+			if (attr->group.semantics == GROUP_BUNDLE)
+				sdp_bundle_group(flags, &attr->group);
+			else
+				t_queue_push_tail(&flags->groups_other, &attr->strs.value);
 		}
 
 		if (rtpe_config.moh_prevent_double_hold) {
@@ -3016,6 +3068,70 @@ static void sdp_out_add_timing(GString *out, struct call_monologue *monologue)
 	g_string_append(out, "\r\n");
 }
 
+
+TYPED_GHASHTABLE(bundle_ht, struct call_media, GString, g_direct_hash, g_direct_equal, NULL, NULL);
+
+__attribute__((nonnull(1, 2)))
+static void append_bundle_groups(GString *out, struct call_monologue *ml, sdp_ng_flags *flags) {
+	if (!ML_ISSET(ml, BUNDLE))
+		return;
+
+	g_auto(bundle_ht) ht = bundle_ht_new();
+
+	for (unsigned int i = 0; i < ml->medias->len; i++) {
+		__auto_type media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+		if (!media->bundle)
+			continue;
+		if (!media->media_id.len)
+			continue;
+		if (!media->bundle->media_id.len)
+			continue;
+
+		__auto_type bundle_str = t_hash_table_lookup(ht, media->bundle);
+		if (!bundle_str) {
+			bundle_str = g_string_new("");
+			t_hash_table_insert(ht, media->bundle, bundle_str);
+		}
+
+		if (media == media->bundle) {
+			size_t orig_len = bundle_str->len;
+
+			// this *should* be the first one, but we blindly do a prepend anyway.
+			// in the common case this is just writing to an empty string.
+			g_string_prepend_len(bundle_str, media->media_id.s, media->media_id.len);
+
+			if (orig_len) // uncommon case: something else was there before, insert a space
+				g_string_insert_c(bundle_str, media->media_id.len, ' ');
+		}
+		else {
+			if (bundle_str->len != 0)
+				g_string_append_c(bundle_str, ' ');
+
+			g_string_append_len(bundle_str, media->media_id.s, media->media_id.len);
+		}
+	}
+
+	bundle_ht_iter iter;
+	t_hash_table_iter_init(&iter, ht);
+
+	GString *bundle_str;
+	while (t_hash_table_iter_next(&iter, NULL, &bundle_str)) {
+		__auto_type state = __attr_begin(out, flags, MT_UNKNOWN);
+		if (__attr_append(&state, "group"))
+			goto next;
+		if (__attr_append(&state, ":BUNDLE"))
+			goto next;
+		g_string_append_c(out, ' ');
+		if (__attr_append_str(&state, &STR_GS(bundle_str)))
+			goto next;
+		__attr_end(&state);
+next:
+		g_string_free(bundle_str, TRUE);
+	}
+}
+
 __attribute__((nonnull(1, 2, 4, 5)))
 static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 		struct call_monologue *source_ml,
@@ -3039,6 +3155,8 @@ static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 
 	/* group */
 	if (source_ml && flags->ice_option == ICE_FORCE_RELAY) {
+		append_bundle_groups(out, source_ml, flags);
+
 		for (__auto_type ll = source_ml->groups_other.head; ll; ll = ll->next)
 			append_attr_to_gstring(out, "group", ll->data, flags, media->type_id);
 	}
