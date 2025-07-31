@@ -20263,6 +20263,78 @@ rtpe_req('delete', "delete", { 'from-tag' => ft() });
 
 
 
+new_call;
+
+offer('multiple group attributes (broken)', { ICE => 'force-relay' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:foobar
+a=group:blah 1 2 3
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:foobar
+m=audio PORT RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+SDP
+
+
+
+
+new_call;
+
+offer('multiple group attributes w bundle (broken)', { ICE => 'force-relay' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE 1
+a=group:BUNDLE 2 3
+a=group:foobar
+a=group:blah 1 2 3
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:1
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:2
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:3
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE 1
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:1
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:2
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:3
+SDP
+
+
+
+
 # github issue 850
 
 new_call;
