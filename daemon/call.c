@@ -2306,9 +2306,9 @@ __attribute__((nonnull(1, 2)))
 static void media_update_media_id(struct call_media *media, struct stream_params *sp) {
 	struct call_monologue *ml = media->monologue;
 
-	if (!media->media_id.s) {
+	if (!media->media_id.len) {
 		// incoming side: we copy what we received
-		if (sp->media_id.s)
+		if (sp->media_id.len)
 			media->media_id = call_str_cpy(&sp->media_id);
 		if (media->media_id.s)
 			t_hash_table_insert(ml->media_ids, &media->media_id,
@@ -2317,7 +2317,7 @@ static void media_update_media_id(struct call_media *media, struct stream_params
 	else {
 		// RFC 5888 allows changing the media ID in a re-invite
 		// (section 9.1), so handle this here.
-		if (sp->media_id.s) {
+		if (sp->media_id.len) {
 			if (str_cmp_str(&media->media_id, &sp->media_id)) {
 				// mismatch - update
 				t_hash_table_remove(ml->media_ids, &media->media_id);
