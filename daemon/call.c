@@ -2794,7 +2794,10 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 		ml->sdp_session_bandwidth.rs = flags->session_bandwidth.rs;
 		ml->sdp_session_bandwidth.ct = flags->session_bandwidth.ct;
 		ml->sdp_session_bandwidth.tias = flags->session_bandwidth.tias;
-		ml->sdp_session_group = call_str_cpy(&flags->session_group);
+
+		t_queue_clear(&ml->groups_other);
+		for (__auto_type ll = flags->groups_other.head; ll; ll = ll->next)
+			t_queue_push_tail(&ml->groups_other, call_str_dup(ll->data));
 
 		ml->sdp_session_uri = call_str_cpy(&flags->session_uri);
 		ml->sdp_session_email = call_str_cpy(&flags->session_email);
@@ -4577,6 +4580,7 @@ void __monologue_free(struct call_monologue *m) {
 	t_queue_clear_full(&m->all_attributes, sdp_attr_free);
 	t_queue_clear(&m->tag_aliases);
 	sdp_streams_clear(&m->last_in_sdp_streams);
+	t_queue_clear(&m->groups_other);
 	g_free(m);
 }
 

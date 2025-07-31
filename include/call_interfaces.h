@@ -94,7 +94,7 @@ struct sdp_ng_flags {
 
 	str session_timing; /* t= line */
 	struct session_bandwidth session_bandwidth;
-	str session_group;	/* a=group: e.g. BUNDLE */
+	str_q groups_other;	/* a=group:xxx */
 	str session_information; // i= line
 	str session_uri; // u= line
 	str session_email; // e= line

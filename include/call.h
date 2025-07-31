@@ -621,7 +621,7 @@ struct call_monologue {
 
 	str			sdp_session_name;
 	str			sdp_session_timing;
-	str			sdp_session_group;	/* a=group: e.g. BUNDLE */
+	str_q			groups_other;	/* a=group:xxx */
 	str			sdp_session_information;
 	str			sdp_session_uri;
 	str			sdp_session_phone;

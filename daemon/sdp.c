@@ -1941,9 +1941,11 @@ bool sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_
 		flags->session_email = session->email;
 		flags->session_phone = session->phone;
 
-		attr = attr_get_by_id(&session->attributes, ATTR_GROUP);
-		if (attr)
-			flags->session_group = attr->strs.value;
+		__auto_type attrs = attr_list_get_by_id(&session->attributes, ATTR_GROUP);
+		for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+			attr = ll->data;
+			t_queue_push_tail(&flags->groups_other, &attr->strs.value);
+		}
 
 		if (rtpe_config.moh_prevent_double_hold) {
 			attr = attr_get_by_id(&session->attributes, ATTR_MOH_ATTR_NAME);
@@ -2009,7 +2011,7 @@ bool sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_
 				goto error;
 
 			/* a=crypto */
-			attributes_q *attrs = attr_list_get_by_id(&media->attributes, ATTR_CRYPTO);
+			attrs = attr_list_get_by_id(&media->attributes, ATTR_CRYPTO);
 			for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 				attr = ll->data;
 				struct crypto_params_sdes *cps = g_new0(__typeof(*cps), 1);
@@ -3036,8 +3038,10 @@ static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 		append_null_attr_to_gstring(out, "ice-lite", flags, media->type_id);
 
 	/* group */
-	if (source_ml && source_ml->sdp_session_group.len && flags->ice_option == ICE_FORCE_RELAY)
-		append_attr_to_gstring(out, "group", &source_ml->sdp_session_group, flags, media->type_id);
+	if (source_ml && flags->ice_option == ICE_FORCE_RELAY) {
+		for (__auto_type ll = source_ml->groups_other.head; ll; ll = ll->next)
+			append_attr_to_gstring(out, "group", ll->data, flags, media->type_id);
+	}
 
 	/* carry other session level a= attributes to the outgoing SDP */
 	monologue->sdp_attr_print(out, monologue, flags);

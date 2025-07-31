@@ -169,6 +169,7 @@ sub sdp_match {
 	$regexp =~ s/SDP_VERSION/\\d+ \\d+/gs;
 	$regexp =~ s/RTPE_VERSION/rtpengine-\\S+/gs;
 	$regexp =~ s/TLS_ID/([0-9a-f]{32})/gs;
+	$regexp =~ s/BGROUPS/([\\d ]+)/gs;
 	my $crlf = crlf($sdp);
 	like $crlf, qr/$regexp/s, "$name - output '$cmd' SDP";
 	my @matches = $crlf =~ qr/$regexp/s;

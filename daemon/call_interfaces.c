@@ -2427,6 +2427,7 @@ RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 	ng_sdp_attr_manipulations_free(flags->sdp_manipulations);
 
 	t_queue_clear_full(&flags->medias, ng_media_free);
+	t_queue_clear(&flags->groups_other);
 }
 
 static enum load_limit_reasons call_offer_session_limit(void) {
