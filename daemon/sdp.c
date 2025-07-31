@@ -349,15 +349,6 @@ static bool sdp_manipulate_remove(const struct sdp_manipulations * sdp_manipulat
 }
 
 /**
- * Checks whether an attribute removal request exists for a given session level.
- * `attr_name` must be without `a=`.
- */
-static bool sdp_manipulate_remove_c(const char *attr_name, const sdp_ng_flags *flags, enum media_type media_type) {
-	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags->sdp_manipulations, media_type);
-	return sdp_manipulate_remove(sdp_manipulations, STR_PTR(attr_name));
-}
-
-/**
  * Adds values into a requested session level (global, audio, video)
  */
 static void sdp_manipulations_add(GString *s, const struct sdp_manipulations * sdp_manipulations) {
@@ -397,31 +388,112 @@ static str *sdp_manipulations_subst(const struct sdp_manipulations * sdp_manipul
 	return cmd_subst_value;
 }
 
-static void append_str_attr_to_gstring(GString *s, const str * name, const str * value,
+
+__attribute__((nonnull(1, 2, 3, 4)))
+static void append_str_attr_to_gstring(GString *s, const str *name, const str *value,
 		const sdp_ng_flags *flags, enum media_type media_type);
-static void append_attr_int_to_gstring(GString *s, const char * value, const int additional,
+__attribute__((nonnull(1, 2, 3)))
+static void append_null_str_attr_to_gstring(GString *s, const str *name,
 		const sdp_ng_flags *flags, enum media_type media_type);
-static void append_tagged_attr_to_gstring(GString *s, const char * name, const str *tag, const str * value,
-		const sdp_ng_flags *flags, enum media_type media_type);
-static void append_int_tagged_attr_to_gstring(GString *s, const char * name, unsigned int tag, const str * value,
+__attribute__((nonnull(1, 2, 4, 5)))
+static void append_int_tagged_str_attr_to_gstring(GString *s, const str *name, unsigned int tag, const str *value,
 		const sdp_ng_flags *flags, enum media_type media_type);
 
-void sdp_append_str_attr(GString *s, const sdp_ng_flags *flags, enum media_type media_type,
-		const str *name, const char *fmt, ...)
-{
+#define append_int_tagged_attr_to_gstring(s, name, tag, value, flags, type) \
+	append_int_tagged_str_attr_to_gstring(s, STR_PTR(name), tag, value, flags, type)
+#define append_v_attr_to_gstring(s, name, flags, type, fmt, ...) \
+	append_v_str_attr_to_gstring(s, STR_PTR(name), flags, type, fmt, ##__VA_ARGS__)
+#define append_attr_int_to_gstring(s, name, value, flags, type) \
+	append_v_attr_to_gstring(s, name, flags, type, "%u", value)
+#define append_attr_to_gstring(s, name, value, flags, type) \
+	append_str_attr_to_gstring(s, STR_PTR(name), value, flags, type)
+#define append_null_attr_to_gstring(s, name, flags, type) \
+	append_null_str_attr_to_gstring(s, STR_PTR(name), flags, type)
+#define append_gen_attr_to_gstring(s, name, value, flags, type) ({ \
+		if ((value)->len) \
+			append_str_attr_to_gstring(s, name, value, flags, type); \
+		else \
+			append_null_str_attr_to_gstring(s, name, flags, type); \
+	})
+
+struct sdp_state {
+	GString *s;
+	size_t start;
+	struct sdp_manipulations *manip;
+	const sdp_ng_flags *flags;
+};
+
+// Records the current state of the output SDP and writes the attribute lead-in `a=`
+static struct sdp_state __attr_begin(GString *s, const sdp_ng_flags *flags, enum media_type media_type) {
+	struct sdp_manipulations *manip = sdp_manipulations_get_by_id(flags->sdp_manipulations, media_type);
+
+	g_string_append(s, "a=");
+
+	return (struct sdp_state) {
+		.s = s,
+		.start = s->len,
+		.manip = manip,
+		.flags = flags,
+	};
+}
+
+static void __attr_end(const struct sdp_state *state) {
+	g_string_append(state->s, "\r\n");
+}
+
+// Checks for attribute removal or substitutions.
+// If removal or substitution was done, returns true
+static bool __attr_manip(const struct sdp_state *state) {
+	str attr = STR_LEN(state->s->str + state->start, state->s->len - state->start);
+
+	/* first check if the originally present attribute is to be removed */
+	if (sdp_manipulate_remove(state->manip, &attr)) {
+		// remove everything including the `a=`
+		g_string_truncate(state->s, state->start - 2);
+		return true;
+	}
+
+	str *attr_subst = sdp_manipulations_subst(state->manip, &attr);
+	if (attr_subst) {
+		// rewind to `a=`, write complete attribute, and call it a day
+		g_string_truncate(state->s, state->start);
+		g_string_append_len(state->s, attr_subst->s, attr_subst->len);
+		__attr_end(state);
+		return true;
+	}
+
+	// continue...
+	return false;
+}
+
+/**
+ * Appends attribute fragment (`name` or `name:tag` or `value`) to the output SDP.
+ * Includes substitute and remove SDP attribute manipulations.
+ * Return true if attribute was substituted or removed.
+ */
+__attribute__((nonnull(1, 2)))
+static bool __attr_append_str(const struct sdp_state *state, const str *s) {
+	g_string_append_len(state->s, s->s, s->len);
+	return __attr_manip(state);
+}
+#define __attr_append(state, s) __attr_append_str(state, STR_PTR(s))
+__attribute__((nonnull(1, 2)))
+static bool __attr_append_v(const struct sdp_state *state, const char *fmt, va_list ap) {
+	g_string_append_vprintf(state->s, fmt, ap);
+	return __attr_manip(state);
+}
+__attribute__((format(printf, 2, 3)))
+__attribute__((nonnull(1, 2)))
+static bool __attr_append_f(const struct sdp_state *state, const char *fmt, ...) {
 	va_list ap;
 	va_start(ap, fmt);
-	g_autoptr(GString) gs = g_string_new("");
-	g_string_vprintf(gs, fmt, ap);
+	bool ret = __attr_append_v(state, fmt, ap);
 	va_end(ap);
-	append_str_attr_to_gstring(s, name, &STR_GS(gs), flags, media_type);
+	return ret;
 }
 
-INLINE void append_attr_to_gstring(GString *s, const char * name, const str * value,
-		const sdp_ng_flags *flags, enum media_type media_type)
-{
-	append_str_attr_to_gstring(s, STR_PTR(name), value, flags, media_type);
-}
+
+
 INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, enum attr_id id) {
 	return t_hash_table_lookup(a->id_hash, GINT_TO_POINTER(id));
 }
@@ -2120,7 +2192,7 @@ void sdp_insert_media_attributes(GString *gs, struct call_media *media, struct c
 		__auto_type s = l->data;
 		if (s->other == ATTR_OTHER_EXTMAP && flags->strip_extmap && !MEDIA_ISSET(source_media, PASSTHRU))
 			continue;
-		append_str_attr_to_gstring(gs, &s->strs.name, &s->strs.value, flags, source_media->type_id);
+		append_gen_attr_to_gstring(gs, &s->strs.name, &s->strs.value, flags, source_media->type_id);
 	}
 }
 void sdp_insert_monologue_attributes(GString *gs, struct call_monologue *ml, const sdp_ng_flags *flags) {
@@ -2135,7 +2207,7 @@ void sdp_insert_monologue_attributes(GString *gs, struct call_monologue *ml, con
 		__auto_type s = l->data;
 		if (s->other == ATTR_OTHER_EXTMAP && flags->strip_extmap)
 			continue;
-		append_str_attr_to_gstring(gs, &s->strs.name, &s->strs.value, flags, MT_UNKNOWN);
+		append_gen_attr_to_gstring(gs, &s->strs.name, &s->strs.value, flags, MT_UNKNOWN);
 	}
 }
 void sdp_insert_all_attributes(GString *s, struct call_media *media, struct sdp_ng_flags *flags) {
@@ -2145,18 +2217,17 @@ void sdp_insert_all_attributes(GString *s, struct call_media *media, struct sdp_
 		// so that we can print our own candidates first
 		if (a->attr == ATTR_END_OF_CANDIDATES)
 			continue;
-		append_str_attr_to_gstring(s, &a->strs.name, &a->strs.value, flags, media->type_id);
+		append_gen_attr_to_gstring(s, &a->strs.name, &a->strs.value, flags, media->type_id);
 	}
 }
 
-static int insert_ice_address(GString *s, stream_fd *sfd, const sdp_ng_flags *flags) {
+static bool insert_ice_address(const struct sdp_state *state, stream_fd *sfd, const sdp_ng_flags *flags) {
 	if (!is_addr_unspecified(&flags->media_address))
-		sockaddr_print_gstring(s, &flags->media_address);
+		sockaddr_print_gstring(state->s, &flags->media_address);
 	else
-		call_stream_address(s, sfd->stream, SAF_ICE, sfd->local_intf, false);
-	g_string_append_printf(s, " %u", sfd->socket.local.port);
-
-	return 0;
+		call_stream_address(state->s, sfd->stream, SAF_ICE, sfd->local_intf, false);
+	g_string_append_printf(state->s, " %u", sfd->socket.local.port);
+	return __attr_manip(state);
 }
 
 static int insert_raddr_rport(GString *s, stream_fd *sfd, const sdp_ng_flags *flags) {
@@ -2216,22 +2287,36 @@ static void insert_candidate(GString *s, stream_fd *sfd,
 	unsigned long priority;
 	struct packet_stream *ps = sfd->stream;
 	const struct local_intf *ifa = sfd->local_intf;
-	g_autoptr(GString) s_dst = g_string_new("");
+	__auto_type state = __attr_begin(s, flags, (media ? media->type_id : MT_UNKNOWN));
+	if (__attr_append(&state, "candidate"))
+		return;
+	g_string_append_c(s, ':');
+	if (__attr_append_str(&state, &ifa->ice_foundation))
+		return;
 
 	if (local_pref == -1)
 		local_pref = ifa->unique_id;
 
 	priority = ice_priority_pref(type_pref, local_pref, ps->component);
-	g_string_append_printf(s_dst, "%u UDP %lu ", ps->component, priority);
-	insert_ice_address(s_dst, sfd, flags);
-	g_string_append(s_dst, " typ ");
-	g_string_append(s_dst, ice_candidate_type_str(type));
+	if (__attr_append_f(&state, " %u", ps->component))
+		return;
+	if (__attr_append(&state, " UDP"))
+		return;
+	if (__attr_append_f(&state, " %lu", priority))
+		return;
+	g_string_append_c(s, ' ');
+	if (insert_ice_address(&state, sfd, flags))
+		return;
+	g_string_append(s, " typ ");
+	g_string_append(s, ice_candidate_type_str(type));
+	if (__attr_manip(&state))
+		return;
 	/* raddr and rport are required for non-host candidates: rfc5245 section-15.1 */
 	if(type != ICT_HOST)
-		insert_raddr_rport(s_dst, sfd, flags);
-
-	append_tagged_attr_to_gstring(s, "candidate", &ifa->ice_foundation, &STR_GS(s_dst), flags,
-			(media ? media->type_id : MT_UNKNOWN));
+		insert_raddr_rport(s, sfd, flags);
+	if (__attr_manip(&state))
+		return;
+	__attr_end(&state);
 }
 
 static void insert_sfd_candidates(GString *s, struct packet_stream *ps,
@@ -2247,6 +2332,26 @@ static void insert_sfd_candidates(GString *s, struct packet_stream *ps,
 	}
 }
 
+static void insert_remote_candidates(GString *s, const sdp_ng_flags *flags, struct call_media *media, struct ice_agent *ag) {
+	g_auto(candidate_q) rc = TYPED_GQUEUE_INIT;
+	__auto_type state = __attr_begin(s, flags, media->type_id);
+	if (__attr_append(&state, "remote-candidates"))
+		return;
+	g_string_append_c(s, ':');
+
+	/* prepare remote-candidates */
+	ice_remote_candidates(&rc, ag);
+	for (__auto_type l = rc.head; l; l = l->next) {
+		if (l != rc.head)
+			g_string_append(s, " ");
+		__auto_type cand = l->data;
+		if (__attr_append_f(&state, "%lu %s %u", cand->component_id,
+				sockaddr_print_buf(&cand->endpoint.address), cand->endpoint.port))
+			return;
+	}
+	__attr_end(&state);
+}
+
 static void insert_candidates(GString *s, struct packet_stream *rtp, struct packet_stream *rtcp,
 		const sdp_ng_flags *flags, struct call_media *source_media)
 {
@@ -2255,7 +2360,6 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 	struct ice_agent *ag;
 	unsigned int type_pref, local_pref;
 	enum ice_candidate_type cand_type;
-	struct ice_candidate *cand;
 
 	media = rtp->media;
 
@@ -2278,22 +2382,9 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 			insert_candidate(s, rtcp->selected_sfd, type_pref, ifa->unique_id, cand_type, flags,
 					rtp->media);
 
-		if (flags->opmode == OP_OFFER && AGENT_ISSET(ag, CONTROLLING)) {
-			g_auto(candidate_q) rc = TYPED_GQUEUE_INIT;
-			g_autoptr(GString) s_dst = g_string_new("");
+		if (flags->opmode == OP_OFFER && AGENT_ISSET(ag, CONTROLLING))
+			insert_remote_candidates(s, flags, rtp->media, ag);
 
-			/* prepare remote-candidates */
-			ice_remote_candidates(&rc, ag);
-			for (__auto_type l = rc.head; l; l = l->next) {
-				if (l != rc.head)
-					g_string_append(s_dst, " ");
-				cand = l->data;
-				g_string_append_printf(s_dst, "%lu %s %u", cand->component_id,
-						sockaddr_print_buf(&cand->endpoint.address), cand->endpoint.port);
-			}
-			append_attr_to_gstring(s, "remote-candidates", &STR_GS(s_dst), flags,
-					rtp->media->type_id);
-		}
 		return;
 	}
 
@@ -2322,11 +2413,43 @@ static void insert_setup(GString *out, struct call_media *media, const sdp_ng_fl
 	append_attr_to_gstring(out, "setup", &actpass_str, flags, media->type_id);
 }
 
+static void insert_fingerprint(GString *s, struct call_media *media, const sdp_ng_flags *flags,
+		const struct dtls_hash_func *hf, struct dtls_fingerprint *fp)
+{
+	/* prepare fingerprint */
+	__auto_type state = __attr_begin(s, flags, media->type_id);
+	if (__attr_append(&state, "fingerprint"))
+		return;
+	g_string_append_c(s, ':');
+	if (__attr_append(&state, hf->name))
+		return;
+	g_string_append(s, " ");
+
+	unsigned char *p = fp->digest;
+	for (unsigned int i = 0; i < hf->num_bytes; i++)
+		g_string_append_printf(s, "%02X:", *p++);
+	g_string_truncate(s, s->len - 1);
+
+	__attr_end(&state);
+}
+
+static void insert_tls_id(GString *s, struct call_media *media, const sdp_ng_flags *flags, struct dtls_connection *dtls) {
+	/* prepare tls-id */
+	__auto_type state = __attr_begin(s, flags, media->type_id);
+	if (__attr_append(&state, "tls-id"))
+		return;
+	g_string_append_c(s, ':');
+
+	unsigned char *p = dtls->tls_id;
+	for (unsigned int i = 0; i < sizeof(dtls->tls_id); i++)
+		g_string_append_printf(s, "%02x", *p++);
+
+	__attr_end(&state);
+}
+
 static void insert_dtls(GString *s, struct call_media *media, struct dtls_connection *dtls,
 		const sdp_ng_flags *flags)
 {
-	unsigned char *p;
-	int i;
 	const struct dtls_hash_func *hf;
 	call_t *call = media->call;
 
@@ -2359,28 +2482,10 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 	/* a=setup: */
 	insert_setup(s, media, flags, true);
 
-	/* prepare fingerprint */
-	g_autoptr(GString) s_dst = g_string_new("");
-	g_string_append(s_dst, hf->name);
-	g_string_append(s_dst, " ");
+	insert_fingerprint(s, media, flags, hf, fp);
 
-	p = fp->digest;
-	for (i = 0; i < hf->num_bytes; i++)
-		g_string_append_printf(s_dst, "%02X:", *p++);
-	g_string_truncate(s_dst, s_dst->len - 1);
-
-	append_attr_to_gstring(s, "fingerprint", &STR_GS(s_dst), flags, media->type_id);
-
-	if (dtls) {
-		/* prepare tls-id */
-		g_string_truncate(s_dst, 0);
-
-		p = dtls->tls_id;
-		for (i = 0; i < sizeof(dtls->tls_id); i++)
-			g_string_append_printf(s_dst, "%02x", *p++);
-
-		append_attr_to_gstring(s, "tls-id", &STR_GS(s_dst), flags, media->type_id);
-	}
+	if (dtls)
+		insert_tls_id(s, media, flags, dtls);
 }
 
 static void insert_crypto1(GString *s, struct call_media *media, struct crypto_params_sdes *cps,
@@ -2394,7 +2499,16 @@ static void insert_crypto1(GString *s, struct call_media *media, struct crypto_p
 	if (!cps->params.crypto_suite || !MEDIA_ISSET(media, SDES) || MEDIA_ISSET(media, PASSTHRU))
 		return;
 
-	g_autoptr(GString) s_dst = g_string_new("");
+	__auto_type a_s = __attr_begin(s, flags, media->type_id);
+	if (__attr_append(&a_s, "crypto"))
+		return;
+	if (__attr_append_f(&a_s, ":%u", cps->tag))
+		return;
+	g_string_append_c(s, ' ');
+	if (__attr_append(&a_s, cps->params.crypto_suite->name))
+		return;
+	if (__attr_append(&a_s, " inline:"))
+		return;
 
 	p = b64_buf;
 	p += g_base64_encode_step((unsigned char *) cps->params.master_key,
@@ -2411,26 +2525,25 @@ static void insert_crypto1(GString *s, struct call_media *media, struct crypto_p
 			p--;
 	}
 
-	g_string_append(s_dst, cps->params.crypto_suite->name);
-	g_string_append(s_dst, " inline:");
-	g_string_append_len(s_dst, b64_buf, p - b64_buf);
+	if (__attr_append_str(&a_s, &STR_LEN(b64_buf, p - b64_buf)))
+		return;
 
 	if (flags->sdes_lifetime)
-		g_string_append(s_dst, "|2^31");
+		g_string_append(s, "|2^31");
 	if (cps->params.mki_len) {
 		ull = 0;
 		for (i = 0; i < cps->params.mki_len && i < sizeof(ull); i++)
 			ull |= (unsigned long long) cps->params.mki[cps->params.mki_len - i - 1] << (i * 8);
-		g_string_append_printf(s_dst, "|%llu:%u", ull, cps->params.mki_len);
+		g_string_append_printf(s, "|%llu:%u", ull, cps->params.mki_len);
 	}
 	if (cps->params.session_params.unencrypted_srtp)
-		g_string_append(s_dst, " UNENCRYPTED_SRTP");
+		g_string_append(s, " UNENCRYPTED_SRTP");
 	if (cps->params.session_params.unencrypted_srtcp)
-		g_string_append(s_dst, " UNENCRYPTED_SRTCP");
+		g_string_append(s, " UNENCRYPTED_SRTCP");
 	if (cps->params.session_params.unauthenticated_srtp)
-		g_string_append(s_dst, " UNAUTHENTICATED_SRTP");
+		g_string_append(s, " UNAUTHENTICATED_SRTP");
 
-	append_int_tagged_attr_to_gstring(s, "crypto", cps->tag, &STR_GS(s_dst), flags, media->type_id);
+	__attr_end(&a_s);
 }
 
 static void insert_crypto(GString *s, struct call_media *media, const sdp_ng_flags *flags) {
@@ -2444,20 +2557,24 @@ static void insert_rtcp_attr(GString *s, struct packet_stream *ps, const sdp_ng_
 {
 	if (flags->no_rtcp_attr)
 		return;
-	g_autoptr(GString) s_dst = g_string_new("");
+	__auto_type state = __attr_begin(s, flags, (media ? media->type_id : MT_UNKNOWN));
+	if (__attr_append(&state, "rtcp"))
+		return;
+	g_string_append_c(s, ':');
 
-	g_string_append_printf(s_dst, "%u", ps->selected_sfd->socket.local.port);
+	if (__attr_append_f(&state, "%u", ps->selected_sfd->socket.local.port))
+		return;
 
 	if (flags->full_rtcp_attr) {
-		g_string_append(s_dst, " IN ");
+		g_string_append(s, " IN ");
 		if (!is_addr_unspecified(&flags->media_address))
-			g_string_append_printf(s_dst, "%s %s",
+			g_string_append_printf(s, "%s %s",
 					flags->media_address.family->rfc_name,
 					sockaddr_print_buf(&flags->media_address));
 		else
-			call_stream_address(s_dst, ps, SAF_NG, NULL, false);
+			call_stream_address(s, ps, SAF_NG, NULL, false);
 	}
-	append_attr_to_gstring(s, "rtcp", &STR_GS(s_dst), flags, (media ? media->type_id : MT_UNKNOWN));
+	__attr_end(&state);
 }
 
 /**
@@ -2544,95 +2661,59 @@ const char *sdp_get_sendrecv(struct call_media *media) {
 		return "inactive";
 }
 
-/**
- * Appends attributes to the output SDP.
- * Includes substitute and remove SDP attribute manipulations.
- */
-static void generic_append_attr_to_gstring(GString *s, const str * attr, char separator, const str * value,
-		const sdp_ng_flags *flags, enum media_type media_type)
-{
-	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags->sdp_manipulations, media_type);
-
-	str * attr_subst = sdp_manipulations_subst(sdp_manipulations, attr);
-
-	/* first check if the originally present attribute is to be removed */
-	if (sdp_manipulate_remove(sdp_manipulations, attr))
-		return;
-
-	g_string_append(s, "a=");
-
-	/* then, if there remains something to be substituted, do that */
-	if (attr_subst)
-		g_string_append_len(s, attr_subst->s, attr_subst->len); // complete attribute
-	else {
-		gsize attr_start = s->len; // save beginning of complete attribute string
-
-		/* attr name */
-		g_string_append_len(s, attr->s, attr->len);
-
-		/* attr value */
-		if (value && value->len) {
-			g_string_append_c(s, separator);
-			g_string_append_len(s, value->s, value->len);
-
-			// check if the complete attribute string is marked for removal ...
-			str complete = STR_LEN(s->str + attr_start, s->len - attr_start);
-			if (sdp_manipulate_remove(sdp_manipulations, &complete))
-			{
-				// rewind and bail
-				g_string_truncate(s, attr_start - 2); // -2 for `a=`
-				return;
-			}
-
-			// ... or substitution
-			attr_subst = sdp_manipulations_subst(sdp_manipulations, &complete);
-			if (attr_subst) {
-				// rewind and replace
-				g_string_truncate(s, attr_start);
-				g_string_append_len(s, attr_subst->s, attr_subst->len);
-			}
-		}
-	}
-
-	g_string_append(s, "\r\n");
-}
-
 /* Appends attributes (`a=name:value`) to the output SDP */
-static void append_str_attr_to_gstring(GString *s, const str * name, const str * value,
+static void append_str_attr_to_gstring(GString *s, const str *name, const str *value,
 		const sdp_ng_flags *flags, enum media_type media_type)
 {
-	generic_append_attr_to_gstring(s, name, ':', value, flags, media_type);
+	__auto_type state = __attr_begin(s, flags, media_type);
+	if (__attr_append_str(&state, name))
+		return;
+	g_string_append_c(s, ':');
+	if (__attr_append_str(&state, value))
+		return;
+	__attr_end(&state);
 }
 
-/* Appends attributes (`a=name:tag value`) to the output SDP */
-static void append_tagged_attr_to_gstring(GString *s, const char * name, const str *tag, const str * value,
+/* Appends attributes (`a=name`) to the output SDP */
+static void append_null_str_attr_to_gstring(GString *s, const str *name,
 		const sdp_ng_flags *flags, enum media_type media_type)
 {
-	if (sdp_manipulate_remove_c(name, flags, media_type))
+	__auto_type state = __attr_begin(s, flags, media_type);
+	if (__attr_append_str(&state, name))
 		return;
-	g_autoptr(GString) n = g_string_new(name);
-	g_string_append_c(n, ':');
-	g_string_append_len(n, tag->s, tag->len);
-	generic_append_attr_to_gstring(s, &STR_GS(n), ' ', value, flags, media_type);
+	__attr_end(&state);
+}
+
+/* Appends attributes (`a=name:something`) to the output SDP */
+void append_v_str_attr_to_gstring(GString *s, const str *name, const sdp_ng_flags *flags,
+		enum media_type media_type, const char *fmt, ...)
+{
+	__auto_type state = __attr_begin(s, flags, media_type);
+	if (__attr_append_str(&state, name))
+		return;
+	g_string_append_c(s, ':');
+	va_list ap;
+	va_start(ap, fmt);
+	bool ret = __attr_append_v(&state, fmt, ap);
+	va_end(ap);
+	if (ret)
+		return;
+	__attr_end(&state);
 }
 
 /* Appends attributes (`a=name:uint value`) to the output SDP */
-static void append_int_tagged_attr_to_gstring(GString *s, const char * name, unsigned int tag, const str * value,
+static void append_int_tagged_str_attr_to_gstring(GString *s, const str *name, unsigned int tag, const str *value,
 		const sdp_ng_flags *flags, enum media_type media_type)
 {
-	if (sdp_manipulate_remove_c(name, flags, media_type))
+	__auto_type state = __attr_begin(s, flags, media_type);
+	if (__attr_append_str(&state, name))
 		return;
-	g_autoptr(GString) n = g_string_new(name);
-	g_string_append_printf(n, ":%u", tag);
-	generic_append_attr_to_gstring(s, &STR_GS(n), ' ', value, flags, media_type);
-}
-
-/* Appends attributes to the output SDP */
-static void append_attr_int_to_gstring(GString *s, const char * name, const int value,
-		const sdp_ng_flags *flags, enum media_type media_type)
-{
-
-	append_int_tagged_attr_to_gstring(s, name, value, NULL, flags, media_type);
+	if (__attr_append_f(&state, ":%u", tag))
+		return;
+	g_string_append_c(s, ' ');
+	if (__attr_append_str(&state, value))
+		return;
+	__attr_end(&state);
 }
 
 static struct packet_stream *print_rtcp(GString *s, struct call_media *media, packet_stream_list *rtp_ps_link,
@@ -2657,14 +2738,14 @@ static struct packet_stream *print_rtcp(GString *s, struct call_media *media, pa
 						IS_OP_OTHER(flags->opmode)))
 		{
 			insert_rtcp_attr(s, ps, flags, media);
-			append_attr_to_gstring(s, "rtcp-mux", NULL, flags, media->type_id);
+			append_null_attr_to_gstring(s, "rtcp-mux", flags, media->type_id);
 			ps_rtcp = NULL;
 		}
 		else if (ps_rtcp && flags->ice_option != ICE_FORCE_RELAY) {
 			insert_rtcp_attr(s, ps_rtcp, flags, media);
 
 			if (MEDIA_ISSET(media, RTCP_MUX))
-				append_attr_to_gstring(s, "rtcp-mux", NULL, flags, media->type_id);
+				append_null_attr_to_gstring(s, "rtcp-mux", flags, media->type_id);
 		}
 	}
 	else
@@ -2739,15 +2820,15 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 		{
 			/* answer must be recvonly (sendonly-to-recvonly) */
 			if (MEDIA_ISSET(source_media, REAL_SENDONLY))
-				append_attr_to_gstring(s, "recvonly", NULL, flags, media->type_id);
+				append_null_attr_to_gstring(s, "recvonly", flags, media->type_id);
 			/* answer must be inactive (inactive-to-inactive) */
 			else
-				append_attr_to_gstring(s, "inactive", NULL, flags, media->type_id);
+				append_null_attr_to_gstring(s, "inactive", flags, media->type_id);
 			/* clear flags for this MoH offer/answer exchange, so that future exchanges are real */
 			MEDIA_CLEAR(source_media, FAKE_SENDRECV);
 			MEDIA_CLEAR(source_media, REAL_SENDONLY);
 		} else {
-			append_attr_to_gstring(s, sdp_get_sendrecv(media), NULL, flags,
+			append_null_attr_to_gstring(s, sdp_get_sendrecv(media), flags,
 					media->type_id);
 		}
 	}
@@ -2782,7 +2863,7 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 	}
 
 	if ((MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent)) {
-		append_attr_to_gstring(s, "end-of-candidates", NULL, flags, media->type_id);
+		append_null_attr_to_gstring(s, "end-of-candidates", flags, media->type_id);
 	}
 
 	return;
@@ -2889,12 +2970,12 @@ static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 		append_attr_to_gstring(out, "rtpengine", &rtpe_instance_id, flags, media->type_id);
 #ifdef WITH_TRANSCODING
 	if (monologue->player && monologue->player->opts.moh && rtpe_config.moh_attr_name) {
-		append_attr_to_gstring(out, rtpe_config.moh_attr_name, NULL, flags, media->type_id);
+		append_null_attr_to_gstring(out, rtpe_config.moh_attr_name, flags, media->type_id);
 	}
 #endif
 	/* ice-lite */
 	if (media_has_ice && media_has_ice_lite_self)
-		append_attr_to_gstring(out, "ice-lite", NULL, flags, media->type_id);
+		append_null_attr_to_gstring(out, "ice-lite", flags, media->type_id);
 
 	/* group */
 	if (source_ml && source_ml->sdp_session_group.len && flags->ice_option == ICE_FORCE_RELAY)
@@ -3081,7 +3162,7 @@ static void sdp_out_original_media_attributes(GString *out, struct call_media *m
 			rtcp_ps = NULL;
 		insert_candidates(out, rtp_ps, rtcp_ps, flags, source_media);
 		if (MEDIA_ISSET(source_media, END_OF_CANDIDATES))
-			append_attr_to_gstring(out, "end-of-candidates", NULL, flags, media->type_id);
+			append_null_attr_to_gstring(out, "end-of-candidates", flags, media->type_id);
 	}
 }
 

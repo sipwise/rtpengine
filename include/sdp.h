@@ -35,10 +35,10 @@ void sdp_init(void);
 void sdp_insert_media_attributes(GString *, struct call_media *, struct call_media *, const sdp_ng_flags *);
 void sdp_insert_monologue_attributes(GString *, struct call_monologue *, const sdp_ng_flags *);
 
-void sdp_append_str_attr(GString *s, const sdp_ng_flags *flags, enum media_type media_type,
-		const str *name, const char *fmt, ...)
-	__attribute__ ((format (printf, 5, 6)));
-#define sdp_append_attr(s, g, t, n, f, ...) sdp_append_str_attr(s, g, t, STR_PTR(n), f, ##__VA_ARGS__)
+__attribute__((nonnull(1, 2, 3, 5)))
+void append_v_str_attr_to_gstring(GString *s, const str *name, const sdp_ng_flags *flags,
+		enum media_type media_type, const char *fmt, ...);
+#define sdp_append_attr(s, g, t, n, f, ...) append_v_str_attr_to_gstring(s, STR_PTR(n), g, t, f, ##__VA_ARGS__)
 
 void sdp_attr_free(struct sdp_attr *);
 sdp_origin *sdp_orig_dup(const sdp_origin *orig);
