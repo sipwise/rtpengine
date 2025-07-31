@@ -125,9 +125,17 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 						__typeof__(((type_name *)0)->__ckey))) (eq_func), \
 				default: (eq_func) \
 		); \
+		void (*__k_free_func)(__typeof__(((type_name *)0)->__key)) = _Generic((key_free_func), \
+			void (*)(void *): (void (*)(__typeof__(((type_name *)0)->__key))) (key_free_func), \
+			default: (key_free_func) \
+		); \
+		void (*__v_free_func)(__typeof__(((type_name *)0)->__value)) = _Generic((value_free_func), \
+			void (*)(void *): (void (*)(__typeof__(((type_name *)0)->__value))) (value_free_func), \
+			default: (value_free_func) \
+		); \
 		GHashTable *ht = g_hash_table_new_full((GHashFunc) __hash_func, (GEqualFunc) __eq_func, \
-				(GDestroyNotify) key_free_func, \
-				(GDestroyNotify) value_free_func); \
+				(GDestroyNotify) __k_free_func, \
+				(GDestroyNotify) __v_free_func); \
 		return (type_name) { ht }; \
 	} \
 

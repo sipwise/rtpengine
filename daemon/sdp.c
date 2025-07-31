@@ -80,7 +80,7 @@ struct sdp_connection {
 
 TYPED_GQUEUE(attributes, struct sdp_attribute)
 TYPED_GHASHTABLE(attr_id_ht, void, struct sdp_attribute, g_direct_hash, g_direct_equal, NULL, NULL)
-TYPED_GHASHTABLE(attr_list_ht, void, attributes_q, g_direct_hash, g_direct_equal, NULL, g_queue_free)
+TYPED_GHASHTABLE(attr_list_ht, void, attributes_q, g_direct_hash, g_direct_equal, NULL, attributes_q_free)
 TYPED_GHASHTABLE_LOOKUP_INSERT(attr_list_ht, NULL, attributes_q_new)
 
 struct sdp_attributes {
