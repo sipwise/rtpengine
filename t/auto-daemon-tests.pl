@@ -36,14 +36,15 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 	$sock_ax, $sock_bx, $port_ax, $port_bx, $t_a, $t_b, $t_c, $t_d,
 	$sock_cx, $sock_dx, $port_c, $port_d, $port_cx, $port_dx,
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev, $ufrag_a, $ufrag_b,
-	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq, $has_recv, $tmp_blob);
+	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq, $has_recv, $tmp_blob,
+	$pwd_a, $pwd_b, $packet, $tid);
 
 
 
 
 
 sub stun_req {
-	my ($controlling, $pref, $comp, $my_ufrag, $other_ufrag, $other_pwd) = @_;
+	my ($controlling, $pref, $comp, $my_ufrag, $other_ufrag, $other_pwd, $use) = @_;
 
 	my $tid = NGCP::Rtpclient::ICE::random_string(12);
 
@@ -55,7 +56,10 @@ sub stun_req {
 	unshift(@attrs, NGCP::Rtpclient::ICE::attr(0x0024, pack('N', NGCP::Rtpclient::ICE::calc_priority('prflx',
 				$pref, $comp))));
 	unshift(@attrs, NGCP::Rtpclient::ICE::attr(0x0006, "$other_ufrag:$my_ufrag"));
-	# nominate
+
+	if ($use) {
+		unshift(@attrs, NGCP::Rtpclient::ICE::attr(0x0025, ''));
+	}
 
 	NGCP::Rtpclient::ICE::integrity(\@attrs, 1, $tid, $other_pwd);
 	NGCP::Rtpclient::ICE::fingerprint(\@attrs, 1, $tid);
@@ -10339,7 +10343,7 @@ rcv($sock_a, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42/s);
 rcv($sock_b, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42/s);
 
 # send our own STUN checks from different port, resulting in learned prflx candidates
-my ($packet, $tid) = stun_req(1, 65527, 1, 'q27e93', $ufrag_a, $ufrag_b);
+($packet, $tid) = stun_req(1, 65527, 1, 'q27e93', $ufrag_a, $ufrag_b);
 snd($sock_c, $port_a, $packet);
 
 $has_recv = 0;
