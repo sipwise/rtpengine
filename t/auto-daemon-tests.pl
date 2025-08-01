@@ -88,6 +88,162 @@ sub stun_succ {
 
 
 
+if ($extended_tests) {
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 7256)], [qw(198.51.100.3 7258)]);
+
+($port_a, undef, $ufrag_a, $pwd_a) = offer('remote-candidates', { 'rtcp-mux' => ['require'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7256 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=rtcp-mux
+a=ice-ufrag:UXPd
+a=ice-pwd:02K77oy8PHQ2tmz6RjF4gyWB
+a=candidate:xxxxxxx 1 udp 2130706431 198.51.100.1 7256 typ host
+a=candidate:aaaaaaa 1 udp 2130706175 198.51.100.9 7256 typ host
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+SDP
+
+($port_b, undef, $ufrag_b, $pwd_b) = answer('remote-candidates', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7258 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+a=ice-ufrag:sdyv
+a=ice-pwd:02K77gjdfgdstmz6RjF4gyWB
+a=candidate:yyyyyyy 1 udp 2130706431 198.51.100.3 7258 typ host
+a=candidate:bbbbbbb 1 udp 2130706175 198.51.100.9 7258 typ host
+a=rtcp-mux
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+SDP
+
+# receive STUN req and respond
+(undef, undef, $tid) = rcv($sock_a, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
+snd($sock_a, $port_b, stun_succ($port_b, $tid, '02K77oy8PHQ2tmz6RjF4gyWB'));
+
+# other side
+(undef, undef, $tid) = rcv($sock_b, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
+snd($sock_b, $port_a, stun_succ($port_a, $tid, '02K77gjdfgdstmz6RjF4gyWB'));
+
+# send our own checks
+($packet, $tid) = stun_req(1, 65527, 1, 'UXPd', $ufrag_b, $pwd_b);
+snd($sock_a, $port_b, $packet);
+rcv($sock_a, -1, qr/^\x01\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
+
+# other side
+($packet, $tid) = stun_req(0, 65527, 1, 'sdyv', $ufrag_a, $pwd_a);
+snd($sock_b, $port_a, $packet);
+rcv($sock_b, -1, qr/^\x01\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
+
+# wait for nomination
+(undef, undef, $tid) = rcv($sock_b, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine.*\x00\x25\x00\x00\x00\x08\x00/s);
+snd($sock_b, $port_a, stun_succ($port_a, $tid, '02K77gjdfgdstmz6RjF4gyWB'));
+# ICE now completed
+
+# we nominate
+($packet, $tid) = stun_req(1, 65527, 1, 'UXPd', $ufrag_b, $pwd_b, 1);
+snd($sock_a, $port_b, $packet);
+rcv($sock_a, -1, qr/^\x01\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
+# ICE now completed
+
+($port_a, undef, $ufrag_a, $pwd_a) = offer('remote-candidates', { 'rtcp-mux' => ['require'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7256 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=rtcp-mux
+a=ice-ufrag:UXPd
+a=ice-pwd:02K77oy8PHQ2tmz6RjF4gyWB
+a=candidate:xxxxxxx 1 udp 2130706431 198.51.100.1 7256 typ host
+a=candidate:aaaaaaa 1 udp 2130706175 198.51.100.9 7256 typ host
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=remote-candidates:1 198.51.100.3 7258
+SDP
+
+($port_b, undef, $ufrag_b, $pwd_b) = answer('remote-candidates', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7258 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+a=ice-ufrag:sdyv
+a=ice-pwd:02K77gjdfgdstmz6RjF4gyWB
+a=candidate:yyyyyyy 1 udp 2130706431 198.51.100.3 7258 typ host
+a=candidate:bbbbbbb 1 udp 2130706175 198.51.100.9 7258 typ host
+a=rtcp-mux
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+SDP
+
+}
+
+
+
 new_call;
 
 offer('asymmetric codecs w transcoding', { codec => { transcode => ['G722'] } }, <<SDP);
