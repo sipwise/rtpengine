@@ -3275,12 +3275,62 @@ static struct call_media * monologue_add_zero_media(struct call_monologue *sende
 	return sender_media;
 }
 
+// reset all bundle state
+__attribute__((nonnull(1)))
+static void monologue_bundle_reset(struct call_monologue *ml) {
+	for (unsigned int i = 0; i < ml->medias->len; i++) {
+		__auto_type media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+
+		if (t_hash_table_is_set(media->pt_media))
+			t_hash_table_remove_all(media->pt_media);
+
+		media->bundle = NULL;
+	}
+}
+
+__attribute__((nonnull(1)))
+static void track_bundle_media_pt(struct call_media *media, pt_media_ht tracker) {
+	__auto_type bundle = media->bundle;
+
+	// fill PT to media mapping
+	if (!t_hash_table_is_set(bundle->pt_media))
+		bundle->pt_media = pt_media_ht_new();
+
+	for (__auto_type l = media->codecs.codec_prefs.head; l; l = l->next) {
+		__auto_type pt = l->data;
+
+		// previous duplicate?
+		if (t_hash_table_lookup(tracker, GINT_TO_POINTER(pt->payload_type)))
+			continue;
+
+		ilog(LOG_DEBUG, "Associating payload type %d with media #%u",
+				pt->payload_type, media->index);
+
+		if (t_hash_table_insert(bundle->pt_media, GINT_TO_POINTER(pt->payload_type), media))
+			continue;
+
+		// new duplicate
+		ilog(LOG_DEBUG, "Payload type %d is not unique, forgetting about it", pt->payload_type);
+
+		t_hash_table_remove(bundle->pt_media, GINT_TO_POINTER(pt->payload_type));
+		t_hash_table_insert(tracker, GINT_TO_POINTER(pt->payload_type), media);
+	}
+}
+
 __attribute__((nonnull(1, 2)))
 static void monologue_bundle_accept(struct call_monologue *ml, sdp_ng_flags *flags) {
 	if (!ML_ISSET(ml, BUNDLE))
 		return;
+
+	monologue_bundle_reset(ml);
+
 	if (!t_hash_table_is_set(flags->bundles))
 		return;
+
+	// track PTs that appear in multiple medias
+	g_auto(pt_media_ht) exclude_pt = pt_media_ht_new();
 
 	// iterate all medias and set up bundle groups as requested
 	for (unsigned int i = 0; i < ml->medias->len; i++) {
@@ -3305,6 +3355,8 @@ static void monologue_bundle_accept(struct call_monologue *ml, sdp_ng_flags *fla
 					STR_FMT(bundle_head));
 			continue;
 		}
+
+		track_bundle_media_pt(media, exclude_pt);
 	}
 }
 
@@ -4602,6 +4654,7 @@ void call_media_free(struct call_media **mdp) {
 	t_hash_table_destroy(md->extmap_ht);
 	t_hash_table_destroy(md->ext_name_ht);
 	t_queue_clear_full(&md->extmap, rtp_extension_free);
+	t_hash_table_destroy_ptr(&md->pt_media);
 	g_free(md);
 	*mdp = NULL;
 }

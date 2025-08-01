@@ -336,6 +336,7 @@ TYPED_DIRECT_FUNCS(media_direct_hash, media_direct_eq, struct call_media)
 TYPED_GHASHTABLE(subscription_ht, struct call_media, subscription_list, media_direct_hash, media_direct_eq,
 		NULL, NULL)
 TYPED_GHASHTABLE(media_id_ht, str, struct call_media, str_hash, str_equal, NULL, NULL)
+TYPED_GHASHTABLE(pt_media_ht, void, struct call_media, g_direct_hash, g_direct_equal, NULL, NULL)
 
 struct session_bandwidth {
 	long as, rr, rs, ct, tias;
@@ -509,6 +510,7 @@ struct call_media {
 	str			media_id;
 	str			label;
 	struct call_media	*bundle;
+	pt_media_ht		pt_media;
 	sdes_q			sdes_in, sdes_out;
 	struct dtls_fingerprint fingerprint;			/* as received */
 	const struct dtls_hash_func *fp_hash_func;		/* outgoing */
