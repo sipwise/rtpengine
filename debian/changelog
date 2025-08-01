@@ -1,3 +1,10 @@
+ngcp-rtpengine (12.5.1.40+0~mr12.5.1.40) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [bbc438b] MT#55283 add alternative opus output
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Sat, 02 Aug 2025 00:23:23 +0200
+
 ngcp-rtpengine (12.5.1.39+0~mr12.5.1.39) unstable; urgency=medium
 
   [ Donat Zenichev ]
