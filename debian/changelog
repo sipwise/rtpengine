@@ -1,3 +1,10 @@
+ngcp-rtpengine (12.5.1.39+0~mr12.5.1.39) unstable; urgency=medium
+
+  [ Donat Zenichev ]
+  * [d15b084] MT#55283 Fix for "opus<>opus+DTMF" test
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Sat, 02 Aug 2025 00:08:59 +0200
+
 ngcp-rtpengine (12.5.1.38+0~mr12.5.1.38) unstable; urgency=medium
 
   [ Richard Fuchs ]
