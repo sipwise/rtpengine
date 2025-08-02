@@ -2563,6 +2563,10 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 				break;
 		}
 
+		// confirm endpoint, if matches address advertised in SDP
+		if (idx == 0)
+			goto confirm_now;
+
 		// finally, if there has been a better match and if strict-source is set,
 		// drop this packet
 		if (PS_ISSET(phc->mp.stream, STRICT_SOURCE) && matched_idx < idx) {
