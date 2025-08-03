@@ -34,6 +34,7 @@ flags = [
     '-pthread',
     '-I../kernel-module/',
     '-I../lib/',
+    '-I../daemon/private',
     '-I../include/',
     '-I../daemon/',
     '-D_GNU_SOURCE',
