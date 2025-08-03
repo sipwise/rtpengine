@@ -1,5 +1,4 @@
 CC ?= gcc
-AS ?= gcc
 
 ifeq ($(DO_ASAN_FLAGS),1)
 ASAN_FLAGS = -ggdb -O0 -fsanitize=address -fsanitize=leak -fsanitize=undefined

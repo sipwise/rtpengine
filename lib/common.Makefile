@@ -30,7 +30,7 @@ $(DAEMONOBJS): %.o: ../daemon/%.c
 	$(CC) -c $(CFLAGS) $< -o $@
 
 $(LIBASMOBJS): %.o: ../lib/%.S
-	$(AS) -c $(ASFLAGS) $< -o $@
+	$(CC) -c $(ASFLAGS) $< -o $@
 
 
 $(TARGET):	$(ALLOBJS) Makefile
