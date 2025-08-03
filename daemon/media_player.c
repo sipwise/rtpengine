@@ -453,7 +453,14 @@ static void send_timer_send_nolock(struct send_timer *st, struct codec_packet *c
 
 	log_info_call(call);
 
+	struct ssrc_entry_call *ssrc_out = cp->ssrc_out;
+	if (ssrc_out)
+		ssrc_entry_hold(ssrc_out);
+
 	__send_timer_send_common(st, cp);
+
+	__send_timer_rtcp(st, ssrc_out);
+	ssrc_entry_release(ssrc_out);
 
 	log_info_pop();
 }

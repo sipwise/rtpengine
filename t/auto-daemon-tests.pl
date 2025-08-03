@@ -17867,9 +17867,9 @@ is $resp->{duration}, 100, 'media duration';
 ($seq, $ts, $ssrc) = rcv($sock_a, $port_b, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
 rcv($sock_a, $port_b, rtpm(8, $seq + 1, $ts + 160, $ssrc, $pcma_2));
 #                                         SR  LEN    SSRC  NTP1  NTP2  RTP      PACKETS         OCTETS           SSRC           LOST            SEQ            JITTER           LAST SR       DLSR           CNAME
-@ret1 = rcv($sock_ax, $port_bx, qr/^\x81\xc8\x00\x0c(.{4})(.{4})(.{4})(.{4})\x00\x00\x00\x02\x00\x00\x01\x58\x00\x00\x12\x34\x00\x00\x00\x00\x00\x00\x03\xe8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x81\xca\x00\x05(.{4})\x01\x0c([0-9a-f]{12})\x00\x00$/s);
+@ret1 = rcv($sock_ax, $port_bx, qr/^\x81\xc8\x00\x0c(.{4})(.{4})(.{4})(.{4})\x00\x00\x00\x01\x00\x00\x00\xac\x00\x00\x12\x34\x00\x00\x00\x00\x00\x00\x03\xe8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x81\xca\x00\x05(.{4})\x01\x0c([0-9a-f]{12})\x00\x00$/s);
 is $ret1[0], $ssrc, 'SSRC matches';
-is $ret1[3], $ts + 160, 'TS matches';
+is $ret1[3], $ts, 'TS matches';
 is $ret1[4], $ssrc, 'SSRC matches';
 
 rtpe_req('delete', "delete", { 'from-tag' => ft() });
@@ -17943,9 +17943,9 @@ is $resp->{duration}, 100, 'media duration';
 ($seq, $ts, $ssrc) = rcv($sock_a, $port_b, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
 rcv($sock_a, $port_b, rtpm(8, $seq + 1, $ts + 160, $ssrc, $pcma_2));
 #                                         SR  LEN    SSRC  NTP1  NTP2  RTP      PACKETS         OCTETS           SSRC           LOST            SEQ            JITTER           LAST SR     DLSR     CNAME
-@ret1 = rcv($sock_ax, $port_bx, qr/^\x81\xc8\x00\x0c(.{4})(.{4})(.{4})(.{4})\x00\x00\x00\x02\x00\x00\x01\x58\x00\x00\x12\x34\x00\x00\x00\x00\x00\x00\x03\xe8\x00\x00\x00\x00\x56\x78\x9a\xbc(.{4})\x81\xca\x00\x05(.{4})\x01\x0c([0-9a-f]{12})\x00\x00$/s);
+@ret1 = rcv($sock_ax, $port_bx, qr/^\x81\xc8\x00\x0c(.{4})(.{4})(.{4})(.{4})\x00\x00\x00\x01\x00\x00\x00\xac\x00\x00\x12\x34\x00\x00\x00\x00\x00\x00\x03\xe8\x00\x00\x00\x00\x56\x78\x9a\xbc(.{4})\x81\xca\x00\x05(.{4})\x01\x0c([0-9a-f]{12})\x00\x00$/s);
 is $ret1[0], $ssrc, 'SSRC matches';
-is $ret1[3], $ts + 160, 'TS matches';
+is $ret1[3], $ts, 'TS matches';
 cmp_ok $ret1[4], '<', 6553, 'DSLR ok';
 is $ret1[5], $ssrc, 'SSRC matches';
 
