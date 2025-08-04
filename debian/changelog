@@ -1,3 +1,10 @@
+ngcp-rtpengine (11.5.1.46+0~mr11.5.1.46) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [34ea1d0] MT#55283 trigger RTCP send from both send funcs
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 04 Aug 2025 14:31:34 +0200
+
 ngcp-rtpengine (11.5.1.45+0~mr11.5.1.45) unstable; urgency=medium
 
   [ Richard Fuchs ]
