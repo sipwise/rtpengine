@@ -218,13 +218,26 @@ INLINE ssize_t socket_sendto_from(socket_t *s, const void *b, size_t l, const en
 	return socket_sendiov(s, &(struct iovec) { .iov_base = (void *) b, .iov_len = l }, l, dst, src);
 }
 
+struct timeval32 {
+	int32_t tv_sec;
+	int32_t tv_usec;
+};
+
 #define socket_recvfrom_parse_cmsg(tv, to, parse_to, msgh, firsthdr, nexthdr) do { \
 	if ((*tv) || (*to)) { \
 		struct cmsghdr *cm; \
 		for (cm = firsthdr; cm; cm = nexthdr) { \
-			if (cm->cmsg_level == SOL_SOCKET && cm->cmsg_type == SO_TIMESTAMP && (*tv)) { \
-				*(*tv) = *((struct timeval *) CMSG_DATA(cm)); \
-				(*tv) = NULL; \
+			if ((*tv) && cm->cmsg_level == SOL_SOCKET) { \
+				if (cm->cmsg_type == SO_TIMESTAMP) { \
+					*(*tv) = *((struct timeval *) CMSG_DATA(cm)); \
+					(*tv) = NULL; \
+				} \
+				else if (cm->cmsg_type == SO_TIMESTAMP_OLD) { \
+					struct timeval32 *tc = (struct timeval32 *) CMSG_DATA(cm); \
+					struct timeval tvv = { .tv_sec = tc->tv_sec, .tv_usec = tc->tv_usec }; \
+					*(*tv) = tvv; \
+					(*tv) = NULL; \
+				} \
 			} \
 			if (parse && (*to) && parse_to(cm, (*to))) \
 				(*to) = NULL; \
