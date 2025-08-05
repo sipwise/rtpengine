@@ -1483,17 +1483,15 @@ static int fill_endpoint(struct endpoint *ep, const struct sdp_media *media, sdp
 
 
 
-static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media)
+static bool __rtp_payload_types(struct stream_params *sp, struct sdp_media *media)
 {
-	GHashTable *ht_rtpmap, *ht_fmtp, *ht_rtcp_fb;
 	struct sdp_attribute *attr;
-	int ret = 0;
 
 	if (!proto_is_rtp(sp->protocol))
-		return 0;
+		return true;
 
 	/* first go through a=rtpmap and build a hash table of attrs */
-	ht_rtpmap = g_hash_table_new(g_int_hash, g_int_equal);
+	g_autoptr(GHashTable) ht_rtpmap = g_hash_table_new(g_int_hash, g_int_equal);
 	attributes_q *q = attr_list_get_by_id(&media->attributes, ATTR_RTPMAP);
 	for (__auto_type ql = q ? q->head : NULL; ql; ql = ql->next) {
 		rtp_payload_type *pt;
@@ -1502,14 +1500,14 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 		g_hash_table_insert(ht_rtpmap, &pt->payload_type, pt);
 	}
 	// do the same for a=fmtp
-	ht_fmtp = g_hash_table_new(g_int_hash, g_int_equal);
+	g_autoptr(GHashTable) ht_fmtp = g_hash_table_new(g_int_hash, g_int_equal);
 	q = attr_list_get_by_id(&media->attributes, ATTR_FMTP);
 	for (__auto_type ql = q ? q->head : NULL; ql; ql = ql->next) {
 		attr = ql->data;
 		g_hash_table_insert(ht_fmtp, &attr->fmtp.payload_type, &attr->fmtp.format_parms_str);
 	}
 	// do the same for a=rtcp-fb
-	ht_rtcp_fb = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, (GDestroyNotify) g_queue_free);
+	g_autoptr(GHashTable) ht_rtcp_fb = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, (GDestroyNotify) g_queue_free);
 	q = attr_list_get_by_id(&media->attributes, ATTR_RTCP_FB);
 	for (__auto_type ql = q ? q->head : NULL; ql; ql = ql->next) {
 		attr = ql->data;
@@ -1533,7 +1531,7 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 		s = ql->data;
 		i = (unsigned int) strtoul(s->s, &ep, 10);
 		if (ep == s->s || i > 127)
-			goto error;
+			return false;
 
 		/* first look in rtpmap for a match, then check RFC types,
 		 * else fall back to an "unknown" type */
@@ -1571,16 +1569,7 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 		codec_store_add_raw(&sp->codecs, pt);
 	}
 
-	goto out;
-
-error:
-	ret = -1;
-	goto out;
-out:
-	g_hash_table_destroy(ht_rtpmap);
-	g_hash_table_destroy(ht_fmtp);
-	g_hash_table_destroy(ht_rtcp_fb);
-	return ret;
+	return true;
 }
 
 static void __sdp_ice(struct stream_params *sp, struct sdp_media *media) {
@@ -1924,7 +1913,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 
 			sp->format_str = media->formats;
 			errstr = "Invalid RTP payload types";
-			if (__rtp_payload_types(sp, media))
+			if (!__rtp_payload_types(sp, media))
 				goto error;
 
 			/* a=crypto */
