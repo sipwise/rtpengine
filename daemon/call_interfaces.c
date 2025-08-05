@@ -840,6 +840,27 @@ static void call_ng_flags_rtcp_mux(str *s, unsigned int idx, helper_arg arg) {
 	}
 }
 
+static void call_ng_flags_bundle(str *s, unsigned int idx, helper_arg arg) {
+	sdp_ng_flags *out = arg.flags;
+	switch (__csh_lookup(s)) {
+		case CSH_LOOKUP("accept"):
+			out->bundle_accept = true;
+			break;
+		case CSH_LOOKUP("offer"):
+			out->bundle_offer = true;
+			break;
+		case CSH_LOOKUP("reject"):
+			out->bundle_reject = true;
+			break;
+		case CSH_LOOKUP("require"):
+			out->bundle_require = true;
+			break;
+		default:
+			ilog(LOG_WARN, "Unknown 'BUNDLE' flag encountered: '" STR_FORMAT "'",
+					STR_FMT(s));
+	}
+}
+
 static void call_ng_flags_moh(const ng_parser_t *parser, str *key, parser_arg value, helper_arg arg) {
 	sdp_ng_flags *out = arg.flags;
 	switch (__csh_lookup(key)) {
@@ -1360,6 +1381,9 @@ void call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 			/* rtcp-mux */
 			if (call_ng_flags_prefix(s, "rtcp-mux-", call_ng_flags_rtcp_mux, out))
 				return;
+			/* group:BUNDLE */
+			if (call_ng_flags_prefix(s, "BUNDLE-", call_ng_flags_bundle, out))
+				return;
 
 			/* codec manipulations */
 			{
@@ -1784,6 +1808,10 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			break;
 		case CSH_LOOKUP("blob"):
 			out->blob = s;
+			break;
+		case CSH_LOOKUP("bundle"):
+		case CSH_LOOKUP("BUNDLE"):
+			call_ng_flags_str_list(parser, value, call_ng_flags_bundle, out);
 			break;
 		case CSH_LOOKUP("call-id"):
 		case CSH_LOOKUP("call-ID"):
