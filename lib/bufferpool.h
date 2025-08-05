@@ -3,7 +3,7 @@
 
 #include "obj.h"
 
-#define BUFFERPOOL_ALIGNMENT (sizeof(void *)) // bytes
+#define BUFFERPOOL_ALIGNMENT (MAX(sizeof(void *), 8)) // bytes
 #define BUFFERPOOL_ALIGN(x) (((x + BUFFERPOOL_ALIGNMENT - 1) / BUFFERPOOL_ALIGNMENT) * BUFFERPOOL_ALIGNMENT)
 
 #define BUFFERPOOL_SHARD_SIZE ((size_t) (1LL<<24)) // 16 MB, must be a power of two
