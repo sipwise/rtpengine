@@ -87,7 +87,7 @@ DAEMONSRCS+=	control_ng_flags_parser.c codec.c call.c ice.c kernel.c media_socke
 		cookie_cache.c udp_listener.c homer.c load.c cdr.c dtmf.c timerthread.c \
 		media_player.c jitter_buffer.c t38.c tcp_listener.c mqtt.c websocket.c \
 		audio_player.c arena.c ng_client.c call_interfaces.strhash.c sdp.strhash.c \
-		janus.strhash.c control_ng.strhash.c cli.strhash.c
+		janus.strhash.c control_ng.strhash.c
 LIBASM=		mvr2s_x64_avx2.S mvr2s_x64_avx512.S mix_in_x64_avx2.S mix_in_x64_avx512bw.S mix_in_x64_sse2.S
 endif
 ifneq ($(have_liburing),yes)
