@@ -2607,6 +2607,38 @@ static void media_packet_parse(struct packet_handler_ctx *phc) {
 	}
 }
 
+static void media_packet_reset_media(struct packet_handler_ctx *phc, struct call_media *media) {
+	if (media == phc->mp.media)
+		return; // no-op
+
+	// reset media, stream, sinks, in_srtp
+	phc->mp.media = media;
+	phc->mp.stream = media->streams.head->data;
+	phc->in_srtp = phc->mp.stream;
+	phc->sinks = &phc->mp.stream->rtp_sinks;
+}
+
+// possibly resets media, stream, sinks, and in_srtp
+static void media_packet_demux_pt(struct packet_handler_ctx *phc) {
+	// RTP?
+	if (phc->payload_type == -1)
+		return;
+
+	// bundled?
+	__auto_type bundle = phc->mp.media->bundle;
+	if (!bundle)
+		return;
+	if (!t_hash_table_is_set(bundle->pt_media))
+		return;
+
+	// PT is known?
+	__auto_type pt_media = t_hash_table_lookup(bundle->pt_media, GINT_TO_POINTER(phc->payload_type));
+	if (!pt_media || pt_media == phc->mp.media)
+		return;
+
+	media_packet_reset_media(phc, pt_media);
+}
+
 // sets in_srtp and sinks
 static void media_packet_set_streams(struct packet_handler_ctx *phc) {
 	phc->in_srtp = phc->mp.stream;
@@ -2616,6 +2648,8 @@ static void media_packet_set_streams(struct packet_handler_ctx *phc) {
 		return;
 	if (G_UNLIKELY(!proto_is_rtp(phc->mp.media->protocol)))
 		return;
+
+	media_packet_demux_pt(phc);
 
 	if (phc->rtcp) {
 		if (phc->mp.stream->rtcp_sibling)
