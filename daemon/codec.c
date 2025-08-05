@@ -2530,11 +2530,12 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 	}
 
 send:
-	ilogs(transcoding, LOG_DEBUG, "Scheduling to send RTP packet (seq %u TS %lu) in %" PRId64 ".%01ld ms (at %" PRId64 ".%06" PRId64 ")",
+	ilogs(transcoding, LOG_DEBUG, "Scheduling to send RTP packet (seq %u TS %lu) in %"
+			PRId64 ".%01lld ms (at %" PRId64 ".%06" PRId64 ")",
 			ntohs(rh->seq_num),
 			ts,
 			ts_diff_us / 1000,
-			labs((ts_diff_us % 1000) / 100),
+			llabs(((long long) ts_diff_us % 1000) / 100),
 			p->ttq_entry.when / 1000000,
 			p->ttq_entry.when % 1000000);
 
@@ -3714,7 +3715,7 @@ static bool __dtx_drift_shift(struct dtx_buffer *dtxb, unsigned long ts,
 	if (tv_diff < rtpe_config.dtx_delay_us) {
 		// timer underflow
 		ilogs(dtx, LOG_DEBUG, "Packet reception time has caught up with DTX timer "
-				"(%li ms < %" PRId64 " ms), "
+				"(%" PRId64 " ms < %" PRId64 " ms), "
 				"pushing DTX timer forward my %" PRId64 " ms",
 				tv_diff / 1000, rtpe_config.dtx_delay_us / 1000L,
 				rtpe_config.dtx_shift_us / 1000L);
@@ -3840,7 +3841,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 						dtxb->head_ts, ts, ts_diff_us / 1000);
 			else if (ts_diff >= dtxb->tspp * 2) {
 				ilogs(dtx, LOG_DEBUG, "First packet in DTX buffer not ready yet (packet TS %lu, "
-						"DTX TS %lu, diff %li)",
+						"DTX TS %lu, diff %" PRId64 ")",
 						ts, dtxb->head_ts, ts_diff);
 				dtxp = NULL;
 			}
