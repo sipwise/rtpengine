@@ -1887,8 +1887,8 @@ static void cli_incoming_media_list_files(str *instr, struct cli_writer *cw, con
 		if (media_player_get_file_times(name, &mtime, &atime))
 			cw->cw_printf(cw, STR_FORMAT ", loaded %lu s ago, last used %lu s ago\n",
 					STR_FMT(name),
-					(long) rtpe_now.tv_sec - mtime,
-					(long) rtpe_now.tv_sec - atime);
+					(long) (rtpe_now.tv_sec - mtime),
+					(long) (rtpe_now.tv_sec - atime));
 		str_free(name);
 	}
 }
@@ -1901,8 +1901,8 @@ static void cli_incoming_media_list_dbs(str *instr, struct cli_writer *cw, const
 		time_t atime, mtime;
 		if (media_player_get_db_times(id, &mtime, &atime))
 			cw->cw_printf(cw, "%llu, loaded %lu s ago, last used %lu s ago\n", id,
-					(long) rtpe_now.tv_sec - mtime,
-					(long) rtpe_now.tv_sec - atime);
+					(long) (rtpe_now.tv_sec - mtime),
+					(long) (rtpe_now.tv_sec - atime));
 	}
 }
 
@@ -2071,8 +2071,8 @@ static void cli_incoming_media_list_caches(str *instr, struct cli_writer *cw, co
 		time_t atime, mtime;
 		if (media_player_get_cache_times(id, &mtime, &atime))
 			cw->cw_printf(cw, "%llu, loaded %lu s ago, last used %lu s ago\n", id,
-					(long) rtpe_now.tv_sec - mtime,
-					(long) rtpe_now.tv_sec - atime);
+					(long) (rtpe_now.tv_sec - mtime),
+					(long) (rtpe_now.tv_sec - atime));
 	}
 }
 

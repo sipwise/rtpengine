@@ -3753,7 +3753,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 			else if (ts_diff_us < -100000 || dtxb->discard_old_count > 3)
 				ilogs(dtx, LOG_DEBUG, "DTX timestamp reset (from %lu to %lu)", dtxb->head_ts, ts);
 			else if (ts_diff < 0 || (ts_diff == 0 && discarded_old)) {
-				ilogs(dtx, LOG_DEBUG, "Discarding old packet (TS %lu < %lu, %" PRId64 " ms old)",
+				ilogs(dtx, LOG_DEBUG, "Discarding old packet (TS %lu < %lu, %ld ms old)",
 						ts, dtxb->head_ts, -ts_diff);
 				t_queue_pop_head(&dtxb->packets);
 				dtx_packet_free(dtxp);
@@ -3765,7 +3765,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 						dtxb->head_ts, ts, ts_diff_us / 1000);
 			else if (ts_diff >= dtxb->tspp * 2) {
 				ilogs(dtx, LOG_DEBUG, "First packet in DTX buffer not ready yet (packet TS %lu, "
-						"DTX TS %lu, diff %li)",
+						"DTX TS %lu, diff %ld)",
 						ts, dtxb->head_ts, ts_diff);
 				dtxp = NULL;
 			}
