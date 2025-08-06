@@ -3271,7 +3271,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 						dtxb->head_ts, ts, ts_diff_us);
 			else if (ts_diff >= dtxb->tspp * 2) {
 				ilogs(dtx, LOG_DEBUG, "First packet in DTX buffer not ready yet (packet TS %lu, "
-						"DTX TS %lu, diff %li)",
+						"DTX TS %lu, diff %ld)",
 						ts, dtxb->head_ts, ts_diff);
 				dtxp = NULL;
 			}
