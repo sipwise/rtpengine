@@ -380,6 +380,9 @@ INLINE str bencode_strdup_str(bencode_buffer_t *buf, const char *s) {
 INLINE str bencode_str_strdup(bencode_buffer_t *buf, const str *s) {
 	str o = *s;
 	o.s = bencode_buffer_alloc(buf, o.len);
+#ifdef ASAN_BUILD
+	if (o.len)
+#endif
 	memcpy(o.s, s->s, o.len);
 	return o;
 }
