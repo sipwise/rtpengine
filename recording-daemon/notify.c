@@ -212,7 +212,7 @@ static void *notify_timer(void *p) {
 		gettimeofday(&now, NULL);
 		if (now.tv_sec < first->retry_time) {
 			ilog(LOG_DEBUG, "Sleeping until next scheduled HTTP notification retry in %lu seconds",
-					(unsigned long) first->retry_time - now.tv_sec);
+					(unsigned long) (first->retry_time - now.tv_sec));
 			struct timespec ts = {.tv_sec = first->retry_time, .tv_nsec = 0};
 			pthread_cond_timedwait(&timer_cond, &timer_lock, &ts);
 			continue;
