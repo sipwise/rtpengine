@@ -2858,68 +2858,71 @@ static void __update_media_label(struct call_media *media, struct call_media *ot
 	}
 }
 
+__attribute__((nonnull(1, 2)))
+static void media_init_from_flags(struct call_media *media, sdp_ng_flags *flags) {
+	if (flags->opmode == OP_OFFER && flags->reset) {
+		MEDIA_CLEAR(media, INITIALIZED);
+		if (media->ice_agent)
+			ice_restart(media->ice_agent);
+	}
+
+	if (flags->generate_rtcp)
+		MEDIA_SET(media, RTCP_GEN);
+	else if (flags->generate_rtcp_off)
+		MEDIA_CLEAR(media, RTCP_GEN);
+}
+
+__attribute__((nonnull(1, 2)))
+static void media_set_echo(struct call_media *media, sdp_ng_flags *flags) {
+	switch (flags->media_echo) {
+		case MEO_FWD:
+			MEDIA_SET(media, BLACKHOLE);
+			MEDIA_CLEAR(media, ECHO);
+			break;
+		case MEO_BKW:
+			MEDIA_SET(media, ECHO);
+			MEDIA_CLEAR(media, BLACKHOLE);
+			break;
+		case MEO_BOTH:
+			MEDIA_SET(media, ECHO);
+			MEDIA_CLEAR(media, BLACKHOLE);
+			break;
+		case MEO_BLACKHOLE:
+			MEDIA_SET(media, BLACKHOLE);
+			MEDIA_CLEAR(media, ECHO);
+		case MEO_DEFAULT:
+			break;
+	}
+}
+
+__attribute__((nonnull(1, 2)))
+static void media_set_echo_reverse(struct call_media *media, sdp_ng_flags *flags) {
+	switch (flags->media_echo) {
+		case MEO_FWD:
+			MEDIA_SET(media, ECHO);
+			MEDIA_CLEAR(media, BLACKHOLE);
+			break;
+		case MEO_BKW:
+			MEDIA_SET(media, BLACKHOLE);
+			MEDIA_CLEAR(media, ECHO);
+			break;
+		case MEO_BOTH:
+			MEDIA_SET(media, ECHO);
+			MEDIA_CLEAR(media, BLACKHOLE);
+			break;
+		case MEO_BLACKHOLE:
+			MEDIA_SET(media, BLACKHOLE);
+			MEDIA_CLEAR(media, ECHO);
+		case MEO_DEFAULT:
+			break;
+	}
+}
+
 // `media` can be NULL
 __attribute__((nonnull(1, 3, 4)))
 static void __media_init_from_flags(struct call_media *other_media, struct call_media *media,
 		struct stream_params *sp, sdp_ng_flags *flags)
 {
-	if (flags->opmode == OP_OFFER && flags->reset) {
-		if (media)
-			MEDIA_CLEAR(media, INITIALIZED);
-		MEDIA_CLEAR(other_media, INITIALIZED);
-		if (media && media->ice_agent)
-			ice_restart(media->ice_agent);
-		if (other_media->ice_agent)
-			ice_restart(other_media->ice_agent);
-	}
-
-	if (flags->generate_rtcp) {
-		if (media)
-			MEDIA_SET(media, RTCP_GEN);
-		MEDIA_SET(other_media, RTCP_GEN);
-	}
-	else if (flags->generate_rtcp_off) {
-		if (media)
-			MEDIA_CLEAR(media, RTCP_GEN);
-		MEDIA_CLEAR(other_media, RTCP_GEN);
-	}
-
-	switch (flags->media_echo) {
-		case MEO_FWD:
-			if (media) {
-				MEDIA_SET(media, ECHO);
-				MEDIA_CLEAR(media, BLACKHOLE);
-			}
-			MEDIA_SET(other_media, BLACKHOLE);
-			MEDIA_CLEAR(other_media, ECHO);
-			break;
-		case MEO_BKW:
-			if (media) {
-				MEDIA_SET(media, BLACKHOLE);
-				MEDIA_CLEAR(media, ECHO);
-			}
-			MEDIA_SET(other_media, ECHO);
-			MEDIA_CLEAR(other_media, BLACKHOLE);
-			break;
-		case MEO_BOTH:
-			if (media) {
-				MEDIA_SET(media, ECHO);
-				MEDIA_CLEAR(media, BLACKHOLE);
-			}
-			MEDIA_SET(other_media, ECHO);
-			MEDIA_CLEAR(other_media, BLACKHOLE);
-			break;
-		case MEO_BLACKHOLE:
-			if (media) {
-				MEDIA_SET(media, BLACKHOLE);
-				MEDIA_CLEAR(media, ECHO);
-			}
-			MEDIA_SET(other_media, BLACKHOLE);
-			MEDIA_CLEAR(other_media, ECHO);
-		case MEO_DEFAULT:
-			break;
-	}
-
 	__update_media_label(media, other_media, flags);
 	__update_media_protocol(media, other_media, sp, flags);
 	__update_media_id(media, other_media, sp, flags);
@@ -3175,6 +3178,10 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 
 		ms->attrs.transcoding = false;
 
+		media_init_from_flags(sender_media, flags);
+		media_init_from_flags(receiver_media, flags);
+		media_set_echo(sender_media, flags);
+		media_set_echo_reverse(receiver_media, flags);
 		__media_init_from_flags(sender_media, receiver_media, sp, flags);
 
 		codecs_offer_answer(receiver_media, sender_media, sp, flags);
@@ -3576,6 +3583,7 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		struct stream_params *sp = l->data;
 		struct call_media *media = __get_media(ml, sp, flags, 0, mid_tracker);
 
+		media_init_from_flags(media, flags);
 		__media_init_from_flags(media, NULL, sp, flags);
 
 		codec_store_populate(&media->codecs, &sp->codecs,
@@ -3658,6 +3666,10 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		if (rev_idx_diff == 0 && src_media->index > dst_media->index)
 			rev_idx_diff = src_media->index - dst_media->index;
 
+		media_init_from_flags(src_media, flags);
+		media_init_from_flags(dst_media, flags);
+		media_set_echo(src_media, flags);
+		media_set_echo_reverse(dst_media, flags);
 		__media_init_from_flags(src_media, dst_media, sp, flags);
 
 		codec_store_populate(&dst_media->codecs, &src_media->codecs,
@@ -3760,6 +3772,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 		if (rev_ms)
 			rev_ms->attrs.transcoding = false;
 
+		media_init_from_flags(dst_media, flags);
 		__media_init_from_flags(dst_media, NULL, sp, flags);
 
 		if (flags->allow_transcoding) {
