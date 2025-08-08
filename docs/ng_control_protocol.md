@@ -178,6 +178,18 @@ Optionally included keys are:
     audio player regardless of the global config setting. The option `default`
     results in the behaviour mandated by the global config setting.
 
+* `extmap`
+
+    Contains a dictionary to allow manipulation of RFC-8285-style RTP header
+    extensions.
+
+    The contained key `strip` points to a list of header extensions to remove
+    from the SDP. Header extensions must be named by their full name as they
+    appear in the SDP, usually an URI or an `ietf:` registered name. The string
+    `all` can be given to strip all extensions.
+
+    Example in string syntax: `extmap=[strip=[all]]`
+
 * `delay-buffer`
 
 	Takes an integer as value. When set to non-zero, enables the delay
@@ -1213,7 +1225,8 @@ Spaces in each string may be replaced by hyphens.
 
 * `strip extmap`
 
-	Remove `a=rtpmap` attributes from the outgoing SDP.
+    Legacy alias for `extmap=[strip=[all]]` to remove all `a=rtpmap` attributes
+    from the outgoing SDP.
 
 * `strict source`
 

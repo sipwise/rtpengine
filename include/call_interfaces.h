@@ -45,6 +45,7 @@ struct ng_media {
 	X(all_attributes)	/* top-level (not part of an m= section) SDP session attributes */
 
 #define RTPE_NG_FLAGS_STR_CASE_HT_PARAMS \
+	X(rtpext_strip) \
 	X(codec_except) \
 	X(sdes_no)		/* individual crypto suites which are excluded */ \
 	X(sdes_only)		/* individual crypto suites which are only accepted */
@@ -214,7 +215,6 @@ RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 	             generate_rtcp:1,
 	             generate_rtcp_off:1,
 	             generate_mid:1,
-		     strip_extmap:1,
 	             strict_source:1,
 	             media_handover:1,
 	             dtls_passive:1,

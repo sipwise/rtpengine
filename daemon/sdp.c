@@ -2255,8 +2255,6 @@ void sdp_insert_all_attributes(GString *s, struct call_media *media, struct sdp_
 static void sdp_print_extmap(GString *s, struct call_media *source_media, const sdp_ng_flags *flags) {
 	if (!source_media)
 		return;
-	if (flags->strip_extmap && !MEDIA_ISSET(source_media, PASSTHRU))
-		return;
 
 	for (__auto_type l = source_media->extmap.head; l; l = l->next) {
 		__auto_type ext = l->data;

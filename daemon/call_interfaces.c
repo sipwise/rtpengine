@@ -1308,7 +1308,7 @@ void call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 			break;
 		case CSH_LOOKUP("strip-extmap"):
 		case CSH_LOOKUP("strip extmap"):
-			out->strip_extmap = true;
+			call_ng_flags_str_ht(STR_PTR("all"), 0, &out->rtpext_strip);
 			break;
 		case CSH_LOOKUP("symmetric-codecs"):
 		case CSH_LOOKUP("symmetric codecs"):
@@ -1517,6 +1517,16 @@ void call_ng_codec_flags(const ng_parser_t *parser, str *key, parser_arg value, 
 #endif
 	ilog(LOG_WARN, "Unknown 'codec' operation encountered: '" STR_FORMAT "'", STR_FMT(key));
 }
+
+void call_ng_extmap_flags(const ng_parser_t *parser, str *key, parser_arg value, helper_arg arg) {
+	sdp_ng_flags *out = arg.flags;
+	switch (__csh_lookup(key)) {
+		case CSH_LOOKUP("strip"):
+			call_ng_flags_str_list(parser, value, call_ng_flags_str_ht, &out->rtpext_strip);
+			break;
+	}
+}
+
 #ifdef WITH_TRANSCODING
 static void call_ng_parse_block_mode(str *s, enum block_dtmf_mode *output) {
 	switch (__csh_lookup(s)) {
@@ -1899,7 +1909,9 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 		case CSH_LOOKUP("endpoint learning"):
 			call_ng_flags_str_list(parser, value, ng_el_option, out);
 			break;
-
+		case CSH_LOOKUP("extmap"):
+			parser->dict_iter(parser, value, call_ng_extmap_flags, out);
+			break;
 		case CSH_LOOKUP("file"):
 			out->file = s;
 			break;
