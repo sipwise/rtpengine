@@ -489,6 +489,7 @@ struct call_media {
 	struct rtp_extension	*extmap_a[14]; // 1-14 -> [0..13]
 	extmap_ht		extmap_ht;
 	struct rtp_extension	*(*extmap_lookup)(struct call_media *, unsigned int);
+	ext_name_ht		ext_name_ht;
 
 	str			media_id;
 	str			label;
