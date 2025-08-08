@@ -377,5 +377,70 @@ rcv($sock_a, $port_b, rtpm(8, 8000, 7000+160*0, 0x6543, "\x10" . ("\x00" x 158) 
 
 
 
+($sock_a, $sock_ax, $sock_b, $sock_bx) = new_call(
+	[qw(198.51.100.1 7122)],
+	[qw(198.51.100.1 7123)],
+	[qw(198.51.100.3 7124)],
+	[qw(198.51.100.3 7125)],
+);
+
+($port_a, $port_ax) = offer('extmap-strip', { extmap => { strip => ['blah'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7122 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=extmap:1 foo
+a=extmap:2 bar
+a=extmap:3 blah
+a=extmap:4 quux
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=extmap:1 foo
+a=extmap:2 bar
+a=extmap:4 quux
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b, $port_bx) = answer('extmap-strip', { extmap => { strip => ['foo'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7124 RTP/AVP 8
+c=IN IP4 198.51.100.3
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=extmap:1 foo
+a=extmap:2 bar
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=extmap:2 bar
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp( 8, 1000, 3000+160*0, 0x1234, "\x10" . ("\x00" x 158) . "\x50", [[1, "foo"], [2, "woot"], [3, "meh"], [4, "yugh"]]));
+rcv($sock_b, $port_a, rtpm(8, 1000, 3000+160*0, 0x1234, "\x10" . ("\x00" x 158) . "\x50", [[1, "foo"], [2, "woot"], [3, "meh"], [4, "yugh"]]));
+snd($sock_b, $port_a, rtp( 8, 8000, 7000+160*0, 0x6543, "\x10" . ("\x00" x 158) . "\x50", [[1, "foo"], [2, "woot"], [3, "meh"], [4, "yugh"]]));
+rcv($sock_a, $port_b, rtpm(8, 8000, 7000+160*0, 0x6543, "\x10" . ("\x00" x 158) . "\x50", [[1, "foo"], [2, "woot"], [3, "meh"], [4, "yugh"]]));
+
+
+
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
