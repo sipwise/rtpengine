@@ -2861,6 +2861,17 @@ static void media_set_siprec_label(struct call_media *other_media, struct call_m
 		other_media->label = media->label;
 }
 
+__attribute__((nonnull(1)))
+static void media_reset_extmap(struct call_media *media) {
+	// empty out old queue
+	t_queue_clear_full(&media->extmap, rtp_extension_free);
+
+	t_hash_table_remove_all(media->ext_name_ht);
+	t_hash_table_remove_all(media->extmap_ht);
+	memset(media->extmap_a, 0, sizeof(media->extmap_a));
+	media->extmap_lookup = call_media_ext_lookup_array;
+}
+
 __attribute__((nonnull(1, 2)))
 static void media_init_extmap(struct call_media *media, struct rtp_extension *ext) {
 	ext->name = call_str_cpy(&ext->name);
@@ -2876,19 +2887,31 @@ static void media_init_extmap(struct call_media *media, struct rtp_extension *ex
 
 __attribute__((nonnull(1, 2)))
 static void media_update_extmap(struct call_media *media, struct stream_params *sp) {
-	// empty out old queue and take over from `sp`
-	t_queue_clear_full(&media->extmap, rtp_extension_free);
+	media_reset_extmap(media);
+
+	// take over from `sp`
 	media->extmap = sp->extmap;
 	t_queue_init(&sp->extmap);
-
-	t_hash_table_remove_all(media->ext_name_ht);
-	t_hash_table_remove_all(media->extmap_ht);
-	memset(media->extmap_a, 0, sizeof(media->extmap_a));
-	media->extmap_lookup = call_media_ext_lookup_array;
 
 	// init entries
 	for (__auto_type ll = media->extmap.head; ll; ll = ll->next) {
 		__auto_type ext = ll->data;
+
+		media_init_extmap(media, ext);
+	}
+}
+
+__attribute__((nonnull(1, 2)))
+static void media_set_extmap(struct call_media *media, const extmap_q *emq) {
+	media_reset_extmap(media);
+
+	// copy entries
+	for (__auto_type ll = emq->head; ll; ll = ll->next) {
+		__auto_type ext_o = ll->data;
+		__auto_type ext = g_new(__typeof(*ext_o), 1);
+		*ext = *ext_o;
+		t_queue_push_tail(&media->extmap, ext);
+
 		media_init_extmap(media, ext);
 	}
 }
@@ -3131,7 +3154,7 @@ static struct call_media * monologue_add_zero_media(struct call_monologue *sende
 	media_update_attrs(sender_media, sp);
 	media_update_format(sender_media, sp);
 	media_set_ptime(sender_media, sp, flags->rev_ptime, flags->ptime);
-	media_update_extmap(sender_media, sp);
+	media_set_extmap(sender_media, &sp->extmap);
 	*num_ports_other = proto_num_ports(sp->num_ports, sender_media, flags,
 			(flags->rtcp_mux_demux || flags->rtcp_mux_accept) ? true : false);
 	__disable_streams(sender_media, *num_ports_other);
@@ -3263,6 +3286,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		media_set_ptime(sender_media, sp, flags->rev_ptime, flags->ptime);
 		media_set_ptime(receiver_media, sp, flags->ptime, flags->rev_ptime);
 		media_update_extmap(sender_media, sp);
+		media_set_extmap(receiver_media, &sender_media->extmap);
 
 		if (flags->opmode == OP_OFFER) {
 			ilog(LOG_DEBUG, "Setting media recording slots to %u", flags->media_rec_slot_offer);
@@ -3775,6 +3799,7 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		media_set_address_family(dst_media, src_media, flags);
 		media_set_ptime(src_media, sp, flags->rev_ptime, flags->ptime);
 		media_set_ptime(dst_media, sp, flags->ptime, flags->rev_ptime);
+		media_set_extmap(dst_media, &src_media->extmap);
 
 		codec_store_populate(&dst_media->codecs, &src_media->codecs,
 				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
@@ -3884,6 +3909,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 		media_update_crypto(dst_media, sp, flags);
 		media_update_format(dst_media, sp);
 		media_set_ptime(dst_media, sp, flags->ptime, 0);
+		media_update_extmap(dst_media, sp);
 
 		if (flags->allow_transcoding) {
 			codec_store_populate(&dst_media->codecs, &sp->codecs,

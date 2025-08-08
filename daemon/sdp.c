@@ -2852,7 +2852,7 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 	if (proto_is_rtp(media->protocol))
 		insert_codec_parameters(s, media, flags);
 
-	sdp_print_extmap(s, source_media, flags);
+	sdp_print_extmap(s, media, flags);
 
 	/* all unknown type attributes will be added here */
 	media->sdp_attr_print(s, media, source_media, flags);
