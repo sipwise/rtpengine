@@ -2839,23 +2839,21 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 #endif
 }
 
-__attribute__((nonnull(2, 3)))
-static void __update_media_label(struct call_media *media, struct call_media *other_media,
+__attribute__((nonnull(1, 2)))
+static void media_set_siprec_label(struct call_media *other_media, struct call_media *media,
 		sdp_ng_flags *flags)
 {
-	if (!media)
+	if (!flags->siprec)
 		return;
 
-	if (flags->siprec && flags->opmode == OP_SUBSCRIBE_REQ) {
-		if (!media->label.len) {
-			char buf[64];
-			snprintf(buf, sizeof(buf), "%u", other_media->unique_id);
-			media->label = call_str_cpy_c(buf);
-		}
-		// put same label on both sides
-		if (!other_media->label.len)
-			other_media->label = media->label;
+	if (!media->label.len) {
+		char buf[64];
+		snprintf(buf, sizeof(buf), "%u", other_media->unique_id);
+		media->label = call_str_cpy_c(buf);
 	}
+	// put same label on both sides
+	if (!other_media->label.len)
+		other_media->label = media->label;
 }
 
 __attribute__((nonnull(1, 2)))
@@ -2923,7 +2921,6 @@ __attribute__((nonnull(1, 3, 4)))
 static void __media_init_from_flags(struct call_media *other_media, struct call_media *media,
 		struct stream_params *sp, sdp_ng_flags *flags)
 {
-	__update_media_label(media, other_media, flags);
 	__update_media_protocol(media, other_media, sp, flags);
 	__update_media_id(media, other_media, sp, flags);
 	__endpoint_loop_protect(sp, other_media);
@@ -3670,6 +3667,7 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		media_init_from_flags(dst_media, flags);
 		media_set_echo(src_media, flags);
 		media_set_echo_reverse(dst_media, flags);
+		media_set_siprec_label(src_media, dst_media, flags);
 		__media_init_from_flags(src_media, dst_media, sp, flags);
 
 		codec_store_populate(&dst_media->codecs, &src_media->codecs,
