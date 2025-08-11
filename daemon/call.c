@@ -2362,8 +2362,14 @@ static void __t38_reset(struct call_media *media, struct call_media *other_media
 	media->format_str = call_str_cpy(&other_media->format_str);
 }
 
-__attribute__((nonnull(2, 3, 4)))
-static void __update_media_protocol(struct call_media *media, struct call_media *other_media,
+__attribute__((nonnull(1, 2)))
+static void media_update_protocol(struct call_media *media, struct stream_params *sp) {
+	media->protocol_str = call_str_cpy(&sp->protocol_str);
+	media->protocol = sp->protocol;
+}
+
+__attribute__((nonnull(1, 2, 3, 4)))
+static void media_set_protocol(struct call_media *media, struct call_media *other_media,
 		struct stream_params *sp, sdp_ng_flags *flags)
 {
 	/* deduct protocol from stream parameters received */
@@ -2377,57 +2383,55 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 		 * Answers are a special case: handle OSRTP answer/accept, but otherwise
 		 * answer with the same protocol that was offered, unless we're instructed
 		 * not to. */
-		if (media) {
-			if (flags->opmode == OP_ANSWER) {
-				// OSRTP?
-				if (other_media->protocol && other_media->protocol->rtp
-						&& !other_media->protocol->srtp
-						&& media->protocol && media->protocol->osrtp)
-				{
-					// accept it?
-					if (flags->osrtp_accept_rfc)
-						;
-					else
-						media->protocol = NULL; // reject
-				}
-				// pass through any other protocol change?
-				else if (!flags->protocol_accept) {
-					if (media->protocol && sp->protocol && !media->protocol->osrtp && sp->protocol->osrtp) {
-						ilog(LOG_WARNING, "Ignore OSRTP answer since this was not offered");
-						other_media->protocol = media->protocol;
-					}
-				}
+		if (flags->opmode == OP_ANSWER) {
+			// OSRTP?
+			if (other_media->protocol && other_media->protocol->rtp
+					&& !other_media->protocol->srtp
+					&& media->protocol && media->protocol->osrtp)
+			{
+				// accept it?
+				if (flags->osrtp_accept_rfc)
+					;
 				else
-					media->protocol = NULL;
+					media->protocol = NULL; // reject
+			}
+			// pass through any other protocol change?
+			else if (!flags->protocol_accept) {
+				if (media->protocol && sp->protocol && !media->protocol->osrtp && sp->protocol->osrtp) {
+					ilog(LOG_WARNING, "Ignore OSRTP answer since this was not offered");
+					other_media->protocol = media->protocol;
+				}
 			}
 			else
 				media->protocol = NULL;
 		}
+		else
+			media->protocol = NULL;
 	}
 	/* default is to leave the protocol unchanged */
-	if (media && !media->protocol)
+	if (!media->protocol)
 		media->protocol = other_media->protocol;
 
-	if (media && !media->protocol_str.s)
+	if (!media->protocol_str.s)
 		media->protocol_str = call_str_cpy(&other_media->protocol_str);
 
 	// handler overrides requested by the user
 
 	/* allow override of outgoing protocol even if we know it already */
 	/* but only if this is an RTP-based protocol */
-	if (media && flags->transport_protocol
+	if (flags->transport_protocol
 			&& proto_is_rtp(other_media->protocol))
 		media->protocol = flags->transport_protocol;
 
 	// OSRTP offer requested?
-	if (media && media->protocol && media->protocol->rtp && !media->protocol->srtp
+	if (media->protocol && media->protocol->rtp && !media->protocol->srtp
 			&& media->protocol->osrtp_proto && flags->osrtp_offer && flags->opmode == OP_OFFER)
 	{
 		media->protocol = &transport_protocols[media->protocol->osrtp_proto];
 	}
 
 	// T.38 decoder?
-	if (media && other_media->type_id == MT_IMAGE && proto_is(other_media->protocol, PROTO_UDPTL)
+	if (other_media->type_id == MT_IMAGE && proto_is(other_media->protocol, PROTO_UDPTL)
 			&& flags->t38_decode)
 	{
 		media->protocol = flags->transport_protocol;
@@ -2439,7 +2443,7 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 	}
 
 	// T.38 encoder?
-	if (media && other_media->type_id == MT_AUDIO && proto_is_rtp(other_media->protocol)
+	if (other_media->type_id == MT_AUDIO && proto_is_rtp(other_media->protocol)
 			&& flags->t38_force)
 	{
 		media->protocol = &transport_protocols[PROTO_UDPTL];
@@ -2450,7 +2454,7 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 	}
 
 	// previous T.38 gateway but now stopping?
-	if (media && flags->t38_stop) {
+	if (flags->t38_stop) {
 		if (other_media->type_id == MT_AUDIO && proto_is_rtp(other_media->protocol)
 				&& media->type_id == MT_IMAGE
 				&& proto_is(media->protocol, PROTO_UDPTL))
@@ -2459,7 +2463,6 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 				&& other_media->type_id == MT_IMAGE
 				&& proto_is(other_media->protocol, PROTO_UDPTL))
 			__t38_reset(media, other_media);
-		// drop through for protocol override
 	}
 }
 
@@ -2930,7 +2933,6 @@ __attribute__((nonnull(1, 3, 4)))
 static void __media_init_from_flags(struct call_media *other_media, struct call_media *media,
 		struct stream_params *sp, sdp_ng_flags *flags)
 {
-	__update_media_protocol(media, other_media, sp, flags);
 	__update_media_id(media, other_media, sp, flags);
 	__endpoint_loop_protect(sp, other_media);
 
@@ -3076,6 +3078,7 @@ static struct call_media * monologue_add_zero_media(struct call_monologue *sende
 	sender_media = __get_media(sender_ml, sp, flags, 0, tracker);
 	sender_media->media_sdp_id = sp->media_sdp_id;
 	media_update_type(sender_media, sp);
+	media_update_protocol(sender_media, sp);
 	__media_init_from_flags(sender_media, NULL, sp, flags);
 	*num_ports_other = proto_num_ports(sp->num_ports, sender_media, flags,
 			(flags->rtcp_mux_demux || flags->rtcp_mux_accept) ? true : false);
@@ -3191,6 +3194,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		media_set_echo_reverse(receiver_media, flags);
 		if (media_update_type(sender_media, sp))
 			media_copy_type(receiver_media, sender_media);
+		media_set_protocol(receiver_media, sender_media, sp, flags);
 		__media_init_from_flags(sender_media, receiver_media, sp, flags);
 
 		codecs_offer_answer(receiver_media, sender_media, sp, flags);
@@ -3594,6 +3598,7 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 
 		media_init_from_flags(media, flags);
 		media_update_type(media, sp);
+		media_update_protocol(media, sp);
 		__media_init_from_flags(media, NULL, sp, flags);
 
 		codec_store_populate(&media->codecs, &sp->codecs,
@@ -3682,6 +3687,7 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		media_set_echo_reverse(dst_media, flags);
 		media_set_siprec_label(src_media, dst_media, flags);
 		media_update_type(dst_media, sp);
+		media_set_protocol(dst_media, src_media, sp, flags);
 		__media_init_from_flags(src_media, dst_media, sp, flags);
 
 		codec_store_populate(&dst_media->codecs, &src_media->codecs,
@@ -3785,6 +3791,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 			rev_ms->attrs.transcoding = false;
 
 		media_init_from_flags(dst_media, flags);
+		media_update_protocol(dst_media, sp);
 		__media_init_from_flags(dst_media, NULL, sp, flags);
 
 		if (flags->allow_transcoding) {
