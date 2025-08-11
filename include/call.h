@@ -418,18 +418,10 @@ struct loop_protector {
  * This is done through the various bit flags.
  */
 struct packet_stream {
-	/* Both locks valid only with call->master_lock held in R.
+	/* Lock valid only with call->master_lock held in R.
 	 * Preempted by call->master_lock held in W.
-	 * If both in/out are to be locked, in_lock must be locked first.
-	 * 
-	 * The in_lock protects fields relevant to packet reception on that stream,
-	 * meanwhile the out_lock protects fields relevant to packet egress.
-	 * 
-	 * This allows packet handling on multiple ports and streams belonging
-	 * to the same call to happen at the same time.
 	 */
-	mutex_t			in_lock,
-				out_lock;
+	mutex_t			lock;
 
 	struct call_media	*media;		/* RO */
 	call_t		*call;		/* RO */
@@ -438,23 +430,23 @@ struct packet_stream {
 	struct recording_stream recording;	/* LOCK: call->master_lock */
 
 	stream_fd_q		sfds;		/* LOCK: call->master_lock */
-	stream_fd 		*selected_sfd;	// LOCK: in_lock
+	stream_fd 		*selected_sfd;	// LOCK: ps->lock
 	endpoint_t		last_local_endpoint;
-	struct dtls_connection	ice_dtls;	/* LOCK: in_lock */
-	sink_handler_q		rtp_sinks;	/* LOCK: call->master_lock, in_lock for streamhandler */
-	sink_handler_q		rtcp_sinks;	/* LOCK: call->master_lock, in_lock for streamhandler */
+	struct dtls_connection	ice_dtls;	/* LOCK: ps->lock */
+	sink_handler_q		rtp_sinks;	/* LOCK: call->master_lock, ps->lock for streamhandler */
+	sink_handler_q		rtcp_sinks;	/* LOCK: call->master_lock, ps->lock for streamhandler */
 	struct packet_stream	*rtcp_sibling;	/* LOCK: call->master_lock */
-	sink_handler_q		rtp_mirrors;	/* LOCK: call->master_lock, in_lock for streamhandler */
-	struct endpoint		endpoint;	/* LOCK: out_lock */
-	struct endpoint		detected_endpoints[4];		/* LOCK: out_lock */
-	time_t			ep_detect_signal;		/* LOCK: out_lock */
+	sink_handler_q		rtp_mirrors;	/* LOCK: call->master_lock, ps->ock for streamhandler */
+	struct endpoint		endpoint;	/* LOCK: ps->lock */
+	struct endpoint		detected_endpoints[4];		/* LOCK: ps->lock */
+	time_t			ep_detect_signal;		/* LOCK: ps->lock */
 	struct endpoint		advertised_endpoint;		/* RO */
-	struct endpoint		learned_endpoint;		/* LOCK: out_lock */
-	struct crypto_context	crypto;				/* OUT direction, LOCK: out_lock */
-	struct ssrc_ctx		*ssrc_in[RTPE_NUM_SSRC_TRACKING],	/* LOCK: in_lock */
-				*ssrc_out[RTPE_NUM_SSRC_TRACKING];	/* LOCK: out_lock */
-	unsigned int		ssrc_in_idx,				/* LOCK: in_lock */
-				ssrc_out_idx;				/* LOCK: out_lock */
+	struct endpoint		learned_endpoint;		/* LOCK: ps->lock */
+	struct crypto_context	crypto;				/* OUT direction, LOCK: ps->lock */
+	struct ssrc_ctx		*ssrc_in[RTPE_NUM_SSRC_TRACKING],	/* LOCK: ps->lock */
+				*ssrc_out[RTPE_NUM_SSRC_TRACKING];	/* LOCK: ps->lock */
+	unsigned int		ssrc_in_idx,				/* LOCK: ps->lock */
+				ssrc_out_idx;				/* LOCK: ps->lock */
 	struct send_timer	*send_timer;				/* RO */
 	struct jitter_buffer	*jb;					/* RO */
 	time_t kernel_time;
@@ -467,15 +459,15 @@ struct packet_stream {
 	enum endpoint_learning		el_flags;
 
 #if RTP_LOOP_PROTECT
-	/* LOCK: in_lock: */
+	/* LOCK: ps->lock: */
 	unsigned int		lp_idx;
 	struct loop_protector	lp_buf[RTP_LOOP_PACKETS];
 	unsigned int		lp_count;
 #endif
 
-	X509			*dtls_cert;				/* LOCK: in_lock */
+	X509			*dtls_cert;				/* LOCK: ps->lock */
 
-	/* in_lock must be held for SETTING these: */
+	/* ps->lock must be held for SETTING these: */
 	atomic64		ps_flags;
 };
 

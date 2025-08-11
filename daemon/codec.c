@@ -1015,14 +1015,14 @@ static void __rtcp_timer_run(struct codec_timer *ct) {
 	struct ssrc_ctx *ssrc_out[RTPE_NUM_SSRC_TRACKING] = {NULL,};
 	if (media->streams.head) {
 		struct packet_stream *ps = media->streams.head->data;
-		mutex_lock(&ps->out_lock);
+		mutex_lock(&ps->lock);
 		for (unsigned int u = 0; u < RTPE_NUM_SSRC_TRACKING; u++) {
 			if (!ps->ssrc_out[u]) // end of list
 				break;
 			ssrc_out[u] = ps->ssrc_out[u];
 			ssrc_ctx_hold(ssrc_out[u]);
 		}
-		mutex_unlock(&ps->out_lock);
+		mutex_unlock(&ps->lock);
 	}
 
 	for (unsigned int u = 0; u < RTPE_NUM_SSRC_TRACKING; u++) {
@@ -2973,11 +2973,10 @@ static void send_buffered(struct media_packet *mp, unsigned int log_sys) {
 		if (sh->handler && media_packet_encrypt(sh->handler->out->rtp_crypt, sink, mp))
 			ilogsn(log_sys, LOG_ERR | LOG_FLAG_LIMIT, "Error encrypting buffered RTP media");
 
-		mutex_lock(&sink->out_lock);
+		LOCK(&sink->lock);
 		if (media_socket_dequeue(mp, sink))
 			ilogsn(log_sys, LOG_ERR | LOG_FLAG_LIMIT,
 					"Error sending buffered media to RTP sink");
-		mutex_unlock(&sink->out_lock);
 	}
 }
 
