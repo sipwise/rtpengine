@@ -215,12 +215,13 @@ struct send_timer *send_timer_new(struct packet_stream *ps) {
 
 // call is locked in R
 // ssrc_out is locked
+// st->sink is locked
 static void send_timer_rtcp(struct send_timer *st, struct ssrc_ctx *ssrc_out) {
 	struct call_media *media = st->sink ? st->sink->media : NULL;
 	if (!media)
 		return;
 
-	rtcp_send_report(media, ssrc_out);
+	rtcp_send_report(media, ssrc_out, st->sink);
 
 	ssrc_out->next_rtcp = rtpe_now;
 	timeval_add_usec(&ssrc_out->next_rtcp, 5000000 + (ssl_random() % 2000000));
@@ -295,6 +296,7 @@ out:
 	codec_packet_free(cp);
 }
 
+// sink->lock is held
 static void __send_timer_rtcp(struct send_timer *st, struct ssrc_ctx *ssrc_out) {
 	// do we send RTCP?
 	if (!ssrc_out)
@@ -323,9 +325,10 @@ static void send_timer_send_lock(struct send_timer *st, struct codec_packet *cp)
 
 	__send_timer_send_common(st, cp);
 
+	__send_timer_rtcp(st, ssrc_out);
+
 	mutex_unlock(&st->sink->lock);
 
-	__send_timer_rtcp(st, ssrc_out);
 	ssrc_ctx_put(&ssrc_out);
 
 	rwlock_unlock_r(&call->master_lock);
