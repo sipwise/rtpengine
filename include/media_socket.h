@@ -310,7 +310,6 @@ void free_sfd_intf_list(struct sfd_intf_list *il);
 void free_release_sfd_intf_list(struct sfd_intf_list *il);
 void free_socket_intf_list(struct socket_intf_list *il);
 
-void kernelize(struct packet_stream *);
 void __unkernelize(struct packet_stream *, const char *);
 void unkernelize(struct packet_stream *, const char *);
 void __stream_unconfirm(struct packet_stream *, const char *);

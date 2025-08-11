@@ -1568,7 +1568,7 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 			rtcp_ps = ps;
 	}
 
-	LOCK(&ps->in_lock);
+	LOCK(&ps->lock);
 
 	if (!ps->selected_sfd || !rtcp_ps->selected_sfd)
 		return;
@@ -1596,8 +1596,6 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 	// handle crypto
 
 	str rtcp_packet = STR_GS(sr);
-
-	LOCK(&ps->out_lock);
 
 	const struct streamhandler *crypt_handler = determine_handler(&transport_protocols[PROTO_RTP_AVP],
 			media, true);
