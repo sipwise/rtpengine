@@ -1029,7 +1029,7 @@ static void __rtcp_timer_run(struct codec_timer *ct) {
 		if (!ssrc_out[u]) // end of list
 			break;
 		// coverity[use : FALSE]
-		rtcp_send_report(media, ssrc_out[u]);
+		rtcp_send_report(media, ssrc_out[u], NULL);
 	}
 
 	rwlock_unlock_r(&rt->call->master_lock);
