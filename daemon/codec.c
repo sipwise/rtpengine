@@ -1368,7 +1368,7 @@ static void __rtcp_timer_run(struct codec_timer *ct) {
 
 	for (GList *l = ssrc_out.head; l; l = l->next) {
 		struct ssrc_entry_call *se = l->data;
-		rtcp_send_report(media, se);
+		rtcp_send_report(media, se, NULL);
 	}
 
 	rwlock_unlock_r(&rt->call->master_lock);

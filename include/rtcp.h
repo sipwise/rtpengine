@@ -30,6 +30,7 @@ rtcp_filter_func rtcp_avpf2avp_filter;
 void rtcp_init(void);
 
 
-void rtcp_send_report(struct call_media *media, struct ssrc_entry_call *ssrc_out);
+void rtcp_send_report(struct call_media *media, struct ssrc_entry_call *ssrc_out,
+		const struct packet_stream *locked);
 
 #endif
