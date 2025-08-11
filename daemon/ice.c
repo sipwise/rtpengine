@@ -1141,7 +1141,7 @@ found:
 	t_queue_clear(&compo1);
 }
 
-/* call(W) or call(R)+agent must be locked - no in_lock or out_lock must be held */
+/* call(W) or call(R)+agent must be locked - no ps->lock must be held */
 static int __check_valid(struct ice_agent *ag) {
 	struct call_media *media;
 	struct packet_stream *ps;
@@ -1185,7 +1185,7 @@ static int __check_valid(struct ice_agent *ag) {
 		ps = l->data;
 		pair = k->data;
 
-		mutex_lock(&ps->out_lock);
+		LOCK(&ps->lock);
 		if (memcmp(&ps->endpoint, &pair->remote_candidate->endpoint, sizeof(ps->endpoint))) {
 			ilogs(ice, LOG_INFO, "ICE negotiated: new peer for component %u is %s%s%s", ps->component,
 					FMT_M(endpoint_print_buf(&pair->remote_candidate->endpoint)));
@@ -1195,9 +1195,7 @@ static int __check_valid(struct ice_agent *ag) {
 		else
 			ilogs(ice, LOG_INFO, "ICE negotiated: peer for component %u is %s%s%s", ps->component,
 					FMT_M(endpoint_print_buf(&pair->remote_candidate->endpoint)));
-		mutex_unlock(&ps->out_lock);
 
-		LOCK(&ps->in_lock);
 		for (__auto_type m = ps->sfds.head; m; m = m->next) {
 			sfd = m->data;
 			if (sfd->local_intf != pair->local_intf)

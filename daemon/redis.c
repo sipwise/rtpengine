@@ -2555,8 +2555,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 		for (__auto_type l = c->streams.head; l; l = l->next) {
 			struct packet_stream *ps = l->data;
 
-			LOCK(&ps->in_lock);
-			LOCK(&ps->out_lock);
+			LOCK(&ps->lock);
 
 			snprintf(tmp, sizeof(tmp), "stream-%u", ps->unique_id);
 			inner = parser->dict_add_dict_dup(root, tmp);
