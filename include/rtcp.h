@@ -39,6 +39,7 @@ void rtcp_init(void);
 
 
 void rtcp_receiver_reports(GQueue *out, struct ssrc_hash *hash, struct call_monologue *ml);
-void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out);
+void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out,
+		const struct packet_stream *locked);
 
 #endif
