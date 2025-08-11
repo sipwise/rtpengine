@@ -1552,8 +1552,10 @@ void rtcp_receiver_reports(GQueue *out, struct ssrc_hash *hash, struct call_mono
 
 
 // call must be locked in R
-// no in_lock or out_lock must be held
-void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
+// if a `ps` is locked, it must be passed as argument
+void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out,
+		const struct packet_stream *locked)
+{
 	// figure out where to send it
 	struct packet_stream *ps = media->streams.head->data;
 	// crypto context is held separately
@@ -1564,16 +1566,15 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 	else {
 		if (PS_ISSET(rtcp_ps, RTCP))
 			ps = rtcp_ps;
-		else
-			rtcp_ps = ps;
 	}
 
-	LOCK(&ps->lock);
+	if (ps != locked)
+		mutex_lock(&ps->lock);
 
-	if (!ps->selected_sfd || !rtcp_ps->selected_sfd)
-		return;
+	if (!ps->selected_sfd)
+		goto out;
 	if (ps->selected_sfd->socket.fd == -1 || ps->endpoint.address.family == NULL)
-		return;
+		goto out;
 
 	log_info_stream_fd(ps->selected_sfd);
 
@@ -1625,6 +1626,11 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 		struct ssrc_receiver_report *srr = g_queue_pop_head(&srrs);
 		g_free(srr);
 	}
+
+out:
+	if (ps != locked)
+		mutex_unlock(&ps->lock);
+
 }
 
 
