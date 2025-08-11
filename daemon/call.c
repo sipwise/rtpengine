@@ -2366,18 +2366,6 @@ __attribute__((nonnull(2, 3, 4)))
 static void __update_media_protocol(struct call_media *media, struct call_media *other_media,
 		struct stream_params *sp, sdp_ng_flags *flags)
 {
-	// is the media type still the same?
-	if (str_cmp_str(&other_media->type, &sp->type)) {
-		ilog(LOG_DEBUG, "Updating media type from '" STR_FORMAT "' to '" STR_FORMAT "'",
-				STR_FMT(&other_media->type), STR_FMT(&sp->type));
-		other_media->type = call_str_cpy(&sp->type);
-		other_media->type_id = codec_get_type(&other_media->type);
-		if (media) {
-			media->type = call_str_cpy(&sp->type);
-			media->type_id = other_media->type_id;
-		}
-	}
-
 	/* deduct protocol from stream parameters received */
 	other_media->protocol_str = call_str_cpy(&sp->protocol_str);
 
@@ -2916,6 +2904,27 @@ static void media_set_echo_reverse(struct call_media *media, sdp_ng_flags *flags
 	}
 }
 
+__attribute__((nonnull(1, 2)))
+static bool media_update_type(struct call_media *media, struct stream_params *sp) {
+	// is the media type still the same?
+	if (!str_cmp_str(&media->type, &sp->type))
+		return false;
+
+	ilog(LOG_DEBUG, "Updating media type from '" STR_FORMAT "' to '" STR_FORMAT "'",
+			STR_FMT(&media->type), STR_FMT(&sp->type));
+	media->type = call_str_cpy(&sp->type);
+	media->type_id = codec_get_type(&media->type);
+
+	return true;
+}
+
+__attribute__((nonnull(1, 2)))
+static void media_copy_type(struct call_media *dst, struct call_media *src) {
+	dst->type = call_str_cpy(&src->type);
+	dst->type_id = src->type_id;
+}
+
+
 // `media` can be NULL
 __attribute__((nonnull(1, 3, 4)))
 static void __media_init_from_flags(struct call_media *other_media, struct call_media *media,
@@ -3066,6 +3075,7 @@ static struct call_media * monologue_add_zero_media(struct call_monologue *sende
 	sp->rtp_endpoint.port = 0; /* pretend it was a zero stream */
 	sender_media = __get_media(sender_ml, sp, flags, 0, tracker);
 	sender_media->media_sdp_id = sp->media_sdp_id;
+	media_update_type(sender_media, sp);
 	__media_init_from_flags(sender_media, NULL, sp, flags);
 	*num_ports_other = proto_num_ports(sp->num_ports, sender_media, flags,
 			(flags->rtcp_mux_demux || flags->rtcp_mux_accept) ? true : false);
@@ -3179,6 +3189,8 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		media_init_from_flags(receiver_media, flags);
 		media_set_echo(sender_media, flags);
 		media_set_echo_reverse(receiver_media, flags);
+		if (media_update_type(sender_media, sp))
+			media_copy_type(receiver_media, sender_media);
 		__media_init_from_flags(sender_media, receiver_media, sp, flags);
 
 		codecs_offer_answer(receiver_media, sender_media, sp, flags);
@@ -3581,6 +3593,7 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		struct call_media *media = __get_media(ml, sp, flags, 0, mid_tracker);
 
 		media_init_from_flags(media, flags);
+		media_update_type(media, sp);
 		__media_init_from_flags(media, NULL, sp, flags);
 
 		codec_store_populate(&media->codecs, &sp->codecs,
@@ -3668,6 +3681,7 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		media_set_echo(src_media, flags);
 		media_set_echo_reverse(dst_media, flags);
 		media_set_siprec_label(src_media, dst_media, flags);
+		media_update_type(dst_media, sp);
 		__media_init_from_flags(src_media, dst_media, sp, flags);
 
 		codec_store_populate(&dst_media->codecs, &src_media->codecs,
