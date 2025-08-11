@@ -186,7 +186,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 		g_autoptr(stream_fd) sfd = NULL;
 
 		{
-			LOCK(&ps->in_lock);
+			LOCK(&ps->lock);
 			if (ps->selected_sfd)
 				sfd = obj_get(ps->selected_sfd);
 		}
@@ -999,8 +999,7 @@ struct packet_stream *__packet_stream_new(call_t *call) {
 	struct packet_stream *stream;
 
 	stream = uid_slice_alloc0(stream, &call->streams.q);
-	mutex_init(&stream->in_lock);
-	mutex_init(&stream->out_lock);
+	mutex_init(&stream->lock);
 	stream->call = call;
 	atomic64_set_na(&stream->last_packet, rtpe_now.tv_sec);
 	stream->rtp_stats = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, __rtp_stats_free);
@@ -1111,21 +1110,19 @@ void call_stream_crypto_reset(struct packet_stream *ps) {
 	crypto_reset(&ps->crypto);
 
 	if (PS_ISSET(ps, RTP)) {
-		mutex_lock(&ps->in_lock);
+		mutex_lock(&ps->lock);
 		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_in); u++) {
 			if (!ps->ssrc_in[u]) // end of list
 				break;
 			atomic_set_na(&ps->ssrc_in[u]->stats->ext_seq, 0);
 		}
-		mutex_unlock(&ps->in_lock);
 
-		mutex_lock(&ps->out_lock);
 		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_out); u++) {
 			if (!ps->ssrc_out[u]) // end of list
 				break;
 			atomic_set_na(&ps->ssrc_out[u]->stats->ext_seq, 0);
 		}
-		mutex_unlock(&ps->out_lock);
+		mutex_unlock(&ps->lock);
 	}
 }
 
@@ -1152,16 +1149,16 @@ enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
 	}
 
 	if (MEDIA_ISSET(media, DTLS)) {
-		mutex_lock(&ps->in_lock);
+		mutex_lock(&ps->lock);
 		struct dtls_connection *d = dtls_ptr(ps->selected_sfd);
 		if (d && d->init && !d->connected) {
 			int dret = dtls(ps->selected_sfd, NULL, NULL);
-			mutex_unlock(&ps->in_lock);
+			mutex_unlock(&ps->lock);
 			if (dret == 1)
 				call_media_unkernelize(media, "DTLS connected");
 			return CSS_DTLS;
 		}
-		mutex_unlock(&ps->in_lock);
+		mutex_unlock(&ps->lock);
 	}
 
 	if (PS_ISSET(ps, PIERCE_NAT) && PS_ISSET(ps, FILLED) && !PS_ISSET(ps, CONFIRMED)) {
