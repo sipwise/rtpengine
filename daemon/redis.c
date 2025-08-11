@@ -2405,8 +2405,7 @@ char* redis_encode_json(struct call *c) {
 		for (GList *l = c->streams.head; l; l = l->next) {
 			struct packet_stream *ps = l->data;
 
-			LOCK(&ps->in_lock);
-			LOCK(&ps->out_lock);
+			LOCK(&ps->lock);
 
 			snprintf(tmp, sizeof(tmp), "stream-%u", ps->unique_id);
 			json_builder_set_member_name(builder, tmp);
@@ -2440,8 +2439,7 @@ char* redis_encode_json(struct call *c) {
 			struct packet_stream *ps = l->data;
 			// XXX these should all go into the above loop
 
-			LOCK(&ps->in_lock);
-			LOCK(&ps->out_lock);
+			LOCK(&ps->lock);
 
 			snprintf(tmp, sizeof(tmp), "stream_sfds-%u", ps->unique_id);
 			json_builder_set_member_name(builder, tmp);

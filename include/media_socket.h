@@ -311,7 +311,6 @@ INLINE int open_intf_socket(socket_t *r, unsigned int port, const struct local_i
 	return open_socket(r, SOCK_DGRAM, port, &lif->spec->local_address.addr);
 }
 
-void kernelize(struct packet_stream *);
 void __unkernelize(struct packet_stream *, const char *);
 void unkernelize(struct packet_stream *, const char *);
 void __stream_unconfirm(struct packet_stream *, const char *);
