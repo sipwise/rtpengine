@@ -218,8 +218,7 @@ static int t38_gateway_handler(t38_core_state_t *stat, void *user_data, const ui
 
 	stream_fd *sfd = NULL;
 	if (ps) {
-		mutex_lock(&ps->in_lock);
-		mutex_lock(&ps->out_lock);
+		mutex_lock(&ps->lock);
 		sfd = ps->selected_sfd;
 	}
 	if (sfd && sfd->socket.fd != -1 && ps->endpoint.address.family != NULL) {
@@ -231,10 +230,8 @@ static int t38_gateway_handler(t38_core_state_t *stat, void *user_data, const ui
 	else
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Unable to send T.38 UDPTL packet due to lack of "
 				"socket or stream");
-	if (ps) {
-		mutex_unlock(&ps->out_lock);
-		mutex_unlock(&ps->in_lock);
-	}
+	if (ps)
+		mutex_unlock(&ps->lock);
 
 	g_string_free(s, TRUE);
 

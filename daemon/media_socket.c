@@ -1548,9 +1548,7 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 	__auto_type reti = &s->reti;
 
 	if (PS_ISSET2(stream, STRICT_SOURCE, MEDIA_HANDOVER)) {
-		mutex_lock(&stream->out_lock);
 		__re_address_translate_ep(&reti->expected_src, MEDIA_ISSET(media, ASYMMETRIC) ? &stream->learned_endpoint : &stream->endpoint);
-		mutex_unlock(&stream->out_lock);
 		if (PS_ISSET(stream, STRICT_SOURCE))
 			reti->src_mismatch = MSM_DROP;
 		else if (PS_ISSET(stream, MEDIA_HANDOVER))
@@ -1684,6 +1682,12 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 	return NULL;
 }
 
+/**
+ * The linkage between userspace and kernel module is in the kernelize_one().
+ *
+ * Called with stream->lock held.
+ * sink_handler can be NULL.
+ */
 __attribute__((nonnull(1, 2, 3)))
 static const char *kernelize_one(kernelize_state *s,
 		struct packet_stream *stream, struct sink_handler *sink_handler)
@@ -1759,7 +1763,12 @@ static const char *kernelize_one(kernelize_state *s,
 	if (MEDIA_ISSET(media, ECHO) || sink_handler->attrs.transcoding)
 		redi->output.ssrc_subst = 1;
 
-	mutex_lock(&sink->out_lock);
+	// XXX nested lock, avoid possible deadlock. should be reworked not to
+	// require a nested lock
+	if (sink != stream && mutex_trylock(&sink->lock)) {
+		g_free(redi);
+		return ""; // indicate deadlock
+	}
 
 	__re_address_translate_ep(&redi->output.dst_addr, &sink->endpoint);
 	__re_address_translate_ep(&redi->output.src_addr, &sink->selected_sfd->socket.local);
@@ -1781,7 +1790,8 @@ static const char *kernelize_one(kernelize_state *s,
 
 	handler->out->kernel(&redi->output.encrypt, sink);
 
-	mutex_unlock(&sink->out_lock);
+	if (sink != stream)
+		mutex_unlock(&sink->lock);
 
 	if (!redi->output.encrypt.cipher || !redi->output.encrypt.hmac) {
 		g_free(redi);
@@ -1798,31 +1808,39 @@ static const char *kernelize_one(kernelize_state *s,
 	return NULL;
 }
 // helper function for kernelize()
-static void kernelize_one_sink_handler(kernelize_state *s,
+// called with stream->lock held
+static bool kernelize_one_sink_handler(kernelize_state *s,
 		struct packet_stream *stream, struct sink_handler *sink_handler)
 {
 	struct packet_stream *sink = sink_handler->sink;
 	if (PS_ISSET(sink, NAT_WAIT) && !PS_ISSET(sink, RECEIVED))
-		return;
+		return true;
 	const char *err = kernelize_one(s, stream, sink_handler);
-	if (err)
+	if (err) {
+		if (!*err)
+			return false; // indicate deadlock
 		ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
+	}
+	return true;
 }
-/* called with in_lock held */
-void kernelize(struct packet_stream *stream) {
+/* called with master_lock held */
+static void kernelize(struct packet_stream *stream) {
 	call_t *call = stream->call;
-	const char *nk_warn_msg;
 	struct call_media *media = stream->media;
 	g_auto(kernelize_state) s = {0};
 
-	if (PS_ISSET(stream, KERNELIZED))
+	while (true) {
+
+	LOCK(&stream->lock);
+
+	// set flag, return if set already
+	if (PS_SET(stream, KERNELIZED))
 		return;
 
 	if (call->recording != NULL && !selected_recording_method->kernel_support)
 		goto no_kernel;
 	if (!kernel.is_wanted)
 		goto no_kernel;
-	nk_warn_msg = "interface to kernel module not open";
 	if (!kernel.is_open)
 		goto no_kernel_warn;
 	if (MEDIA_ISSET(media, GENERATOR))
@@ -1843,12 +1861,16 @@ void kernelize(struct packet_stream *stream) {
 		struct sink_handler *sh = l->data;
 		if (sh->attrs.block_media)
 			continue;
-		kernelize_one_sink_handler(&s, stream, sh);
+		bool ok = kernelize_one_sink_handler(&s, stream, sh);
+		if (!ok)
+			goto restart;
 	}
 	// RTP egress mirrors
 	for (__auto_type l = stream->rtp_mirrors.head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
-		kernelize_one_sink_handler(&s, stream, sh);
+		bool ok = kernelize_one_sink_handler(&s, stream, sh);
+		if (!ok)
+			goto restart;
 	}
 	// RTP -> RTCP sinks
 	// record number of RTP destinations up to now
@@ -1858,7 +1880,9 @@ void kernelize(struct packet_stream *stream) {
 	s.payload_types = NULL;
 	for (__auto_type l = stream->rtcp_sinks.head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
-		kernelize_one_sink_handler(&s, stream, sh);
+		bool ok = kernelize_one_sink_handler(&s, stream, sh);
+		if (!ok)
+			goto restart;
 	}
 	// mark the start of RTCP outputs
 	s.reti.num_rtcp_destinations = s.reti.num_destinations - num_rtp_dests;
@@ -1880,15 +1904,25 @@ void kernelize(struct packet_stream *stream) {
 	}
 
 	stream->kernel_time = rtpe_now.tv_sec;
-	PS_SET(stream, KERNELIZED);
 	return;
 
 no_kernel_warn:
-	ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", nk_warn_msg);
+	ilog(LOG_WARNING, "No support for kernel packet forwarding available "
+			"(interface to kernel module not open)");
 no_kernel:
-	PS_SET(stream, KERNELIZED);
 	stream->kernel_time = rtpe_now.tv_sec;
 	PS_SET(stream, NO_KERNEL_SUPPORT);
+	return;
+
+restart: // handle detected deadlock
+
+	rtp_stats_arr_destroy_ptr(s.payload_types);
+
+	while ((redi = t_queue_pop_head(&s.outputs)))
+		g_free(redi);
+
+	// try again, releases stream->lock
+	}
 }
 
 // must be called with appropriate locks (master lock and/or in/out_lock)
@@ -1917,7 +1951,7 @@ struct ssrc_ctx *__hunt_ssrc_ctx(uint32_t ssrc, struct ssrc_ctx *list[RTPE_NUM_S
 }
 
 
-/* must be called with in_lock held or call->master_lock held in W */
+/* must be called with ps->lock held or call->master_lock held in W */
 void __unkernelize(struct packet_stream *p, const char *reason) {
 	if (!p->selected_sfd)
 		return;
@@ -1963,9 +1997,8 @@ void __stream_unconfirm(struct packet_stream *ps, const char *reason) {
 static void stream_unconfirm(struct packet_stream *ps, const char *reason) {
 	if (!ps)
 		return;
-	mutex_lock(&ps->in_lock);
+	LOCK(&ps->lock);
 	__stream_unconfirm(ps, reason);
-	mutex_unlock(&ps->in_lock);
 }
 static void unconfirm_sinks(sink_handler_q *q, const char *reason) {
 	for (__auto_type l = q->head; l; l = l->next) {
@@ -1976,9 +2009,8 @@ static void unconfirm_sinks(sink_handler_q *q, const char *reason) {
 void unkernelize(struct packet_stream *ps, const char *reason) {
 	if (!ps)
 		return;
-	mutex_lock(&ps->in_lock);
+	LOCK(&ps->lock);
 	__unkernelize(ps, reason);
-	mutex_unlock(&ps->in_lock);
 }
 
 
@@ -2015,7 +2047,7 @@ err:
 	return &__sh_noop;
 }
 
-/* must be called with call->master_lock held in R, and in->in_lock held */
+/* must be called with call->master_lock held in R, and in->lock held */
 // `sh` can be null
 static const struct streamhandler *__determine_handler(struct packet_stream *in, struct sink_handler *sh) {
 	const struct transport_protocol *in_proto, *out_proto;
@@ -2124,7 +2156,7 @@ static const char *__stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc, 
 static const char *__stream_ssrc_in(struct packet_stream *in_srtp, uint32_t ssrc_bs,
 		struct ssrc_ctx **ssrc_in_p, struct ssrc_hash *ssrc_hash)
 {
-	return __stream_ssrc_inout(in_srtp, ntohl(ssrc_bs), &in_srtp->in_lock, in_srtp->ssrc_in,
+	return __stream_ssrc_inout(in_srtp, ntohl(ssrc_bs), &in_srtp->lock, in_srtp->ssrc_in,
 			&in_srtp->ssrc_in_idx, 0, ssrc_in_p, ssrc_hash, SSRC_DIR_INPUT, "ingress");
 }
 // check and update output SSRC pointers
@@ -2134,12 +2166,12 @@ static const char *__stream_ssrc_out(struct packet_stream *out_srtp, uint32_t ss
 		bool ssrc_change)
 {
 	if (ssrc_change)
-		return __stream_ssrc_inout(out_srtp, ssrc_in->ssrc_map_out, &out_srtp->out_lock,
+		return __stream_ssrc_inout(out_srtp, ssrc_in->ssrc_map_out, &out_srtp->lock,
 				out_srtp->ssrc_out,
 				&out_srtp->ssrc_out_idx, ntohl(ssrc_bs), ssrc_out_p, ssrc_hash, SSRC_DIR_OUTPUT,
 				"egress (mapped)");
 
-	return __stream_ssrc_inout(out_srtp, ntohl(ssrc_bs), &out_srtp->out_lock,
+	return __stream_ssrc_inout(out_srtp, ntohl(ssrc_bs), &out_srtp->lock,
 			out_srtp->ssrc_out,
 			&out_srtp->ssrc_out_idx, 0, ssrc_out_p, ssrc_hash, SSRC_DIR_OUTPUT,
 			"egress (direct)");
@@ -2164,14 +2196,13 @@ static int media_demux_protocols(struct packet_handler_ctx *phc) {
 			}
 		}
 
-		mutex_lock(&phc->mp.stream->in_lock);
+		LOCK(&phc->mp.stream->lock);
 		int ret = dtls(phc->mp.sfd, &phc->s, &phc->mp.fsin);
 		if (ret == 1) {
 			phc->unkernelize = "DTLS connected";
 			phc->unkernelize_subscriptions = true;
 			ret = 0;
 		}
-		mutex_unlock(&phc->mp.stream->in_lock);
 		if (!ret)
 			return 0;
 	}
@@ -2196,7 +2227,7 @@ static int media_demux_protocols(struct packet_handler_ctx *phc) {
 #if RTP_LOOP_PROTECT
 // returns: 0 = ok, proceed; -1 = duplicate detected, drop packet
 static int media_loop_detect(struct packet_handler_ctx *phc) {
-	mutex_lock(&phc->mp.stream->in_lock);
+	mutex_lock(&phc->mp.stream->lock);
 
 	for (int i = 0; i < RTP_LOOP_PACKETS; i++) {
 		if (phc->mp.stream->lp_buf[i].len != phc->s.len)
@@ -2210,7 +2241,7 @@ static int media_loop_detect(struct packet_handler_ctx *phc) {
 					"to avoid potential loop",
 					RTP_LOOP_MAX_COUNT,
 					FMT_M(endpoint_print_buf(&phc->mp.fsin)));
-			mutex_unlock(&phc->mp.stream->in_lock);
+			mutex_unlock(&phc->mp.stream->lock);
 			return -1;
 		}
 
@@ -2224,7 +2255,7 @@ static int media_loop_detect(struct packet_handler_ctx *phc) {
 	memcpy(phc->mp.stream->lp_buf[phc->mp.stream->lp_idx].buf, phc->s.s, MIN(phc->s.len, RTP_LOOP_PROTECT));
 	phc->mp.stream->lp_idx = (phc->mp.stream->lp_idx + 1) % RTP_LOOP_PACKETS;
 loop_ok:
-	mutex_unlock(&phc->mp.stream->in_lock);
+	mutex_unlock(&phc->mp.stream->lock);
 
 	return 0;
 }
@@ -2337,7 +2368,7 @@ static void media_packet_rtp_out(struct packet_handler_ctx *phc, struct sink_han
 
 static int media_packet_decrypt(struct packet_handler_ctx *phc)
 {
-	mutex_lock(&phc->in_srtp->in_lock);
+	mutex_lock(&phc->in_srtp->lock);
 	struct sink_handler *first_sh = phc->sinks->length ? phc->sinks->head->data : NULL;
 	const struct streamhandler *sh = __determine_handler(phc->in_srtp, first_sh);
 
@@ -2358,7 +2389,7 @@ static int media_packet_decrypt(struct packet_handler_ctx *phc)
 		phc->mp.payload.len -= ori_s.len - phc->s.len;
 	}
 
-	mutex_unlock(&phc->in_srtp->in_lock);
+	mutex_unlock(&phc->in_srtp->lock);
 
 	if (ret == 1) {
 		phc->update = true;
@@ -2368,7 +2399,7 @@ static int media_packet_decrypt(struct packet_handler_ctx *phc)
 }
 static void media_packet_set_encrypt(struct packet_handler_ctx *phc, struct sink_handler *sh)
 {
-	mutex_lock(&phc->in_srtp->in_lock);
+	mutex_lock(&phc->in_srtp->lock);
 	__determine_handler(phc->in_srtp, sh);
 
 	// XXX use an array with index instead of if/else
@@ -2378,7 +2409,7 @@ static void media_packet_set_encrypt(struct packet_handler_ctx *phc, struct sink
 		phc->encrypt_func = sh->handler->out->rtcp_crypt;
 		phc->rtcp_filter = sh->handler->in->rtcp_filter;
 	}
-	mutex_unlock(&phc->in_srtp->in_lock);
+	mutex_unlock(&phc->in_srtp->lock);
 }
 
 int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, struct media_packet *mp) {
@@ -2387,7 +2418,7 @@ int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, s
 	if (!encrypt_func)
 		return 0x00;
 
-	mutex_lock(&out->out_lock);
+	LOCK(&out->lock);
 
 	for (__auto_type l = mp->packets_out.head; l; l = l->next) {
 		struct codec_packet *p = l->data;
@@ -2402,8 +2433,6 @@ int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, s
 		else if (encret != 0)
 			ret |= 0x01;
 	}
-
-	mutex_unlock(&out->out_lock);
 
 	return ret;
 }
@@ -2424,7 +2453,7 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 	struct endpoint endpoint;
 	bool ret = false;
 
-	mutex_lock(&phc->mp.stream->in_lock);
+	mutex_lock(&phc->mp.stream->lock);
 
 	/* we're OK to (potentially) use the source address of this packet as destination
 	 * in the other direction. */
@@ -2453,10 +2482,8 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 	/* do not pay attention to source addresses of incoming packets for asymmetric streams */
 	if (MEDIA_ISSET(phc->mp.media, ASYMMETRIC) || phc->mp.stream->el_flags == EL_OFF) {
 		PS_SET(phc->mp.stream, CONFIRMED);
-		mutex_lock(&phc->mp.stream->out_lock);
 		if (MEDIA_ISSET(phc->mp.media, ASYMMETRIC) && !phc->mp.stream->learned_endpoint.address.family)
 			phc->mp.stream->learned_endpoint = phc->mp.fsin;
-		mutex_unlock(&phc->mp.stream->out_lock);
 	}
 
 	/* confirm sinks for unidirectional streams in order to kernelize */
@@ -2472,7 +2499,6 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 		/* see if we need to compare the source address with the known endpoint */
 		if (PS_ISSET2(phc->mp.stream, STRICT_SOURCE, MEDIA_HANDOVER)) {
 			endpoint = phc->mp.fsin;
-			mutex_lock(&phc->mp.stream->out_lock);
 
 			struct endpoint *ps_endpoint = MEDIA_ISSET(phc->mp.media, ASYMMETRIC) ?
 							&phc->mp.stream->learned_endpoint : &phc->mp.stream->endpoint;
@@ -2487,8 +2513,6 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 				*ps_endpoint = phc->mp.fsin;
 				goto update_addr;
 			}
-
-			mutex_unlock(&phc->mp.stream->out_lock);
 
 			if (tmp && PS_ISSET(phc->mp.stream, STRICT_SOURCE)) {
 				ilog(LOG_INFO | LOG_FLAG_LIMIT, "Drop due to strict-source attribute; "
@@ -2563,7 +2587,6 @@ confirm_now:
 	PS_SET(phc->mp.stream, CONFIRMED);
 
 update_peerinfo:
-	mutex_lock(&phc->mp.stream->out_lock);
 	// if we're during the wait time, check the received address against the previously
 	// learned address. if they're the same, ignore this packet for learning purposes
 	if (!wait_time || !phc->mp.stream->learned_endpoint.address.family ||
@@ -2582,8 +2605,6 @@ update_peerinfo:
 		}
 	}
 update_addr:
-	mutex_unlock(&phc->mp.stream->out_lock);
-
 	/* check the destination address of the received packet against what we think our
 	 * local interface to use is */
 	if (phc->mp.stream->selected_sfd && phc->mp.sfd != phc->mp.stream->selected_sfd) {
@@ -2606,7 +2627,7 @@ update_addr:
 	}
 
 out:
-	mutex_unlock(&phc->mp.stream->in_lock);
+	mutex_unlock(&phc->mp.stream->lock);
 
 	return ret;
 }
@@ -2626,9 +2647,7 @@ static void media_packet_kernel_check(struct packet_handler_ctx *phc) {
 	if (ML_ISSET(phc->mp.media->monologue, DTMF_INJECTION_ACTIVE))
 		return;
 
-	mutex_lock(&phc->mp.stream->in_lock);
 	kernelize(phc->mp.stream);
-	mutex_unlock(&phc->mp.stream->in_lock);
 }
 
 
@@ -2967,19 +2986,19 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 				if (ret)
 					goto next_mirror;
 
-				mutex_lock(&mirror_sink->out_lock);
+				mutex_lock(&mirror_sink->lock);
 
 				if (!mirror_sink->advertised_endpoint.port
 						|| (is_addr_unspecified(&mirror_sink->advertised_endpoint.address)
 							&& !is_trickle_ice_address(&mirror_sink->advertised_endpoint)))
 				{
-					mutex_unlock(&mirror_sink->out_lock);
+					mutex_unlock(&mirror_sink->lock);
 					goto next_mirror;
 				}
 
 				media_socket_dequeue(&mirror_phc.mp, mirror_sink);
 
-				mutex_unlock(&mirror_sink->out_lock);
+				mutex_unlock(&mirror_sink->lock);
 
 next_mirror:
 				media_socket_dequeue(&mirror_phc.mp, NULL); // just free if anything left
@@ -2992,13 +3011,13 @@ next_mirror:
 		if (ret == -1)
 			goto err_next;
 
-		mutex_lock(&sink->out_lock);
+		mutex_lock(&sink->lock);
 
 		if (!sink->advertised_endpoint.port
 				|| (is_addr_unspecified(&sink->advertised_endpoint.address)
 					&& !is_trickle_ice_address(&sink->advertised_endpoint)))
 		{
-			mutex_unlock(&sink->out_lock);
+			mutex_unlock(&sink->lock);
 			goto next;
 		}
 
@@ -3007,7 +3026,7 @@ next_mirror:
 		else
 			ret = media_socket_dequeue(&phc->mp, NULL);
 
-		mutex_unlock(&sink->out_lock);
+		mutex_unlock(&sink->lock);
 
 		if (ret == 0)
 			goto next;
@@ -3015,10 +3034,10 @@ next_mirror:
 err_next:
 		ilog(LOG_DEBUG | LOG_FLAG_LIMIT ,"Error when sending message. Error: %s", strerror(errno));
 		atomic64_inc_na(&sink->stats_in->errors);
-		mutex_lock(&sink->in_lock);
+		mutex_lock(&sink->lock);
 		if (sink->selected_sfd)
 			atomic64_inc_na(&sink->selected_sfd->local_intf->stats->out.errors);
-		mutex_unlock(&sink->in_lock);
+		mutex_unlock(&sink->lock);
 		RTPE_STATS_INC(errors_user);
 		goto next;
 
