@@ -432,11 +432,11 @@ static void send_timer_send_lock(struct send_timer *st, struct codec_packet *cp)
 
 	log_info_call(call);
 	rwlock_lock_r(&call->master_lock);
-	mutex_lock(&st->sink->out_lock);
+	mutex_lock(&st->sink->lock);
 
 	__send_timer_send_common(st, cp);
 
-	mutex_unlock(&st->sink->out_lock);
+	mutex_unlock(&st->sink->lock);
 
 	__send_timer_rtcp(st, ssrc_out);
 	ssrc_entry_release(ssrc_out);
@@ -591,10 +591,10 @@ retry:;
 
 	media_packet_encrypt(mp->crypt_handler->out->rtp_crypt, mp->sink, &packet);
 
-	mutex_lock(&mp->sink->out_lock);
+	mutex_lock(&mp->sink->lock);
 	if (media_socket_dequeue(&packet, mp->sink))
 		ilog(LOG_ERR, "Error sending playback media to RTP sink");
-	mutex_unlock(&mp->sink->out_lock);
+	mutex_unlock(&mp->sink->lock);
 
 	// schedule our next run
 	mp->next_run += us_dur;
@@ -1073,10 +1073,10 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 
 	media_packet_encrypt(mp->crypt_handler->out->rtp_crypt, mp->sink, &packet);
 
-	mutex_lock(&mp->sink->out_lock);
+	mutex_lock(&mp->sink->lock);
 	if (media_socket_dequeue(&packet, mp->sink))
 		ilog(LOG_ERR, "Error sending playback media to RTP sink");
-	mutex_unlock(&mp->sink->out_lock);
+	mutex_unlock(&mp->sink->lock);
 
 	mp->next_run += us_dur;
 	timerthread_obj_schedule_abs(&mp->tt_obj, mp->next_run);

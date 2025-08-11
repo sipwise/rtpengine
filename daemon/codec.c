@@ -3437,11 +3437,10 @@ static void send_buffered(struct media_packet *mp, unsigned int log_sys) {
 		if (sh->handler && media_packet_encrypt(sh->handler->out->rtp_crypt, sink, mp))
 			ilogsn(log_sys, LOG_ERR | LOG_FLAG_LIMIT, "Error encrypting buffered RTP media");
 
-		mutex_lock(&sink->out_lock);
+		LOCK(&sink->lock);
 		if (media_socket_dequeue(mp, sink))
 			ilogsn(log_sys, LOG_ERR | LOG_FLAG_LIMIT,
 					"Error sending buffered media to RTP sink");
-		mutex_unlock(&sink->out_lock);
 	}
 }
 

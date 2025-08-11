@@ -338,7 +338,7 @@ static void mqtt_stream_stats_dir(const struct stream_stats *s, JsonBuilder *jso
 
 
 static void mqtt_stream_stats(struct packet_stream *ps, JsonBuilder *json) {
-	mutex_lock(&ps->in_lock);
+	LOCK(&ps->lock);
 
 	stream_fd *sfd = ps->selected_sfd;
 	if (sfd) {
@@ -369,17 +369,11 @@ static void mqtt_stream_stats(struct packet_stream *ps, JsonBuilder *json) {
 
 	json_builder_end_object(json);
 
-	mutex_unlock(&ps->in_lock);
-
-	mutex_lock(&ps->out_lock);
-
 	json_builder_set_member_name(json, "egress");
 	json_builder_begin_object(json);
 	mqtt_stream_stats_dir(ps->stats_out, json);
 
 	json_builder_end_object(json);
-
-	mutex_unlock(&ps->out_lock);
 }
 
 
