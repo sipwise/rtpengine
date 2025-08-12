@@ -2245,7 +2245,7 @@ static void __ice_start(struct call_media *media) {
 }
 
 __attribute__((nonnull(1, 2)))
-static void __endpoint_loop_protect(struct stream_params *sp, struct call_media *media) {
+static void media_loop_protect(struct stream_params *sp, struct call_media *media) {
 	struct intf_address intf_addr;
 
 	/* check if the advertised endpoint is one of our own addresses. this can
@@ -2934,8 +2934,6 @@ __attribute__((nonnull(1, 3, 4)))
 static void __media_init_from_flags(struct call_media *other_media, struct call_media *media,
 		struct stream_params *sp, sdp_ng_flags *flags)
 {
-	__endpoint_loop_protect(sp, other_media);
-
 	if (sp->rtp_endpoint.port) {
 		/* copy parameters advertised by the sender of this message */
 		bf_copy_same(&other_media->media_flags, &sp->sp_flags,
@@ -3080,6 +3078,7 @@ static struct call_media * monologue_add_zero_media(struct call_monologue *sende
 	media_update_type(sender_media, sp);
 	media_update_protocol(sender_media, sp);
 	media_update_media_id(sender_media, sp);
+	media_loop_protect(sp, sender_media);
 	__media_init_from_flags(sender_media, NULL, sp, flags);
 	*num_ports_other = proto_num_ports(sp->num_ports, sender_media, flags,
 			(flags->rtcp_mux_demux || flags->rtcp_mux_accept) ? true : false);
@@ -3202,6 +3201,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		}
 		else
 			media_answer_media_id(sender_media, sp);
+		media_loop_protect(sp, sender_media);
 		__media_init_from_flags(sender_media, receiver_media, sp, flags);
 
 		codecs_offer_answer(receiver_media, sender_media, sp, flags);
@@ -3607,6 +3607,7 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		media_update_type(media, sp);
 		media_update_protocol(media, sp);
 		media_update_media_id(media, sp);
+		media_loop_protect(sp, media);
 		__media_init_from_flags(media, NULL, sp, flags);
 
 		codec_store_populate(&media->codecs, &sp->codecs,
@@ -3803,6 +3804,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 		media_init_from_flags(dst_media, flags);
 		media_update_protocol(dst_media, sp);
 		media_answer_media_id(dst_media, sp);
+		media_loop_protect(sp, dst_media);
 		__media_init_from_flags(dst_media, NULL, sp, flags);
 
 		if (flags->allow_transcoding) {
