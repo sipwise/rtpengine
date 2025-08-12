@@ -2974,6 +2974,22 @@ static void media_update_attrs(struct call_media *media, struct stream_params *s
 	media->sdp_information = call_str_cpy(&sp->sdp_information);
 }
 
+__attribute__((nonnull(1, 2)))
+static void media_update_format(struct call_media *media, struct stream_params *sp) {
+	if (str_cmp_str(&media->format_str, &sp->format_str))
+		media->format_str = call_str_cpy(&sp->format_str);
+}
+
+__attribute__((nonnull(1, 2)))
+static void media_copy_format(struct call_media *media, struct call_media *src) {
+	if (!str_cmp_str(&media->format_str, &src->format_str))
+		return;
+
+	// update opposite side format string only if protocols match
+	if (media->protocol == src->protocol)
+		media->format_str = call_str_cpy(&src->format_str);
+}
+
 
 // `media` can be NULL
 __attribute__((nonnull(1, 3, 4)))
@@ -3000,13 +3016,6 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 		if (media)
 			MEDIA_SET(media, PTIME_OVERRIDE);
 		MEDIA_SET(other_media, PTIME_OVERRIDE);
-	}
-	if (str_cmp_str(&other_media->format_str, &sp->format_str))
-		other_media->format_str = call_str_cpy(&sp->format_str);
-	if (media && str_cmp_str(&media->format_str, &sp->format_str)) {
-		// update opposite side format string only if protocols match
-		if (media->protocol == other_media->protocol)
-			media->format_str = call_str_cpy(&sp->format_str);
 	}
 
 	/* deduct address family from stream parameters received */
@@ -3092,6 +3101,7 @@ static struct call_media * monologue_add_zero_media(struct call_monologue *sende
 	media_update_flags(sender_media, sp);
 	media_update_crypto(sender_media, sp, flags);
 	media_update_attrs(sender_media, sp);
+	media_update_format(sender_media, sp);
 	__media_init_from_flags(sender_media, NULL, sp, flags);
 	*num_ports_other = proto_num_ports(sp->num_ports, sender_media, flags,
 			(flags->rtcp_mux_demux || flags->rtcp_mux_accept) ? true : false);
@@ -3218,6 +3228,8 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		media_update_flags(sender_media, sp);
 		media_update_crypto(sender_media, sp, flags);
 		media_update_attrs(sender_media, sp);
+		media_update_format(sender_media, sp);
+		media_copy_format(receiver_media, sender_media);
 		__media_init_from_flags(sender_media, receiver_media, sp, flags);
 
 		codecs_offer_answer(receiver_media, sender_media, sp, flags);
@@ -3627,6 +3639,7 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		media_update_flags(media, sp);
 		media_update_crypto(media, sp, flags);
 		media_update_attrs(media, sp);
+		media_update_format(media, sp);
 		__media_init_from_flags(media, NULL, sp, flags);
 
 		codec_store_populate(&media->codecs, &sp->codecs,
@@ -3720,6 +3733,7 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		media_copy_media_id(dst_media, src_media, flags);
 		media_update_flags(dst_media, sp);
 		media_update_crypto(dst_media, sp, flags);
+		media_copy_format(dst_media, src_media);
 		__media_init_from_flags(src_media, dst_media, sp, flags);
 
 		codec_store_populate(&dst_media->codecs, &src_media->codecs,
@@ -3828,6 +3842,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 		media_loop_protect(sp, dst_media);
 		media_update_flags(dst_media, sp);
 		media_update_crypto(dst_media, sp, flags);
+		media_update_format(dst_media, sp);
 		__media_init_from_flags(dst_media, NULL, sp, flags);
 
 		if (flags->allow_transcoding) {
