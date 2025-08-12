@@ -3010,34 +3010,21 @@ static void media_copy_format(struct call_media *media, struct call_media *src) 
 		media->format_str = call_str_cpy(&src->format_str);
 }
 
-
-// `media` can be NULL
-__attribute__((nonnull(1, 3, 4)))
-static void __media_init_from_flags(struct call_media *other_media, struct call_media *media,
-		struct stream_params *sp, sdp_ng_flags *flags)
-{
-	// codec and RTP payload types handling
+__attribute__((nonnull(1, 2)))
+static void media_set_ptime(struct call_media *media, struct stream_params *sp, int ptime, int ptime_rev) {
 	if (sp->ptime > 0) {
-		if (media && !MEDIA_ISSET(media, PTIME_OVERRIDE))
+		if (!MEDIA_ISSET(media, PTIME_OVERRIDE))
 			media->ptime = sp->ptime;
-		if (!MEDIA_ISSET(other_media, PTIME_OVERRIDE))
-			other_media->ptime = sp->ptime;
 	}
-	if (media && sp->maxptime > 0) {
-		media->maxptime = sp->maxptime;
-	}
-	if (media && flags->ptime > 0) {
-		media->ptime = flags->ptime;
+	media->maxptime = sp->maxptime;
+	if (ptime > 0) {
+		media->ptime = ptime;
 		MEDIA_SET(media, PTIME_OVERRIDE);
-		MEDIA_SET(other_media, PTIME_OVERRIDE);
 	}
-	if (flags->rev_ptime > 0) {
-		other_media->ptime = flags->rev_ptime;
-		if (media)
-			MEDIA_SET(media, PTIME_OVERRIDE);
-		MEDIA_SET(other_media, PTIME_OVERRIDE);
-	}
+	if (ptime_rev > 0)
+		MEDIA_SET(media, PTIME_OVERRIDE);
 }
+
 
 unsigned int proto_num_ports(unsigned int sp_ports, struct call_media *media, sdp_ng_flags *flags,
 		bool allow_offer_split)
@@ -3098,7 +3085,7 @@ static struct call_media * monologue_add_zero_media(struct call_monologue *sende
 	media_update_crypto(sender_media, sp, flags);
 	media_update_attrs(sender_media, sp);
 	media_update_format(sender_media, sp);
-	__media_init_from_flags(sender_media, NULL, sp, flags);
+	media_set_ptime(sender_media, sp, flags->rev_ptime, flags->ptime);
 	*num_ports_other = proto_num_ports(sp->num_ports, sender_media, flags,
 			(flags->rtcp_mux_demux || flags->rtcp_mux_accept) ? true : false);
 	__disable_streams(sender_media, *num_ports_other);
@@ -3227,7 +3214,8 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		media_update_format(sender_media, sp);
 		media_copy_format(receiver_media, sender_media);
 		media_set_address_family(receiver_media, sender_media, flags);
-		__media_init_from_flags(sender_media, receiver_media, sp, flags);
+		media_set_ptime(sender_media, sp, flags->rev_ptime, flags->ptime);
+		media_set_ptime(receiver_media, sp, flags->ptime, flags->rev_ptime);
 
 		if (flags->opmode == OP_OFFER) {
 			ilog(LOG_DEBUG, "Setting media recording slots to %u", flags->media_rec_slot_offer);
@@ -3642,7 +3630,7 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		media_update_crypto(media, sp, flags);
 		media_update_attrs(media, sp);
 		media_update_format(media, sp);
-		__media_init_from_flags(media, NULL, sp, flags);
+		media_set_ptime(media, sp, flags->ptime, 0);
 
 		codec_store_populate(&media->codecs, &sp->codecs,
 				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
@@ -3737,7 +3725,8 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		media_update_crypto(dst_media, sp, flags);
 		media_copy_format(dst_media, src_media);
 		media_set_address_family(dst_media, src_media, flags);
-		__media_init_from_flags(src_media, dst_media, sp, flags);
+		media_set_ptime(src_media, sp, flags->rev_ptime, flags->ptime);
+		media_set_ptime(dst_media, sp, flags->ptime, flags->rev_ptime);
 
 		codec_store_populate(&dst_media->codecs, &src_media->codecs,
 				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
@@ -3846,7 +3835,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 		media_update_flags(dst_media, sp);
 		media_update_crypto(dst_media, sp, flags);
 		media_update_format(dst_media, sp);
-		__media_init_from_flags(dst_media, NULL, sp, flags);
+		media_set_ptime(dst_media, sp, flags->ptime, 0);
 
 		if (flags->allow_transcoding) {
 			codec_store_populate(&dst_media->codecs, &sp->codecs,
