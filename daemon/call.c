@@ -2860,6 +2860,9 @@ static void media_init_from_flags(struct call_media *media, sdp_ng_flags *flags)
 		MEDIA_SET(media, RTCP_GEN);
 	else if (flags->generate_rtcp_off)
 		MEDIA_CLEAR(media, RTCP_GEN);
+
+	if (flags->recrypt)
+		MEDIA_SET(media, RECRYPT);
 }
 
 __attribute__((nonnull(1, 2)))
@@ -3033,12 +3036,6 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 		if (media)
 			MEDIA_SET(media, PTIME_OVERRIDE);
 		MEDIA_SET(other_media, PTIME_OVERRIDE);
-	}
-
-	if (flags->recrypt) {
-		MEDIA_SET(other_media, RECRYPT);
-		if (media)
-			MEDIA_SET(media, RECRYPT);
 	}
 }
 
