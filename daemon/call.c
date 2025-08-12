@@ -2956,25 +2956,30 @@ static void media_update_crypto(struct call_media *media, struct stream_params *
 	}
 }
 
+__attribute__((nonnull(1, 2)))
+static void media_update_attrs(struct call_media *media, struct stream_params *sp) {
+	/* moved as plain text attributes, required later by sdp_create()
+	 * extmap
+	 * other (unknown type)
+	 */
+	t_queue_clear_full(&media->generic_attributes, sdp_attr_free);
+	t_queue_clear_full(&media->all_attributes, sdp_attr_free);
+	media->generic_attributes = sp->generic_attributes;
+	t_queue_init(&sp->generic_attributes);
+	media->all_attributes = sp->all_attributes;
+	t_queue_init(&sp->all_attributes);
+
+	/* bandwidth */
+	media->sdp_media_bandwidth = sp->media_session_bandiwdth;
+	media->sdp_information = call_str_cpy(&sp->sdp_information);
+}
+
 
 // `media` can be NULL
 __attribute__((nonnull(1, 3, 4)))
 static void __media_init_from_flags(struct call_media *other_media, struct call_media *media,
 		struct stream_params *sp, sdp_ng_flags *flags)
 {
-	if (flags->opmode == OP_OFFER || flags->opmode == OP_ANSWER || flags->opmode == OP_PUBLISH) {
-		/* moved as plain text attributes, required later by sdp_create()
-		 * extmap
-		 * other (unknown type)
-		 */
-		t_queue_clear_full(&other_media->generic_attributes, sdp_attr_free);
-		t_queue_clear_full(&other_media->all_attributes, sdp_attr_free);
-		other_media->generic_attributes = sp->generic_attributes;
-		t_queue_init(&sp->generic_attributes);
-		other_media->all_attributes = sp->all_attributes;
-		t_queue_init(&sp->all_attributes);
-	}
-
 	// codec and RTP payload types handling
 	if (sp->ptime > 0) {
 		if (media && !MEDIA_ISSET(media, PTIME_OVERRIDE))
@@ -3021,11 +3026,6 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 		if (media)
 			media->media_rec_slot = flags->media_rec_slot_answer;
 	}
-
-	/* bandwidth */
-	other_media->sdp_media_bandwidth = sp->media_session_bandiwdth;
-
-	other_media->sdp_information = call_str_cpy(&sp->sdp_information);
 
 	if (flags->recrypt) {
 		MEDIA_SET(other_media, RECRYPT);
@@ -3091,6 +3091,7 @@ static struct call_media * monologue_add_zero_media(struct call_monologue *sende
 	media_loop_protect(sp, sender_media);
 	media_update_flags(sender_media, sp);
 	media_update_crypto(sender_media, sp, flags);
+	media_update_attrs(sender_media, sp);
 	__media_init_from_flags(sender_media, NULL, sp, flags);
 	*num_ports_other = proto_num_ports(sp->num_ports, sender_media, flags,
 			(flags->rtcp_mux_demux || flags->rtcp_mux_accept) ? true : false);
@@ -3216,6 +3217,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		media_loop_protect(sp, sender_media);
 		media_update_flags(sender_media, sp);
 		media_update_crypto(sender_media, sp, flags);
+		media_update_attrs(sender_media, sp);
 		__media_init_from_flags(sender_media, receiver_media, sp, flags);
 
 		codecs_offer_answer(receiver_media, sender_media, sp, flags);
@@ -3624,6 +3626,7 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		media_loop_protect(sp, media);
 		media_update_flags(media, sp);
 		media_update_crypto(media, sp, flags);
+		media_update_attrs(media, sp);
 		__media_init_from_flags(media, NULL, sp, flags);
 
 		codec_store_populate(&media->codecs, &sp->codecs,
