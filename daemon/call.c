@@ -3035,13 +3035,6 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 		MEDIA_SET(other_media, PTIME_OVERRIDE);
 	}
 
-	if (flags->opmode == OP_OFFER) {
-		ilog(LOG_DEBUG, "setting other slot to %u, setting slot to %u", flags->media_rec_slot_offer, flags->media_rec_slot_answer);
-		other_media->media_rec_slot = flags->media_rec_slot_offer;
-		if (media)
-			media->media_rec_slot = flags->media_rec_slot_answer;
-	}
-
 	if (flags->recrypt) {
 		MEDIA_SET(other_media, RECRYPT);
 		if (media)
@@ -3238,6 +3231,11 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		media_copy_format(receiver_media, sender_media);
 		media_set_address_family(receiver_media, sender_media, flags);
 		__media_init_from_flags(sender_media, receiver_media, sp, flags);
+
+		if (flags->opmode == OP_OFFER) {
+			ilog(LOG_DEBUG, "Setting media recording slots to %u", flags->media_rec_slot_offer);
+			sender_media->media_rec_slot = receiver_media->media_rec_slot = flags->media_rec_slot_answer;
+		}
 
 		codecs_offer_answer(receiver_media, sender_media, sp, flags);
 
