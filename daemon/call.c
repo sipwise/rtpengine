@@ -2928,30 +2928,40 @@ static void media_copy_type(struct call_media *dst, struct call_media *src) {
 	dst->type_id = src->type_id;
 }
 
+__attribute__((nonnull(1, 2)))
+static void media_update_flags(struct call_media *media, struct stream_params *sp) {
+	if (!sp->rtp_endpoint.port)
+		return;
+
+	/* copy parameters advertised by the sender of this message */
+	bf_copy_same(&media->media_flags, &sp->sp_flags,
+			SHARED_FLAG_RTCP_MUX | SHARED_FLAG_ASYMMETRIC | SHARED_FLAG_UNIDIRECTIONAL |
+			SHARED_FLAG_ICE | SHARED_FLAG_TRICKLE_ICE | SHARED_FLAG_ICE_LITE_PEER |
+			SHARED_FLAG_END_OF_CANDIDATES |
+			SHARED_FLAG_RTCP_FB | SHARED_FLAG_LEGACY_OSRTP | SHARED_FLAG_LEGACY_OSRTP_REV);
+}
+
+__attribute__((nonnull(1, 2, 3)))
+static void media_update_crypto(struct call_media *media, struct stream_params *sp, sdp_ng_flags *flags) {
+	if (!sp->rtp_endpoint.port)
+		return;
+
+	// duplicate the entire queue of offered crypto params
+	crypto_params_sdes_queue_clear(&media->sdes_in);
+	crypto_params_sdes_queue_copy(&media->sdes_in, &sp->sdes_params);
+
+	if (media->sdes_in.length) {
+		MEDIA_SET(media, SDES);
+		__sdes_accept(media, flags);
+	}
+}
+
 
 // `media` can be NULL
 __attribute__((nonnull(1, 3, 4)))
 static void __media_init_from_flags(struct call_media *other_media, struct call_media *media,
 		struct stream_params *sp, sdp_ng_flags *flags)
 {
-	if (sp->rtp_endpoint.port) {
-		/* copy parameters advertised by the sender of this message */
-		bf_copy_same(&other_media->media_flags, &sp->sp_flags,
-				SHARED_FLAG_RTCP_MUX | SHARED_FLAG_ASYMMETRIC | SHARED_FLAG_UNIDIRECTIONAL |
-				SHARED_FLAG_ICE | SHARED_FLAG_TRICKLE_ICE | SHARED_FLAG_ICE_LITE_PEER |
-				SHARED_FLAG_END_OF_CANDIDATES |
-				SHARED_FLAG_RTCP_FB | SHARED_FLAG_LEGACY_OSRTP | SHARED_FLAG_LEGACY_OSRTP_REV);
-
-		// duplicate the entire queue of offered crypto params
-		crypto_params_sdes_queue_clear(&other_media->sdes_in);
-		crypto_params_sdes_queue_copy(&other_media->sdes_in, &sp->sdes_params);
-
-		if (other_media->sdes_in.length) {
-			MEDIA_SET(other_media, SDES);
-			__sdes_accept(other_media, flags);
-		}
-	}
-
 	if (flags->opmode == OP_OFFER || flags->opmode == OP_ANSWER || flags->opmode == OP_PUBLISH) {
 		/* moved as plain text attributes, required later by sdp_create()
 		 * extmap
@@ -3079,6 +3089,8 @@ static struct call_media * monologue_add_zero_media(struct call_monologue *sende
 	media_update_protocol(sender_media, sp);
 	media_update_media_id(sender_media, sp);
 	media_loop_protect(sp, sender_media);
+	media_update_flags(sender_media, sp);
+	media_update_crypto(sender_media, sp, flags);
 	__media_init_from_flags(sender_media, NULL, sp, flags);
 	*num_ports_other = proto_num_ports(sp->num_ports, sender_media, flags,
 			(flags->rtcp_mux_demux || flags->rtcp_mux_accept) ? true : false);
@@ -3202,6 +3214,8 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		else
 			media_answer_media_id(sender_media, sp);
 		media_loop_protect(sp, sender_media);
+		media_update_flags(sender_media, sp);
+		media_update_crypto(sender_media, sp, flags);
 		__media_init_from_flags(sender_media, receiver_media, sp, flags);
 
 		codecs_offer_answer(receiver_media, sender_media, sp, flags);
@@ -3608,6 +3622,8 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		media_update_protocol(media, sp);
 		media_update_media_id(media, sp);
 		media_loop_protect(sp, media);
+		media_update_flags(media, sp);
+		media_update_crypto(media, sp, flags);
 		__media_init_from_flags(media, NULL, sp, flags);
 
 		codec_store_populate(&media->codecs, &sp->codecs,
@@ -3699,6 +3715,8 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		media_set_protocol(dst_media, src_media, sp, flags);
 		media_update_media_id(src_media, sp);
 		media_copy_media_id(dst_media, src_media, flags);
+		media_update_flags(dst_media, sp);
+		media_update_crypto(dst_media, sp, flags);
 		__media_init_from_flags(src_media, dst_media, sp, flags);
 
 		codec_store_populate(&dst_media->codecs, &src_media->codecs,
@@ -3805,6 +3823,8 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 		media_update_protocol(dst_media, sp);
 		media_answer_media_id(dst_media, sp);
 		media_loop_protect(sp, dst_media);
+		media_update_flags(dst_media, sp);
+		media_update_crypto(dst_media, sp, flags);
 		__media_init_from_flags(dst_media, NULL, sp, flags);
 
 		if (flags->allow_transcoding) {
