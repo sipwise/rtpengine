@@ -2930,6 +2930,10 @@ static void media_copy_type(struct call_media *dst, struct call_media *src) {
 
 __attribute__((nonnull(1, 2)))
 static void media_update_flags(struct call_media *media, struct stream_params *sp) {
+	/* deduct address family from stream parameters received */
+	if (!media->desired_family || !MEDIA_ISSET(media, ICE))
+		media->desired_family = sp->rtp_endpoint.address.family;
+
 	if (!sp->rtp_endpoint.port)
 		return;
 
@@ -2939,6 +2943,19 @@ static void media_update_flags(struct call_media *media, struct stream_params *s
 			SHARED_FLAG_ICE | SHARED_FLAG_TRICKLE_ICE | SHARED_FLAG_ICE_LITE_PEER |
 			SHARED_FLAG_END_OF_CANDIDATES |
 			SHARED_FLAG_RTCP_FB | SHARED_FLAG_LEGACY_OSRTP | SHARED_FLAG_LEGACY_OSRTP_REV);
+}
+
+__attribute__((nonnull(1, 2, 3)))
+static void media_set_address_family(struct call_media *media, struct call_media *src,
+		struct sdp_ng_flags *flags)
+{
+	/* for outgoing SDP, use "direction"/DF or default to what was offered */
+	if (!media->desired_family || !MEDIA_ISSET(media, ICE)) {
+		if (!media->desired_family)
+			media->desired_family = src->desired_family;
+		if (flags->address_family)
+			media->desired_family = flags->address_family;
+	}
 }
 
 __attribute__((nonnull(1, 2, 3)))
@@ -3016,17 +3033,6 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 		if (media)
 			MEDIA_SET(media, PTIME_OVERRIDE);
 		MEDIA_SET(other_media, PTIME_OVERRIDE);
-	}
-
-	/* deduct address family from stream parameters received */
-	if (!other_media->desired_family || !MEDIA_ISSET(other_media, ICE))
-		other_media->desired_family = sp->rtp_endpoint.address.family;
-	/* for outgoing SDP, use "direction"/DF or default to what was offered */
-	if (media && (!media->desired_family || !MEDIA_ISSET(media, ICE))) {
-		if (!media->desired_family)
-			media->desired_family = other_media->desired_family;
-		if (flags->address_family)
-			media->desired_family = flags->address_family;
 	}
 
 	if (flags->opmode == OP_OFFER) {
@@ -3230,6 +3236,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		media_update_attrs(sender_media, sp);
 		media_update_format(sender_media, sp);
 		media_copy_format(receiver_media, sender_media);
+		media_set_address_family(receiver_media, sender_media, flags);
 		__media_init_from_flags(sender_media, receiver_media, sp, flags);
 
 		codecs_offer_answer(receiver_media, sender_media, sp, flags);
@@ -3734,6 +3741,7 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		media_update_flags(dst_media, sp);
 		media_update_crypto(dst_media, sp, flags);
 		media_copy_format(dst_media, src_media);
+		media_set_address_family(dst_media, src_media, flags);
 		__media_init_from_flags(src_media, dst_media, sp, flags);
 
 		codec_store_populate(&dst_media->codecs, &src_media->codecs,
