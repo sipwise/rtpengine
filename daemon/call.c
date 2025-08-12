@@ -2276,77 +2276,78 @@ static void generate_mid(struct call_media *media, unsigned int idx) {
 	media->media_id = call_str_cpy_c(buf);
 }
 
-__attribute__((nonnull(2, 3, 4)))
-static void __update_media_id(struct call_media *media, struct call_media *other_media,
-		struct stream_params *sp, const sdp_ng_flags *flags)
-{
-	struct call_monologue *ml = media ? media->monologue : NULL;
-	struct call_monologue *other_ml = other_media->monologue;
+__attribute__((nonnull(1, 2)))
+static void media_update_media_id(struct call_media *media, struct stream_params *sp) {
+	struct call_monologue *ml = media->monologue;
 
-	if (flags->opmode == OP_OFFER ||
-		flags->opmode == OP_PUBLISH ||
-		flags->opmode == OP_SUBSCRIBE_REQ ||
-		IS_OP_OTHER(flags->opmode))
-	{
-		if (!other_media->media_id.s) {
-			// incoming side: we copy what we received
-			if (sp->media_id.s)
-				other_media->media_id = call_str_cpy(&sp->media_id);
-			if (other_media->media_id.s)
-				t_hash_table_insert(other_ml->media_ids, &other_media->media_id,
-						other_media);
+	if (!media->media_id.s) {
+		// incoming side: we copy what we received
+		if (sp->media_id.s)
+			media->media_id = call_str_cpy(&sp->media_id);
+		if (media->media_id.s)
+			t_hash_table_insert(ml->media_ids, &media->media_id,
+					media);
+	}
+	else {
+		// RFC 5888 allows changing the media ID in a re-invite
+		// (section 9.1), so handle this here.
+		if (sp->media_id.s) {
+			if (str_cmp_str(&media->media_id, &sp->media_id)) {
+				// mismatch - update
+				t_hash_table_remove(ml->media_ids, &media->media_id);
+				media->media_id = call_str_cpy(&sp->media_id);
+				t_hash_table_insert(ml->media_ids, &media->media_id,
+						media);
+			}
 		}
 		else {
-			// RFC 5888 allows changing the media ID in a re-invite
-			// (section 9.1), so handle this here.
-			if (sp->media_id.s) {
-				if (str_cmp_str(&other_media->media_id, &sp->media_id)) {
-					// mismatch - update
-					t_hash_table_remove(other_ml->media_ids, &other_media->media_id);
-					other_media->media_id = call_str_cpy(&sp->media_id);
-					t_hash_table_insert(other_ml->media_ids, &other_media->media_id,
-							other_media);
-				}
-			}
-			else {
-				// we already have a media ID, but re-invite offer did not specify
-				// one. we keep what we already have.
-				;
-			}
-		}
-		if (media && !media->media_id.s) {
-			// outgoing side: we copy from the other side
-			if (other_media->media_id.s)
-				media->media_id = call_str_cpy(&other_media->media_id);
-			else if (flags->generate_mid) {
-				// or generate one
-				generate_mid(media, other_media->index);
-			}
-			if (media->media_id.s)
-				t_hash_table_insert(ml->media_ids, &media->media_id, media);
-		}
-		else {
-			// we already have a media ID. keep what we have and ignore what's
-			// happening on the other side.
+			// we already have a media ID, but re-invite offer did not specify
+			// one. we keep what we already have.
 			;
 		}
 	}
-	else if (flags->opmode == OP_ANSWER) {
-		// in normal cases, if the answer contains a media ID, it must match
-		// the media ID previously sent in the offer, as the order of the media
-		// sections must remain intact (RFC 5888 section 9.1). check this.
-		if (sp->media_id.s) {
-			if (!other_media->media_id.s)
-				ilog(LOG_INFO, "Received answer SDP with media ID ('"
-						STR_FORMAT "') when no media ID was offered",
-					STR_FMT(&sp->media_id));
-			else if (str_cmp_str(&other_media->media_id, &sp->media_id))
-				ilog(LOG_WARN, "Received answer SDP with mismatched media ID ('"
-						STR_FORMAT "') when the offered media ID was '"
-						STR_FORMAT "'",
-					STR_FMT(&sp->media_id), STR_FMT(&other_media->media_id));
-		}
+}
+
+__attribute__((nonnull(1, 2)))
+static void media_answer_media_id(struct call_media *media, struct stream_params *sp) {
+	if (!sp->media_id.len)
+		return;
+
+	// in normal cases, if the answer contains a media ID, it must match
+	// the media ID previously sent in the offer, as the order of the media
+	// sections must remain intact (RFC 5888 section 9.1). check this.
+	if (!media->media_id.len)
+		ilog(LOG_INFO, "Received answer SDP with media ID ('"
+				STR_FORMAT "') when no media ID was offered",
+			STR_FMT(&sp->media_id));
+	else if (str_cmp_str(&media->media_id, &sp->media_id))
+		ilog(LOG_WARN, "Received answer SDP with mismatched media ID ('"
+				STR_FORMAT "') when the offered media ID was '"
+				STR_FORMAT "'",
+			STR_FMT(&sp->media_id), STR_FMT(&media->media_id));
+}
+
+
+__attribute__((nonnull(1, 2, 3)))
+static void media_copy_media_id(struct call_media *media, struct call_media *other_media,
+		const sdp_ng_flags *flags)
+{
+	struct call_monologue *ml = media->monologue;
+
+	// we already have a media ID. keep what we have and ignore what's
+	// happening on the other side.
+	if (media->media_id.len)
+		return;
+
+	// outgoing side: we copy from the other side
+	if (other_media->media_id.len)
+		media->media_id = call_str_cpy(&other_media->media_id);
+	else if (flags->generate_mid) {
+		// or generate one
+		generate_mid(media, other_media->index);
 	}
+	if (media->media_id.len)
+		t_hash_table_insert(ml->media_ids, &media->media_id, media);
 }
 
 static void __t38_reset(struct call_media *media, struct call_media *other_media) {
@@ -2933,7 +2934,6 @@ __attribute__((nonnull(1, 3, 4)))
 static void __media_init_from_flags(struct call_media *other_media, struct call_media *media,
 		struct stream_params *sp, sdp_ng_flags *flags)
 {
-	__update_media_id(media, other_media, sp, flags);
 	__endpoint_loop_protect(sp, other_media);
 
 	if (sp->rtp_endpoint.port) {
@@ -3079,6 +3079,7 @@ static struct call_media * monologue_add_zero_media(struct call_monologue *sende
 	sender_media->media_sdp_id = sp->media_sdp_id;
 	media_update_type(sender_media, sp);
 	media_update_protocol(sender_media, sp);
+	media_update_media_id(sender_media, sp);
 	__media_init_from_flags(sender_media, NULL, sp, flags);
 	*num_ports_other = proto_num_ports(sp->num_ports, sender_media, flags,
 			(flags->rtcp_mux_demux || flags->rtcp_mux_accept) ? true : false);
@@ -3195,6 +3196,12 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		if (media_update_type(sender_media, sp))
 			media_copy_type(receiver_media, sender_media);
 		media_set_protocol(receiver_media, sender_media, sp, flags);
+		if (flags->opmode == OP_OFFER) {
+			media_update_media_id(sender_media, sp);
+			media_copy_media_id(receiver_media, sender_media, flags);
+		}
+		else
+			media_answer_media_id(sender_media, sp);
 		__media_init_from_flags(sender_media, receiver_media, sp, flags);
 
 		codecs_offer_answer(receiver_media, sender_media, sp, flags);
@@ -3599,6 +3606,7 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		media_init_from_flags(media, flags);
 		media_update_type(media, sp);
 		media_update_protocol(media, sp);
+		media_update_media_id(media, sp);
 		__media_init_from_flags(media, NULL, sp, flags);
 
 		codec_store_populate(&media->codecs, &sp->codecs,
@@ -3688,6 +3696,8 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		media_set_siprec_label(src_media, dst_media, flags);
 		media_update_type(dst_media, sp);
 		media_set_protocol(dst_media, src_media, sp, flags);
+		media_update_media_id(src_media, sp);
+		media_copy_media_id(dst_media, src_media, flags);
 		__media_init_from_flags(src_media, dst_media, sp, flags);
 
 		codec_store_populate(&dst_media->codecs, &src_media->codecs,
@@ -3792,6 +3802,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 
 		media_init_from_flags(dst_media, flags);
 		media_update_protocol(dst_media, sp);
+		media_answer_media_id(dst_media, sp);
 		__media_init_from_flags(dst_media, NULL, sp, flags);
 
 		if (flags->allow_transcoding) {
