@@ -365,7 +365,6 @@ struct stream_params {
 	sdp_attr_q		generic_attributes;	/* just some other attributes */
 	sdp_attr_q		all_attributes;		/* all attributes */
 	str			direction[2];
-	sockfamily_t		*desired_family;
 	struct dtls_fingerprint fingerprint;
 	atomic64		sp_flags;
 	struct codec_store	codecs;

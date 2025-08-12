@@ -2992,8 +2992,8 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 	if (media && (!media->desired_family || !MEDIA_ISSET(media, ICE))) {
 		if (!media->desired_family)
 			media->desired_family = other_media->desired_family;
-		if (sp->desired_family)
-			media->desired_family = sp->desired_family;
+		if (flags->address_family)
+			media->desired_family = flags->address_family;
 	}
 
 	if (flags->opmode == OP_OFFER) {

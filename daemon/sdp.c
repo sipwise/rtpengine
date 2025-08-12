@@ -1884,7 +1884,6 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 			sp->type = media->media_type_str;
 			sp->type_id = media->media_type_id;
 			memcpy(sp->direction, flags->direction, sizeof(sp->direction));
-			sp->desired_family = flags->address_family;
 			bf_set_clear(&sp->sp_flags, SP_FLAG_ASYMMETRIC, flags->asymmetric);
 			bf_set_clear(&sp->sp_flags, SP_FLAG_UNIDIRECTIONAL, flags->unidirectional);
 			bf_set_clear(&sp->sp_flags, SP_FLAG_STRICT_SOURCE, flags->strict_source);
