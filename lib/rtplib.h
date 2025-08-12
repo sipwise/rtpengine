@@ -118,6 +118,7 @@ struct rtp_payload_type {
 
 	unsigned int for_transcoding:1;
 	unsigned int accepted:1;
+	unsigned int removed:1;
 };
 
 
