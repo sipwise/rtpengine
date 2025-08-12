@@ -5584,14 +5584,16 @@ void __codec_store_populate_reuse(struct codec_store *dst, struct codec_store *s
 		rtp_payload_type *pt = l->data;
 		rtp_payload_type *orig_pt = t_hash_table_lookup(src->codecs,
 				GINT_TO_POINTER(pt->payload_type));
-		if(!orig_pt){
-			if (a.merge_cs)
+		if (!orig_pt){
+			if (a.merge_cs) {
+				pt->removed = 1;
 				codec_store_add_raw_link(src, rtp_payload_type_dup(pt),
 						src->codec_prefs.head);
+			}
 			l = __codec_store_delete_link(l, dst);
-		}else{
-			l = l->next;
 		}
+		else
+			l = l->next;
 	}
 }
 
@@ -5620,6 +5622,7 @@ static void codec_store_merge(struct codec_store *dst, struct codec_store *src) 
 		if (old_pt)
 			__codec_store_delete_link(old_pt->prefs_link, dst);
 
+		pt->removed = 1;
 		codec_store_add_raw_link(dst, pt, dst->codec_prefs.head);
 	}
 
@@ -6023,10 +6026,19 @@ void codec_store_transcode(struct codec_store *cs, str_q *offer, struct codec_st
 						STR_FMT(codec));
 				continue;
 			}
-			ilogs(codec, LOG_DEBUG, "Re-adding stripped codec " STR_FORMAT "/" STR_FORMAT " (%i)",
-					STR_FMT(&orig_pt->encoding_with_params),
-					STR_FMT0(&orig_pt->format_parameters),
-					orig_pt->payload_type);
+			if (orig_pt->removed) {
+				ilogs(codec, LOG_DEBUG, "Adding previously present codec "
+							STR_FORMAT "/" STR_FORMAT " (%i) for transcoding",
+						STR_FMT(&orig_pt->encoding_with_params),
+						STR_FMT0(&orig_pt->format_parameters),
+						orig_pt->payload_type);
+				orig_pt->for_transcoding = 1;
+			}
+			else
+				ilogs(codec, LOG_DEBUG, "Re-adding stripped codec " STR_FORMAT "/" STR_FORMAT " (%i)",
+						STR_FMT(&orig_pt->encoding_with_params),
+						STR_FMT0(&orig_pt->format_parameters),
+						orig_pt->payload_type);
 			codec_touched(cs, orig_pt);
 			codec_store_add_order(cs, orig_pt);
 		}
