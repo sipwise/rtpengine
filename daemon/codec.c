@@ -204,7 +204,7 @@ struct codec_ssrc_handler {
 	format_t encoder_format;
 	int bitrate;
 	int ptime;
-	int bytes_per_packet;
+	size_t bytes_per_packet;
 	struct codec_scheduler csch;
 	GString *sample_buffer;
 	struct dtx_buffer *dtx_buffer;
@@ -286,7 +286,7 @@ static tc_code (*__rtp_decode)(struct codec_ssrc_handler *ch, struct codec_ssrc_
 		struct transcode_packet *packet, struct media_packet *mp);
 static void transcode_job_free(struct transcode_job *j);
 static void packet_encoded_tx(struct codec_ssrc_handler *ch, struct media_packet *mp,
-		str *inout, char *buf, unsigned int pkt_len, int64_t pts, int64_t duration,
+		str *inout, char *buf, size_t pkt_len, int64_t pts, int64_t duration,
 		const struct fraction *cr_fact);
 
 static void codec_output_rtp_seq_passthrough(struct media_packet *mp, struct codec_scheduler *csch,
@@ -2439,7 +2439,7 @@ out_ch:
 void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 		struct codec_handler *handler,
 		char *buf, // bufferpool_alloc'd, room for rtp_header + filled-in payload
-		unsigned int payload_len,
+		size_t payload_len,
 		unsigned long payload_ts,
 		int marker, int seq, int seq_inc, int payload_type,
 		unsigned long ts_delay)
@@ -4453,7 +4453,7 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 		* h->dest_pt.codec_def->bits_per_sample / 8;
 
 	ilogs(codec, LOG_DEBUG, "Encoder created with clockrate %i, %i channels, using sample format %i "
-			"(ptime %i for %i samples per frame and %i samples (%i bytes) per packet, bitrate %i)",
+			"(ptime %i for %i samples per frame and %i samples (%zu bytes) per packet, bitrate %i)",
 			ch->encoder_format.clockrate, ch->encoder_format.channels, ch->encoder_format.format,
 			ch->ptime, ch->encoder->samples_per_frame, ch->encoder->samples_per_packet,
 			ch->bytes_per_packet, ch->bitrate);
@@ -4523,7 +4523,7 @@ static void __free_ssrc_handler(struct codec_ssrc_handler *ch) {
 void packet_encoded_packetize(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
 		packetizer_f pkt_f, void *pkt_f_data, const struct fraction *cr_fact,
 		void (*tx_f)(struct codec_ssrc_handler *, struct media_packet *, str *,
-			char *, unsigned int, int64_t pts, int64_t duration,
+			char *, size_t, int64_t pts, int64_t duration,
 			const struct fraction *cr_fact))
 {
 	// run this through our packetizer
@@ -4531,9 +4531,9 @@ void packet_encoded_packetize(AVPacket *pkt, struct codec_ssrc_handler *ch, stru
 
 	while (true) {
 		// figure out how big of a buffer we need
-		unsigned int payload_len = MAX(MAX(pkt->size, ch->bytes_per_packet),
+		size_t payload_len = MAX(MAX(pkt->size, ch->bytes_per_packet),
 				sizeof(struct telephone_event_payload));
-		unsigned int pkt_len = sizeof(struct rtp_header) + payload_len + RTP_BUFFER_TAIL_ROOM;
+		size_t pkt_len = sizeof(struct rtp_header) + payload_len + RTP_BUFFER_TAIL_ROOM;
 		// prepare our buffers
 		char *buf = bufferpool_alloc(media_bufferpool, pkt_len);
 		char *payload = buf + sizeof(struct rtp_header);
@@ -4604,7 +4604,7 @@ static void codec_output_rtp_seq_own(struct media_packet *mp, struct codec_sched
 }
 
 static void packet_encoded_tx(struct codec_ssrc_handler *ch, struct media_packet *mp,
-		str *inout, char *buf, unsigned int pkt_len, int64_t pts, int64_t duration,
+		str *inout, char *buf, size_t pkt_len, int64_t pts, int64_t duration,
 		const struct fraction *cr_fact)
 {
 	// check special payloads

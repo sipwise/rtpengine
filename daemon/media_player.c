@@ -840,7 +840,7 @@ static void media_player_cache_entry_decoder_thread(void *p) {
 }
 
 static void packet_encoded_cache(struct codec_ssrc_handler *ch, struct media_packet *mp,
-		str *s, char *buf, unsigned int pkt_len,
+		str *s, char *buf, size_t pkt_len,
 		int64_t pts, int64_t dur, const struct fraction *cr_fact)
 {
 	struct media_player_cache_entry *entry = mp->cache_entry;

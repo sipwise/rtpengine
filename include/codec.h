@@ -255,12 +255,12 @@ void codec_handlers_stop(codec_handlers_q *, struct call_media *sink, bool clear
 void packet_encoded_packetize(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
 		packetizer_f pkt_f, void *pkt_f_data, const struct fraction *cr_fact,
 		void (*tx_f)(struct codec_ssrc_handler *, struct media_packet *, str *,
-			char *, unsigned int, int64_t pts, int64_t duration,
+			char *, size_t, int64_t pts, int64_t duration,
 			const struct fraction *cr_fact));
 void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *,
 		struct codec_handler *handler, // normally == ch->handler except for DTMF
 		char *buf, // malloc'd, room for rtp_header + filled-in payload
-		unsigned int payload_len,
+		size_t payload_len,
 		unsigned long payload_ts,
 		int marker, int seq, int seq_inc, int payload_type,
 		unsigned long ts_delay);
