@@ -214,7 +214,7 @@ struct codec_ssrc_handler {
 			char *buf, // bufferpool_alloc'd, room for rtp_header + filled-in payload
 			unsigned int payload_len,
 			unsigned long payload_ts,
-			int marker, int payload_type,
+			struct rtp_markers, int payload_type,
 			unsigned long ts_delay);
 
 	// DTMF DSP stuff
@@ -236,15 +236,15 @@ struct codec_ssrc_handler {
 
 	uint64_t skip_pts;
 
-	unsigned int rtp_mark:1;
+	bool rtp_mark:1;
 };
 struct transcode_packet {
 	seq_packet_t p; // must be first
 	unsigned long ts;
 	str *payload;
 	struct codec_handler *handler;
-	unsigned int marker:1,
-	             bypass_seq:1;
+	bool marker:1,
+	     bypass_seq:1;
 	tc_code (*packet_func)(struct codec_ssrc_handler *, struct codec_ssrc_handler *, struct transcode_packet *,
 			struct media_packet *);
 	int (*dup_func)(struct codec_ssrc_handler *, struct codec_ssrc_handler *, struct transcode_packet *,
@@ -294,7 +294,7 @@ static void codec_output_rtp_seq_passthrough(struct media_packet *mp, struct cod
 		char *buf, // bufferpool_alloc'd, room for rtp_header + filled-in payload
 		unsigned int payload_len,
 		unsigned long payload_ts,
-		int marker, int payload_type,
+		struct rtp_markers, int payload_type,
 		unsigned long ts_delay);
 
 static void codec_output_rtp_seq_own(struct media_packet *mp, struct codec_scheduler *csch,
@@ -302,7 +302,7 @@ static void codec_output_rtp_seq_own(struct media_packet *mp, struct codec_sched
 		char *buf, // bufferpool_alloc'd, room for rtp_header + filled-in payload
 		unsigned int payload_len,
 		unsigned long payload_ts,
-		int marker, int payload_type,
+		struct rtp_markers, int payload_type,
 		unsigned long ts_delay);
 
 
@@ -921,7 +921,7 @@ struct codec_handler *codec_handler_make_playback(const rtp_payload_type *src_pt
 	handler->ssrc_handler->h.ssrc = ssrc;
 	while (handler->ssrc_handler->csch.first_ts == 0)
 		handler->ssrc_handler->csch.first_ts = ssl_random();
-	handler->ssrc_handler->rtp_mark = 1;
+	handler->ssrc_handler->rtp_mark = true;
 
 	ilogs(codec, LOG_DEBUG, "Created media playback context for " STR_FORMAT "/" STR_FORMAT
 		" -> " STR_FORMAT "/" STR_FORMAT "/%d",
@@ -2254,7 +2254,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 	packet->payload = str_dup(&mp->payload);
 	uint32_t packet_ts = ntohl(mp->rtp->timestamp);
 	packet->ts = packet_ts;
-	packet->marker = (mp->rtp->m_pt & 0x80) ? 1 : 0;
+	packet->marker = (mp->rtp->m_pt & 0x80) ? true : false;
 
 	atomic64_inc_na(&ssrc_in->stats->packets);
 	atomic64_add_na(&ssrc_in->stats->bytes, mp->payload.len);
@@ -2441,7 +2441,7 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 		char *buf, // bufferpool_alloc'd, room for rtp_header + filled-in payload
 		size_t payload_len,
 		unsigned long payload_ts,
-		int marker, int seq, int seq_inc, int payload_type,
+		struct rtp_markers marks, int seq, int seq_inc, int payload_type,
 		unsigned long ts_delay)
 {
 	struct rtp_header *rh = (void *) buf;
@@ -2452,7 +2452,7 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 	rh->v_p_x_cc = 0x80;
 	if (payload_type == -1)
 		payload_type = handler->dest_pt.payload_type;
-	rh->m_pt = payload_type | (marker ? 0x80 : 0);
+	rh->m_pt = payload_type | (marks.marker ? 0x80 : 0);
 	if (seq != -1)
 		rh->seq_num = htons(seq);
 	else
@@ -2641,10 +2641,12 @@ skip:
 	memcpy(buf + sizeof(struct rtp_header), packet->payload->s, packet->payload->len);
 	if (packet->bypass_seq) // inject original seq
 		codec_output_rtp(mp, &ch->csch, packet->handler ? : h, buf, packet->payload->len, packet->ts,
-				packet->marker, packet->p.seq, -1, payload_type, ts_delay);
+				(struct rtp_markers) { .marker = packet->marker },
+				packet->p.seq, -1, payload_type, ts_delay);
 	else // use our own sequencing
 		input_ch->codec_output_rtp_seq(mp, &ch->csch, packet->handler ? : h, buf, packet->payload->len, packet->ts,
-				packet->marker, payload_type, ts_delay);
+				(struct rtp_markers) { .marker = packet->marker },
+				payload_type, ts_delay);
 	mp->ssrc_out->seq_diff++;
 
 	return 0;
@@ -2763,10 +2765,10 @@ static tc_code packet_dtmf(struct codec_ssrc_handler *ch, struct codec_ssrc_hand
 				*dup = *packet;
 				dup->payload = str_dup(&ev_pl);
 				dup->rtp = r;
-				dup->bypass_seq = 0;
+				dup->bypass_seq = false;
 				dup->ts = ts;
 				if (is_dtmf == 1)
-					dup->marker = 1;
+					dup->marker = true;
 
 				tc_code ret = TCC_OK;
 
@@ -2855,7 +2857,7 @@ static int __handler_func_supplemental(struct codec_handler *h, struct media_pac
 
 	if (sequencer_h->passthrough || sequencer_h->kernelize) {
 		// bypass sequencer, directly pass it to forwarding function
-		packet->bypass_seq = 1;
+		packet->bypass_seq = true;
 	}
 
 	return __handler_func_sequencer(mp, packet);
@@ -4584,7 +4586,7 @@ static void codec_output_rtp_seq_passthrough(struct media_packet *mp, struct cod
 		char *buf, // bufferpool_alloc'd, room for rtp_header + filled-in payload
 		unsigned int payload_len,
 		unsigned long payload_ts,
-		int marker, int payload_type,
+		struct rtp_markers marker, int payload_type,
 		unsigned long ts_delay)
 {
 	codec_output_rtp(mp, csch, handler, buf, payload_len, payload_ts, marker, -1, 0, payload_type, ts_delay);
@@ -4595,7 +4597,7 @@ static void codec_output_rtp_seq_own(struct media_packet *mp, struct codec_sched
 		char *buf, // bufferpool_alloc'd, room for rtp_header + filled-in payload
 		unsigned int payload_len,
 		unsigned long payload_ts,
-		int marker, int payload_type,
+		struct rtp_markers marker, int payload_type,
 		unsigned long ts_delay)
 {
 	// XXX this bypasses the send timer
@@ -4623,7 +4625,7 @@ static void packet_encoded_tx(struct codec_ssrc_handler *ch, struct media_packet
 	if (is_dtmf) {
 		payload_type = dtmf_pt;
 		if (is_dtmf == 1)
-			ch->rtp_mark = 1; // DTMF start event
+			ch->rtp_mark = true; // DTMF start event
 		else if (is_dtmf == 3)
 			repeats = 2; // DTMF end event
 		// we need to pass a ts_delay to codec_output_rtp to ensure the calculated time
@@ -4649,10 +4651,10 @@ static void packet_encoded_tx(struct codec_ssrc_handler *ch, struct media_packet
 		}
 		ch->codec_output_rtp_seq(mp, &ch->csch, ch->handler, send_buf, inout->len, ch->csch.first_ts
 				+ fraction_divl(pts, cr_fact),
-				ch->rtp_mark ? 1 : 0,
+				(struct rtp_markers) { .marker = ch->rtp_mark },
 				payload_type, ts_delay);
 		mp->ssrc_out->seq_diff++;
-		ch->rtp_mark = 0;
+		ch->rtp_mark = false;
 		if (!repeats)
 			break;
 	} while (repeats--);

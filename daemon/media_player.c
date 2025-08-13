@@ -588,7 +588,8 @@ retry:;
 	mp->last_frame_ts = pkt->pts;
 
 	codec_output_rtp(&packet, &entry->csch, mp->coder.handler, buf, pkt->s.len, mp->buffer_ts,
-			read_idx == 0, mp->seq++, 0, -1, 0);
+			(struct rtp_markers) { .marker = (read_idx == 0) },
+			mp->seq++, 0, -1, 0);
 
 	mp->buffer_ts += pkt->duration_ts;
 	mp->sync_ts_tv = rtpe_now;

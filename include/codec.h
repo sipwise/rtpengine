@@ -257,12 +257,17 @@ void packet_encoded_packetize(AVPacket *pkt, struct codec_ssrc_handler *ch, stru
 		void (*tx_f)(struct codec_ssrc_handler *, struct media_packet *, str *,
 			char *, size_t, int64_t pts, int64_t duration,
 			const struct fraction *cr_fact));
+
+struct rtp_markers {
+	bool marker:1;
+};
+
 void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *,
 		struct codec_handler *handler, // normally == ch->handler except for DTMF
 		char *buf, // malloc'd, room for rtp_header + filled-in payload
 		size_t payload_len,
 		unsigned long payload_ts,
-		int marker, int seq, int seq_inc, int payload_type,
+		struct rtp_markers, int seq, int seq_inc, int payload_type,
 		unsigned long ts_delay);
 
 
