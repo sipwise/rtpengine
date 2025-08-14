@@ -3994,6 +3994,7 @@ static void __call_cleanup(call_t *c) {
 		ps->selected_sfd = NULL;
 		t_queue_clear(&ps->sfds);
 		crypto_cleanup(&ps->crypto);
+		mutex_destroy(&ps->lock);
 
 		t_queue_clear_full(&ps->rtp_sinks, free_sink_handler);
 		t_queue_clear_full(&ps->rtcp_sinks, free_sink_handler);
@@ -4006,6 +4007,7 @@ static void __call_cleanup(call_t *c) {
 		media_stop(md);
 		t38_gateway_put(&md->t38_gateway);
 		audio_player_free(md);
+		mutex_destroy(&md->dtmf_lock);
 	}
 
 	for (__auto_type l = c->monologues.head; l; l = l->next) {
@@ -4025,6 +4027,7 @@ static void __call_cleanup(call_t *c) {
 	}
 
 	recording_finish(c, false);
+	rwlock_destroy(&c->master_lock);
 }
 
 // rtpe_callhash_lock must be held
