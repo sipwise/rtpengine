@@ -1,3 +1,19 @@
+ngcp-rtpengine (13.3.1.12+0~mr13.3.1.12) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7efde19] MT#63317 fix RTP extension parsing
+  * [bec69b2] MT#55283 fix int size issues
+  * [0f545b4] MT#55283 fix alloc alignment
+  * [f485a0e] MT#55283 support SO_TIMESTAMP_OLD
+  * [b49909c] MT#55283 silence curl compiler warnings
+  * [d9f25ca] MT#55283 distinguish transcoding PTs
+  * [974f334] MT#55283 combine in/out_lock
+  * [44991ea] MT#55283 clean up RTCP send locking
+  * [a2cf7f1] MT#55283 add forky backports script
+  * [1b4cae8] MT#55283 fix forky script
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 14 Aug 2025 19:06:55 +0200
+
 ngcp-rtpengine (13.3.1.11+0~mr13.3.1.11) unstable; urgency=medium
 
   [ Richard Fuchs ]
