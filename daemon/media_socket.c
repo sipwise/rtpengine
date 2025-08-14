@@ -1522,7 +1522,7 @@ typedef struct {
 } kernelize_state;
 
 static void kernelize_state_clear(kernelize_state *s) {
-	rtp_stats_arr_destroy_ptr(s->payload_types);
+	rtp_stats_arr_destroy_ptr(&s->payload_types);
 	t_queue_clear_full(&s->outputs,
 			(void (*)(struct rtpengine_destination_info *)) g_free); // should always be empty
 }
@@ -1876,8 +1876,7 @@ static void kernelize(struct packet_stream *stream) {
 	// record number of RTP destinations up to now
 	unsigned int num_rtp_dests = s.reti.num_destinations;
 	// ignore RTP payload types
-	rtp_stats_arr_destroy_ptr(s.payload_types);
-	s.payload_types = NULL;
+	rtp_stats_arr_destroy_ptr(&s.payload_types);
 	for (__auto_type l = stream->rtcp_sinks.head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
 		bool ok = kernelize_one_sink_handler(&s, stream, sh);
@@ -1916,7 +1915,7 @@ no_kernel:
 
 restart: // handle detected deadlock
 
-	rtp_stats_arr_destroy_ptr(s.payload_types);
+	rtp_stats_arr_destroy_ptr(&s.payload_types);
 
 	while ((redi = t_queue_pop_head(&s.outputs)))
 		g_free(redi);
