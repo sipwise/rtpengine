@@ -444,11 +444,16 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 	static inline type_name *type_name##_new(void) { \
 		return type_name##_new_sized(0); \
 	} \
-	static inline void type_name##_destroy_ptr(type_name *A) { \
+	static inline void type_name##_destroy(type_name *A) { \
 		if (A) \
 			g_ptr_array_free(&(A)->a, TRUE); \
 	} \
-	G_DEFINE_AUTOPTR_CLEANUP_FUNC(type_name, type_name##_destroy_ptr)
+	static inline void type_name##_destroy_ptr(type_name **A) { \
+		if (*A) \
+			g_ptr_array_free(&(*A)->a, TRUE); \
+		*A = NULL; \
+	} \
+	G_DEFINE_AUTOPTR_CLEANUP_FUNC(type_name, type_name##_destroy)
 
 #define TYPED_GPTRARRAY(type_name, contained_type) \
 	TYPED_GPTRARRAY_FULL(type_name, contained_type, NULL)
