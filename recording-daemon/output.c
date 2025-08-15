@@ -518,11 +518,6 @@ err:
 }
 
 
-int output_config(output_t *output, const format_t *requested_format, format_t *actual_format) {
-	return output_config_(NULL, output, requested_format, actual_format) ? 0 : -1;
-}
-
-
 static bool output_shutdown(output_t *output, FILE **fp, GString **gs) {
 	if (!output)
 		return false;
