@@ -138,7 +138,7 @@ sufficient for a standard installation of rtpengine.
     Points to the shared object file (__.so__) containing the reference
     implementation for the EVS codec. See the `README` for more details.
 
-- __\-\-output-storage=file__\|__db__\|__memory__
+- __\-\-output-storage=file__\|__db__\|__memory__\|__notify__
 
     Where to store media files. This option can be given multiple times (or, in
     the config file, using a comma-separated list) to enable multiple storage
@@ -151,6 +151,8 @@ sufficient for a standard installation of rtpengine.
 
     The string __both__ is recognised as legacy alternative to enabling both
     __file__ and __db__ storage.
+
+    __notify__ is an alias for enabling the __notify-record__ option, see below.
 
     The string __memory__ acts as a modifier and can be used if __file__
     storage is not enabled. Without the __memory__ modifier, media is first written

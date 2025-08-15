@@ -10,6 +10,7 @@
 enum output_storage_enum {
 	OUTPUT_STORAGE_FILE = 0x1,
 	OUTPUT_STORAGE_DB = 0x2,
+	OUTPUT_STORAGE_NOTIFY = 0x4,
 
 	OUTPUT_STORAGE_MASK = 0xff,
 
@@ -54,7 +55,6 @@ extern gboolean notify_nverify;
 extern int notify_threads;
 extern int notify_retries;
 extern char *notify_command;
-extern gboolean notify_record;
 extern gboolean notify_purge;
 extern gboolean mix_output_per_media;
 extern volatile int shutdown_flag;

@@ -98,7 +98,7 @@ static bool do_notify_http(struct notif_req *req) {
 	}
 
 #if CURL_AT_LEAST_VERSION(7,56,0)
-	if (notify_record && req->full_filename_path) {
+	if ((output_storage & OUTPUT_STORAGE_NOTIFY) && req->full_filename_path) {
 		err = "initializing curl mime&part";
 		curl_mimepart *part;
 		mime = curl_mime_init(c);
@@ -134,7 +134,7 @@ static bool do_notify_http(struct notif_req *req) {
 
 	ilog(LOG_NOTICE, "HTTP notification for '%s%s%s' was successful", FMT_M(req->name));
 
-	if (notify_record && notify_purge && req->full_filename_path) {
+	if ((output_storage & OUTPUT_STORAGE_NOTIFY) && notify_purge && req->full_filename_path) {
 		if (unlink(req->full_filename_path) == 0)
 			ilog(LOG_NOTICE, "File '%s%s%s' deleted successfully.", FMT_M(req->full_filename_path));
 		else

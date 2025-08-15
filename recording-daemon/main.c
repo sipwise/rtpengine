@@ -68,7 +68,6 @@ gboolean notify_nverify;
 int notify_threads = 5;
 int notify_retries = 10;
 char *notify_command;
-gboolean notify_record;
 gboolean notify_purge;
 gboolean mix_output_per_media = 0;
 gboolean flush_packets = 0;
@@ -197,12 +196,13 @@ static void options(int *argc, char ***argv) {
 	g_autoptr(char) group_gid = NULL;
 	g_autoptr(char) mix_method_str = NULL;
 	g_autoptr(char) tcp_send_to = NULL;
+	gboolean notify_record = FALSE;
 
 	GOptionEntry e[] = {
 		{ "table",		't', 0, G_OPTION_ARG_INT,	&ktable,	"Kernel table rtpengine uses",		"INT"		},
 		{ "spool-dir",		0,   0, G_OPTION_ARG_FILENAME,	&spool_dir,	"Directory containing rtpengine metadata files", "PATH" },
 		{ "num-threads",	0,   0, G_OPTION_ARG_INT,	&num_threads,	"Number of worker threads",		"INT"		},
-		{ "output-storage",	0,   0, G_OPTION_ARG_STRING_ARRAY,&os_a,	"Where to store audio streams",	        "file|db|memory"},
+		{ "output-storage",	0,   0, G_OPTION_ARG_STRING_ARRAY,&os_a,	"Where to store audio streams",	        "file|db|notify|memory"},
 		{ "output-dir",		0,   0, G_OPTION_ARG_STRING,	&output_dir,	"Where to write media files to",	"PATH"		},
 		{ "output-pattern",	0,   0, G_OPTION_ARG_STRING,	&output_pattern,"File name pattern for recordings",	"STRING"	},
 		{ "output-format",	0,   0, G_OPTION_ARG_STRING,	&output_format,	"Write audio files of this type",	"wav|mp3|none"	},
@@ -293,6 +293,12 @@ static void options(int *argc, char ***argv) {
 	for (char *const *iter = os_a; iter && *iter; iter++) {
 		if (!strcmp(*iter, "file"))
 			output_storage |= OUTPUT_STORAGE_FILE;
+		else if (!strcmp(*iter, "notify"))
+#if CURL_AT_LEAST_VERSION(7,56,0)
+			output_storage |= OUTPUT_STORAGE_NOTIFY;
+#else
+			die("cURL version too old to support notify storage");
+#endif
 		else if (!strcmp(*iter, "db"))
 			output_storage |= OUTPUT_STORAGE_DB;
 		else if (!strcmp(*iter, "db-mem"))
@@ -309,11 +315,15 @@ static void options(int *argc, char ***argv) {
 	if (output_storage == 0)
 		output_storage = OUTPUT_STORAGE_FILE;
 
+	output_storage |= notify_record ? OUTPUT_STORAGE_NOTIFY : 0;
+
 	// sane config?
 	if ((output_storage & OUTPUT_STORAGE_MASK) == 0)
 		die("No output storage configured");
 	if ((output_storage & OUTPUT_STORAGE_DB) && (!c_mysql_host || !c_mysql_db))
 		die("DB output storage is enabled but no DB is configured");
+	if ((output_storage & OUTPUT_STORAGE_NOTIFY) && !notify_uri)
+		die("Notify storage is enabled but notify URI is not set");
 
 	if (!mix_method_str || !mix_method_str[0] || !strcmp(mix_method_str, "direct"))
 		mix_method = MM_DIRECT;
