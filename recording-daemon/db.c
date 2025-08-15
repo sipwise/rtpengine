@@ -375,17 +375,18 @@ void db_close_call(metafile_t *mf) {
 	}
 }
 
-void db_close_stream(output_t *op, FILE *fp, GString *gs) {
+bool db_close_stream(output_t *op, FILE *fp, GString *gs) {
 	if (check_conn() || op->db_id == 0) {
 		if (fp)
 			fclose(fp);
-		return;
+		return !(output_storage & OUTPUT_STORAGE_DB); // error if DB storage is requested
 	}
 
 	int64_t now = now_us();
 
 	str stream = STR_NULL;
 	MYSQL_BIND b[3];
+	bool ok = false;
 
 	if ((output_storage & OUTPUT_STORAGE_DB)) {
 		if (gs) {
@@ -400,18 +401,14 @@ void db_close_stream(output_t *op, FILE *fp, GString *gs) {
 				f = fopen(op->filename, "rb");
 			if (!f) {
 				ilog(LOG_ERR, "Failed to open file: %s%s%s", FMT_M(op->filename));
-				if ((output_storage & OUTPUT_STORAGE_FILE))
-					goto file;
-				return;
+				goto entry;
 			}
 			fseek(f, 0, SEEK_END);
 			long pos = ftell(f);
 			if (pos < 0) {
 				ilog(LOG_ERR, "Failed to get file position: %s", strerror(errno));
 				fclose(f);
-				if ((output_storage & OUTPUT_STORAGE_FILE))
-					goto file;
-				return;
+				goto entry;
 			}
 			stream.len = pos;
 			fseek(f, 0, SEEK_SET);
@@ -422,19 +419,20 @@ void db_close_stream(output_t *op, FILE *fp, GString *gs) {
 					stream.len = 0;
 					ilog(LOG_ERR, "Failed to read from stream");
 					fclose(f);
-					if ((output_storage & OUTPUT_STORAGE_FILE))
-						goto file;
-					g_free(stream.s);
-					return;
+					goto entry;
 				}
 			}
+			ok = true;
 			fclose(f);
 		}
         }
-	else if (fp)
-		fclose(fp);
+	else {
+		ok = true;
+		if (fp)
+			fclose(fp);
+	}
 
-file:;
+entry:;
 	int par_idx = 0;
 	double ts;
 	my_ts(&b[par_idx++], now, &ts);
@@ -445,9 +443,8 @@ file:;
 	execute_wrap(&stm_close_stream, b, NULL);
 
 	g_free(stream.s);
-	if (op->filename && !(output_storage & OUTPUT_STORAGE_FILE))
-		if (unlink(op->filename))
-			ilog(LOG_ERR, "Failed to delete file '%s': %s", op->filename, strerror(errno));
+
+	return ok;
 }
 
 void db_delete_stream(metafile_t *mf, output_t *op) {

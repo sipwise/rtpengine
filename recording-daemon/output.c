@@ -578,11 +578,13 @@ void sink_close(sink_t *sink) {
 void output_close(metafile_t *mf, output_t *output, tag_t *tag, bool discard) {
 	if (!output)
 		return;
+	bool do_delete = !(output_storage & OUTPUT_STORAGE_FILE);
 	if (!discard) {
 		GString *membuf = NULL;
 		FILE *fp = NULL;
 		if (output_shutdown(output, &fp, &membuf)) {
-			db_close_stream(output, fp, membuf);
+			if (!db_close_stream(output, fp, membuf))
+				do_delete = false;
 			notify_push_output(output, mf, tag);
 		}
 		else {
@@ -593,12 +595,16 @@ void output_close(metafile_t *mf, output_t *output, tag_t *tag, bool discard) {
 	}
 	else {
 		output_shutdown(output, NULL, NULL);
-		if (output->filename && unlink(output->filename))
-			ilog(LOG_WARN, "Failed to unlink '%s%s%s': %s",
-					FMT_M(output->filename), strerror(errno));
+		do_delete = true;
 		db_delete_stream(mf, output);
 	}
 	encoder_free(output->encoder);
+	if (output->filename && do_delete) {
+		if (unlink(output->filename))
+			ilog(LOG_ERR, "Failed to delete file '%s%s%s': %s",
+					FMT_M(output->filename), strerror(errno));
+
+	}
 	g_clear_pointer(&output->full_filename, g_free);
 	g_clear_pointer(&output->file_path, g_free);
 	g_clear_pointer(&output->file_name, g_free);
