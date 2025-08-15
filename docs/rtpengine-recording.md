@@ -138,7 +138,7 @@ sufficient for a standard installation of rtpengine.
     Points to the shared object file (__.so__) containing the reference
     implementation for the EVS codec. See the `README` for more details.
 
-- __\-\-output-storage=file__\|__db__\|__memory__\|__notify__
+- __\-\-output-storage=file__\|__db__\|__memory__\|__notify__\|__none__
 
     Where to store media files. This option can be given multiple times (or, in
     the config file, using a comma-separated list) to enable multiple storage
@@ -146,6 +146,9 @@ sufficient for a standard installation of rtpengine.
 
     The __file__ storage writes media files directly to the file system (see
     __output-dir__).
+
+    Setting __none__ overrides file storage as being the default and allows
+    forwarding-only operation.
 
     The __db__ storage writes media files as a __BLOB__ in a MySQL database.
 
@@ -241,7 +244,9 @@ sufficient for a standard installation of rtpengine.
 
     File format to be used for media files that are produced. Defaults to PCM WAV
     (RIFF) files. Applicable for both files stored on the file system and in a
-    database. If __none__ is selected then file output is disabled.
+    database.
+
+    __none__ is a legacy alias for __output-storage=none__.
 
 - __\-\-resample-to=__*INT*
 

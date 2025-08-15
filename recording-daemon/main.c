@@ -43,7 +43,6 @@ gboolean output_mixed;
 enum mix_method mix_method;
 int mix_num_inputs = MIX_MAX_INPUTS;
 gboolean output_single;
-gboolean output_enabled = 1;
 mode_t output_chmod;
 mode_t output_chmod_dir;
 uid_t output_chown = -1;
@@ -103,7 +102,7 @@ static void setup(void) {
 	socket_init();
 	if (decoding_enabled)
 		codeclib_init(0);
-	if (output_enabled)
+	if ((output_storage & OUTPUT_STORAGE_MASK))
 		output_init(output_format);
 	mysql_library_init(0, NULL, NULL);
 	signals();
@@ -197,6 +196,7 @@ static void options(int *argc, char ***argv) {
 	g_autoptr(char) mix_method_str = NULL;
 	g_autoptr(char) tcp_send_to = NULL;
 	gboolean notify_record = FALSE;
+	bool no_output_allowed = false;
 
 	GOptionEntry e[] = {
 		{ "table",		't', 0, G_OPTION_ARG_INT,	&ktable,	"Kernel table rtpengine uses",		"INT"		},
@@ -270,21 +270,8 @@ static void options(int *argc, char ***argv) {
 			die("Failed to parse 'tcp-send-to' or 'tls-send-to' option");
 	}
 
-	if (!strcmp(output_format, "none")) {
-		output_enabled = 0;
-		if (output_mixed || output_single)
-			die("Output is disabled, but output-mixed or output-single is set");
-		if (!forward_to && !tls_send_to_ep.port) {
-			//the daemon has no function
-			die("Both output and forwarding are disabled");
-		}
-		g_free(output_format);
-		output_format = NULL;
-	} else if (!output_mixed && !output_single)
-		output_mixed = output_single = true;
-
-	if (output_enabled || tls_send_to_ep.port)
-		decoding_enabled = true;
+	if (!strcmp(output_format, "none"))
+		no_output_allowed = true;
 
 	if (!tls_send_to && !tcp_send_to)
 		tls_mixed = false;
@@ -307,23 +294,40 @@ static void options(int *argc, char ***argv) {
 			output_storage |= OUTPUT_STORAGE_MEMORY;
 		else if (!strcmp(*iter, "both"))
 			output_storage |= OUTPUT_STORAGE_FILE | OUTPUT_STORAGE_DB;
+		else if (!strcmp(*iter, "none"))
+			no_output_allowed = true;
 		else
 			die("Invalid 'output-storage' option '%s'", *iter);
 	}
 
 	// default:
-	if (output_storage == 0)
+	if (output_storage == 0 && !no_output_allowed)
 		output_storage = OUTPUT_STORAGE_FILE;
 
 	output_storage |= notify_record ? OUTPUT_STORAGE_NOTIFY : 0;
 
 	// sane config?
-	if ((output_storage & OUTPUT_STORAGE_MASK) == 0)
+	if ((output_storage & OUTPUT_STORAGE_MASK) == 0 && !no_output_allowed)
 		die("No output storage configured");
 	if ((output_storage & OUTPUT_STORAGE_DB) && (!c_mysql_host || !c_mysql_db))
 		die("DB output storage is enabled but no DB is configured");
 	if ((output_storage & OUTPUT_STORAGE_NOTIFY) && !notify_uri)
 		die("Notify storage is enabled but notify URI is not set");
+
+	if ((output_storage & OUTPUT_STORAGE_MASK) == 0) {
+		if (output_mixed || output_single)
+			die("Output is disabled, but output-mixed or output-single is set");
+		if (!forward_to && !tls_send_to_ep.port) {
+			//the daemon has no function
+			die("Both output and forwarding are disabled");
+		}
+		g_free(output_format);
+		output_format = NULL;
+	} else if (!output_mixed && !output_single)
+		output_mixed = output_single = true;
+
+	if ((output_storage & OUTPUT_STORAGE_MASK) || tls_send_to_ep.port)
+		decoding_enabled = true;
 
 	if (!mix_method_str || !mix_method_str[0] || !strcmp(mix_method_str, "direct"))
 		mix_method = MM_DIRECT;

@@ -31,7 +31,6 @@ extern gboolean output_mixed;
 extern enum mix_method mix_method;
 extern int mix_num_inputs;
 extern gboolean output_single;
-extern gboolean output_enabled;
 extern mode_t output_chmod;
 extern mode_t output_chmod_dir;
 extern uid_t output_chown;

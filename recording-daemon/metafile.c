@@ -95,7 +95,9 @@ static void meta_destroy(metafile_t *mf) {
 // mf is locked
 // mix is locked
 static void meta_mix_file_output(metafile_t *mf) {
-	if (!output_enabled || !output_mixed || !mf->recording_on || !mf->random_tag) {
+	if ((output_storage & OUTPUT_STORAGE_MASK) == 0 || !output_mixed || !mf->recording_on
+			|| !mf->random_tag)
+	{
 		mix_destroy(mf->mix);
 		mf->mix = NULL;
 		return;
