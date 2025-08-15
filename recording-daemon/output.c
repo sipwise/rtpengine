@@ -27,7 +27,7 @@ int mp3_bitrate;
 
 
 static bool output_shutdown(output_t *output, FILE **, GString **);
-static bool output_config_(sink_t *, output_t *output, const format_t *requested_format,
+static bool output_config(sink_t *, output_t *output, const format_t *requested_format,
 		format_t *actual_format);
 
 
@@ -137,8 +137,8 @@ void sink_init(sink_t *sink) {
 	format_init(&sink->format);
 }
 
-static bool output_config__(sink_t *s, const format_t *requested_format, format_t *actual_format) {
-	return output_config_(s, s->output, requested_format, actual_format);
+static bool output_sink_config(sink_t *s, const format_t *requested_format, format_t *actual_format) {
+	return output_config(s, s->output, requested_format, actual_format);
 }
 
 static output_t *output_alloc(const char *path, const char *name) {
@@ -155,7 +155,7 @@ static output_t *output_alloc(const char *path, const char *name) {
 	sink_init(&ret->sink);
 	ret->sink.output = ret;
 	ret->sink.add = output_add;
-	ret->sink.config = output_config__;
+	ret->sink.config = output_sink_config;
 
 	return ret;
 }
@@ -357,7 +357,7 @@ static int64_t output_avio_mem_seek(void *opaque, int64_t offset, int whence) {
 	return o->mempos;
 }
 
-static bool output_config_(sink_t *sink, output_t *output, const format_t *requested_format,
+static bool output_config(sink_t *sink, output_t *output, const format_t *requested_format,
 		format_t *actual_format)
 {
 	const char *err;
