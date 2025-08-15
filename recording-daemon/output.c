@@ -384,7 +384,7 @@ static const char *output_open_file(output_t *output) {
 	if (output->fp)
 		fclose(output->fp);
 
-	output->fp = fopen(full_fn, (output_storage & OUTPUT_STORAGE_DB) ? "wb+" : "wb");
+	output->fp = fopen(full_fn, (output_storage == OUTPUT_STORAGE_FILE) ? "wb" : "wb+");
 	if (!output->fp)
 		return "failed to open output file";
 
