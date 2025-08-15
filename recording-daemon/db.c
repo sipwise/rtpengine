@@ -9,6 +9,7 @@
 #include "log.h"
 #include "tag.h"
 #include "recaux.h"
+#include "output.h"
 
 
 /*
@@ -375,64 +376,24 @@ void db_close_call(metafile_t *mf) {
 	}
 }
 
-bool db_close_stream(output_t *op, FILE *fp, GString *gs) {
-	if (check_conn() || op->db_id == 0) {
-		if (fp)
-			fclose(fp);
+bool db_close_stream(output_t *op) {
+	if (check_conn() || op->db_id == 0)
 		return !(output_storage & OUTPUT_STORAGE_DB); // error if DB storage is requested
-	}
 
 	int64_t now = now_us();
 
 	str stream = STR_NULL;
 	MYSQL_BIND b[3];
-	bool ok = false;
+	bool ok = true;
 
 	if ((output_storage & OUTPUT_STORAGE_DB)) {
-		if (gs) {
-			if (fp)
-				fclose(fp);
-			stream.len = gs->len;
-			stream.s = g_string_free(gs, FALSE);
-		}
-		else {
-			FILE *f = fp;
-			if (!f)
-				f = fopen(op->filename, "rb");
-			if (!f) {
-				ilog(LOG_ERR, "Failed to open file: %s%s%s", FMT_M(op->filename));
-				goto entry;
-			}
-			fseek(f, 0, SEEK_END);
-			long pos = ftell(f);
-			if (pos < 0) {
-				ilog(LOG_ERR, "Failed to get file position: %s", strerror(errno));
-				fclose(f);
-				goto entry;
-			}
-			stream.len = pos;
-			fseek(f, 0, SEEK_SET);
-			stream.s = g_malloc(stream.len);
-			if (stream.s) {
-				size_t count = fread(stream.s, 1, stream.len, f);
-				if (count != stream.len) {
-					stream.len = 0;
-					ilog(LOG_ERR, "Failed to read from stream");
-					fclose(f);
-					goto entry;
-				}
-			}
-			ok = true;
-			fclose(f);
-		}
+		GString *content = output_get_content(op);
+		if (content)
+			stream = STR_GS(content);
+		else
+			ok = false;
         }
-	else {
-		ok = true;
-		if (fp)
-			fclose(fp);
-	}
 
-entry:;
 	int par_idx = 0;
 	double ts;
 	my_ts(&b[par_idx++], now, &ts);
@@ -441,8 +402,6 @@ entry:;
 	my_ull(&b[par_idx++], &op->db_id);
 
 	execute_wrap(&stm_close_stream, b, NULL);
-
-	g_free(stream.s);
 
 	return ok;
 }

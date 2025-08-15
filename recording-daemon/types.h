@@ -211,6 +211,8 @@ struct output_s {
 	encoder_t *encoder;
 	format_t requested_format,
 		 actual_format;
+
+	GString *content;
 };
 
 

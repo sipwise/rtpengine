@@ -26,7 +26,7 @@ int mp3_bitrate;
 
 
 
-static bool output_shutdown(output_t *output, FILE **, GString **);
+static bool output_shutdown(output_t *output);
 static bool output_config(sink_t *, output_t *output, const format_t *requested_format,
 		format_t *actual_format);
 
@@ -381,6 +381,9 @@ static const char *output_open_file(output_t *output) {
 
 	output->filename = full_fn;
 
+	if (output->fp)
+		fclose(output->fp);
+
 	output->fp = fopen(full_fn, (output_storage & OUTPUT_STORAGE_DB) ? "wb+" : "wb");
 	if (!output->fp)
 		return "failed to open output file";
@@ -402,7 +405,7 @@ static const char *output_open_file(output_t *output) {
 }
 
 static const char *output_setup(output_t *output, const format_t *requested_format, format_t *req_fmt) {
-	output_shutdown(output, NULL, NULL);
+	output_shutdown(output);
 
 	output->fmtctx = avformat_alloc_context();
 	if (!output->fmtctx)
@@ -504,7 +507,7 @@ static bool output_config(sink_t *sink, output_t *output, const format_t *reques
 	if (G_UNLIKELY(!format_eq(&req_fmt, &output->requested_format))) {
 		const char *err = output_setup(output, requested_format, &req_fmt);
 		if (err) {
-			output_shutdown(output, NULL, NULL);
+			output_shutdown(output);
 			ilog(LOG_ERR, "Error configuring media output: %s", err);
 			return false;
 		}
@@ -517,7 +520,37 @@ static bool output_config(sink_t *sink, output_t *output, const format_t *reques
 }
 
 
-static bool output_shutdown(output_t *output, FILE **fp, GString **gs) {
+GString *output_get_content(output_t *output) {
+	if (output->content)
+		return output->content;
+
+	if (!output->fp)
+		return NULL;
+
+	fseek(output->fp, 0, SEEK_END);
+	long pos = ftell(output->fp);
+	if (pos < 0) {
+		ilog(LOG_ERR, "Failed to get file position: %s", strerror(errno));
+		return NULL;
+	}
+
+	size_t len = pos;
+	fseek(output->fp, 0, SEEK_SET);
+	GString *content = g_string_new("");
+	g_string_set_size(content, len);
+	size_t count = fread(content->str, 1, len, output->fp);
+	if (count != len) {
+		g_string_free(content, TRUE);
+		ilog(LOG_ERR, "Failed to read from stream");
+		return NULL;
+	}
+
+	output->content = content;
+	return content;
+}
+
+
+static bool output_shutdown(output_t *output) {
 	if (!output)
 		return false;
 	if (!output->fmtctx)
@@ -529,23 +562,15 @@ static bool output_shutdown(output_t *output, FILE **fp, GString **gs) {
 	if (output->fmtctx->pb)
 		av_write_trailer(output->fmtctx);
 	if (output->fp) {
-		if (ftell(output->fp)) {
+		if (ftell(output->fp))
 			ret = true;
-			if (fp && (output_storage & OUTPUT_STORAGE_DB)) {
-				*fp = output->fp;
-				output->fp = NULL;
-			}
-		}
-		if (output->fp)
-			fclose(output->fp);
-		output->fp = NULL;
 	}
 	else if (output->membuf) {
 		if (output->membuf->len) {
-			if (gs) {
-				*gs = output->membuf;
-				output->membuf = NULL;
-			}
+			if (output->content)
+				g_string_free(output->content, TRUE);
+			output->content = output->membuf;
+			output->membuf = NULL;
 			ret = true;
 		}
 	}
@@ -580,21 +605,16 @@ void output_close(metafile_t *mf, output_t *output, tag_t *tag, bool discard) {
 		return;
 	bool do_delete = !(output_storage & OUTPUT_STORAGE_FILE);
 	if (!discard) {
-		GString *membuf = NULL;
-		FILE *fp = NULL;
-		if (output_shutdown(output, &fp, &membuf)) {
-			if (!db_close_stream(output, fp, membuf))
+		if (output_shutdown(output)) {
+			if (!db_close_stream(output))
 				do_delete = false;
 			notify_push_output(output, mf, tag);
 		}
-		else {
+		else
 			db_delete_stream(mf, output);
-			if (membuf)
-				g_string_free(membuf, TRUE);
-		}
 	}
 	else {
-		output_shutdown(output, NULL, NULL);
+		output_shutdown(output);
 		do_delete = true;
 		db_delete_stream(mf, output);
 	}
@@ -612,6 +632,10 @@ void output_close(metafile_t *mf, output_t *output, tag_t *tag, bool discard) {
 	g_clear_pointer(&output->iobuf, g_free);
 	if (output->membuf)
 		g_string_free(output->membuf, TRUE);
+	if (output->content)
+		g_string_free(output->content, TRUE);
+	if (output->fp)
+		fclose(output->fp);
 	sink_close(&output->sink);
 	g_free(output);
 }
