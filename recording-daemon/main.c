@@ -67,7 +67,6 @@ gboolean notify_nverify;
 int notify_threads = 5;
 int notify_retries = 10;
 char *notify_command;
-gboolean notify_purge;
 gboolean mix_output_per_media = 0;
 gboolean flush_packets = 0;
 int resample_audio;
@@ -197,6 +196,7 @@ static void options(int *argc, char ***argv) {
 	g_autoptr(char) tcp_send_to = NULL;
 	gboolean notify_record = FALSE;
 	bool no_output_allowed = false;
+	gboolean notify_purge = false;
 
 	GOptionEntry e[] = {
 		{ "table",		't', 0, G_OPTION_ARG_INT,	&ktable,	"Kernel table rtpengine uses",		"INT"		},
@@ -328,6 +328,9 @@ static void options(int *argc, char ***argv) {
 
 	if ((output_storage & OUTPUT_STORAGE_MASK) || tls_send_to_ep.port)
 		decoding_enabled = true;
+
+	if (notify_purge && (output_storage & OUTPUT_STORAGE_FILE))
+		output_storage &= ~OUTPUT_STORAGE_FILE;
 
 	if (!mix_method_str || !mix_method_str[0] || !strcmp(mix_method_str, "direct"))
 		mix_method = MM_DIRECT;

@@ -4,12 +4,14 @@
 #include "main.h"
 #include "log.h"
 #include "recaux.h"
+#include "output.h"
 
 
 struct notif_req {
 	char *name; // just for logging
 	struct curl_slist *headers; // NULL = nothing to send
 	char *full_filename_path;
+	GString *content;
 	unsigned long long db_id;
 
 	char **argv;
@@ -98,7 +100,7 @@ static bool do_notify_http(struct notif_req *req) {
 	}
 
 #if CURL_AT_LEAST_VERSION(7,56,0)
-	if ((output_storage & OUTPUT_STORAGE_NOTIFY) && req->full_filename_path) {
+	if (req->content) {
 		err = "initializing curl mime&part";
 		curl_mimepart *part;
 		mime = curl_mime_init(c);
@@ -107,7 +109,7 @@ static bool do_notify_http(struct notif_req *req) {
 		if ((ret = curl_mime_name(part, "ngfile")) != CURLE_OK)
 			goto fail;
 
-		if ((ret = curl_mime_filedata(part, req->full_filename_path)) != CURLE_OK)
+		if ((ret = curl_mime_data(part, req->content->str, req->content->len)) != CURLE_OK)
 			goto fail;
 
 		if ((ret = curl_easy_setopt(c, CURLOPT_MIMEPOST, mime)) != CURLE_OK)
@@ -133,13 +135,6 @@ static bool do_notify_http(struct notif_req *req) {
 	success = true;
 
 	ilog(LOG_NOTICE, "HTTP notification for '%s%s%s' was successful", FMT_M(req->name));
-
-	if ((output_storage & OUTPUT_STORAGE_NOTIFY) && notify_purge && req->full_filename_path) {
-		if (unlink(req->full_filename_path) == 0)
-			ilog(LOG_NOTICE, "File '%s%s%s' deleted successfully.", FMT_M(req->full_filename_path));
-		else
-			ilog(LOG_ERR, "File '%s%s%s' could not be deleted.", FMT_M(req->full_filename_path));
-	}
 
 	curl_slist_free_all(req->headers);
 	req->headers = NULL;
@@ -232,6 +227,8 @@ static void do_notify(void *p, void *u) {
 	g_strfreev(req->argv);
 	g_free(req->name);
 	g_free(req->full_filename_path);
+	if (req->content)
+		g_string_free(req->content, TRUE);
 	g_free(req);
 }
 
@@ -381,6 +378,10 @@ void notify_push_output(output_t *o, metafile_t *mf, tag_t *tag) {
 	req->name = g_strdup(o->file_name);
 	if ((output_storage & OUTPUT_STORAGE_FILE))
 		req->full_filename_path = g_strdup_printf("%s.%s", o->full_filename, o->file_format);
+	if ((output_storage & OUTPUT_STORAGE_NOTIFY)) {
+		req->content = output_get_content(o);
+		o->content = NULL; // take over ownership
+	}
 	req->db_id = o->db_id;
 
 	notify_req_setup_http(req, o, mf, tag);

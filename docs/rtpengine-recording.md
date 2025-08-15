@@ -155,7 +155,9 @@ sufficient for a standard installation of rtpengine.
     The string __both__ is recognised as legacy alternative to enabling both
     __file__ and __db__ storage.
 
-    __notify__ is an alias for enabling the __notify-record__ option, see below.
+    The __notify__ output attaches the recording to the HTTP notification
+    request. If enabled, notification requests behave as HTTP POST (implicitly
+    enabling __notify-post__).
 
     The string __memory__ acts as a modifier and can be used if __file__
     storage is not enabled. Without the __memory__ modifier, media is first written
@@ -389,15 +391,14 @@ sufficient for a standard installation of rtpengine.
 
 - __\-\-notify-record__
 
-    Attach recorded file to HTTP notification request. If enabled, notification
-    request behaves as HTTP POST (ignoring __\-\-notify-post__). Note that this option
-    is incompatible with DB-only storage as no recording file exists on storage
-    (see __output-storage__).
+    Legacy alias for __output-storage=notify__. If no other output storage is
+    enabled, then the default __file__ storage remains enabled (unless the
+    following option is also set).
 
 - __\-\-notify-purge__
 
-    Remove the local file if the HTTP request was successful. Note that this
-    option is only useful if __\-\-notify-record__ is also enabled.
+    Legacy option to disable the default file storage when notification output
+    is enabled.
 
 - __\-\-output-mixed-per-media__
 
