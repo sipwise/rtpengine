@@ -357,48 +357,29 @@ static int64_t output_avio_mem_seek(void *opaque, int64_t offset, int whence) {
 	return o->mempos;
 }
 
-static bool output_config(sink_t *sink, output_t *output, const format_t *requested_format,
-		format_t *actual_format)
-{
-	const char *err;
-	int av_ret = 0;
-
-	format_t req_fmt = *requested_format;
-
-	// if we've already done this and don't care about the sample format,
-	// restore the already determined sample format
-	if (req_fmt.format == -1 && output->requested_format.format != -1)
-		req_fmt.format = output->requested_format.format;
-
-	// anything to do?
-	if (G_LIKELY(format_eq(&req_fmt, &output->requested_format)))
-		goto done;
-
+static const char *output_setup(output_t *output, const format_t *requested_format, format_t *req_fmt) {
 	output_shutdown(output, NULL, NULL);
 
-	err = "failed to alloc format context";
 	output->fmtctx = avformat_alloc_context();
 	if (!output->fmtctx)
-		goto err;
+		return "failed to alloc format context";
 	output->fmtctx->oformat = av_guess_format(output->file_format, NULL, NULL);
-	err = "failed to determine output format";
 	if (!output->fmtctx->oformat)
-		goto err;
+		return "failed to determine output format";
 
 	// mask the channel multiplier from external view
 	output->requested_format = *requested_format;
 
-	if (encoder_config(output->encoder, output_codec, mp3_bitrate, 0, &req_fmt, &output->actual_format))
-		goto err;
+	if (encoder_config(output->encoder, output_codec, mp3_bitrate, 0, req_fmt, &output->actual_format))
+		return "failed to configure encoder";
 
 	// save the sample format
 	if (requested_format->format == -1)
 		output->requested_format.format = output->actual_format.format;
 
-	err = "failed to alloc output stream";
 	output->avst = avformat_new_stream(output->fmtctx, output->encoder->avc.codec);
 	if (!output->avst)
-		goto err;
+		return "failed to alloc output stream";
 	output->avst->time_base = output->encoder->avc.avcctx->time_base;
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 0, 0)
@@ -434,38 +415,32 @@ static bool output_config(sink_t *sink, output_t *output, const format_t *reques
 		g_free(full_fn);
 	}
 
-	err = "failed to find unused output file number";
-	goto err;
+	return "failed to find unused output file number";
 
 got_fn:
 	output->filename = full_fn;
 
-	err = "failed to open output file";
 	output->fp = fopen(full_fn, (output_storage & OUTPUT_STORAGE_DB) ? "wb+" : "wb");
 	if (!output->fp)
-		goto err;
+		return "failed to open output file";
 
 	if (output_buffer > 0) {
-		err = "failed to alloc I/O buffer";
 		output->iobuf = g_malloc(output_buffer);
 		if (!output->iobuf)
-			goto err;
+			return "failed to alloc I/O buffer";
 
-		err = "failed to set I/O buffer";
 		if (setvbuf(output->fp, output->iobuf, _IOFBF, output_buffer))
-			goto err;
+			return "failed to set I/O buffer";
 	}
 	else {
-		err = "failed to set unuffered I/O";
 		if (setvbuf(output->fp, NULL, _IONBF, 0))
-			goto err;
+			return "failed to set unuffered I/O";
 	}
 
 no_output_file:
-	err = "failed to alloc avio buffer";
 	void *avio_buf = av_malloc(DEFAULT_AVIO_BUFSIZE);
 	if (!avio_buf)
-		goto err;
+		return "failed to alloc avio buffer";
 
 	if (!(output_storage & OUTPUT_STORAGE_MEMORY))
 		output->avioctx = avio_alloc_context(avio_buf, DEFAULT_AVIO_BUFSIZE, 1, output,
@@ -475,18 +450,18 @@ no_output_file:
 		output->avioctx = avio_alloc_context(avio_buf, DEFAULT_AVIO_BUFSIZE, 1, output,
 				NULL, output_avio_mem_write, output_avio_mem_seek);
 	}
-	err = "failed to alloc AVIOContext";
 	if (!output->avioctx) {
 		av_freep(&avio_buf);
-		goto err;
+		return "failed to alloc AVIOContext";
 	}
 
 	output->fmtctx->pb = output->avioctx;
 
-	err = "failed to write header";
-	av_ret = avformat_write_header(output->fmtctx, NULL);
-	if (av_ret)
-		goto err;
+	int av_ret = avformat_write_header(output->fmtctx, NULL);
+	if (av_ret) {
+		ilog(LOG_ERR, "Error returned from libav: %s", av_error(av_ret));
+		return "failed to write header";
+	}
 
 	if (output_chmod && output->filename)
 		if (chmod(output->filename, output_chmod))
@@ -504,17 +479,34 @@ no_output_file:
 
 	db_config_stream(output);
 	ilog(LOG_INFO, "Opened output media file '%s' for writing", full_fn ?: "(mem stream)");
-done:
+
+	return NULL;
+}
+
+static bool output_config(sink_t *sink, output_t *output, const format_t *requested_format,
+		format_t *actual_format)
+{
+	format_t req_fmt = *requested_format;
+
+	// if we've already done this and don't care about the sample format,
+	// restore the already determined sample format
+	if (req_fmt.format == -1 && output->requested_format.format != -1)
+		req_fmt.format = output->requested_format.format;
+
+	// anything to do?
+	if (G_UNLIKELY(!format_eq(&req_fmt, &output->requested_format))) {
+		const char *err = output_setup(output, requested_format, &req_fmt);
+		if (err) {
+			output_shutdown(output, NULL, NULL);
+			ilog(LOG_ERR, "Error configuring media output: %s", err);
+			return false;
+		}
+	}
+
 	if (actual_format)
 		*actual_format = output->actual_format;
-	return true;
 
-err:
-	output_shutdown(output, NULL, NULL);
-	ilog(LOG_ERR, "Error configuring media output: %s", err);
-	if (av_ret)
-		ilog(LOG_ERR, "Error returned from libav: %s", av_error(av_ret));
-	return false;
+	return true;
 }
 
 
