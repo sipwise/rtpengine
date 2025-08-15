@@ -357,6 +357,50 @@ static int64_t output_avio_mem_seek(void *opaque, int64_t offset, int whence) {
 	return o->mempos;
 }
 
+static const char *output_open_file(output_t *output) {
+	char *full_fn = NULL;
+
+	char suff[16] = "";
+	for (int i = 1; i < 20; i++) {
+		if (!output->skip_filename_extension) {
+			full_fn = g_strdup_printf("%s%s.%s", output->full_filename, suff, output->file_format);
+		}
+		else {
+			full_fn = g_strdup_printf("%s%s", output->full_filename, suff);
+		}
+		if (!g_file_test(full_fn, G_FILE_TEST_EXISTS))
+			break;
+		ilog(LOG_INFO, "Storing record in %s", full_fn);
+		snprintf(suff, sizeof(suff), "-%i", i);
+		g_free(full_fn);
+		full_fn = NULL;
+	}
+
+	if (!full_fn)
+		return "failed to find unused output file number";
+
+	output->filename = full_fn;
+
+	output->fp = fopen(full_fn, (output_storage & OUTPUT_STORAGE_DB) ? "wb+" : "wb");
+	if (!output->fp)
+		return "failed to open output file";
+
+	if (output_buffer > 0) {
+		output->iobuf = g_malloc(output_buffer);
+		if (!output->iobuf)
+			return "failed to alloc I/O buffer";
+
+		if (setvbuf(output->fp, output->iobuf, _IOFBF, output_buffer))
+			return "failed to set I/O buffer";
+	}
+	else {
+		if (setvbuf(output->fp, NULL, _IONBF, 0))
+			return "failed to set unuffered I/O";
+	}
+
+	return NULL;
+}
+
 static const char *output_setup(output_t *output, const format_t *requested_format, format_t *req_fmt) {
 	output_shutdown(output, NULL, NULL);
 
@@ -395,49 +439,12 @@ static const char *output_setup(output_t *output, const format_t *requested_form
 	avcodec_parameters_from_context(output->avst->codecpar, output->encoder->avc.avcctx);
 #endif
 
-	char *full_fn = NULL;
-
-	if ((output_storage & OUTPUT_STORAGE_MEMORY))
-		goto no_output_file;
-
-	char suff[16] = "";
-	for (int i = 1; i < 20; i++) {
-		if (!output->skip_filename_extension) {
-			full_fn = g_strdup_printf("%s%s.%s", output->full_filename, suff, output->file_format);
-		}
-		else {
-			full_fn = g_strdup_printf("%s%s", output->full_filename, suff);
-		}
-		if (!g_file_test(full_fn, G_FILE_TEST_EXISTS))
-			goto got_fn;
-		ilog(LOG_INFO, "Storing record in %s", full_fn);
-		snprintf(suff, sizeof(suff), "-%i", i);
-		g_free(full_fn);
+	if (!(output_storage & OUTPUT_STORAGE_MEMORY)) {
+		const char *err = output_open_file(output);
+		if (err)
+			return err;
 	}
 
-	return "failed to find unused output file number";
-
-got_fn:
-	output->filename = full_fn;
-
-	output->fp = fopen(full_fn, (output_storage & OUTPUT_STORAGE_DB) ? "wb+" : "wb");
-	if (!output->fp)
-		return "failed to open output file";
-
-	if (output_buffer > 0) {
-		output->iobuf = g_malloc(output_buffer);
-		if (!output->iobuf)
-			return "failed to alloc I/O buffer";
-
-		if (setvbuf(output->fp, output->iobuf, _IOFBF, output_buffer))
-			return "failed to set I/O buffer";
-	}
-	else {
-		if (setvbuf(output->fp, NULL, _IONBF, 0))
-			return "failed to set unuffered I/O";
-	}
-
-no_output_file:
 	void *avio_buf = av_malloc(DEFAULT_AVIO_BUFSIZE);
 	if (!avio_buf)
 		return "failed to alloc avio buffer";
@@ -478,7 +485,7 @@ no_output_file:
 	}
 
 	db_config_stream(output);
-	ilog(LOG_INFO, "Opened output media file '%s' for writing", full_fn ?: "(mem stream)");
+	ilog(LOG_INFO, "Opened output media file '%s' for writing", output->filename ?: "(mem stream)");
 
 	return NULL;
 }
