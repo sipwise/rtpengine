@@ -35,7 +35,7 @@
 
 int ktable = 0;
 int num_threads;
-enum output_storage_enum output_storage = OUTPUT_STORAGE_FILE;
+enum output_storage_enum output_storage;
 char *spool_dir = NULL;
 char *output_dir = NULL;
 static char *output_format = NULL;
@@ -190,7 +190,7 @@ static mode_t chmod_parse(const char *s) {
 
 
 static void options(int *argc, char ***argv) {
-	g_autoptr(char) os_str = NULL;
+	g_autoptr(char_p) os_a = NULL;
 	g_autoptr(char) chmod_mode = NULL;
 	g_autoptr(char) chmod_dir_mode = NULL;
 	g_autoptr(char) user_uid = NULL;
@@ -202,7 +202,7 @@ static void options(int *argc, char ***argv) {
 		{ "table",		't', 0, G_OPTION_ARG_INT,	&ktable,	"Kernel table rtpengine uses",		"INT"		},
 		{ "spool-dir",		0,   0, G_OPTION_ARG_FILENAME,	&spool_dir,	"Directory containing rtpengine metadata files", "PATH" },
 		{ "num-threads",	0,   0, G_OPTION_ARG_INT,	&num_threads,	"Number of worker threads",		"INT"		},
-		{ "output-storage",	0,   0, G_OPTION_ARG_STRING,	&os_str,	"Where to store audio streams",	        "file|db|both"	},
+		{ "output-storage",	0,   0, G_OPTION_ARG_STRING_ARRAY,&os_a,	"Where to store audio streams",	        "file|db|memory"},
 		{ "output-dir",		0,   0, G_OPTION_ARG_STRING,	&output_dir,	"Where to write media files to",	"PATH"		},
 		{ "output-pattern",	0,   0, G_OPTION_ARG_STRING,	&output_pattern,"File name pattern for recordings",	"STRING"	},
 		{ "output-format",	0,   0, G_OPTION_ARG_STRING,	&output_format,	"Write audio files of this type",	"wav|mp3|none"	},
@@ -289,16 +289,31 @@ static void options(int *argc, char ***argv) {
 	if (!tls_send_to && !tcp_send_to)
 		tls_mixed = false;
 
-	if (!os_str || !strcmp(os_str, "file"))
+	// output config
+	for (char *const *iter = os_a; iter && *iter; iter++) {
+		if (!strcmp(*iter, "file"))
+			output_storage |= OUTPUT_STORAGE_FILE;
+		else if (!strcmp(*iter, "db"))
+			output_storage |= OUTPUT_STORAGE_DB;
+		else if (!strcmp(*iter, "db-mem"))
+			output_storage |= OUTPUT_STORAGE_DB | OUTPUT_STORAGE_MEMORY;
+		else if (!strcmp(*iter, "mem") || !strcmp(*iter, "memory"))
+			output_storage |= OUTPUT_STORAGE_MEMORY;
+		else if (!strcmp(*iter, "both"))
+			output_storage |= OUTPUT_STORAGE_FILE | OUTPUT_STORAGE_DB;
+		else
+			die("Invalid 'output-storage' option '%s'", *iter);
+	}
+
+	// default:
+	if (output_storage == 0)
 		output_storage = OUTPUT_STORAGE_FILE;
-	else if (!strcmp(os_str, "db"))
-		output_storage = OUTPUT_STORAGE_DB;
-	else if (!strcmp(os_str, "db-mem"))
-		output_storage = OUTPUT_STORAGE_DB | OUTPUT_STORAGE_DB_MEMORY;
-	else if (!strcmp(os_str, "both"))
-		output_storage = OUTPUT_STORAGE_BOTH;
-	else
-		die("Invalid 'output-storage' option");
+
+	// sane config?
+	if ((output_storage & OUTPUT_STORAGE_MASK) == 0)
+		die("No output storage configured");
+	if ((output_storage & OUTPUT_STORAGE_DB) && (!c_mysql_host || !c_mysql_db))
+		die("DB output storage is enabled but no DB is configured");
 
 	if (!mix_method_str || !mix_method_str[0] || !strcmp(mix_method_str, "direct"))
 		mix_method = MM_DIRECT;
@@ -312,6 +327,8 @@ static void options(int *argc, char ***argv) {
 
 	if ((output_storage & OUTPUT_STORAGE_FILE) && !strcmp(output_dir, spool_dir))
 		die("The spool-dir cannot be the same as the output-dir");
+	if ((output_storage & OUTPUT_STORAGE_FILE) && (output_storage & OUTPUT_STORAGE_MEMORY))
+		die("Memory storage and file storage are mutually exclusive");
 
 	// no threads here, so safe to use the non-_r versions of these lookups
 	if (user_uid && *user_uid) {

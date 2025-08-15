@@ -416,7 +416,7 @@ static bool output_config_(sink_t *sink, output_t *output, const format_t *reque
 
 	char *full_fn = NULL;
 
-	if ((output_storage & OUTPUT_STORAGE_DB_MEMORY))
+	if ((output_storage & OUTPUT_STORAGE_MEMORY))
 		goto no_output_file;
 
 	char suff[16] = "";
@@ -441,7 +441,7 @@ got_fn:
 	output->filename = full_fn;
 
 	err = "failed to open output file";
-	if (!(output_storage & OUTPUT_STORAGE_DB_MEMORY)) {
+	if (!(output_storage & OUTPUT_STORAGE_MEMORY)) {
 		output->fp = fopen(full_fn, (output_storage & OUTPUT_STORAGE_DB) ? "wb+" : "wb");
 		if (!output->fp)
 			goto err;
@@ -469,7 +469,7 @@ no_output_file:
 	if (!avio_buf)
 		goto err;
 
-	if (!(output_storage & OUTPUT_STORAGE_DB_MEMORY))
+	if (!(output_storage & OUTPUT_STORAGE_MEMORY))
 		output->avioctx = avio_alloc_context(avio_buf, DEFAULT_AVIO_BUFSIZE, 1, output,
 				NULL, output_avio_write, output_avio_seek);
 	else {

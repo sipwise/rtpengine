@@ -138,15 +138,27 @@ sufficient for a standard installation of rtpengine.
     Points to the shared object file (__.so__) containing the reference
     implementation for the EVS codec. See the `README` for more details.
 
-- __\-\-output-storage=file__\|__db__\|__db-mem__\|__both__
+- __\-\-output-storage=file__\|__db__\|__memory__
 
-    Where to store media files. By default, media files are written directly to the
-    file system (see __output-dir__). They can also be stored as a __BLOB__ in a
-    MySQL database, either instead of, or in addition to, being written to the file
-    system. Database storage can either be facilitated using temporary files
-    (__db__) which are then read back and deleted, or without temporary files
-    (__db-mem__) by spooling the audio data in memory until the recording is
-    complete.
+    Where to store media files. This option can be given multiple times (or, in
+    the config file, using a comma-separated list) to enable multiple storage
+    modes. By default only the __file__ storage is enabled.
+
+    The __file__ storage writes media files directly to the file system (see
+    __output-dir__).
+
+    The __db__ storage writes media files as a __BLOB__ in a MySQL database.
+
+    The string __both__ is recognised as legacy alternative to enabling both
+    __file__ and __db__ storage.
+
+    The string __memory__ acts as a modifier and can be used if __file__
+    storage is not enabled. Without the __memory__ modifier, media is first written
+    to a temporary file before being placed into its destination storage when
+    recording is finished. With __memory__ set, use of temporary files is disabled
+    and media is kept in memory only until recording is complete.
+
+    __db-mem__ can be used as a shortcut to setting both __db__ and __memory__.
 
 - __\-\-output-dir=__*PATH*
 
