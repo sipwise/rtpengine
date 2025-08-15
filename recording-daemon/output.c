@@ -441,11 +441,9 @@ got_fn:
 	output->filename = full_fn;
 
 	err = "failed to open output file";
-	if (!(output_storage & OUTPUT_STORAGE_MEMORY)) {
-		output->fp = fopen(full_fn, (output_storage & OUTPUT_STORAGE_DB) ? "wb+" : "wb");
-		if (!output->fp)
-			goto err;
-	}
+	output->fp = fopen(full_fn, (output_storage & OUTPUT_STORAGE_DB) ? "wb+" : "wb");
+	if (!output->fp)
+		goto err;
 
 	if (output_buffer > 0) {
 		err = "failed to alloc I/O buffer";
