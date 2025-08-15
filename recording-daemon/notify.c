@@ -7,14 +7,35 @@
 #include "output.h"
 
 
+struct notif_req;
+
+struct notif_action {
+	const char *name;
+	void (*setup)(struct notif_req *, output_t *o, metafile_t *mf, tag_t *tag);
+	bool (*perform)(struct notif_req *);
+	void (*cleanup)(struct notif_req *);
+};
+
 struct notif_req {
 	char *name; // just for logging
-	struct curl_slist *headers; // NULL = nothing to send
-	char *full_filename_path;
-	GString *content;
+
+	union {
+		// generic HTTP req
+		struct {
+			struct curl_slist *headers;
+			GString *content;
+		};
+
+		// notify command
+		struct {
+			char **argv;
+		};
+	};
+
+	// used by multiple actions
 	unsigned long long db_id;
 
-	char **argv;
+	const struct notif_action *action;
 
 	int64_t retry_time;
 	unsigned int retries;
@@ -38,9 +59,6 @@ static size_t dummy_read(char *ptr, size_t size, size_t nmemb, void *userdata) {
 }
 
 static bool do_notify_http(struct notif_req *req) {
-	if (!req->headers)
-		return true;
-
 	const char *err = NULL;
 	CURLcode ret;
 	bool success = false;
@@ -136,9 +154,6 @@ static bool do_notify_http(struct notif_req *req) {
 
 	ilog(LOG_NOTICE, "HTTP notification for '%s%s%s' was successful", FMT_M(req->name));
 
-	curl_slist_free_all(req->headers);
-	req->headers = NULL;
-
 	goto cleanup;
 
 fail:
@@ -165,9 +180,6 @@ cleanup:
 }
 
 static bool do_notify_command(struct notif_req *req) {
-	if (!req->argv)
-		return true;
-
 	ilog(LOG_DEBUG, "Executing notification command for '%s%s%s'", FMT_M(req->name));
 
 	GError *err = NULL;
@@ -175,11 +187,7 @@ static bool do_notify_command(struct notif_req *req) {
 			G_SPAWN_SEARCH_PATH | G_SPAWN_STDOUT_TO_DEV_NULL | G_SPAWN_STDERR_TO_DEV_NULL,
 			NULL, NULL, NULL, NULL, NULL, &err);
 
-	if (success) {
-		g_strfreev(req->argv);
-		req->argv = NULL;
-	}
-	else {
+	if (!success) {
 		ilog(LOG_ERR, "Failed to execute notification command for '%s%s%s': %s",
 			FMT_M(req->name), err->message);
 		g_error_free(err);
@@ -191,12 +199,9 @@ static bool do_notify_command(struct notif_req *req) {
 static void do_notify(void *p, void *u) {
 	struct notif_req *req = p;
 
-	unsigned int fails = 0;
+	bool ok = req->action->perform(req);
 
-	fails += do_notify_http(req) == false;
-	fails += do_notify_command(req) == false;
-
-	if (fails) {
+	if (!ok) {
 		if (notify_retries >= 0 && req->retries < notify_retries) {
 			/* schedule retry */
 			req->retries++;
@@ -223,12 +228,8 @@ static void do_notify(void *p, void *u) {
 				req->retries);
 	}
 
-	curl_slist_free_all(req->headers);
-	g_strfreev(req->argv);
+	req->action->cleanup(req);
 	g_free(req->name);
-	g_free(req->full_filename_path);
-	if (req->content)
-		g_string_free(req->content, TRUE);
 	g_free(req);
 }
 
@@ -289,7 +290,7 @@ static int notify_req_cmp(const void *A, const void *B) {
 
 
 void notify_setup(void) {
-	if ((!notify_uri && !notify_command) || notify_threads <= 0)
+	if (notify_threads <= 0)
 		return;
 
 	notify_threadpool = g_thread_pool_new(do_notify, NULL, notify_threads, false, NULL);
@@ -314,6 +315,8 @@ void notify_cleanup(void) {
 	notify_threadpool = NULL;
 }
 
+
+
 __attribute__ ((format (printf, 2, 3)))
 static void notify_add_header(struct notif_req *req, const char *fmt, ...) {
 	va_list ap;
@@ -325,9 +328,6 @@ static void notify_add_header(struct notif_req *req, const char *fmt, ...) {
 }
 
 static void notify_req_setup_http(struct notif_req *req, output_t *o, metafile_t *mf, tag_t *tag) {
-	if (!notify_uri)
-		return;
-
 	double now = (double) now_us() / 1000000.;
 
 	notify_add_header(req, "X-Recording-Call-ID: %s", mf->call_id);
@@ -357,38 +357,70 @@ static void notify_req_setup_http(struct notif_req *req, output_t *o, metafile_t
 			notify_add_header(req, "X-Recording-Tag-Metadata: %s", tag->metadata);
 	}
 
+	if ((output_storage & OUTPUT_STORAGE_NOTIFY)) {
+		req->content = output_get_content(o); // XXX refcount to avoid duplication
+		o->content = NULL; // take over ownership
+	}
 }
 
-static void notify_req_setup_command(struct notif_req *req, output_t *o, metafile_t *mf, tag_t *tag) {
-	if (!notify_command)
-		return;
+static void cleanup_http(struct notif_req *req) {
+	curl_slist_free_all(req->headers);
+	if (req->content)
+		g_string_free(req->content, TRUE);
+}
 
+static const struct notif_action http_action = {
+	.name = "HTTP",
+	.setup = notify_req_setup_http,
+	.perform = do_notify_http,
+	.cleanup = cleanup_http,
+};
+
+
+
+static void notify_req_setup_command(struct notif_req *req, output_t *o, metafile_t *mf, tag_t *tag) {
 	req->argv = g_new(char *, 4);
 	req->argv[0] = g_strdup(notify_command);
-	req->argv[1] = g_strdup(req->full_filename_path ?: "");
+	if ((output_storage & OUTPUT_STORAGE_FILE))
+		req->argv[1] = g_strdup_printf("%s.%s", o->full_filename, o->file_format);
+	else
+		req->argv[1] = g_strdup("");
 	req->argv[2] = g_strdup_printf("%llu", req->db_id);
 	req->argv[3] = NULL;
 }
 
-void notify_push_output(output_t *o, metafile_t *mf, tag_t *tag) {
-	if (!notify_threadpool)
-		return;
+static void cleanup_command(struct notif_req *req) {
+	g_strfreev(req->argv);
+}
 
+static const struct notif_action command_action = {
+	.name = "command",
+	.setup = notify_req_setup_command,
+	.perform = do_notify_command,
+	.cleanup = cleanup_command,
+};
+
+
+
+static void notify_push_setup(const struct notif_action *action, output_t *o, metafile_t *mf, tag_t *tag) {
 	struct notif_req *req = g_new0(__typeof(*req), 1);
 
-	req->name = g_strdup(o->file_name);
-	if ((output_storage & OUTPUT_STORAGE_FILE))
-		req->full_filename_path = g_strdup_printf("%s.%s", o->full_filename, o->file_format);
-	if ((output_storage & OUTPUT_STORAGE_NOTIFY)) {
-		req->content = output_get_content(o);
-		o->content = NULL; // take over ownership
-	}
+	req->name = g_strdup_printf("%s for '%s'", action->name, o->file_name);
+	req->action = action;
+
 	req->db_id = o->db_id;
 
-	notify_req_setup_http(req, o, mf, tag);
-	notify_req_setup_command(req, o, mf, tag);
+	action->setup(req, o, mf, tag);
 
 	req->falloff_us = 5000000LL; // initial retry time
 
 	g_thread_pool_push(notify_threadpool, req, NULL);
+}
+
+void notify_push_output(output_t *o, metafile_t *mf, tag_t *tag) {
+	if (notify_uri)
+		notify_push_setup(&http_action, o, mf, tag);
+
+	if (notify_command)
+		notify_push_setup(&command_action, o, mf, tag);
 }
