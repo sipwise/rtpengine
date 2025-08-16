@@ -23,7 +23,7 @@ struct notif_req {
 		// generic HTTP req
 		struct {
 			struct curl_slist *headers;
-			GString *content;
+			content_t *content;
 		};
 
 		// notify command
@@ -127,7 +127,7 @@ static bool do_notify_http(struct notif_req *req) {
 		if ((ret = curl_mime_name(part, "ngfile")) != CURLE_OK)
 			goto fail;
 
-		if ((ret = curl_mime_data(part, req->content->str, req->content->len)) != CURLE_OK)
+		if ((ret = curl_mime_data(part, req->content->s->str, req->content->s->len)) != CURLE_OK)
 			goto fail;
 
 		if ((ret = curl_easy_setopt(c, CURLOPT_MIMEPOST, mime)) != CURLE_OK)
@@ -357,16 +357,13 @@ static void notify_req_setup_http(struct notif_req *req, output_t *o, metafile_t
 			notify_add_header(req, "X-Recording-Tag-Metadata: %s", tag->metadata);
 	}
 
-	if ((output_storage & OUTPUT_STORAGE_NOTIFY)) {
-		req->content = output_get_content(o); // XXX refcount to avoid duplication
-		o->content = NULL; // take over ownership
-	}
+	if ((output_storage & OUTPUT_STORAGE_NOTIFY))
+		req->content = output_get_content(o);
 }
 
 static void cleanup_http(struct notif_req *req) {
 	curl_slist_free_all(req->headers);
-	if (req->content)
-		g_string_free(req->content, TRUE);
+	obj_release(req->content);
 }
 
 static const struct notif_action http_action = {

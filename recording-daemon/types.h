@@ -16,6 +16,7 @@
 #include "custom_poller.h"
 #include "socket.h"
 #include "containers.h"
+#include "obj.h"
 
 
 struct iphdr;
@@ -35,7 +36,7 @@ typedef struct stream_s stream_t;
 typedef struct ssrc_s ssrc_t;
 typedef struct sink_s sink_t;
 typedef struct tls_fwd_s tls_fwd_t;
-
+typedef struct content_s content_t;
 
 typedef void handler_func(handler_t *);
 
@@ -212,7 +213,7 @@ struct output_s {
 	format_t requested_format,
 		 actual_format;
 
-	GString *content;
+	content_t *content;
 };
 
 
@@ -220,6 +221,11 @@ struct decode_s {
 	decoder_t *dec;
 	sink_t mix_sink;
 	sink_t tls_mix_sink;
+};
+
+struct content_s {
+	struct obj obj;
+	GString *s;
 };
 
 

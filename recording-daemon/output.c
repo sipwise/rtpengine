@@ -520,9 +520,21 @@ static bool output_config(sink_t *sink, output_t *output, const format_t *reques
 }
 
 
-GString *output_get_content(output_t *output) {
+static void content_free(content_t *s) {
+	g_string_free(s->s, TRUE);
+}
+
+
+static content_t *output_make_content(GString *s) {
+	content_t *ret = obj_alloc0(content_t, content_free);
+	ret->s = s;
+	return ret;
+}
+
+
+content_t *output_get_content(output_t *output) {
 	if (output->content)
-		return output->content;
+		return obj_get(output->content);
 
 	if (!output->fp)
 		return NULL;
@@ -545,8 +557,9 @@ GString *output_get_content(output_t *output) {
 		return NULL;
 	}
 
-	output->content = content;
-	return content;
+	output->content = output_make_content(content);
+
+	return obj_get(output->content);
 }
 
 
@@ -567,9 +580,8 @@ static bool output_shutdown(output_t *output) {
 	}
 	else if (output->membuf) {
 		if (output->membuf->len) {
-			if (output->content)
-				g_string_free(output->content, TRUE);
-			output->content = output->membuf;
+			obj_release(output->content);
+			output->content = output_make_content(output->membuf);
 			output->membuf = NULL;
 			ret = true;
 		}
@@ -632,8 +644,7 @@ void output_close(metafile_t *mf, output_t *output, tag_t *tag, bool discard) {
 	g_clear_pointer(&output->iobuf, g_free);
 	if (output->membuf)
 		g_string_free(output->membuf, TRUE);
-	if (output->content)
-		g_string_free(output->content, TRUE);
+	obj_release(output->content);
 	if (output->fp)
 		fclose(output->fp);
 	sink_close(&output->sink);

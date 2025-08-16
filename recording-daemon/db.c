@@ -386,10 +386,11 @@ bool db_close_stream(output_t *op) {
 	MYSQL_BIND b[3];
 	bool ok = true;
 
+	content_t *content = NULL;
 	if ((output_storage & OUTPUT_STORAGE_DB)) {
-		GString *content = output_get_content(op);
+		content = output_get_content(op);
 		if (content)
-			stream = STR_GS(content);
+			stream = STR_GS(content->s);
 		else
 			ok = false;
         }
@@ -402,6 +403,8 @@ bool db_close_stream(output_t *op) {
 	my_ull(&b[par_idx++], &op->db_id);
 
 	execute_wrap(&stm_close_stream, b, NULL);
+
+	obj_release(content);
 
 	return ok;
 }
