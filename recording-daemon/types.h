@@ -37,6 +37,8 @@ typedef struct ssrc_s ssrc_t;
 typedef struct sink_s sink_t;
 typedef struct tls_fwd_s tls_fwd_t;
 typedef struct content_s content_t;
+typedef struct notif_action_s notif_action_t;
+typedef struct notif_req_s notif_req_t;
 
 typedef void handler_func(handler_t *);
 
@@ -226,6 +228,39 @@ struct decode_s {
 struct content_s {
 	struct obj obj;
 	GString *s;
+};
+
+struct notif_action_s {
+	const char *name;
+	void (*setup)(notif_req_t *, output_t *o, metafile_t *mf, tag_t *tag);
+	bool (*perform)(notif_req_t *);
+	void (*cleanup)(notif_req_t *);
+};
+
+struct notif_req_s {
+	char *name; // just for logging
+
+	union {
+		// generic HTTP req
+		struct {
+			struct curl_slist *headers;
+			content_t *content;
+		};
+
+		// notify command
+		struct {
+			char **argv;
+		};
+	};
+
+	// used by multiple actions
+	unsigned long long db_id;
+
+	const notif_action_t *action;
+
+	int64_t retry_time;
+	unsigned int retries;
+	int64_t falloff_us;
 };
 
 

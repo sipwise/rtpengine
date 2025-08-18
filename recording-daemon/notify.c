@@ -7,42 +7,6 @@
 #include "output.h"
 
 
-struct notif_req;
-
-struct notif_action {
-	const char *name;
-	void (*setup)(struct notif_req *, output_t *o, metafile_t *mf, tag_t *tag);
-	bool (*perform)(struct notif_req *);
-	void (*cleanup)(struct notif_req *);
-};
-
-struct notif_req {
-	char *name; // just for logging
-
-	union {
-		// generic HTTP req
-		struct {
-			struct curl_slist *headers;
-			content_t *content;
-		};
-
-		// notify command
-		struct {
-			char **argv;
-		};
-	};
-
-	// used by multiple actions
-	unsigned long long db_id;
-
-	const struct notif_action *action;
-
-	int64_t retry_time;
-	unsigned int retries;
-	int64_t falloff_us;
-};
-
-
 static GThreadPool *notify_threadpool;
 
 static pthread_mutex_t timer_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -58,7 +22,7 @@ static size_t dummy_read(char *ptr, size_t size, size_t nmemb, void *userdata) {
 	return 0;
 }
 
-static bool do_notify_http(struct notif_req *req) {
+static bool do_notify_http(notif_req_t *req) {
 	const char *err = NULL;
 	CURLcode ret;
 	bool success = false;
@@ -179,7 +143,7 @@ cleanup:
 	return success;
 }
 
-static bool do_notify_command(struct notif_req *req) {
+static bool do_notify_command(notif_req_t *req) {
 	ilog(LOG_DEBUG, "Executing notification command for '%s%s%s'", FMT_M(req->name));
 
 	GError *err = NULL;
@@ -197,7 +161,7 @@ static bool do_notify_command(struct notif_req *req) {
 }
 
 static void do_notify(void *p, void *u) {
-	struct notif_req *req = p;
+	notif_req_t *req = p;
 
 	bool ok = req->action->perform(req);
 
@@ -243,7 +207,7 @@ static void *notify_timer(void *p) {
 
 		// grab first entry in list, check retry time, sleep if it's in the future
 
-		struct notif_req *first = rtpe_g_tree_first(notify_timers);
+		notif_req_t *first = rtpe_g_tree_first(notify_timers);
 		if (!first) {
 			ilog(LOG_DEBUG, "No scheduled notification retries, sleeping");
 			pthread_cond_wait(&timer_cond, &timer_lock);
@@ -275,7 +239,7 @@ static void *notify_timer(void *p) {
 
 
 static int notify_req_cmp(const void *A, const void *B) {
-	const struct notif_req *a = A, *b = B;
+	const notif_req_t *a = A, *b = B;
 
 	if (a->retry_time < b->retry_time)
 		return -1;
@@ -318,7 +282,7 @@ void notify_cleanup(void) {
 
 
 __attribute__ ((format (printf, 2, 3)))
-static void notify_add_header(struct notif_req *req, const char *fmt, ...) {
+static void notify_add_header(notif_req_t *req, const char *fmt, ...) {
 	va_list ap;
 	va_start(ap, fmt);
 	char *s = g_strdup_vprintf(fmt, ap);
@@ -327,7 +291,7 @@ static void notify_add_header(struct notif_req *req, const char *fmt, ...) {
 	va_end(ap);
 }
 
-static void notify_req_setup_http(struct notif_req *req, output_t *o, metafile_t *mf, tag_t *tag) {
+static void notify_req_setup_http(notif_req_t *req, output_t *o, metafile_t *mf, tag_t *tag) {
 	double now = (double) now_us() / 1000000.;
 
 	notify_add_header(req, "X-Recording-Call-ID: %s", mf->call_id);
@@ -361,12 +325,12 @@ static void notify_req_setup_http(struct notif_req *req, output_t *o, metafile_t
 		req->content = output_get_content(o);
 }
 
-static void cleanup_http(struct notif_req *req) {
+static void cleanup_http(notif_req_t *req) {
 	curl_slist_free_all(req->headers);
 	obj_release(req->content);
 }
 
-static const struct notif_action http_action = {
+static const notif_action_t http_action = {
 	.name = "HTTP",
 	.setup = notify_req_setup_http,
 	.perform = do_notify_http,
@@ -375,7 +339,7 @@ static const struct notif_action http_action = {
 
 
 
-static void notify_req_setup_command(struct notif_req *req, output_t *o, metafile_t *mf, tag_t *tag) {
+static void notify_req_setup_command(notif_req_t *req, output_t *o, metafile_t *mf, tag_t *tag) {
 	req->argv = g_new(char *, 4);
 	req->argv[0] = g_strdup(notify_command);
 	if ((output_storage & OUTPUT_STORAGE_FILE))
@@ -386,11 +350,11 @@ static void notify_req_setup_command(struct notif_req *req, output_t *o, metafil
 	req->argv[3] = NULL;
 }
 
-static void cleanup_command(struct notif_req *req) {
+static void cleanup_command(notif_req_t *req) {
 	g_strfreev(req->argv);
 }
 
-static const struct notif_action command_action = {
+static const notif_action_t command_action = {
 	.name = "command",
 	.setup = notify_req_setup_command,
 	.perform = do_notify_command,
@@ -399,8 +363,8 @@ static const struct notif_action command_action = {
 
 
 
-static void notify_push_setup(const struct notif_action *action, output_t *o, metafile_t *mf, tag_t *tag) {
-	struct notif_req *req = g_new0(__typeof(*req), 1);
+static void notify_push_setup(const notif_action_t *action, output_t *o, metafile_t *mf, tag_t *tag) {
+	notif_req_t *req = g_new0(__typeof(*req), 1);
 
 	req->name = g_strdup_printf("%s for '%s'", action->name, o->file_name);
 	req->action = action;
