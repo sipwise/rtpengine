@@ -3877,9 +3877,10 @@ static void __dtx_send_later(struct codec_timer *ct) {
 			dtxb->head_ts += dtxb->tspp;
 			ts = dtxb->head_ts;
 		}
+
 		ps = mp_copy.stream;
-		struct call_media *media = ps->media;
-		struct ssrc_entry_call *se = call_get_first_ssrc(&media->ssrc_hash_in);
+		struct call_media *media = ps ? ps->media : NULL;
+		struct ssrc_entry_call *se = media ? call_get_first_ssrc(&media->ssrc_hash_in) : NULL;
 		log_info_stream_fd(mp_copy.sfd);
 
 		// copy out other fields so we can unlock
