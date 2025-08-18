@@ -248,17 +248,22 @@ struct notif_req_s {
 		// generic HTTP req
 		struct {
 			struct curl_slist *headers;
-			content_t *content;
 		};
 
 		// notify command
 		struct {
 			char **argv;
 		};
+
+		// db writer
+		struct {
+			int64_t end_time;
+		};
 	};
 
 	// used by multiple actions
 	unsigned long long db_id;
+	content_t *content;
 
 	const notif_action_t *action;
 

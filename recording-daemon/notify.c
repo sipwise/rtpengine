@@ -372,7 +372,7 @@ static const notif_action_t command_action = {
 
 
 
-static void notify_push_setup(const notif_action_t *action, output_t *o, metafile_t *mf, tag_t *tag) {
+void notify_push_setup(const notif_action_t *action, output_t *o, metafile_t *mf, tag_t *tag) {
 	notif_req_t *req = g_new0(__typeof(*req), 1);
 
 	req->name = g_strdup_printf("%s for '%s'", action->name, o->file_name);

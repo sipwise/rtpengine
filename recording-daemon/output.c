@@ -672,8 +672,7 @@ void output_close(metafile_t *mf, output_t *output, tag_t *tag, bool discard) {
 	bool do_delete = !(output_storage & OUTPUT_STORAGE_FILE);
 	if (!discard) {
 		if (output_shutdown(output)) {
-			if (!db_close_stream(output))
-				do_delete = false;
+			db_close_stream(output);
 			notify_push_output(output, mf, tag);
 		}
 		else
