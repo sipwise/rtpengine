@@ -143,6 +143,11 @@ cleanup:
 	return success;
 }
 
+static void failed_http(notif_req_t *req) {
+	if (req->content)
+		output_content_failure(req->content);
+}
+
 static bool do_notify_command(notif_req_t *req) {
 	ilog(LOG_DEBUG, "Executing notification command for '%s%s%s'", FMT_M(req->name));
 
@@ -190,6 +195,9 @@ static void do_notify(void *p, void *u) {
 				"Giving up",
 				FMT_M(req->name),
 				req->retries);
+
+		if (req->action->failed)
+			req->action->failed(req);
 	}
 
 	req->action->cleanup(req);
@@ -335,6 +343,7 @@ static const notif_action_t http_action = {
 	.setup = notify_req_setup_http,
 	.perform = do_notify_http,
 	.cleanup = cleanup_http,
+	.failed = failed_http,
 };
 
 

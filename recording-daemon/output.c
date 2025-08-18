@@ -522,12 +522,15 @@ static bool output_config(sink_t *sink, output_t *output, const format_t *reques
 
 static void content_free(content_t *s) {
 	g_string_free(s->s, TRUE);
+	g_free(s->name);
 }
 
 
-static content_t *output_make_content(GString *s) {
+static content_t *output_make_content(GString *s, output_t *output) {
 	content_t *ret = obj_alloc0(content_t, content_free);
 	ret->s = s;
+	if (output->file_name && output->file_name[0])
+		ret->name = g_strdup(output->file_name);
 	return ret;
 }
 
@@ -557,9 +560,60 @@ content_t *output_get_content(output_t *output) {
 		return NULL;
 	}
 
-	output->content = output_make_content(content);
+	output->content = output_make_content(content, output);
 
 	return obj_get(output->content);
+}
+
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(FILE, fclose)
+
+
+void output_content_failure(content_t *c) {
+	unsigned int exp = 0;
+	if (!atomic_compare_exchange(&c->failed, &exp, 1))
+		return; // already done
+
+	// find output file name
+	const char *prefix;
+	char buf[33];
+	if (c->name)
+		prefix = c->name;
+	else {
+		rand_hex_str(buf, 16);
+		prefix = buf;
+	}
+
+	g_autoptr(char) fn = g_strdup_printf("%s/backup-%s", output_dir, prefix);
+
+	if (g_file_test(fn, G_FILE_TEST_EXISTS)) {
+		char suffix[17];
+		rand_hex_str(suffix, 8);
+		g_free(fn);
+		fn = g_strdup_printf("%s/backup-%s%s", output_dir, prefix, suffix);
+		if (g_file_test(fn, G_FILE_TEST_EXISTS)) {
+			ilog(LOG_ERR, "Failed to write emergency backup to '%s': file exists",
+					fn);
+			return;
+		}
+	}
+
+	g_autoptr(FILE) fp = fopen(fn, "wb");
+	if (!fp) {
+		ilog(LOG_ERR, "Failed to write emergency backup to '%s': %s",
+				fn, strerror(errno));
+		return;
+	}
+
+	ssize_t written = fwrite(c->s->str, 1, c->s->len, fp);
+	if (written < 0)
+		ilog(LOG_ERR, "Failed to write emergency backup to '%s': %s",
+				fn, strerror(errno));
+	else if (written != c->s->len)
+		ilog(LOG_ERR, "Failed to write emergency backup to '%s': short write",
+				fn);
+	else
+		ilog(LOG_NOTICE, "Wrote emergency backup to '%s'", fn);
 }
 
 
@@ -581,7 +635,7 @@ static bool output_shutdown(output_t *output) {
 	else if (output->membuf) {
 		if (output->membuf->len) {
 			obj_release(output->content);
-			output->content = output_make_content(output->membuf);
+			output->content = output_make_content(output->membuf, output);
 			output->membuf = NULL;
 			ret = true;
 		}

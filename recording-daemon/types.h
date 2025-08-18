@@ -228,12 +228,16 @@ struct decode_s {
 struct content_s {
 	struct obj obj;
 	GString *s;
+
+	char *name;
+	unsigned int failed;
 };
 
 struct notif_action_s {
 	const char *name;
 	void (*setup)(notif_req_t *, output_t *o, metafile_t *mf, tag_t *tag);
 	bool (*perform)(notif_req_t *);
+	void (*failed)(notif_req_t *);
 	void (*cleanup)(notif_req_t *);
 };
 
