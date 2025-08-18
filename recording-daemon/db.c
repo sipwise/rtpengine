@@ -214,7 +214,7 @@ INLINE void my_ts(MYSQL_BIND *b, int64_t ts, double *d) {
 }
 
 
-static void execute_wrap(MYSQL_STMT **stmt, MYSQL_BIND *binds, unsigned long long *auto_id) {
+static bool execute_wrap(MYSQL_STMT **stmt, MYSQL_BIND *binds, unsigned long long *auto_id) {
 	int retr = 0;
 	while (1) {
 		if (check_conn())
@@ -231,7 +231,7 @@ static void execute_wrap(MYSQL_STMT **stmt, MYSQL_BIND *binds, unsigned long lon
 		if (mysql_commit(mysql_conn))
 			goto err;
 
-		return;
+		return true;
 
 err:
 		if (retr > 5) {
@@ -239,12 +239,12 @@ err:
 			ilog(LOG_ERR, "Failed to bind or execute prepared statement: %s",
 					mysql_stmt_error(*stmt));
 			reset_conn();
-			return;
+			return false;
 		}
 		if (retr > 2) {
 			reset_conn();
 			if (check_conn())
-				return;
+				return false;
 		}
 
 		retr++;
