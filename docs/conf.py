@@ -30,3 +30,6 @@ master_doc = 'index'
 
 html_theme = 'sphinx_rtd_theme'
 htmlhelp_basename = 'rtpenginedoc'
+
+# Prevent double dashes -- from becoming single em dashes
+smartquotes_action = 'qe'
