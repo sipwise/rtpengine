@@ -5,6 +5,7 @@
 #include "log.h"
 #include "recaux.h"
 #include "output.h"
+#include "http.h"
 
 
 static GThreadPool *notify_threadpool;
@@ -15,69 +16,26 @@ static pthread_t notify_waiter;
 static GTree *notify_timers;
 
 
-static size_t dummy_write(char *ptr, size_t size, size_t nmemb, void *userdata) {
-	return size * nmemb;
-}
-static size_t dummy_read(char *ptr, size_t size, size_t nmemb, void *userdata) {
-	return 0;
-}
-
 static bool do_notify_http(notif_req_t *req) {
 	const char *err = NULL;
 	CURLcode ret;
-	bool success = false;
 
 	ilog(LOG_DEBUG, "Launching HTTP notification for '%s%s%s'", FMT_M(req->name));
 
-	/* set up the CURL request */
-
 #if CURL_AT_LEAST_VERSION(7,56,0)
-	curl_mime *mime = NULL;
+	g_autoptr(curl_mime) mime = NULL;
 #endif
-	CURL *c = curl_easy_init();
+
+	g_autoptr(CURL) c = http_create_req(notify_uri,
+			http_dummy_write, http_dummy_read,
+			req->headers, !notify_nverify, &ret, &err);
 	if (!c)
-		goto fail;
-
-	err = "setting CURLOPT_URL";
-	if ((ret = curl_easy_setopt(c, CURLOPT_URL, notify_uri)) != CURLE_OK)
-		goto fail;
-
-	/* no output */
-	err = "setting CURLOPT_WRITEFUNCTION";
-	if ((ret = curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, dummy_write)) != CURLE_OK)
-		goto fail;
-
-	/* no input */
-	err = "setting CURLOPT_READFUNCTION";
-	if ((ret = curl_easy_setopt(c, CURLOPT_READFUNCTION, dummy_read)) != CURLE_OK)
-		goto fail;
-
-	/* allow redirects */
-	err = "setting CURLOPT_FOLLOWLOCATION";
-	if ((ret = curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1L)) != CURLE_OK)
-		goto fail;
-
-	/* max 5 redirects */
-	err = "setting CURLOPT_MAXREDIRS";
-	if ((ret = curl_easy_setopt(c, CURLOPT_MAXREDIRS, 5L)) != CURLE_OK)
-		goto fail;
-
-	/* add headers */
-	err = "setting CURLOPT_HTTPHEADER";
-	if ((ret = curl_easy_setopt(c, CURLOPT_HTTPHEADER, req->headers)) != CURLE_OK)
 		goto fail;
 
 	/* POST vs GET */
 	if (notify_post) {
 		err = "setting CURLOPT_POST";
 		if ((ret = curl_easy_setopt(c, CURLOPT_POST, 1L)) != CURLE_OK)
-			goto fail;
-	}
-
-	/* cert verify (enabled by default) */
-	if (notify_nverify) {
-		err = "setting CURLOPT_SSL_VERIFYPEER";
-		if ((ret = curl_easy_setopt(c, CURLOPT_SSL_VERIFYPEER, 0L)) != CURLE_OK)
 			goto fail;
 	}
 
@@ -114,33 +72,17 @@ static bool do_notify_http(notif_req_t *req) {
 
 	/* success */
 
-	success = true;
-
 	ilog(LOG_NOTICE, "HTTP notification for '%s%s%s' was successful", FMT_M(req->name));
 
-	goto cleanup;
+	return true;
 
 fail:
-	if (c)
-		ilog(LOG_ERR, "Failed to perform HTTP notification for '%s%s%s': "
-				"Error while %s: %s",
-				FMT_M(req->name),
-				err, curl_easy_strerror(ret));
-	else
-		ilog(LOG_ERR, "Failed to perform HTTP notification for '%s%s%s': "
-				"Failed to create CURL object",
-				FMT_M(req->name));
+	ilog(LOG_ERR, "Failed to perform HTTP notification for '%s%s%s': "
+			"Error while %s: %s",
+			FMT_M(req->name),
+			err, curl_easy_strerror(ret));
 
-cleanup:
-	if (c)
-		curl_easy_cleanup(c);
-
-#if CURL_AT_LEAST_VERSION(7,56,0)
-	if (mime)
-		curl_mime_free(mime);
-#endif
-
-	return success;
+	return false;
 }
 
 static void failed_http(notif_req_t *req) {
@@ -289,15 +231,8 @@ void notify_cleanup(void) {
 
 
 
-__attribute__ ((format (printf, 2, 3)))
-static void notify_add_header(notif_req_t *req, const char *fmt, ...) {
-	va_list ap;
-	va_start(ap, fmt);
-	char *s = g_strdup_vprintf(fmt, ap);
-	req->headers = curl_slist_append(req->headers, s);
-	g_free(s);
-	va_end(ap);
-}
+#define notify_add_header(req, f, ...) http_add_header(&(req)->headers, f, __VA_ARGS__)
+
 
 static void notify_req_setup_http(notif_req_t *req, output_t *o, metafile_t *mf, tag_t *tag) {
 	double now = (double) now_us() / 1000000.;
