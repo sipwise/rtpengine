@@ -239,8 +239,8 @@ static void options(int *argc, char ***argv) {
 #if CURL_AT_LEAST_VERSION(7,56,0)
 		{ "notify-record", 	0,   0, G_OPTION_ARG_NONE,	&notify_record, "Also attach recorded file to request", NULL		},
 		{ "notify-purge", 	0,   0, G_OPTION_ARG_NONE,	&notify_purge,	"Remove the local file if notify success", NULL		},
-		{ "flush-packets", 	0,   0, G_OPTION_ARG_NONE,	&flush_packets,	"Output buffer will be flushed after every packet", NULL },
 #endif
+		{ "flush-packets", 	0,   0, G_OPTION_ARG_NONE,	&flush_packets,	"Output buffer will be flushed after every packet", NULL },
 		{ NULL, }
 	};
 
