@@ -1524,7 +1524,7 @@ typedef struct {
 static void kernelize_state_clear(kernelize_state *s) {
 	rtp_stats_arr_destroy_ptr(&s->payload_types);
 	t_queue_clear_full(&s->outputs,
-			(void (*)(struct rtpengine_destination_info *)) g_free); // should always be empty
+			(void (*)(struct rtpengine_destination_info *)) g_free);
 }
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(kernelize_state, kernelize_state_clear)
@@ -1836,9 +1836,10 @@ static bool kernelize_one_sink_handler(kernelize_state *s,
 static void kernelize(struct packet_stream *stream) {
 	call_t *call = stream->call;
 	struct call_media *media = stream->media;
-	g_auto(kernelize_state) s = {0};
 
 	while (true) {
+
+	g_auto(kernelize_state) s = {0};
 
 	LOCK(&stream->lock);
 
@@ -1872,14 +1873,14 @@ static void kernelize(struct packet_stream *stream) {
 			continue;
 		bool ok = kernelize_one_sink_handler(&s, stream, sh);
 		if (!ok)
-			goto restart;
+			continue; // retry
 	}
 	// RTP egress mirrors
 	for (__auto_type l = stream->rtp_mirrors.head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
 		bool ok = kernelize_one_sink_handler(&s, stream, sh);
 		if (!ok)
-			goto restart;
+			continue; // retry
 	}
 	// RTP -> RTCP sinks
 	// record number of RTP destinations up to now
@@ -1890,7 +1891,7 @@ static void kernelize(struct packet_stream *stream) {
 		struct sink_handler *sh = l->data;
 		bool ok = kernelize_one_sink_handler(&s, stream, sh);
 		if (!ok)
-			goto restart;
+			continue; // retry
 	}
 	// mark the start of RTCP outputs
 	s.reti.num_rtcp_destinations = s.reti.num_destinations - num_rtp_dests;
@@ -1922,14 +1923,6 @@ no_kernel:
 	PS_SET(stream, NO_KERNEL_SUPPORT);
 	return;
 
-restart: // handle detected deadlock
-
-	rtp_stats_arr_destroy_ptr(&s.payload_types);
-
-	while ((redi = t_queue_pop_head(&s.outputs)))
-		g_free(redi);
-
-	// try again, releases stream->lock
 	}
 }
 
