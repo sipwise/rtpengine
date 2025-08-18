@@ -1,3 +1,12 @@
+ngcp-rtpengine (12.5.1.43+0~mr12.5.1.43) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [036f44f] MT#55283 distinguish transcoding PTs
+  * [9b0ed86] MT#55283 combine in/out_lock
+  * [a5b72e6] MT#55283 clean up RTCP send locking
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 18 Aug 2025 14:03:07 +0200
+
 ngcp-rtpengine (12.5.1.42+0~mr12.5.1.42) unstable; urgency=medium
 
   [ Richard Fuchs ]
