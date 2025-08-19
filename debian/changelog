@@ -1,3 +1,11 @@
+ngcp-rtpengine (12.5.1.44+0~mr12.5.1.44) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [e6c26d1] MT#55283 improve G.729 format matching
+  * [a8ae12a] MT#55283 ignore G.729 fmtp
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 19 Aug 2025 19:12:34 +0200
+
 ngcp-rtpengine (12.5.1.43+0~mr12.5.1.43) unstable; urgency=medium
 
   [ Richard Fuchs ]
