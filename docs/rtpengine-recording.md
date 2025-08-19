@@ -138,7 +138,7 @@ sufficient for a standard installation of rtpengine.
     Points to the shared object file (__.so__) containing the reference
     implementation for the EVS codec. See the `README` for more details.
 
-- __\-\-output-storage=file__\|__db__\|__memory__\|__notify__\|__none__
+- __\-\-output-storage=file__\|__db__\|__memory__\|__notify__\|__s3__\|__none__
 
     Where to store media files. This option can be given multiple times (or, in
     the config file, using a comma-separated list) to enable multiple storage
@@ -166,6 +166,10 @@ sufficient for a standard installation of rtpengine.
     and media is kept in memory only until recording is complete.
 
     __db-mem__ can be used as a shortcut to setting both __db__ and __memory__.
+
+    The __s3__ storage option enables upload to an S3-compatible service via
+    HTTPS, for example to AWS or MiniO. See the related option below for
+    configuration.
 
 - __\-\-output-dir=__*PATH*
 
@@ -407,7 +411,37 @@ sufficient for a standard installation of rtpengine.
 
 - __\-\-flush-packets__
 
-    Forces that the output buffer will be flushed after every packet, ensuring that the recording file grows steadily and becomes available for processing without delays.
+    Forces that the output buffer will be flushed after every packet, ensuring
+    that the recording file grows steadily and becomes available for processing
+    without delays.
+
+- __\-\-s3-host=__*HOST*
+- __\-\-s3-port=__*INT*
+- __\-\-s3-path=__*STR*
+- __\-\-s3-access-key=__*STR*
+- __\-\-s3-secret-key=__*STR*
+- __\-\-s3-region=__*STR*
+- __\-\-s3-no-verify__
+
+    These options must be configured if S3 storage upload is enabled. The port
+    is optional and defaults to 443 (HTTPS) if not configured.
+
+    The host name may or may not need to include the bucket name. For example
+    `minio.example.com` or `examplebucket.s3.amazonaws.com`.
+
+    The path can be blank if the host name includes the bucket name. Otherwise
+    the bucket name becomes part of the path (such as `/examplebucket`). This
+    option must still be set even if the path is blank.
+
+    Access key and secret key are the credentials provided by the service (e.g.
+    `AKIAIOSFODNN7EXAMPLE` and `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`).
+
+    The region code is part of the credentials (e.g. `us-east-1`). If the
+    service doesn't use a region code, then this must be set to a blank string.
+
+    TLS certificates are verified by default, unless the `no-verify` option is
+    set.
+
 ## EXIT STATUS
 
 - __0__

@@ -70,6 +70,14 @@ char *notify_command;
 gboolean mix_output_per_media = 0;
 gboolean flush_packets = 0;
 int resample_audio;
+char *s3_host;
+unsigned int s3_port;
+char *s3_path;
+char *s3_access_key;
+char *s3_secret_key;
+char *s3_region;
+gboolean s3_nverify;
+
 
 static GQueue threads = G_QUEUE_INIT; // only accessed from main thread
 
@@ -202,7 +210,7 @@ static void options(int *argc, char ***argv) {
 		{ "table",		't', 0, G_OPTION_ARG_INT,	&ktable,	"Kernel table rtpengine uses",		"INT"		},
 		{ "spool-dir",		0,   0, G_OPTION_ARG_FILENAME,	&spool_dir,	"Directory containing rtpengine metadata files", "PATH" },
 		{ "num-threads",	0,   0, G_OPTION_ARG_INT,	&num_threads,	"Number of worker threads",		"INT"		},
-		{ "output-storage",	0,   0, G_OPTION_ARG_STRING_ARRAY,&os_a,	"Where to store audio streams",	        "file|db|notify|memory"},
+		{ "output-storage",	0,   0, G_OPTION_ARG_STRING_ARRAY,&os_a,	"Where to store audio streams",	        "file|db|notify|s3|memory"},
 		{ "output-dir",		0,   0, G_OPTION_ARG_STRING,	&output_dir,	"Where to write media files to",	"PATH"		},
 		{ "output-pattern",	0,   0, G_OPTION_ARG_STRING,	&output_pattern,"File name pattern for recordings",	"STRING"	},
 		{ "output-format",	0,   0, G_OPTION_ARG_STRING,	&output_format,	"Write audio files of this type",	"wav|mp3|none"	},
@@ -241,6 +249,13 @@ static void options(int *argc, char ***argv) {
 		{ "notify-purge", 	0,   0, G_OPTION_ARG_NONE,	&notify_purge,	"Remove the local file if notify success", NULL		},
 #endif
 		{ "flush-packets", 	0,   0, G_OPTION_ARG_NONE,	&flush_packets,	"Output buffer will be flushed after every packet", NULL },
+		{ "s3-host", 		0,   0, G_OPTION_ARG_STRING,	&s3_host,	"Host name of S3 service",		"HOST"		},
+		{ "s3-port", 		0,   0, G_OPTION_ARG_INT,	&s3_port,	"S3 service port if non-standard",	"INT"		},
+		{ "s3-path", 		0,   0, G_OPTION_ARG_STRING,	&s3_path,	"Path prefix for S3 storage or bucket",	"STRING"	},
+		{ "s3-access-key", 	0,   0, G_OPTION_ARG_STRING,	&s3_access_key,	"Access key for S3 storage",		"STRING"	},
+		{ "s3-secret-key", 	0,   0, G_OPTION_ARG_STRING,	&s3_secret_key,	"Secret key for S3 authentication",	"STRING"	},
+		{ "s3-region", 		0,   0, G_OPTION_ARG_STRING,	&s3_region,	"Region configuration for S3 storage",	"STRING"	},
+		{ "s3-no-verify", 	0,   0, G_OPTION_ARG_NONE,	&s3_nverify,	"Disable TLS verification for S3",	NULL		},
 		{ NULL, }
 	};
 
@@ -286,6 +301,8 @@ static void options(int *argc, char ***argv) {
 #else
 			die("cURL version too old to support notify storage");
 #endif
+		else if (!strcmp(*iter, "s3"))
+			output_storage |= OUTPUT_STORAGE_S3;
 		else if (!strcmp(*iter, "db"))
 			output_storage |= OUTPUT_STORAGE_DB;
 		else if (!strcmp(*iter, "db-mem"))
@@ -313,6 +330,8 @@ static void options(int *argc, char ***argv) {
 		die("DB output storage is enabled but no DB is configured");
 	if ((output_storage & OUTPUT_STORAGE_NOTIFY) && !notify_uri)
 		die("Notify storage is enabled but notify URI is not set");
+	if ((output_storage & OUTPUT_STORAGE_S3) && (!s3_host || !s3_access_key || !s3_secret_key || !s3_path || !s3_region))
+		die("S3 storage is enabled but S3 config is incomplete");
 
 	if ((output_storage & OUTPUT_STORAGE_MASK) == 0) {
 		if (output_mixed || output_single)
@@ -328,6 +347,32 @@ static void options(int *argc, char ***argv) {
 
 	if ((output_storage & OUTPUT_STORAGE_MASK) || tls_send_to_ep.port)
 		decoding_enabled = true;
+
+	// make sure S3 path always leads with a slash and always ends with one
+	if (!s3_path)
+		s3_path = g_strdup("/");
+	else {
+		char *tail = s3_path;
+		// skip heading slashes
+		while (tail[0] == '/')
+			tail++;
+
+		size_t len = strlen(tail);
+
+		// trim trailing slashes
+		while (len > 0 && tail[len - 1] == '/')
+			len--;
+
+		char *np;
+		if (len == 0)
+			np = g_strdup("/"); // nothing left, blank path
+		else
+			np = g_strdup_printf("/%.*s/", (int) len, tail);
+
+		g_free(s3_path);
+		s3_path = np;
+
+	}
 
 	if (notify_purge && (output_storage & OUTPUT_STORAGE_FILE))
 		output_storage &= ~OUTPUT_STORAGE_FILE;

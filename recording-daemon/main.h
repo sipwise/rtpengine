@@ -11,6 +11,7 @@ enum output_storage_enum {
 	OUTPUT_STORAGE_FILE = 0x1,
 	OUTPUT_STORAGE_DB = 0x2,
 	OUTPUT_STORAGE_NOTIFY = 0x4,
+	OUTPUT_STORAGE_S3 = 0x8,
 
 	OUTPUT_STORAGE_MASK = 0xff,
 
@@ -58,6 +59,13 @@ extern gboolean mix_output_per_media;
 extern volatile int shutdown_flag;
 extern gboolean flush_packets;
 extern int resample_audio;
+extern char *s3_host;
+extern unsigned int s3_port;
+extern char *s3_path;
+extern char *s3_access_key;
+extern char *s3_secret_key;
+extern char *s3_region;
+extern gboolean s3_nverify;
 
 extern struct rtpengine_common_config rtpe_common_config;
 

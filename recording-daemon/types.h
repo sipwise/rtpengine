@@ -259,11 +259,17 @@ struct notif_req_s {
 		struct {
 			int64_t end_time;
 		};
+
+		// S3
+		struct {
+			GString *content_sha256;
+		};
 	};
 
 	// used by multiple actions
 	unsigned long long db_id;
 	content_t *content;
+	char *object_name;
 
 	const notif_action_t *action;
 
