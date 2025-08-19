@@ -27,7 +27,7 @@ static bool do_notify_http(notif_req_t *req) {
 #endif
 
 	g_autoptr(CURL) c = http_create_req(notify_uri,
-			http_dummy_write, http_dummy_read,
+			http_dummy_write, NULL, http_dummy_read, NULL,
 			req->headers, !notify_nverify, &ret, &err);
 	if (!c)
 		goto fail;

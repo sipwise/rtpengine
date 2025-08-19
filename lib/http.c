@@ -1,8 +1,12 @@
 #include "http.h"
+#include "log.h"
+#include <assert.h>
 
 CURL *http_create_req(const char *uri,
 		size_t (*write_fn)(char *, size_t, size_t, void *),
+		GString *download,
 		size_t (*read_fn)(char *, size_t, size_t, void *),
+		http_upload *upload,
 		const struct curl_slist *headers,
 		bool tls_verify,
 		CURLcode *errcode,
@@ -23,8 +27,16 @@ CURL *http_create_req(const char *uri,
 	if ((ret = curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, write_fn)) != CURLE_OK)
 		goto fail;
 
+	err = "setting CURLOPT_WRITEDATA";
+	if ((ret = curl_easy_setopt(c, CURLOPT_WRITEDATA, download)) != CURLE_OK)
+		goto fail;
+
 	err = "setting CURLOPT_READFUNCTION";
 	if ((ret = curl_easy_setopt(c, CURLOPT_READFUNCTION, read_fn)) != CURLE_OK)
+		goto fail;
+
+	err = "setting CURLOPT_READDATA";
+	if ((ret = curl_easy_setopt(c, CURLOPT_READDATA, upload)) != CURLE_OK)
 		goto fail;
 
 	/* allow redirects */
@@ -79,4 +91,21 @@ size_t http_dummy_write(char *ptr, size_t size, size_t nmemb, void *userdata) {
 }
 size_t http_dummy_read(char *ptr, size_t size, size_t nmemb, void *userdata) {
 	return 0;
+}
+
+
+size_t http_upload_read(char *ptr, size_t size, size_t nmemb, void *userdata) {
+	http_upload *u = userdata;
+	assert(size == 1); // as per docs
+	size_t len = MIN(nmemb, u->s.len);
+	memcpy(ptr, u->s.s, len);
+	str_shift(&u->s, len);
+	return len;
+}
+
+size_t http_download_write(char *ptr, size_t size, size_t nmemb, void *userdata) {
+	assert(size == 1); // as per docs
+	GString *s = userdata;
+	g_string_append_len(s, ptr, nmemb);
+	return nmemb;
 }
