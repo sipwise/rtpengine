@@ -28,3 +28,4 @@ test-mix-buffer
 test-amr-decode
 test-amr-encode
 aead-decrypt
+s3-auth

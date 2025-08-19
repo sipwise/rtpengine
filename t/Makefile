@@ -94,6 +94,9 @@ ifneq ($(have_liburing),yes)
 LIBSRCS+=	uring.c
 endif
 
+SRCS+=		s3-auth.c
+LIBSRCS+=	s3utils.c
+
 COMMONOBJS=	str.o auxlib.o rtplib.o loglib.o ssllib.o
 
 include ../lib/common.Makefile
@@ -114,8 +117,10 @@ ifeq ($(RTPENGINE_EXTENDED_TESTS),1)
 TESTS+=		test-amr-decode test-amr-encode
 endif
 endif
+TESTS+=		s3-auth
 
 ADD_CLEAN=	tests-preload.so time-fudge-preload.so $(TESTS) aead-decrypt
+ADD_CLEAN+=	s3-auth
 
 ifeq ($(with_transcoding),yes)
 all-tests:	unit-tests daemon-tests
@@ -332,6 +337,8 @@ test-payload-tracker: test-payload-tracker.o $(COMMONOBJS) ssrc.o helpers.o auxl
 test-kernel-module: test-kernel-module.o $(COMMONOBJS) kernel.o
 
 test-const_str_hash.strhash: test-const_str_hash.strhash.o $(COMMONOBJS) bencode.o
+
+s3-auth:	s3-auth.o s3utils.o
 
 PRELOAD_CFLAGS += -D_GNU_SOURCE -std=c11
 PRELOAD_LIBS += -ldl
