@@ -1,3 +1,17 @@
+ngcp-rtpengine (13.4.1.6+0~mr13.4.1.6) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [45111b7] MT#55283 distinguish transcoding PTs
+  * [374de12] MT#55283 tests for I19c2aff7
+  * [c061865] MT#55283 ignore G.729 fmtp
+  * [d5275c5] MT#55283 clarify _destroy_ptr
+  * [609ce3f] MT#55283 move kernelize_state into scope
+  * [af8d534] MT#55283 fix RTD dashes in man page
+  * [cf057d6] MT#55283 fix possible null dereference
+  * [fe3b4c7] MT#55283 add alternative G.722 encoding
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 19 Aug 2025 19:12:20 +0200
+
 ngcp-rtpengine (13.4.1.5+0~mr13.4.1.5) unstable; urgency=medium
 
   [ Richard Fuchs ]
