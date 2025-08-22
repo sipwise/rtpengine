@@ -308,6 +308,7 @@ static void meta_section(metafile_t *mf, char *section, char *content, unsigned 
 	else if (!strcmp(section, "SKIP_DATABASE"))
 		mf->skip_db = 1;
 
+	db_do_call(mf);
 	meta_mix_output(mf);
 }
 
