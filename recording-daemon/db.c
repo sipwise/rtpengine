@@ -202,12 +202,12 @@ INLINE void my_i(MYSQL_BIND *b, const int *i) {
 		.is_unsigned = 0,
 	};
 }
-INLINE void my_ts(MYSQL_BIND *b, int64_t ts) {
-	double d = (double) ts / 1000000.;
+INLINE void my_ts(MYSQL_BIND *b, int64_t ts, double *d) {
+	*d = ((double) ts) / 1000000.;
 	*b = (MYSQL_BIND) {
 		.buffer_type = MYSQL_TYPE_DOUBLE,
-		.buffer = (void *) &d,
-		.buffer_length = sizeof(d),
+		.buffer = (void *) d,
+		.buffer_length = sizeof(*d),
 		.is_unsigned = 0,
 	};
 }
@@ -261,7 +261,8 @@ static void db_do_call_id(metafile_t *mf) {
 
 	MYSQL_BIND b[2];
 	my_cstr(&b[0], mf->call_id);
-	my_ts(&b[1], mf->start_time_us);
+	double ts;
+	my_ts(&b[1], mf->start_time_us, &ts);
 
 	execute_wrap(&stm_insert_call, b, &mf->db_id);
 }
@@ -340,7 +341,8 @@ void db_do_stream(metafile_t *mf, output_t *op, stream_t *stream, unsigned long 
 	}
 	else
 		my_cstr(&b[9], "");
-	my_ts(&b[10], op->start_time_us);
+	double ts;
+	my_ts(&b[10], op->start_time_us, &ts);
 
 	execute_wrap(&stm_insert_stream, b, &op->db_id);
 
@@ -359,7 +361,8 @@ void db_close_call(metafile_t *mf) {
 	MYSQL_BIND b[2];
 
 	if (mf->db_streams > 0) {
-		my_ts(&b[0], now);
+		double ts;
+		my_ts(&b[0], now, &ts);
 		my_ull(&b[1], &mf->db_id);
 		execute_wrap(&stm_close_call, b, NULL);
 	}
@@ -431,7 +434,8 @@ void db_close_stream(output_t *op, FILE *fp, GString *gs) {
 
 file:;
 	int par_idx = 0;
-	my_ts(&b[par_idx++], now);
+	double ts;
+	my_ts(&b[par_idx++], now, &ts);
 	if ((output_storage & OUTPUT_STORAGE_DB))
 		my_str(&b[par_idx++], &stream);
 	my_ull(&b[par_idx++], &op->db_id);
