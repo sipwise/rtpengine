@@ -26,6 +26,8 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 
 
 
+if ($extended_tests) {
+
 ($sock_a, $sock_ax, $sock_b, $sock_bx) = new_call(
 	[qw(198.51.100.1 7160)],
 	[qw(198.51.100.1 7161)],
@@ -348,6 +350,7 @@ is($resp->{totals}{RTCP}{packets}, 2, 'RTCP packet count');
 is($resp->{totals}{RTCP}{bytes}, 104, 'RTCP octet count');
 
 
+}
 
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
