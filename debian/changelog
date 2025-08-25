@@ -1,3 +1,20 @@
+ngcp-rtpengine (11.5.1.47+0~mr11.5.1.47) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7edda0f] MT#63317 fix RTP extension parsing
+  * [6c42c18] MT#55283 fix int size issues
+  * [209518c] MT#55283 silence curl compiler warnings
+  * [c9a24c2] MT#55283 add forky backports script
+  * [50e97ab] MT#55283 ignore fmtp for G.711
+  * [bd81f2a] MT#55283 fix forky script
+  * [3434d23] MT#55283 combine in/out_lock
+  * [2062558] MT#55283 clean up RTCP send locking
+  * [2cced88] MT#55283 improve G.729 format matching
+  * [a044d7d] MT#55283 ignore G.729 fmtp
+  * [62ccd9f] MT#55283 fix RTD dashes in man page
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 25 Aug 2025 21:50:34 +0200
+
 ngcp-rtpengine (11.5.1.46+0~mr11.5.1.46) unstable; urgency=medium
 
   [ Richard Fuchs ]
