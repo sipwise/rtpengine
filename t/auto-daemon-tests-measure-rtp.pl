@@ -26,6 +26,8 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 
 
 
+if ($extended_tests) {
+
 ($sock_a, $sock_ax, $sock_b, $sock_bx) = new_call(
 	[qw(198.51.100.1 7184)],
 	[qw(198.51.100.1 7185)],
@@ -458,8 +460,6 @@ is($resp->{totals}{RTCP}{bytes}, 104, 'RTCP octet count');
 
 
 
-
-if ($extended_tests) {
 
 ($sock_a, $sock_ax, $sock_b, $sock_bx) = new_call([qw(198.51.100.23 3000)], [qw(198.51.100.23 3001)],
 							[qw(198.51.100.23 3002)], [qw(198.51.100.23 3003)]);
