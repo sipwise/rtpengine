@@ -1,3 +1,10 @@
+ngcp-rtpengine (11.5.1.48+0~mr11.5.1.48) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [0e39cd1] MT#55283 fix media playback deadlock
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 26 Aug 2025 16:12:19 +0200
+
 ngcp-rtpengine (11.5.1.47+0~mr11.5.1.47) unstable; urgency=medium
 
   [ Richard Fuchs ]
