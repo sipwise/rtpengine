@@ -75,11 +75,14 @@ out:
 
 	dbg("Init for SSRC %s%lx%s of stream #%lu", FMT_M(ret->ssrc), stream->id);
 
-	if (mf->recording_on && !ret->output && output_single) {
-		char buf[16];
-		snprintf(buf, sizeof(buf), "%08lx", ssrc);
-		tag_t *tag = tag_get(mf, stream->tag);
-		ret->output = output_new_ext(mf, buf, "single", tag->label);
+	if (mf->recording_on && output_single) {
+		if (!ret->output) {
+			char buf[16];
+			snprintf(buf, sizeof(buf), "%08lx", ssrc);
+			tag_t *tag = tag_get(mf, stream->tag);
+			ret->output = output_new_ext(mf, buf, "single", tag->label);
+		}
+
 		db_do_stream(mf, ret->output, stream, ssrc);
 	}
 

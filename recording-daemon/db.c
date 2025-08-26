@@ -258,6 +258,8 @@ static void db_do_call_id(metafile_t *mf) {
 		return;
 	if (mf->skip_db)
 		return;
+	if (!mf->metadata)
+		return;
 
 	MYSQL_BIND b[2];
 	my_cstr(&b[0], mf->call_id);

@@ -101,11 +101,11 @@ static void meta_mix_file_output(metafile_t *mf) {
 		return;
 	}
 
-	if (mf->mix)
-		return;
+	if (!mf->mix) {
+		mf->mix_out = output_new_ext(mf, "mix", "mixed", "mix");
+		mf->mix = mix_new(&mf->mix_lock, &mf->mix_out->sink, mf->media_rec_slots);
+	}
 
-	mf->mix_out = output_new_ext(mf, "mix", "mixed", "mix");
-	mf->mix = mix_new(&mf->mix_lock, &mf->mix_out->sink, mf->media_rec_slots);
 	db_do_stream(mf, mf->mix_out, NULL, 0);
 }
 
