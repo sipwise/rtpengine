@@ -30,6 +30,7 @@
 #include "socket.h"
 #include "ssllib.h"
 #include "notify.h"
+#include "gcs.h"
 
 
 
@@ -77,6 +78,11 @@ char *s3_access_key;
 char *s3_secret_key;
 char *s3_region;
 gboolean s3_nverify;
+char *gcs_uri;
+char *gcs_key;
+char *gcs_service_account;
+char *gcs_scope;
+gboolean gcs_nverify;
 
 
 static GQueue threads = G_QUEUE_INIT; // only accessed from main thread
@@ -116,7 +122,8 @@ static void setup(void) {
 	metafile_setup();
 	epoll_setup();
 	inotify_setup();
-
+	if (!gcs_init())
+		die("GCS failure");
 }
 
 
@@ -210,7 +217,7 @@ static void options(int *argc, char ***argv) {
 		{ "table",		't', 0, G_OPTION_ARG_INT,	&ktable,	"Kernel table rtpengine uses",		"INT"		},
 		{ "spool-dir",		0,   0, G_OPTION_ARG_FILENAME,	&spool_dir,	"Directory containing rtpengine metadata files", "PATH" },
 		{ "num-threads",	0,   0, G_OPTION_ARG_INT,	&num_threads,	"Number of worker threads",		"INT"		},
-		{ "output-storage",	0,   0, G_OPTION_ARG_STRING_ARRAY,&os_a,	"Where to store audio streams",	        "file|db|notify|s3|memory"},
+		{ "output-storage",	0,   0, G_OPTION_ARG_STRING_ARRAY,&os_a,	"Where to store audio streams",	        "file|db|notify|s3|gcs|memory"},
 		{ "output-dir",		0,   0, G_OPTION_ARG_STRING,	&output_dir,	"Where to write media files to",	"PATH"		},
 		{ "output-pattern",	0,   0, G_OPTION_ARG_STRING,	&output_pattern,"File name pattern for recordings",	"STRING"	},
 		{ "output-format",	0,   0, G_OPTION_ARG_STRING,	&output_format,	"Write audio files of this type",	"wav|mp3|none"	},
@@ -256,6 +263,11 @@ static void options(int *argc, char ***argv) {
 		{ "s3-secret-key", 	0,   0, G_OPTION_ARG_STRING,	&s3_secret_key,	"Secret key for S3 authentication",	"STRING"	},
 		{ "s3-region", 		0,   0, G_OPTION_ARG_STRING,	&s3_region,	"Region configuration for S3 storage",	"STRING"	},
 		{ "s3-no-verify", 	0,   0, G_OPTION_ARG_NONE,	&s3_nverify,	"Disable TLS verification for S3",	NULL		},
+		{ "gcs-uri", 		0,   0, G_OPTION_ARG_STRING,	&gcs_uri,	"URI for GCS uploads",			"STRING"	},
+		{ "gcs-key",		0,   0, G_OPTION_ARG_STRING,	&gcs_key,	"API key for GCS uploads",		"STRING"	},
+		{ "gcs-service-account", 0,   0, G_OPTION_ARG_FILENAME,	&gcs_service_account,"Service account JSON file for GCS JWT authentication","FILE"	},
+		{ "gcs-scope", 		0,   0, G_OPTION_ARG_STRING,	&gcs_scope,	"Scope for GCS JWT authentication",	"STRING"	},
+		{ "gcs-no-verify", 	0,   0, G_OPTION_ARG_NONE,	&gcs_nverify,	"Disable TLS verification for GCS",	NULL		},
 		{ NULL, }
 	};
 
@@ -303,6 +315,8 @@ static void options(int *argc, char ***argv) {
 #endif
 		else if (!strcmp(*iter, "s3"))
 			output_storage |= OUTPUT_STORAGE_S3;
+		else if (!strcmp(*iter, "gcs"))
+			output_storage |= OUTPUT_STORAGE_GCS;
 		else if (!strcmp(*iter, "db"))
 			output_storage |= OUTPUT_STORAGE_DB;
 		else if (!strcmp(*iter, "db-mem"))
@@ -332,6 +346,8 @@ static void options(int *argc, char ***argv) {
 		die("Notify storage is enabled but notify URI is not set");
 	if ((output_storage & OUTPUT_STORAGE_S3) && (!s3_host || !s3_access_key || !s3_secret_key || !s3_path || !s3_region))
 		die("S3 storage is enabled but S3 config is incomplete");
+	if ((output_storage & OUTPUT_STORAGE_GCS) && !gcs_uri)
+		die("GCS storage is enabled but GCS config is incomplete");
 
 	if ((output_storage & OUTPUT_STORAGE_MASK) == 0) {
 		if (output_mixed || output_single)
@@ -376,6 +392,9 @@ static void options(int *argc, char ***argv) {
 
 	if (notify_purge && (output_storage & OUTPUT_STORAGE_FILE))
 		output_storage &= ~OUTPUT_STORAGE_FILE;
+
+	if (!gcs_scope || !gcs_scope[0])
+		gcs_scope = g_strdup("https://www.googleapis.com/auth/cloud-platform");
 
 	if (!mix_method_str || !mix_method_str[0] || !strcmp(mix_method_str, "direct"))
 		mix_method = MM_DIRECT;
@@ -474,6 +493,7 @@ int main(int argc, char **argv) {
 	if (decoding_enabled)
 		codeclib_free();
 
+	gcs_shutdown();
 	cleanup();
 	log_free();
 	options_free();

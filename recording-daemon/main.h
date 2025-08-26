@@ -12,6 +12,7 @@ enum output_storage_enum {
 	OUTPUT_STORAGE_DB = 0x2,
 	OUTPUT_STORAGE_NOTIFY = 0x4,
 	OUTPUT_STORAGE_S3 = 0x8,
+	OUTPUT_STORAGE_GCS = 0x10,
 
 	OUTPUT_STORAGE_MASK = 0xff,
 
@@ -66,6 +67,11 @@ extern char *s3_access_key;
 extern char *s3_secret_key;
 extern char *s3_region;
 extern gboolean s3_nverify;
+extern char *gcs_uri;
+extern char *gcs_key;
+extern char *gcs_service_account;
+extern char *gcs_scope;
+extern gboolean gcs_nverify;
 
 extern struct rtpengine_common_config rtpe_common_config;
 

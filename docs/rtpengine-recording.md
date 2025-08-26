@@ -138,7 +138,7 @@ sufficient for a standard installation of rtpengine.
     Points to the shared object file (__.so__) containing the reference
     implementation for the EVS codec. See the `README` for more details.
 
-- __\-\-output-storage=file__\|__db__\|__memory__\|__notify__\|__s3__\|__none__
+- __\-\-output-storage=file__\|__db__\|__memory__\|__notify__\|__s3__\|__gcs__\|__none__
 
     Where to store media files. This option can be given multiple times (or, in
     the config file, using a comma-separated list) to enable multiple storage
@@ -170,6 +170,9 @@ sufficient for a standard installation of rtpengine.
     The __s3__ storage option enables upload to an S3-compatible service via
     HTTPS, for example to AWS or MiniO. See the related option below for
     configuration.
+
+    Use the __gcs__ storage option to enable uploads to Google Cloud Storage or
+    a compatible service. See the related options below.
 
 - __\-\-output-dir=__*PATH*
 
@@ -441,6 +444,33 @@ sufficient for a standard installation of rtpengine.
 
     TLS certificates are verified by default, unless the `no-verify` option is
     set.
+
+- __\-\-gcs-uri=__*URI*
+- __\-\-gcs-key=__*STR*
+- __\-\-gcs-service-account=__*FILE*
+- __\-\-gcs-scope=__*STR*
+- __\-\-gcs-no-verify__
+
+    Configure these settings to use GCS storage. At least the URI and an
+    authentication method must be set.
+
+    The __gcs-uri__ must point to the full URI to post uploads to. Typically it
+    would contain the name of the storage bucket. The URI must not contain a
+    query string (i.e. no `?`). For example:
+    `https://storage.googleapis.com/upload/storage/v1/b/examplebucket/o`
+
+    For authentication, either an API key must be provided via __gcs-key__, or
+    OAuth2 authentication via a service account file must be configured.
+
+    To use OAuth2/JWT authentication, the __gcs-service-account__ setting must
+    point to a service account file in JSON format. This file should at least
+    contain a `client_email`, a `private_key` in RSA/PEM format, and a
+    `token_uri`. The authentication scope defaults to
+    `https://www.googleapis.com/auth/cloud-platform` but can be changed via
+    __gcs-scope__.
+
+    Set __gcs-no-verify__ to disable TLS certificate verification. Note that
+    this only applies to uploads themselves, not to OAuth2 requests.
 
 ## EXIT STATUS
 

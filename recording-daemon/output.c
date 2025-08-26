@@ -15,6 +15,7 @@
 #include "resample.h"
 #include "fix_frame_channel_layout.h"
 #include "s3.h"
+#include "gcs.h"
 
 
 #define DEFAULT_AVIO_BUFSIZE 4096
@@ -676,6 +677,7 @@ void output_close(metafile_t *mf, output_t *output, tag_t *tag, bool discard) {
 			db_close_stream(output);
 			notify_push_output(output, mf, tag);
 			s3_store(output, mf);
+			gcs_store(output, mf);
 		}
 		else
 			db_delete_stream(mf, output);
