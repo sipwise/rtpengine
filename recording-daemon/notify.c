@@ -301,8 +301,6 @@ void notify_setup(void) {
 }
 
 void notify_cleanup(void) {
-	if (notify_threadpool)
-		g_thread_pool_free(notify_threadpool, true, false);
 	if (notify_waiter && notify_timers) {
 		// get lock, free GTree, signal thread to shut down
 		pthread_mutex_lock(&timer_lock);
@@ -311,6 +309,9 @@ void notify_cleanup(void) {
 		pthread_cond_signal(&timer_cond);
 		pthread_mutex_unlock(&timer_lock);
 	}
+	if (notify_threadpool)
+		g_thread_pool_free(notify_threadpool, true, false);
+	notify_threadpool = NULL;
 }
 
 __attribute__ ((format (printf, 2, 3)))

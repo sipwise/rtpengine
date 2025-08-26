@@ -166,9 +166,9 @@ static void wait_for_signal(void) {
 
 
 static void cleanup(void) {
-	notify_cleanup();
 	garbage_collect_all();
 	metafile_cleanup();
+	notify_cleanup();
 	inotify_cleanup();
 	epoll_cleanup();
 	mysql_library_end();
