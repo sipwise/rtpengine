@@ -1869,11 +1869,6 @@ static const char *avc_encoder_init(encoder_t *enc, const str *extra_opts) {
 	enc->avc.avcctx->time_base = (AVRational){1,enc->actual_format.clockrate};
 	enc->avc.avcctx->bit_rate = enc->bitrate;
 
-	enc->samples_per_frame = enc->actual_format.clockrate * enc->ptime / 1000;
-	if (enc->avc.avcctx->frame_size)
-		enc->samples_per_frame = enc->avc.avcctx->frame_size;
-	enc->samples_per_packet = enc->samples_per_frame;
-
 	if (enc->def->set_enc_options)
 		enc->def->set_enc_options(enc, extra_opts);
 
@@ -1882,6 +1877,13 @@ static const char *avc_encoder_init(encoder_t *enc, const str *extra_opts) {
 		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error returned from libav: %s", av_error(i));
 		return "failed to open output context";
 	}
+
+	if (enc->avc.avcctx->frame_size)
+		enc->samples_per_frame = enc->avc.avcctx->frame_size;
+	else
+		enc->samples_per_frame = enc->actual_format.clockrate * enc->ptime / 1000;
+
+	enc->samples_per_packet = enc->samples_per_frame;
 
 	return NULL;
 }
