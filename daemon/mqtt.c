@@ -384,7 +384,7 @@ static void mqtt_stream_stats(struct packet_stream *ps, JsonBuilder *json) {
 
 
 static void mqtt_media_stats(struct call_media *media, JsonBuilder *json) {
-	media_update_stats(media);
+	media_update_stats(media, NULL);
 
 	json_builder_set_member_name(json, "media_index");
 	json_builder_add_int_value(json, media->index);

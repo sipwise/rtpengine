@@ -1573,7 +1573,7 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out,
 			ps = rtcp_ps;
 	}
 
-	media_update_stats(media);
+	media_update_stats(media, locked);
 
 	if (ps != locked)
 		mutex_lock(&ps->lock);
@@ -1623,7 +1623,7 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out,
 		struct packet_stream *sink = sh->sink;
 		struct call_media *other_media = sink->media;
 
-		media_update_stats(other_media);
+		media_update_stats(other_media, locked);
 
 		ssrc_sender_report(other_media, &ssr, &rtpe_now);
 		for (GList *k = srrs.head; k; k = k->next) {

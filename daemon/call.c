@@ -231,7 +231,7 @@ next:
 	for (it = c->medias.head; it; it = it->next) {
 		struct call_media *media = it->data;
 		if (rtpe_config.measure_rtp) {
-			media_update_stats(media);
+			media_update_stats(media, NULL);
 			ssrc_collect_metrics(media);
 		}
 		if (ML_ISSET(media->monologue, TRANSCODING))

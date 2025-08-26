@@ -1860,10 +1860,8 @@ static void __stream_consume_stats(struct packet_stream *ps, const struct rtpeng
 }
 
 
-// called with master_lock hekd
+// called with master_lock held and ps->lock held
 static void __stream_update_stats(struct packet_stream *ps) {
-	LOCK(&ps->lock);
-
 	struct rtpengine_command_stats stats_info;
 	__re_address_translate_ep(&stats_info.local, &ps->selected_sfd->socket.local);
 	if (kernel_update_stats(&stats_info))
@@ -1939,7 +1937,7 @@ void unkernelize(struct packet_stream *ps, const char *reason) {
 }
 
 // master lock held in R
-void media_update_stats(struct call_media *m) {
+void media_update_stats(struct call_media *m, const struct packet_stream *locked) {
 	if (!proto_is_rtp(m->protocol))
 		return;
 	if (!kernel.is_open)
@@ -1956,7 +1954,13 @@ void media_update_stats(struct call_media *m) {
 		if (!ps->selected_sfd)
 			continue;
 
+		if (ps != locked)
+			mutex_lock(&ps->lock);
+
 		__stream_update_stats(ps);
+
+		if (ps != locked)
+			mutex_unlock(&ps->lock);
 	}
 }
 
