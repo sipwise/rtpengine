@@ -402,14 +402,14 @@ static int send_hepv3 (GString *s, const str *id, int capt_id, const endpoint_t 
     /* TIMESTAMP SEC */
     hg->time_sec.chunk.vendor_id = htons(0x0000);
     hg->time_sec.chunk.type_id   = htons(0x0009);
-    hg->time_sec.data = tv / 1000000;
+    hg->time_sec.data = htonl(tv / 1000000);
     hg->time_sec.chunk.length = htons(sizeof(hg->time_sec));
 
 
     /* TIMESTAMP USEC */
     hg->time_usec.chunk.vendor_id = htons(0x0000);
     hg->time_usec.chunk.type_id   = htons(0x000a);
-    hg->time_usec.data = tv % 1000000;
+    hg->time_usec.data = htonl(tv % 1000000);
     hg->time_usec.chunk.length = htons(sizeof(hg->time_usec));
 
     /* Protocol TYPE */
