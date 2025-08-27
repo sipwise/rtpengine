@@ -3336,6 +3336,8 @@ void stream_fd_release(stream_fd *sfd) {
 	if (sfd->socket.fd == -1)
 		return;
 
+	dtls_connection_cleanup(&sfd->dtls);
+
 	{
 		RWLOCK_W(&local_media_socket_endpoints_lock);
 		stream_fd *ent = t_hash_table_lookup(local_media_socket_endpoints, &sfd->socket.local);
