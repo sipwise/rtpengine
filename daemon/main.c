@@ -1985,6 +1985,7 @@ int main(int argc, char **argv) {
 #endif
 			poller_free(&rtpe_pollers[idx]);
 	g_free(rtpe_pollers);
+	release_closed_sockets();
 	interfaces_free();
 #ifndef WITHOUT_NFTABLES
 	nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
