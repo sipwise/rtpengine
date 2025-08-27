@@ -141,23 +141,24 @@ bool poller_add_item(struct poller *p, struct poller_item *i) {
 
 bool poller_del_item_callback(struct poller *p, int fd, void (*callback)(void *), void *arg) {
 	struct poller_item_int *it;
+	bool ret = false;
 
 	if (!p || fd < 0)
-		return false;
+		goto out;
 
 	{
 
 	LOCK(&p->lock);
 
 	if (!p->items) // can happen during shutdown/free only
-		return false;
+		goto out;
 	if (fd >= p->items->len)
-		return false;
+		goto out;
 	if (!(it = p->items->pdata[fd]))
-		return false;
+		goto out;
 
 	if (epoll_ctl(p->fd, EPOLL_CTL_DEL, fd, NULL))
-		return false;
+		goto out;
 
 	p->items->pdata[fd] = NULL; /* stealing the ref */
 
@@ -165,12 +166,15 @@ bool poller_del_item_callback(struct poller *p, int fd, void (*callback)(void *)
 
 	obj_put(it);
 
+	ret = true;
+
+out:
 	if (callback)
 		callback(arg);
 	else
 		close(fd);
 
-	return true;
+	return ret;
 }
 bool poller_del_item(struct poller *p, int fd) {
 	return poller_del_item_callback(p, fd, NULL, NULL);
