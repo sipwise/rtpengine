@@ -1524,6 +1524,10 @@ void call_ng_extmap_flags(const ng_parser_t *parser, str *key, parser_arg value,
 		case CSH_LOOKUP("strip"):
 			call_ng_flags_str_list(parser, value, call_ng_flags_str_ht, &out->rtpext_strip);
 			break;
+
+		case CSH_LOOKUP("mask"):
+			call_ng_flags_str_list(parser, value, call_ng_flags_str_ht, &out->rtpext_mask);
+			break;
 	}
 }
 

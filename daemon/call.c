@@ -2862,14 +2862,53 @@ static void media_set_siprec_label(struct call_media *other_media, struct call_m
 }
 
 __attribute__((nonnull(1)))
-static void media_reset_extmap(struct call_media *media) {
-	// empty out old queue
-	t_queue_clear_full(&media->extmap, rtp_extension_free);
-
-	t_hash_table_remove_all(media->ext_name_ht);
-	t_hash_table_remove_all(media->extmap_ht);
+static void media_reset_extmap(struct call_media *media,
+		bool (*exclude)(struct rtp_extension *))
+{
+	// reset basic table
 	memset(media->extmap_a, 0, sizeof(media->extmap_a));
 	media->extmap_lookup = call_media_ext_lookup_array;
+
+	if (!exclude) {
+		// shortcut, reset everything
+		t_queue_clear_full(&media->extmap, rtp_extension_free);
+
+		t_hash_table_remove_all(media->ext_name_ht);
+		t_hash_table_remove_all(media->extmap_ht);
+
+		return;
+	}
+
+	// empty out old queue
+	__auto_type ele = media->extmap.head;
+	while (ele) {
+		__auto_type ext = ele->data;
+
+		if (exclude(ext)) {
+			// return to table, check lookup function
+			if (ext->id > 0 && ext->id <= 14)
+				media->extmap_a[ext->id - 1] = ext;
+			else
+				media->extmap_lookup = call_media_ext_lookup_ht;
+
+			ele = ele->next;
+			continue;
+		}
+
+		// remove from tables
+		t_hash_table_remove(media->ext_name_ht, &ext->name);
+		t_hash_table_remove(media->extmap_ht, GUINT_TO_POINTER(ext->id));
+
+		if (ext->id > 0 && ext->id <= 14)
+			media->extmap_a[ext->id - 1] = NULL;
+
+		// remove from list and free
+		__auto_type next = ele->next;
+		t_queue_delete_link(&media->extmap, ele);
+		ele = next;
+
+		rtp_extension_free(ext);
+	}
 }
 
 __attribute__((nonnull(1, 2)))
@@ -2897,8 +2936,33 @@ static bool media_extmap_strip(const str *name, const struct sdp_ng_flags *flags
 }
 
 __attribute__((nonnull(1, 2)))
-static void media_update_extmap(struct call_media *media, struct stream_params *sp) {
-	media_reset_extmap(media);
+static bool media_extmap_strip_mask(const str *name, const struct sdp_ng_flags *flags) {
+	if (!media_extmap_strip(name, flags))
+		return false;
+	if (t_hash_table_is_set(flags->rtpext_mask)) {
+		if (t_hash_table_lookup(flags->rtpext_mask, STR_PTR("all")))
+			return false;
+		if (t_hash_table_lookup(flags->rtpext_mask, name))
+			return false;
+	}
+	return true;
+}
+
+__attribute__((nonnull(1, 2)))
+static void media_extmap_accept(struct rtp_extension *ext, const struct sdp_ng_flags *flags) {
+	if (t_hash_table_is_set(flags->rtpext_mask)) {
+		if (t_hash_table_lookup(flags->rtpext_mask, &ext->name)
+				|| t_hash_table_lookup(flags->rtpext_mask, STR_PTR("all")))
+			ext->accepted = true;
+	}
+}
+
+__attribute__((nonnull(1, 2, 4)))
+static void media_update_extmap(struct call_media *media, struct stream_params *sp,
+		void (*manip)(struct rtp_extension *, const struct sdp_ng_flags *),
+		const struct sdp_ng_flags *flags)
+{
+	media_reset_extmap(media, NULL);
 
 	// take over from `sp`
 	media->extmap = sp->extmap;
@@ -2909,14 +2973,24 @@ static void media_update_extmap(struct call_media *media, struct stream_params *
 		__auto_type ext = ll->data;
 
 		media_init_extmap(media, ext);
+
+		if (manip)
+			manip(ext, flags);
 	}
+}
+
+__attribute__((nonnull(1)))
+static bool media_extmap_exclude_accepted(struct rtp_extension *ext) {
+	if (ext->accepted)
+		return true;
+	return false;
 }
 
 __attribute__((nonnull(1, 2, 4)))
 static void media_set_extmap(struct call_media *media, const extmap_q *emq,
 		bool (*manip)(const str *, const struct sdp_ng_flags *), const struct sdp_ng_flags *flags)
 {
-	media_reset_extmap(media);
+	media_reset_extmap(media, media_extmap_exclude_accepted);
 
 	// copy entries
 	for (__auto_type ll = emq->head; ll; ll = ll->next) {
@@ -3301,8 +3375,10 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		media_set_address_family(receiver_media, sender_media, flags);
 		media_set_ptime(sender_media, sp, flags->rev_ptime, flags->ptime);
 		media_set_ptime(receiver_media, sp, flags->ptime, flags->rev_ptime);
-		media_update_extmap(sender_media, sp);
-		media_set_extmap(receiver_media, &sender_media->extmap, media_extmap_strip, flags);
+		media_update_extmap(sender_media, sp,
+				flags->opmode == OP_OFFER ? media_extmap_accept : NULL, flags);
+		media_set_extmap(receiver_media, &sender_media->extmap,
+				flags->opmode == OP_OFFER ? media_extmap_strip_mask : media_extmap_strip, flags);
 
 		if (flags->opmode == OP_OFFER) {
 			ilog(LOG_DEBUG, "Setting media recording slots to %u", flags->media_rec_slot_offer);
@@ -3718,7 +3794,7 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		media_update_attrs(media, sp);
 		media_update_format(media, sp);
 		media_set_ptime(media, sp, flags->ptime, 0);
-		media_update_extmap(media, sp);
+		media_update_extmap(media, sp, NULL, flags);
 
 		codec_store_populate(&media->codecs, &sp->codecs,
 				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
@@ -3925,7 +4001,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 		media_update_crypto(dst_media, sp, flags);
 		media_update_format(dst_media, sp);
 		media_set_ptime(dst_media, sp, flags->ptime, 0);
-		media_update_extmap(dst_media, sp);
+		media_update_extmap(dst_media, sp, NULL, flags);
 
 		if (flags->allow_transcoding) {
 			codec_store_populate(&dst_media->codecs, &sp->codecs,

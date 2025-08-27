@@ -188,6 +188,11 @@ Optionally included keys are:
     appear in the SDP, usually an URI or an `ietf:` registered name. The string
     `all` can be given to strip all extensions.
 
+    The contained key `mask` lists header extensions that are to be removed
+    from an outgoing SDP, but are still accepted towards the sender of the
+    message. Using this mode, extensions are removed from the RTP header during
+    media forwarding. The string `all` can be given here as well.
+
     Example in string syntax: `extmap=[strip=[all]]`
 
 * `delay-buffer`

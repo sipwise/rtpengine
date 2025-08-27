@@ -46,6 +46,7 @@ struct ng_media {
 
 #define RTPE_NG_FLAGS_STR_CASE_HT_PARAMS \
 	X(rtpext_strip) \
+	X(rtpext_mask) \
 	X(codec_except) \
 	X(sdes_no)		/* individual crypto suites which are excluded */ \
 	X(sdes_only)		/* individual crypto suites which are only accepted */

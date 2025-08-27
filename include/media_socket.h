@@ -290,6 +290,7 @@ struct media_packet {
 struct rtp_extension {
 	unsigned int id;
 	str name; // urn:ietf:params:rtp- hdrext:... or URI
+	bool accepted:1;
 };
 
 static inline void rtp_extension_free(struct rtp_extension *r) {
