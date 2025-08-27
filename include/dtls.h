@@ -43,6 +43,8 @@ struct dtls_connection {
 	SSL *ssl;
 	BIO *r_bio, *w_bio;
 	struct packet_stream *ps;
+	endpoint_t fsin;
+	stream_fd *sfd;
 	unsigned char tls_id[16];
 	unsigned int init:1,
 	             active:1,
