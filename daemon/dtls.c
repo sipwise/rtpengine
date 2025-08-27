@@ -620,14 +620,14 @@ static long dtls_bio_callback(BIO *bio, int oper, const char *argp, size_t len, 
 	if (!argp || len <= 0)
 		return ret;
 
-	struct packet_stream *ps = (struct packet_stream *) BIO_get_callback_arg(bio);
+	struct dtls_connection *d = (struct dtls_connection *) BIO_get_callback_arg(bio);
+	if (!d)
+		return ret;
+	struct packet_stream *ps = d->ps;
 	if (!ps)
 		return ret;
 	struct stream_fd *sfd = ps->selected_sfd;
 	if (!sfd)
-		return ret;
-	struct dtls_connection *d = dtls_ptr(sfd);
-	if (!d)
 		return ret;
 
 	__DBG("dtls packet output: len %zu %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
@@ -702,7 +702,7 @@ int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, in
 		goto error;
 
 	BIO_set_callback_ex(d->w_bio, dtls_bio_callback);
-	BIO_set_callback_arg(d->w_bio, (char *) ps);
+	BIO_set_callback_arg(d->w_bio, (char *) d);
 
 #if defined(BIO_CTRL_DGRAM_SET_MTU)
 	BIO_ctrl(d->w_bio, BIO_CTRL_DGRAM_SET_MTU, rtpe_config.dtls_mtu, NULL);
