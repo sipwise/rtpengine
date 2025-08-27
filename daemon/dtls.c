@@ -626,7 +626,7 @@ static long dtls_bio_callback(BIO *bio, int oper, const char *argp, size_t len, 
 	struct packet_stream *ps = d->ps;
 	if (!ps)
 		return ret;
-	struct stream_fd *sfd = ps->selected_sfd;
+	struct stream_fd *sfd = d->sfd;
 	if (!sfd)
 		return ret;
 
@@ -637,7 +637,9 @@ static long dtls_bio_callback(BIO *bio, int oper, const char *argp, size_t len, 
 		argp[8], argp[9], argp[10], argp[11],
 		argp[12], argp[13], argp[14], argp[15]);
 
-	const endpoint_t *fsin = &ps->endpoint;
+	const endpoint_t *fsin = &d->fsin;
+	if (fsin->address.family == NULL)
+		fsin = &ps->endpoint;
 	if (fsin->port == 9 || fsin->address.family == NULL)
 		return ret;
 
@@ -865,6 +867,11 @@ int dtls(stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 	if (!d->init || !d->ssl)
 		return -1;
 
+	// used by the BIO callback
+	d->fsin = fsin ? *fsin : (endpoint_t) {0};
+	obj_release(d->sfd);
+	d->sfd = obj_get(sfd);
+
 	if (s) {
 		ilogs(srtp, LOG_DEBUG, "Processing incoming DTLS packet");
 		BIO_write(d->r_bio, s->s, s->len);
@@ -960,5 +967,6 @@ void dtls_connection_cleanup(struct dtls_connection *c) {
 		if (c->w_bio)
 			BIO_free(c->w_bio);
 	}
+	obj_release(c->sfd);
 	ZERO(*c);
 }
