@@ -42,7 +42,7 @@ struct dtls_connection {
 	SSL_CTX *ssl_ctx;
 	SSL *ssl;
 	BIO *r_bio, *w_bio;
-	void *ptr;
+	struct packet_stream *ps;
 	unsigned char tls_id[16];
 	unsigned int init:1,
 	             active:1,
