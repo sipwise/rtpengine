@@ -82,18 +82,23 @@ struct packet_handler_ctx {
 	// output:
 	struct media_packet mp; // passed to handlers
 };
+
+
+struct late_port_release;
+TYPED_GQUEUE(ports_release, struct late_port_release)
+
 struct late_port_release {
+	ports_release_list link;
 	socket_t socket;
 	struct port_pool *pp;
 	ports_q pp_links;
 };
+
 struct interface_stats_interval {
 	struct interface_stats_block stats;
 	int64_t last_run;
 };
 
-
-TYPED_GQUEUE(ports_release, struct late_port_release)
 
 /* thread scope (local) queue for sockets to be released, only appending here */
 static __thread ports_release_q ports_to_release = TYPED_GQUEUE_INIT;
@@ -1088,13 +1093,14 @@ static bool add_socket(socket_t *r, unsigned int port, struct intf_spec *spec, c
 static void release_port_push(void *p) {
 	struct late_port_release *lpr = p;
 	__C_DBG("Adding the port '%u' to late-release list", lpr->socket.local.port);
-	t_queue_push_tail(&ports_to_release, lpr);
+	t_queue_push_tail_link(&ports_to_release, &lpr->link);
 }
 static void release_port_poller(struct socket_port_link *spl, struct poller *poller) {
 	if (!spl->socket.local.port || spl->socket.fd == -1)
 		return;
 	struct late_port_release *lpr = g_new(__typeof(*lpr), 1);
 	move_socket(&lpr->socket, &spl->socket);
+	lpr->link = (ports_release_list) { .data = lpr };
 	lpr->pp = spl->pp;
 	lpr->pp_links = spl->links;
 	if (!poller)
@@ -1135,8 +1141,6 @@ static void release_port_now(socket_t *r, ports_q *list, struct port_pool *pp) {
  * Sockets releaser.
  */
 enum thread_looper_action release_closed_sockets(void) {
-	struct late_port_release * lpr;
-
 	/* for the separate releaser thread (one working with `sockets_releaser()`)
 	 * it does no job. But only for those threads related to calls processing.
 	 */
@@ -1149,7 +1153,9 @@ enum thread_looper_action release_closed_sockets(void) {
 		t_queue_init(&ports_to_release_glob);
 		mutex_unlock(&ports_to_release_glob_lock);
 
-		while ((lpr = t_queue_pop_head(&ports_left))) {
+		while (ports_left.length) {
+			__auto_type lpr_link = t_queue_pop_head_link(&ports_left);
+			__auto_type lpr = lpr_link->data;
 			release_port_now(&lpr->socket, &lpr->pp_links, lpr->pp);
 			g_free(lpr);
 		}
