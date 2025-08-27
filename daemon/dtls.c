@@ -490,7 +490,7 @@ static int verify_callback(int ok, X509_STORE_CTX *store) {
 	d = SSL_get_app_data(ssl);
 	if (d->ssl != ssl)
 		return 0;
-	ps = d->ptr;
+	ps = d->ps;
 	if (!ps)
 		return 0;
 	if (PS_ISSET(ps, FINGERPRINT_VERIFIED))
@@ -662,7 +662,7 @@ int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, in
 		dtls_connection_cleanup(d);
 	}
 
-	d->ptr = ps;
+	d->ps = ps;
 
 	ilogs(crypto, LOG_DEBUG, "Creating %s DTLS connection context", active ? "active" : "passive");
 
