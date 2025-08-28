@@ -2078,6 +2078,75 @@ const struct rtpext_printer rtpext_printer_copy = {
 };
 
 
+static size_t rtpext_printer_extmap_length(const struct media_packet *mp) {
+	if (mp->rtcp)
+		return 0;
+	if (!mp->extmap.length)
+		return 0;
+
+	__auto_type media = mp->media_out;
+	if (!media)
+		return 0;
+
+	size_t ret = media->extmap_ops->length(mp);
+
+	// pad to 32 bits
+	ret = (ret + 3) & ~3L;
+
+	return ret;
+}
+static size_t rtpext_printer_extmap_print(struct rtp_header *rh, void *dst, const struct media_packet *mp) {
+	rh->v_p_x_cc &= ~0x10;
+
+	if (mp->rtcp)
+		return 0;
+	if (!mp->extmap.length)
+		return 0;
+
+	__auto_type media = mp->media_out;
+	if (!media)
+		return 0;
+
+	void *header = dst;
+	dst += 4; // fixed size header
+	void *first = dst;
+
+	for (__auto_type l = mp->extmap.head; l; l = l->next) {
+		__auto_type ext = l->data;
+		size_t len = media->extmap_ops->print(dst, ext);
+		dst += len;
+	}
+
+	if (dst == first)
+		return 0; // nothing was printed
+
+	// header
+	media->extmap_ops->header(header);
+	rh->v_p_x_cc |= 0x10;
+
+	// total length
+	size_t size = dst - header;
+
+	// round up to 32 bits
+	size_t padded = (size + 3) & ~3L;
+
+	// null out padding
+	memset(dst, 0, padded - size);
+
+	// put length header
+	uint16_t *lp = header + 2;
+	*lp = htons(padded / 4 - 1);
+
+	return padded;
+}
+
+static const struct rtpext_printer rtpext_printer_extmap = {
+	.length = rtpext_printer_extmap_length,
+	.print = rtpext_printer_extmap_print,
+	.may_copy = false,
+};
+
+
 
 static bool extmap_short_is_valid(const struct rtp_extension_data *ext) {
 	// valid ranges for short form?
@@ -2102,6 +2171,9 @@ size_t extmap_length_short(const struct media_packet *mp) {
 		ret++; // 1-byte header
 		ret += ext->content.len;
 	}
+
+	if (ret == 4)
+		return 0; // nothing left
 
 	return ret;
 }
@@ -2164,7 +2236,10 @@ static void __determine_rtpext_handler(struct call_media *in, struct call_media 
 	if (!sh || !out)
 		return;
 
-	sh->rtpext = &rtpext_printer_copy;
+	if (in->extmap.length || out->extmap.length)
+		sh->rtpext = &rtpext_printer_extmap;
+	else
+		sh->rtpext = &rtpext_printer_copy;
 }
 
 
