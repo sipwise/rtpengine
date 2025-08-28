@@ -789,6 +789,7 @@ static void media_player_cache_packet(struct media_player_cache_entry *entry, ch
 	struct media_packet packet = {
 		.rtp = &rtp,
 		.cache_entry = entry,
+		.sink = { .rtpext = &rtpext_printer_copy },
 	};
 	packet.raw = STR_LEN(buf, len);
 	packet.payload = packet.raw;

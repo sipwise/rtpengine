@@ -254,6 +254,11 @@ struct sink_attrs {
 	bool egress:1;
 };
 
+struct rtpext_printer {
+	size_t (*length)(const struct media_packet *);
+	size_t (*print)(struct rtp_header *, void *dst, const struct media_packet *);
+};
+
 /**
  * During actual packet handling and forwarding,
  * only the sink_handler objects (and the packet_stream objects they are related to) are used.
@@ -263,7 +268,12 @@ struct sink_handler {
 	const struct streamhandler *handler;
 	int kernel_output_idx;
 	struct sink_attrs attrs;
+	const struct rtpext_printer *rtpext;
 };
+
+
+extern const struct rtpext_printer rtpext_printer_copy; // also acts as a dummy printer
+
 
 TYPED_GQUEUE(extmap_data, struct rtp_extension_data);
 

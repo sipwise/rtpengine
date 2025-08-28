@@ -2053,6 +2053,31 @@ void unkernelize(struct packet_stream *ps, const char *reason) {
 }
 
 
+
+static size_t rtpext_printer_copy_length(const struct media_packet *mp) {
+	if (mp->rtcp)
+		return 0;
+	return mp->extensions.len;
+}
+static size_t rtpext_printer_copy_print(struct rtp_header *rh, void *dst, const struct media_packet *mp) {
+	if (!mp->extensions.len)
+		return 0;
+	if (mp->rtcp)
+		return 0;
+
+	rh->v_p_x_cc |= 0x10;
+	memcpy(dst, mp->extensions.s, mp->extensions.len);
+
+	return mp->extensions.len;
+}
+
+const struct rtpext_printer rtpext_printer_copy = {
+	.length = rtpext_printer_copy_length,
+	.print = rtpext_printer_copy_print,
+};
+
+
+
 // `out_media` can be NULL XXX streamline this to remove this exception
 const struct streamhandler *determine_handler(const struct transport_protocol *in_proto,
 		struct call_media *out_media, bool must_recrypt)
@@ -2087,8 +2112,18 @@ err:
 }
 
 
+__attribute__((nonnull(1)))
+static void __determine_rtpext_handler(struct call_media *in, struct call_media *out, struct sink_handler *sh) {
+	if (!sh || !out)
+		return;
+
+	sh->rtpext = &rtpext_printer_copy;
+}
+
+
 // sh->sink must be set
 void sink_handler_set_generic(struct sink_handler *sh) {
+	sh->rtpext = &rtpext_printer_copy;
 	sh->handler = determine_handler(&transport_protocols[PROTO_RTP_AVP], sh->sink->media, true);
 }
 
@@ -2106,8 +2141,11 @@ const struct streamhandler *determine_sink_handler(struct packet_stream *in, str
 	if (MEDIA_ISSET(in->media, PASSTHRU))
 		goto noop;
 
-	in_proto = in->media->protocol;
-	out_proto = out ? out->media->protocol : NULL;
+	__auto_type media_in = in->media;
+	__auto_type media_out = out ? out->media : NULL;
+
+	in_proto = media_in->protocol;
+	out_proto = media_out ? media_out->protocol : NULL;
 
 	if (!in_proto)
 		goto err;
@@ -2135,14 +2173,20 @@ const struct streamhandler *determine_sink_handler(struct packet_stream *in, str
 	ret = determine_handler(in_proto, out ? out->media : NULL, must_recrypt);
 	if (sh)
 		sh->handler = ret;
+
+	__determine_rtpext_handler(media_in, media_out, sh);
+
 	return ret;
 
 err:
 	ilog(LOG_WARNING, "Unknown transport protocol encountered");
 noop:
 	ret = &__sh_noop;
-	if (sh)
+	if (sh) {
 		sh->handler = ret;
+		sh->rtpext = &rtpext_printer_copy;
+	}
+
 	return ret;
 }
 

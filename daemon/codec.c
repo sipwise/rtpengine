@@ -2460,17 +2460,13 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 	rh->timestamp = htonl(ts);
 	rh->ssrc = htonl(ssrc_out->h.ssrc);
 
-	if (mp->extensions.len) {
-		rh->v_p_x_cc |= 0x10;
-		char *exts = buf + sizeof(*rh);
-		memcpy(exts, mp->extensions.s, mp->extensions.len);
-	}
+	size_t ext_len = mp->sink.rtpext->print(rh, buf + sizeof(*rh), mp);
 
 	// add to output queue
 	struct codec_packet *p = g_new0(__typeof(*p), 1);
 	p->link.data = p;
 	p->s.s = buf;
-	p->s.len = payload_len + sizeof(struct rtp_header) + mp->extensions.len;
+	p->s.len = payload_len + sizeof(struct rtp_header) + ext_len;
 	payload_tracker_add(&ssrc_out->tracker, handler->dest_pt.payload_type);
 	p->free_func = bufferpool_unref;
 	p->ttq_entry.source = handler;
@@ -4541,11 +4537,12 @@ void packet_encoded_packetize(AVPacket *pkt, struct codec_ssrc_handler *ch, stru
 		// figure out how big of a buffer we need
 		size_t payload_len = MAX(MAX(pkt->size, ch->bytes_per_packet),
 				sizeof(struct telephone_event_payload));
-		size_t payload_ext_len = payload_len + mp->extensions.len;
+		size_t ext_len = mp->sink.rtpext->length(mp);
+		size_t payload_ext_len = payload_len + ext_len;
 		size_t pkt_len = sizeof(struct rtp_header) + payload_ext_len + RTP_BUFFER_TAIL_ROOM;
 		// prepare our buffers
 		char *buf = bufferpool_alloc(media_bufferpool, pkt_len);
-		char *payload = buf + sizeof(struct rtp_header) + mp->extensions.len;
+		char *payload = buf + sizeof(struct rtp_header) + ext_len;
 		// tell our packetizer how much we want
 		str inout = STR_LEN(payload, payload_len);
 		// and request a packet
