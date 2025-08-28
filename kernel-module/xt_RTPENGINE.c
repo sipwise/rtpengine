@@ -5153,7 +5153,7 @@ static void parse_rtp(struct rtp_parsed *rtp, struct sk_buff *skb) {
 		if (rtp->payload_len < sizeof(*ext))
 			goto error;
 		ext = (void *) rtp->payload;
-		ext_len = sizeof(*ext) + 4 + ntohs(ext->length) * 4;
+		ext_len = sizeof(*ext) + ntohs(ext->length) * 4;
 		if (rtp->payload_len < ext_len)
 			goto error;
 		rtp->payload += ext_len;
