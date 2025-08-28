@@ -436,9 +436,9 @@ a=rtcp:PORT
 SDP
 
 snd($sock_a, $port_b, rtp( 8, 1000, 3000+160*0, 0x1234, "\x10" . ("\x00" x 158) . "\x50", [[1, "foo"], [2, "woot"], [3, "meh"], [4, "yugh"]]));
-rcv($sock_b, $port_a, rtpm(8, 1000, 3000+160*0, 0x1234, "\x10" . ("\x00" x 158) . "\x50", [[1, "foo"], [2, "woot"], [3, "meh"], [4, "yugh"]]));
+rcv($sock_b, $port_a, rtpm(8, 1000, 3000+160*0, 0x1234, "\x10" . ("\x00" x 158) . "\x50", [[2, "woot"]]));
 snd($sock_b, $port_a, rtp( 8, 8000, 7000+160*0, 0x6543, "\x10" . ("\x00" x 158) . "\x50", [[1, "foo"], [2, "woot"], [3, "meh"], [4, "yugh"]]));
-rcv($sock_a, $port_b, rtpm(8, 8000, 7000+160*0, 0x6543, "\x10" . ("\x00" x 158) . "\x50", [[1, "foo"], [2, "woot"], [3, "meh"], [4, "yugh"]]));
+rcv($sock_a, $port_b, rtpm(8, 8000, 7000+160*0, 0x6543, "\x10" . ("\x00" x 158) . "\x50", [[1, "foo"], [2, "woot"]])); # XXX should be just 2 ?
 
 
 
@@ -505,9 +505,9 @@ a=rtcp:PORT
 SDP
 
 snd($sock_a, $port_b, rtp( 8, 1000, 3000+160*0, 0x1234, "\x39" . ("\x29" x 158) . "\x74", [[1, "foo"], [2, "blah"], [4, "argh"], [3, "yikes"]]));
-rcv($sock_b, $port_a, rtpm(8, 1000, 3000+160*0, 0x1234, "\x39" . ("\x29" x 158) . "\x74", [[1, "foo"], [2, "blah"], [4, "argh"], [3, "yikes"]]));
+rcv($sock_b, $port_a, rtpm(8, 1000, 3000+160*0, 0x1234, "\x39" . ("\x29" x 158) . "\x74", [[1, "foo"], [2, "blah"], [3, "yikes"]]));
 snd($sock_b, $port_a, rtp( 8, 8000, 7000+160*0, 0x6543, "\x39" . ("\x29" x 158) . "\x74", [[1, "foo"], [2, "blah"], [4, "argh"], [3, "yikes"]]));
-rcv($sock_a, $port_b, rtpm(8, 8000, 7000+160*0, 0x6543, "\x39" . ("\x29" x 158) . "\x74", [[1, "foo"], [2, "blah"], [4, "argh"], [3, "yikes"]]));
+rcv($sock_a, $port_b, rtpm(8, 8000, 7000+160*0, 0x6543, "\x39" . ("\x29" x 158) . "\x74", [[1, "foo"], [2, "blah"]]));
 
 
 

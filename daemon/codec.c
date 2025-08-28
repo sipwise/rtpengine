@@ -2152,12 +2152,22 @@ static void codec_add_raw_packet_dup(struct media_packet *mp, unsigned int clock
 	// don't just duplicate the string. need to ensure enough room
 	// if encryption is enabled on this stream
 	// or for RTP header extensions
-	size_t ext_len = mp->sink.rtpext->length(mp);
-	p->s.s = bufferpool_alloc(media_bufferpool, mp->raw.len + ext_len + RTP_BUFFER_TAIL_ROOM);
-	memcpy(p->s.s, mp->raw.s, mp->raw.len);
-	p->s.len = mp->raw.len;
+	if (mp->rtp) {
+		size_t ext_len = mp->sink.rtpext->length(mp);
+		size_t tot_len = sizeof(*mp->rtp) + ext_len + mp->payload.len;
+		p->s.s = bufferpool_alloc(media_bufferpool, tot_len + RTP_BUFFER_TAIL_ROOM);
+		p->s.len = tot_len;
+		p->rtp = (struct rtp_header *) p->s.s;
+		*p->rtp = *mp->rtp;
+		mp->sink.rtpext->print(p->rtp, p->s.s + sizeof(*p->rtp), mp);
+		memcpy(p->s.s + sizeof(*p->rtp) + ext_len, mp->payload.s, mp->payload.len);
+	}
+	else {
+		p->s.s = bufferpool_alloc(media_bufferpool, mp->raw.len + RTP_BUFFER_TAIL_ROOM);
+		memcpy(p->s.s, mp->raw.s, mp->raw.len);
+		p->s.len = mp->raw.len;
+	}
 	p->free_func = bufferpool_unref;
-	p->rtp = (struct rtp_header *) p->s.s;
 	codec_add_raw_packet_common(mp, clockrate, p);
 }
 
