@@ -50,7 +50,7 @@ BuildRequires:	pkgconfig(libmnl) pkgconfig(libnftnl) pandoc ncurses-devel
 BuildRequires:	pkgconfig(libiptc)
 %endif
 
-if 0%{?with_transcoding} > 0
+%if 0%{?with_transcoding} > 0
 BuildRequires:	ffmpeg-devel
 Requires(pre):	ffmpeg-libs
 %endif
