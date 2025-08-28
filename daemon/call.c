@@ -3831,36 +3831,24 @@ void call_destroy(call_t *c) {
 				(unsigned int) (rtpe_now.tv_sec - ml->created) % 60,
 				STR_FMT_M(&ml->viabranch));
 
-		for (unsigned int i = 0; i < ml->medias->len; i++)
-		{
-			struct call_media *media = ml->medias->pdata[i];
-			if (!media)
-				continue;
-			for (__auto_type ll = media->media_subscriptions.head; ll; ll = ll->next)
-			{
-				struct media_subscription * ms = ll->data;
-				ilog(LOG_DEBUG, "---     subscribed to media with monologue tag '" STR_FORMAT_M "' (index: %d)",
-						STR_FMT_M(&ms->monologue->tag), ms->media->index);
-			}
-		}
-
-		for (unsigned int i = 0; i < ml->medias->len; i++)
-		{
-			struct call_media *media = ml->medias->pdata[i];
-			if (!media)
-				continue;
-			for (__auto_type ll = media->media_subscribers.head; ll; ll = ll->next)
-			{
-				struct media_subscription * ms = ll->data;
-				ilog(LOG_DEBUG, "---     subscription for media with monologue tag '" STR_FORMAT_M "' (index: %d)",
-						STR_FMT_M(&ms->monologue->tag), ms->media->index);
-			}
-		}
-
 		for (unsigned int m = 0; m < ml->medias->len; m++) {
 			md = ml->medias->pdata[m];
 			if (!md)
 				continue;
+
+			for (__auto_type ll = md->media_subscriptions.head; ll; ll = ll->next)
+			{
+				struct media_subscription * ms = ll->data;
+				ilog(LOG_INFO, "---     subscribed to media with monologue tag '" STR_FORMAT_M "' (index: %d)",
+						STR_FMT_M(&ms->monologue->tag), ms->media->index);
+			}
+
+			for (__auto_type ll = md->media_subscribers.head; ll; ll = ll->next)
+			{
+				struct media_subscription * ms = ll->data;
+				ilog(LOG_INFO, "---     subscription for media with monologue tag '" STR_FORMAT_M "' (index: %d)",
+						STR_FMT_M(&ms->monologue->tag), ms->media->index);
+			}
 
 			// stats output only - no cleanups
 
