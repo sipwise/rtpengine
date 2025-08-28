@@ -264,6 +264,9 @@ struct sink_handler {
 	int kernel_output_idx;
 	struct sink_attrs attrs;
 };
+
+TYPED_GQUEUE(extmap_data, struct rtp_extension_data);
+
 struct media_packet {
 	str raw;
 
@@ -282,6 +285,7 @@ struct media_packet {
 	struct ssrc_entry_call *ssrc_in, *ssrc_out; // SSRC contexts from in_srtp and out_srtp
 	str payload;
 	str extensions;
+	extmap_data_q extmap;
 
 	codec_packet_q packets_out;
 	int ptime; // returned from decoding
@@ -293,7 +297,16 @@ struct rtp_extension {
 	bool accepted:1;
 };
 
+struct rtp_extension_data {
+	extmap_data_list link;
+	struct rtp_extension *ext;
+	str content;
+};
+
 static inline void rtp_extension_free(struct rtp_extension *r) {
+	g_free(r);
+}
+static inline void rtp_ext_data_free(struct rtp_extension_data *r) {
 	g_free(r);
 }
 

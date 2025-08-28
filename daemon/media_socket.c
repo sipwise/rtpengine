@@ -2356,7 +2356,12 @@ static void media_packet_rtp_extension(struct packet_handler_ctx *phc, unsigned 
 	if (!ext)
 		return;
 
-	// stub
+	__auto_type edata = g_new0(struct rtp_extension_data, 1);
+	edata->ext = ext;
+	edata->link.data = edata;
+	edata->content = *data;
+
+	t_queue_push_tail_link(&phc->mp.extmap, &edata->link);
 }
 
 static void media_packet_rtp_extensions(struct packet_handler_ctx *phc) {
@@ -2801,6 +2806,7 @@ void media_packet_copy(struct media_packet *dst, const struct media_packet *src)
 	dst->payload = STR_NULL;
 	dst->raw = STR_NULL;
 	dst->extensions = STR_NULL;
+	t_queue_init(&dst->extmap);
 }
 void media_packet_release(struct media_packet *mp) {
 	obj_release(mp->sfd);
@@ -3194,8 +3200,13 @@ out:
 
 	media_socket_dequeue(&phc->mp, NULL); // just free
 	ssrc_entry_release(phc->mp.ssrc_out);
-
 	ssrc_entry_release(phc->mp.ssrc_in);
+
+	while (phc->mp.extmap.length) {
+		__auto_type l = t_queue_pop_head_link(&phc->mp.extmap);
+		rtp_ext_data_free(l->data);
+	}
+
 	rtcp_list_free(&phc->rtcp_list);
 	g_queue_clear_full(&free_list, bufferpool_unref);
 
