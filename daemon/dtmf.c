@@ -762,12 +762,14 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 			.ssrc_out = ssrc_out,
 			.raw = { (void *) &tep, sizeof(tep) },
 			.payload = { (void *) &tep, sizeof(tep) },
+			.sink = { .sink = sink_ps },
 		};
 
 		// keep track of how much PCM we've generated
 		uint64_t encoder_pts = codec_encoder_pts(csh, NULL);
 		uint64_t skip_pts = codec_decoder_unskip_pts(csh); // reset to zero to take up our new samples
 
+		determine_sink_handler(ps, &packet.sink);
 		ch->dtmf_injector->handler_func(ch->dtmf_injector, &packet);
 
 		// insert pause

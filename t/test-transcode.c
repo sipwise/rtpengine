@@ -75,11 +75,13 @@ static void __init(void) {
 	flags.codec_except = str_case_ht_new();
 	flags.codec_set = str_case_value_ht_new();
 }
-static struct packet_stream *ps_new(call_t *c) {
+static struct packet_stream *ps_new(struct call_media *m) {
 	struct packet_stream *ps = malloc(sizeof(*ps));
 	assert(ps != NULL);
 	memset(ps, 0, sizeof(*ps));
 	ps->endpoint.port = 12345;
+	ps->media = m;
+	ps->call = m->call;
 	return ps;
 }
 static void __start(const char *file, int line) {
@@ -98,8 +100,8 @@ static void __start(const char *file, int line) {
 	ml_B = __monologue_create(&call);
 	media_A = call_media_new(&call); // originator
 	media_B = call_media_new(&call); // output destination
-	t_queue_push_tail(&media_A->streams, ps_new(&call));
-	t_queue_push_tail(&media_B->streams, ps_new(&call));
+	t_queue_push_tail(&media_A->streams, ps_new(media_A));
+	t_queue_push_tail(&media_B->streams, ps_new(media_B));
 	ml_A->tag = STR("tag_A");
 	ml_A->label = STR("label_A");
 	media_A->monologue = ml_A;
@@ -264,7 +266,9 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 		.media_out = other_media,
 		.ssrc_in = get_ssrc(ssrc, &media->ssrc_hash_in),
 		.sfd = &sfd,
+		.sink = { .sink = other_media->streams.head->data },
 	};
+	determine_sink_handler(media->streams.head->data, &mp.sink);
 	// from __stream_ssrc()
 	if (!MEDIA_ISSET(media, TRANSCODING))
 		mp.ssrc_in->ssrc_map_out = ntohl(ssrc);

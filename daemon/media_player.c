@@ -1055,10 +1055,12 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 		.media_out = mp->media,
 		.rtp = &rtp,
 		.ssrc_out = mp->ssrc_out,
+		.sink = { .sink = mp->sink },
 	};
 	packet.raw = STR_LEN(buf, len);
 	packet.payload = packet.raw;
 
+	determine_sink_handler(mp->sink, &packet.sink);
 	mp->coder.handler->handler_func(mp->coder.handler, &packet);
 
 	// as this is timing sensitive and we may have spent some time decoding,
