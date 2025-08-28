@@ -257,6 +257,7 @@ struct sink_attrs {
 struct rtpext_printer {
 	size_t (*length)(const struct media_packet *);
 	size_t (*print)(struct rtp_header *, void *dst, const struct media_packet *);
+	bool may_copy;
 };
 
 /**

@@ -2074,6 +2074,7 @@ static size_t rtpext_printer_copy_print(struct rtp_header *rh, void *dst, const 
 const struct rtpext_printer rtpext_printer_copy = {
 	.length = rtpext_printer_copy_length,
 	.print = rtpext_printer_copy_print,
+	.may_copy = true,
 };
 
 

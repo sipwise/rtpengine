@@ -2145,27 +2145,36 @@ static void codec_add_raw_packet_common(struct media_packet *mp, unsigned int cl
 	}
 	t_queue_push_tail_link(&mp->packets_out, &p->link);
 }
-void codec_add_raw_packet(struct media_packet *mp, unsigned int clockrate) {
-	struct codec_packet *p = g_new0(__typeof(*p), 1);
-	p->link.data = p;
-	p->s = mp->raw;
-	p->free_func = NULL;
-	codec_add_raw_packet_common(mp, clockrate, p);
-}
-#ifdef WITH_TRANSCODING
+
 static void codec_add_raw_packet_dup(struct media_packet *mp, unsigned int clockrate) {
 	struct codec_packet *p = g_new0(__typeof(*p), 1);
 	p->link.data = p;
 	// don't just duplicate the string. need to ensure enough room
 	// if encryption is enabled on this stream
-	p->s.s = bufferpool_alloc(media_bufferpool, mp->raw.len + RTP_BUFFER_TAIL_ROOM);
+	// or for RTP header extensions
+	size_t ext_len = mp->sink.rtpext->length(mp);
+	p->s.s = bufferpool_alloc(media_bufferpool, mp->raw.len + ext_len + RTP_BUFFER_TAIL_ROOM);
 	memcpy(p->s.s, mp->raw.s, mp->raw.len);
 	p->s.len = mp->raw.len;
 	p->free_func = bufferpool_unref;
 	p->rtp = (struct rtp_header *) p->s.s;
 	codec_add_raw_packet_common(mp, clockrate, p);
 }
-#endif
+
+void codec_add_raw_packet(struct media_packet *mp, unsigned int clockrate) {
+	if (!mp->sink.rtpext->may_copy) {
+		codec_add_raw_packet_dup(mp, clockrate);
+		return;
+	}
+	struct codec_packet *p = g_new0(__typeof(*p), 1);
+	p->link.data = p;
+	p->s = mp->raw;
+	p->free_func = NULL;
+	codec_add_raw_packet_common(mp, clockrate, p);
+}
+
+
+
 static bool handler_silence_block(struct codec_handler *h, struct media_packet *mp) {
 	if (CALL_ISSET(mp->call, BLOCK_MEDIA) || ML_ISSET(mp->media->monologue, BLOCK_MEDIA) || mp->sink.attrs.block_media || MEDIA_ISSET(mp->media_out, BLOCK_EGRESS))
 		return false;
