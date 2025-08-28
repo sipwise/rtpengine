@@ -106,8 +106,6 @@ static __thread ports_release_q ports_to_release = TYPED_GQUEUE_INIT;
 static ports_release_q ports_to_release_glob = TYPED_GQUEUE_INIT;
 static mutex_t ports_to_release_glob_lock = MUTEX_STATIC_INIT;
 
-static const struct streamhandler *__determine_handler(struct packet_stream *in, struct sink_handler *);
-
 static int __k_null(struct rtpengine_srtp *s, struct packet_stream *);
 static int __k_srtp_encrypt(struct rtpengine_srtp *s, struct packet_stream *);
 static int __k_srtp_decrypt(struct rtpengine_srtp *s, struct packet_stream *);
@@ -1607,19 +1605,19 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 			|| MEDIA_ISSET(media, RTCP_GEN) || (mqtt_publish_scope() != MPS_NONE)) ? 1 : 0;
 
 	// Grab the first stream handler for our decryption function.
-	// __determine_handler is in charge of only returning a NULL decrypter if it is
+	// determine_sink_handler is in charge of only returning a NULL decrypter if it is
 	// in fact a pure passthrough for all sinks.
 	const struct streamhandler *handler = NULL;
 
 	for (__auto_type l = stream->rtp_sinks.head; l; l = l->next) {
-		handler = __determine_handler(stream, l->data);
+		handler = determine_sink_handler(stream, l->data);
 		if (handler)
 			break;
 	}
 
 	if (!handler) {
 		for (__auto_type l = stream->rtcp_sinks.head; l; l = l->next) {
-			handler = __determine_handler(stream, l->data);
+			handler = determine_sink_handler(stream, l->data);
 			if (handler)
 				break;
 		}
@@ -1758,7 +1756,7 @@ static const char *kernelize_one(kernelize_state *s,
 				FMT_M(endpoint_print_buf(&stream->endpoint)),
 				endpoint_print_buf(&stream->selected_sfd->socket.local));
 
-	const struct streamhandler *handler = __determine_handler(stream, sink_handler);
+	const struct streamhandler *handler = determine_sink_handler(stream, sink_handler);
 
 	if (!handler->out->kernel)
 		return "protocol not supported by kernel module";
@@ -2090,7 +2088,7 @@ err:
 
 /* must be called with call->master_lock held in R, and in->lock held */
 // `sh` can be null
-static const struct streamhandler *__determine_handler(struct packet_stream *in, struct sink_handler *sh) {
+const struct streamhandler *determine_sink_handler(struct packet_stream *in, struct sink_handler *sh) {
 	const struct transport_protocol *in_proto, *out_proto;
 	bool must_recrypt = false;
 	struct packet_stream *out = sh ? sh->sink : NULL;
@@ -2437,7 +2435,7 @@ static int media_packet_decrypt(struct packet_handler_ctx *phc)
 {
 	LOCK(&phc->in_srtp->lock);
 	struct sink_handler *first_sh = phc->sinks->length ? phc->sinks->head->data : NULL;
-	const struct streamhandler *sh = __determine_handler(phc->in_srtp, first_sh);
+	const struct streamhandler *sh = determine_sink_handler(phc->in_srtp, first_sh);
 
 	rewrite_arg header;
 	if (G_LIKELY(!phc->rtcp)) {
@@ -2469,7 +2467,7 @@ static int media_packet_decrypt(struct packet_handler_ctx *phc)
 static void media_packet_set_encrypt(struct packet_handler_ctx *phc, struct sink_handler *sh)
 {
 	LOCK(&phc->in_srtp->lock);
-	__determine_handler(phc->in_srtp, sh);
+	determine_sink_handler(phc->in_srtp, sh);
 
 	// XXX use an array with index instead of if/else
 	if (G_LIKELY(!phc->rtcp))

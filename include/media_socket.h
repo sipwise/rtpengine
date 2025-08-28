@@ -339,14 +339,28 @@ int __hunt_ssrc_ctx_idx(uint32_t ssrc, struct ssrc_entry_call *list[RTPE_NUM_SSR
 struct ssrc_entry_call *__hunt_ssrc_ctx(uint32_t ssrc, struct ssrc_entry_call *list[RTPE_NUM_SSRC_TRACKING],
 		unsigned int start_idx);
 
+__attribute__((nonnull(1, 2)))
 void media_packet_copy(struct media_packet *, const struct media_packet *);
+
+__attribute__((nonnull(1)))
 void media_packet_release(struct media_packet *);
+
+__attribute__((nonnull(1)))
 int media_socket_dequeue(struct media_packet *mp, struct packet_stream *sink);
+
+__attribute__((nonnull(1)))
+const struct streamhandler *determine_sink_handler(struct packet_stream *in, struct sink_handler *);
+
+__attribute__((nonnull(1)))
 const struct streamhandler *determine_handler(const struct transport_protocol *in_proto,
 		struct call_media *out_media, bool must_recrypt);
+
+__attribute__((nonnull(2, 3)))
 int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, struct media_packet *mp);
+
 const struct transport_protocol *transport_protocol(const str *s);
-//void play_buffered(struct packet_stream *sink, struct codec_packet *cp, int buffered);
+
+__attribute__((nonnull(1)))
 void play_buffered(struct jb_packet *cp);
 
 INLINE int proto_is_rtp(const struct transport_protocol *protocol) {
