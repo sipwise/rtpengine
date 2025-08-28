@@ -198,6 +198,8 @@ install -D -p -m644 etc/%{binname}-recording.conf \
 ## DKMS module source install
 install -D -p -m644 kernel-module/Makefile \
 	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/Makefile
+install -D -p -m755 kernel-module/gen-rtpengine-kmod-flags \
+	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/gen-rtpengine-kmod-flags
 install -D -p -m644 kernel-module/xt_RTPENGINE.c \
 	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/xt_RTPENGINE.c
 install -D -p -m644 kernel-module/xt_RTPENGINE.h \
