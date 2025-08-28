@@ -30,6 +30,9 @@ Conflicts:	%{name}-kernel < %{version}-%{release}
 BuildRequires: gcc make pkgconfig %{redhat_rpm_config}
 BuildRequires:	glib2-devel libcurl-devel openssl-devel pcre-devel
 BuildRequires:	zlib-devel hiredis-devel
+%if 0%{?has_systemd_dirs}
+BuildRequires:  systemd-devel
+%endif
 BuildRequires:	libpcap-devel libevent-devel json-glib-devel
 BuildRequires:	mosquitto-devel
 BuildRequires:	gperf perl-IPC-Cmd
