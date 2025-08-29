@@ -1,3 +1,10 @@
+ngcp-rtpengine (11.5.1.49+0~mr11.5.1.49) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [89937b9] MT#63317 re-fix extension parsing
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 29 Aug 2025 22:06:46 +0200
+
 ngcp-rtpengine (11.5.1.48+0~mr11.5.1.48) unstable; urgency=medium
 
   [ Richard Fuchs ]
