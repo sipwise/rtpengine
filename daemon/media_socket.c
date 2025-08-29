@@ -2347,7 +2347,6 @@ static void media_packet_rtcp_mux(struct packet_handler_ctx *phc, struct sink_ha
 		phc->out_srtp = sh->sink->rtcp_sibling; // use RTCP SRTP context
 
 	phc->mp.media_out = sh->sink->media;
-	phc->mp.sink = *sh;
 }
 
 
@@ -2480,6 +2479,7 @@ static void media_packet_set_encrypt(struct packet_handler_ctx *phc, struct sink
 {
 	LOCK(&phc->in_srtp->lock);
 	determine_sink_handler(phc->in_srtp, sh);
+	phc->mp.sink = *sh;
 
 	// XXX use an array with index instead of if/else
 	if (G_LIKELY(!phc->rtcp))
