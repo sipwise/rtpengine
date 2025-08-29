@@ -176,8 +176,8 @@ static void media_player_shutdown(struct media_player *mp) {
 	timerthread_obj_deschedule(&mp->tt_obj);
 	mp->next_run = 0;
 
-	if (mp->sink) {
-		unsigned int num = send_timer_flush(mp->sink->send_timer, mp->coder.handler);
+	if (mp->sink.sink) {
+		unsigned int num = send_timer_flush(mp->sink.sink->send_timer, mp->coder.handler);
 		ilog(LOG_DEBUG, "%u packets removed from send queue", num);
 		// roll back seq numbers already used
 		mp->ssrc_out->seq_diff -= num;
@@ -582,6 +582,7 @@ retry:;
 		.media_out = mp->media,
 		.rtp = (void *) buf,
 		.ssrc_out = mp->ssrc_out,
+		.sink = mp->sink,
 	};
 
 	mp->last_frame_ts = pkt->pts;
@@ -592,12 +593,12 @@ retry:;
 	mp->buffer_ts += pkt->duration_ts;
 	mp->sync_ts_tv = rtpe_now;
 
-	media_packet_encrypt(mp->crypt_handler->out->rtp_crypt, mp->sink, &packet);
+	media_packet_encrypt(mp->sink.handler->out->rtp_crypt, mp->sink.sink, &packet);
 
-	mutex_lock(&mp->sink->lock);
-	if (media_socket_dequeue(&packet, mp->sink))
+	mutex_lock(&mp->sink.sink->lock);
+	if (media_socket_dequeue(&packet, mp->sink.sink))
 		ilog(LOG_ERR, "Error sending playback media to RTP sink");
-	mutex_unlock(&mp->sink->lock);
+	mutex_unlock(&mp->sink.sink->lock);
 
 	// schedule our next run
 	mp->next_run += us_dur;
@@ -621,13 +622,13 @@ static void media_player_kernel_player_start_now(struct media_player *mp) {
 		.ts = mp->buffer_ts,
 		.ssrc = mp->ssrc_out->h.ssrc,
 		.repeat = mp->opts.repeat,
-		.stats = mp->sink->stats_out,
-		.iface_stats = mp->sink->selected_sfd->local_intf->stats,
+		.stats = mp->sink.sink->stats_out,
+		.iface_stats = mp->sink.sink->selected_sfd->local_intf->stats,
 		.ssrc_stats = mp->ssrc_out->stats,
 	};
-	mp->sink->endpoint.address.family->endpoint2kernel(&info.dst_addr, &mp->sink->endpoint); // XXX unify with __re_address_translate_ep
-	mp->sink->selected_sfd->socket.local.address.family->endpoint2kernel(&info.src_addr, &mp->sink->selected_sfd->socket.local); // XXX unify with __re_address_translate_ep
-	mp->crypt_handler->out->kernel(&info.encrypt, mp->sink);
+	mp->sink.sink->endpoint.address.family->endpoint2kernel(&info.dst_addr, &mp->sink.sink->endpoint); // XXX unify with __re_address_translate_ep
+	mp->sink.sink->selected_sfd->socket.local.address.family->endpoint2kernel(&info.src_addr, &mp->sink.sink->selected_sfd->socket.local); // XXX unify with __re_address_translate_ep
+	mp->sink.handler->out->kernel(&info.encrypt, mp->sink.sink);
 
 	unsigned int idx = kernel_start_stream_player(&info);
 	if (idx == -1)
@@ -1055,12 +1056,11 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 		.media_out = mp->media,
 		.rtp = &rtp,
 		.ssrc_out = mp->ssrc_out,
-		.sink = { .sink = mp->sink },
+		.sink = mp->sink,
 	};
 	packet.raw = STR_LEN(buf, len);
 	packet.payload = packet.raw;
 
-	determine_sink_handler(mp->sink, &packet.sink);
 	mp->coder.handler->handler_func(mp->coder.handler, &packet);
 
 	// as this is timing sensitive and we may have spent some time decoding,
@@ -1077,12 +1077,12 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 		}
 	}
 
-	media_packet_encrypt(mp->crypt_handler->out->rtp_crypt, mp->sink, &packet);
+	media_packet_encrypt(mp->sink.handler->out->rtp_crypt, mp->sink.sink, &packet);
 
-	mutex_lock(&mp->sink->lock);
-	if (media_socket_dequeue(&packet, mp->sink))
+	mutex_lock(&mp->sink.sink->lock);
+	if (media_socket_dequeue(&packet, mp->sink.sink))
 		ilog(LOG_ERR, "Error sending playback media to RTP sink");
-	mutex_unlock(&mp->sink->lock);
+	mutex_unlock(&mp->sink.sink->lock);
 
 	mp->next_run += us_dur;
 	timerthread_obj_schedule_abs(&mp->tt_obj, mp->next_run);
@@ -1165,8 +1165,8 @@ static bool media_player_read_packet(struct media_player *mp) {
 void media_player_set_media(struct media_player *mp, struct call_media *media) {
 	mp->media = media;
 	if (media->streams.head) {
-		mp->sink = media->streams.head->data;
-		mp->crypt_handler = determine_handler(&transport_protocols[PROTO_RTP_AVP], media, true);
+		mp->sink.sink = media->streams.head->data;
+		sink_handler_set_generic(&mp->sink);
 	}
 	if (!mp->ssrc_out || mp->ssrc_out->h.ssrc != mp->ssrc) {
 		struct ssrc_entry_call *ssrc_ctx = get_ssrc(mp->ssrc, &media->ssrc_hash_out);

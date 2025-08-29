@@ -67,8 +67,7 @@ struct media_player {
 	call_t *call;
 	struct call_monologue *ml;
 	struct call_media *media;
-	struct packet_stream *sink;
-	const struct streamhandler *crypt_handler;
+	struct sink_handler sink;
 
 	int64_t next_run;
 
