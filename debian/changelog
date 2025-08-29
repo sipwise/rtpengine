@@ -1,3 +1,21 @@
+ngcp-rtpengine (13.4.1.7+0~mr13.4.1.7) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [b411672] MT#55283 set frame size after avcodec_open2
+  * [344e27d] MT#55283 fix Homer timestamp byte order
+  * [a4eb249] MT#61977 fix DB timestamping
+  * [97b2953] MT#63317 re-fix extension parsing
+  * [05f61bd] MT#55283 call del_item callback even on failure
+  * [a58e3be] MT#55283 final release of all sockets at shutdown
+  * [d2644a4] MT#55283 lump in subscription log output
+
+  [ Ivan Poddubnyi ]
+  * [8cf39bb] MT#55283 el: fix a typo in spec
+  * [cfc6768] MT#55283 el: fix build without systemd-notify support
+  * [a45d15c] MT#55283 el: fix dkms failing to build because of a missing file
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 29 Aug 2025 22:06:23 +0200
+
 ngcp-rtpengine (13.4.1.6+0~mr13.4.1.6) unstable; urgency=medium
 
   [ Richard Fuchs ]
