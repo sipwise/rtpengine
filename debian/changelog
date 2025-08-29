@@ -1,3 +1,15 @@
+ngcp-rtpengine (13.3.1.13+0~mr13.3.1.13) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [121cee5] MT#63317 re-fix extension parsing
+
+  [ Ivan Poddubnyi ]
+  * [c975c7d] MT#55283 el: fix a typo in spec
+  * [3a535f5] MT#55283 el: fix build without systemd-notify support
+  * [e677476] MT#55283 el: fix dkms failing to build because of a missing file
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 29 Aug 2025 22:06:30 +0200
+
 ngcp-rtpengine (13.3.1.12+0~mr13.3.1.12) unstable; urgency=medium
 
   [ Richard Fuchs ]
