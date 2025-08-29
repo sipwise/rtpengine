@@ -3087,6 +3087,7 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 				mp->rtp = r;
 				mp->raw.s = buf;
 				mp->raw.len = ev_pl.len + sizeof(*mp->rtp);
+				mp->payload = ev_pl;
 
 				add_packet_fn = codec_add_raw_packet_dup;
 			}
