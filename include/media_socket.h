@@ -355,6 +355,9 @@ __attribute__((nonnull(1)))
 const struct streamhandler *determine_handler(const struct transport_protocol *in_proto,
 		struct call_media *out_media, bool must_recrypt);
 
+__attribute__((nonnull(1)))
+void sink_handler_set_generic(struct sink_handler *sh);
+
 __attribute__((nonnull(2, 3)))
 int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, struct media_packet *mp);
 

@@ -2053,7 +2053,7 @@ void unkernelize(struct packet_stream *ps, const char *reason) {
 }
 
 
-// `out_media` can be NULL
+// `out_media` can be NULL XXX streamline this to remove this exception
 const struct streamhandler *determine_handler(const struct transport_protocol *in_proto,
 		struct call_media *out_media, bool must_recrypt)
 {
@@ -2086,8 +2086,15 @@ err:
 	return &__sh_noop;
 }
 
+
+// sh->sink must be set
+void sink_handler_set_generic(struct sink_handler *sh) {
+	sh->handler = determine_handler(&transport_protocols[PROTO_RTP_AVP], sh->sink->media, true);
+}
+
+
 /* must be called with call->master_lock held in R, and in->lock held */
-// `sh` can be null
+// `sh` can be null XXX streamline this to remove this exception
 const struct streamhandler *determine_sink_handler(struct packet_stream *in, struct sink_handler *sh) {
 	const struct transport_protocol *in_proto, *out_proto;
 	bool must_recrypt = false;
