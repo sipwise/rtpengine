@@ -162,6 +162,8 @@ struct sdp_ng_flags {
 	str moh_file;
 	str blob;
 	str moh_blob;
+	str audio_raw_rtp_file;
+	str audio_raw_rtp_codec;
 	long long db_id;
 	long long moh_db_id;
 	long long duration;

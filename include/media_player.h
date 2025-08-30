@@ -26,6 +26,10 @@ typedef struct {
 	unsigned int block_egress:1,
 				moh:1;
 	str file, blob;
+
+    str audio_raw_rtp_file;  // Path to audio raw RTP file
+    str audio_raw_rtp_codec; // Codec for audio raw RTP (e.g., "PCMU")
+
 	long long db_id;
 } media_player_opts_t;
 
@@ -58,6 +62,13 @@ struct media_player_coder {
 	str blob;
 	str read_pos;
 	struct codec_handler *handler;
+    unsigned int audio_raw_rtp_mode:1;
+    str audio_raw_rtp_data;
+    size_t audio_raw_rtp_pos;
+    int audio_raw_rtp_frame_size;
+	unsigned char silence_byte;
+    enum AVCodecID audio_raw_rtp_codec;
+	AVRational time_base;
 };
 
 struct media_player {
