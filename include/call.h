@@ -463,6 +463,12 @@ INLINE int64_t packet_stream_last_packet(const struct packet_stream *ps) {
 	return MAX(lp1, lp2);
 }
 
+
+struct extmap_ops {
+	struct rtp_extension	*(*lookup)(struct call_media *, unsigned int);
+};
+
+
 /**
  * Protected by call->master_lock, except the RO elements.
  * 
@@ -488,7 +494,7 @@ struct call_media {
 	extmap_q		extmap; // container
 	struct rtp_extension	*extmap_a[14]; // 1-14 -> [0..13]
 	extmap_ht		extmap_ht;
-	struct rtp_extension	*(*extmap_lookup)(struct call_media *, unsigned int);
+	const struct extmap_ops	*extmap_ops;
 	ext_name_ht		ext_name_ht;
 
 	str			media_id;
@@ -498,7 +504,7 @@ struct call_media {
 	const struct dtls_hash_func *fp_hash_func;		/* outgoing */
 	str			tls_id;
 	candidate_q		ice_candidates; 		/* slice-alloc'd, as received */
-	unsigned int			media_rec_slot;
+	unsigned int		media_rec_slot;
 
 	packet_stream_q		streams;			/* normally RTP + RTCP */
 	endpoint_map_q		endpoint_maps;

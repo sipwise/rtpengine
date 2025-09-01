@@ -2395,7 +2395,7 @@ static void media_packet_rtcp_mux(struct packet_handler_ctx *phc, struct sink_ha
 
 
 static void media_packet_rtp_extension(struct packet_handler_ctx *phc, unsigned int id, const str *data) {
-	__auto_type ext = phc->mp.media->extmap_lookup(phc->mp.media, id);
+	__auto_type ext = phc->mp.media->extmap_ops->lookup(phc->mp.media, id);
 	if (!ext)
 		return;
 

@@ -668,6 +668,14 @@ static struct rtp_extension *call_media_ext_lookup_ht(struct call_media *m, unsi
 }
 
 
+static const struct extmap_ops extmap_ops_short = {
+	.lookup = call_media_ext_lookup_array,
+};
+static const struct extmap_ops extmap_ops_long = {
+	.lookup = call_media_ext_lookup_ht,
+};
+
+
 struct call_media *call_media_new(call_t *call) {
 	struct call_media *med;
 	med = uid_alloc(&call->medias);
@@ -683,7 +691,7 @@ struct call_media *call_media_new(call_t *call) {
 	ssrc_hash_call_init(&med->ssrc_hash_out);
 	med->extmap_ht = extmap_ht_new();
 	med->ext_name_ht = ext_name_ht_new();
-	med->extmap_lookup = call_media_ext_lookup_array;
+	med->extmap_ops = &extmap_ops_short;
 	return med;
 }
 
@@ -2867,7 +2875,7 @@ static void media_reset_extmap(struct call_media *media,
 {
 	// reset basic table
 	memset(media->extmap_a, 0, sizeof(media->extmap_a));
-	media->extmap_lookup = call_media_ext_lookup_array;
+	media->extmap_ops = &extmap_ops_short;
 
 	if (!exclude) {
 		// shortcut, reset everything
@@ -2889,7 +2897,7 @@ static void media_reset_extmap(struct call_media *media,
 			if (ext->id > 0 && ext->id <= 14)
 				media->extmap_a[ext->id - 1] = ext;
 			else
-				media->extmap_lookup = call_media_ext_lookup_ht;
+				media->extmap_ops = &extmap_ops_long;
 
 			ele = ele->next;
 			continue;
@@ -2921,7 +2929,7 @@ static void media_init_extmap(struct call_media *media, struct rtp_extension *ex
 	if (ext->id > 0 && ext->id <= 14)
 		media->extmap_a[ext->id - 1] = ext;
 	else
-		media->extmap_lookup = call_media_ext_lookup_ht;
+		media->extmap_ops = &extmap_ops_long;
 }
 
 __attribute__((nonnull(1, 2)))
