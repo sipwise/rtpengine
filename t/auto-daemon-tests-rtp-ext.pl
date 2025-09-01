@@ -882,6 +882,157 @@ rcv($sock_a, $port_b, rtpm(8, 8000, 7000+160*0, 0x6543, "\x10" . ("\x00" x 158) 
 
 
 
+($sock_a, $sock_ax, $sock_b, $sock_bx) = new_call(
+	[qw(198.51.100.1 7134)],
+	[qw(198.51.100.1 7135)],
+	[qw(198.51.100.3 7136)],
+	[qw(198.51.100.3 7137)],
+);
+
+($port_a, $port_ax) = offer('extmap-mask mixed', { extmap => { mask => ['blah'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7134 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=extmap:1 foo
+a=extmap:2 bar
+a=extmap:3 blah
+a=extmap:4 quux
+a=extmap-allow-mixed
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=extmap-allow-mixed
+a=extmap:1 foo
+a=extmap:2 bar
+a=extmap:4 quux
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b, $port_bx) = answer('extmap-mask mixed', { extmap => { mask => ['foo'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7136 RTP/AVP 8
+c=IN IP4 198.51.100.3
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=extmap:1 foo
+a=extmap:2 bar
+a=extmap-allow-mixed
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=extmap-allow-mixed
+a=extmap:3 blah
+a=extmap:1 foo
+a=extmap:2 bar
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp( 8, 1000, 3000+160*0, 0x1234, "\x39" . ("\x29" x 158) . "\x74", [[1, "foo"], [2, "way too long of an attribute"], [4, "argh"], [3, "oh no this is too long"]]));
+rcv($sock_b, $port_a, rtpm(8, 1000, 3000+160*0, 0x1234, "\x39" . ("\x29" x 158) . "\x74", [[1, "foo"], [2, "way too long of an attribute"]]));
+snd($sock_b, $port_a, rtp( 8, 8000, 7000+160*0, 0x6543, "\x39" . ("\x29" x 158) . "\x74", [[1, "foo"], [2, "oh no this is too long"], [4, "argh"], [3, "yikes"]]));
+rcv($sock_a, $port_b, rtpm(8, 8000, 7000+160*0, 0x6543, "\x39" . ("\x29" x 158) . "\x74", [[1, "foo"], [2, "oh no this is too long"]]));
+
+
+
+
+($sock_a, $sock_ax, $sock_b, $sock_bx) = new_call(
+	[qw(198.51.100.1 7142)],
+	[qw(198.51.100.1 7143)],
+	[qw(198.51.100.3 7144)],
+	[qw(198.51.100.3 7145)],
+);
+
+($port_a, $port_ax) = offer('extmap-mask w tc mixed', {
+		extmap => { mask => ['blah'] },
+		codec => { transcode => [ 'PCMU' ] },
+}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7142 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=extmap:1 foo
+a=extmap:2 bar
+a=extmap:3 blah
+a=extmap:4 quux
+a=extmap-allow-mixed
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=extmap-allow-mixed
+a=extmap:1 foo
+a=extmap:2 bar
+a=extmap:4 quux
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b, $port_bx) = answer('extmap-mask w tc mixed', {
+		extmap => { mask => ['foo'] },
+}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7144 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=extmap:1 foo
+a=extmap:2 bar
+a=extmap-allow-mixed
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=extmap-allow-mixed
+a=extmap:3 blah
+a=extmap:1 foo
+a=extmap:2 bar
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp( 8, 1000, 3000+160*0, 0x1234, "\x39" . ("\x29" x 158) . "\x74", [[1, "foo"], [2, "way too long of an attribute"], [4, "argh"], [3, "oh no this is too long"]]));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000+160*0, 0x1234, "\x13" . ("\x03" x 158) . "\x5a", [[1, "foo"], [2, "way too long of an attribute"]]));
+snd($sock_b, $port_a, rtp( 0, 8000, 7000+160*0, 0x6543, "\x39" . ("\x29" x 158) . "\x74", [[1, "foo"], [2, "oh no this is too long"], [4, "argh"], [3, "yikes"]]));
+rcv($sock_a, $port_b, rtpm(8, 8000, 7000+160*0, 0x6543, "\x10" . ("\x00" x 158) . "\x50", [[1, "foo"], [2, "oh no this is too long"]]));
+
+
+
+
+
 
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
