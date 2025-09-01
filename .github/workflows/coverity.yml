@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
 
     env:
       COVERITY_SCAN_TOKEN: ${{ secrets.COVERITY_SCAN_TOKEN }}
@@ -28,15 +28,15 @@ jobs:
 
       - name: Get build dependencies
         run: |
-          echo "Generating Debian source for usage on Ubuntu/focal / ubuntu-20.04"
+          echo "Generating Debian source for usage on Ubuntu/noble / ubuntu-24.04"
           cd pkg/deb/
           ./generator.sh
-          ./backports/focal
+          ./backports/noble
           rm -rf debian
-          mv focal debian
+          mv noble debian
           echo "Installing Debian packages"
           sudo apt-get install -q -y --no-install-recommends git ca-certificates curl
-          sudo apt-get build-dep -q -y -Ppkg.ngcp-rtpengine.nobcg729 .
+          sudo apt-get build-dep -q -y .
 
       - name: Get coverity scan
         run: |
@@ -50,7 +50,6 @@ jobs:
       # not support __attributes__ in enums.
       - name: Analyze
         run: |
-          DEB_BUILD_PROFILES="pkg.ngcp-rtpengine.nobcg729" \
           CPPFLAGS="-DGLIB_DISABLE_DEPRECATION_WARNINGS" \
           cov-analysis-*/bin/cov-build --dir cov-int make -j4 coverity
 
