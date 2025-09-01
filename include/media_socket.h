@@ -329,6 +329,10 @@ size_t extmap_length_short(const struct media_packet *);
 void extmap_header_short(void *);
 size_t extmap_print_short(void *, const struct rtp_extension_data *);
 
+size_t extmap_length_long(const struct media_packet *);
+void extmap_header_long(void *);
+size_t extmap_print_long(void *, const struct rtp_extension_data *);
+
 
 
 extern local_intf_q all_local_interfaces; // read-only during runtime

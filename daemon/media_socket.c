@@ -2197,6 +2197,52 @@ size_t extmap_print_short(void *_dst, const struct rtp_extension_data *ext) {
 
 
 
+static bool extmap_long_is_valid(const struct rtp_extension_data *ext) {
+	if (ext->ext->id <= 0 || ext->ext->id >= 256)
+		return false;
+	if (ext->content.len > 255)
+		return false;
+	return true;
+}
+
+size_t extmap_length_long(const struct media_packet *mp) {
+	const extmap_data_q *q = &mp->extmap;
+
+	size_t ret = 4; // 0x0100 + int16 length
+	for (__auto_type l = q->head; l; l = l->next) {
+		__auto_type ext = l->data;
+		if (!extmap_long_is_valid(ext)) {
+			ilog(LOG_WARN | LOG_FLAG_LIMIT, "RTP extension with id %d length %zu not valid "
+					"for long form", ext->ext->id, ext->content.len);
+			continue;
+		}
+		ret += 2; // 2-byte header
+		ret += ext->content.len;
+	}
+
+	return ret;
+}
+
+void extmap_header_long(void *_dst) {
+	unsigned char *dst = _dst;
+	dst[0] = 0x10;
+	dst[1] = 0x00;
+}
+
+size_t extmap_print_long(void *_dst, const struct rtp_extension_data *ext) {
+	unsigned char *dst = _dst;
+
+	if (!extmap_long_is_valid(ext))
+		return 0;
+
+	dst[0] = ext->ext->id;
+	dst[1] = ext->content.len;
+	memcpy(dst + 2, ext->content.s, ext->content.len);
+	return ext->content.len + 2;
+}
+
+
+
 // `out_media` can be NULL XXX streamline this to remove this exception
 const struct streamhandler *determine_handler(const struct transport_protocol *in_proto,
 		struct call_media *out_media, bool must_recrypt)
