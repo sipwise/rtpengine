@@ -510,9 +510,12 @@ struct rtp_parsed {
 		struct rtp_header		*rtp_header;
 		struct rtcp_header		*rtcp_header;
 	};
-	unsigned int			header_len;
+	size_t				header_len;
 	unsigned char			*payload;
-	unsigned int			payload_len;
+	size_t				payload_len;
+	struct rtp_exthdr		*ext_hdr;
+	unsigned char			*extension;
+	size_t				extension_len;
 	int				ok;
 	int				rtcp;
 };
@@ -1802,6 +1805,13 @@ static int proc_list_show(struct seq_file *f, void *v) {
 			if (o->output.pt_output[j].blackhole)
 				seq_printf(f, "        RTP payload type %3u: blackhole\n",
 						g->target.pt_stats[j]->payload_type);
+		}
+
+		if (o->output.extmap) {
+			seq_printf(f, "        Allowed RTP extensions:");
+			for (j = 0; j < o->output.num_extmap_filter; j++)
+				seq_printf(f, " %u", (unsigned int) o->output.extmap_filter[j]);
+			seq_printf(f, "\n");
 		}
 
 		proc_list_crypto_print(f, &o->encrypt_rtp, &o->output.encrypt, "encryption");
@@ -5131,7 +5141,6 @@ drop:
 
 /* XXX shared code */
 static void parse_rtp(struct rtp_parsed *rtp, struct sk_buff *skb) {
-	struct rtp_exthdr *ext;
 	size_t ext_len;
 
 	if (skb->len < sizeof(*rtp->rtp_header))
@@ -5150,16 +5159,20 @@ static void parse_rtp(struct rtp_parsed *rtp, struct sk_buff *skb) {
 
 	if ((rtp->rtp_header->v_p_x_cc & 0x10)) {
 		/* extension */
-		if (rtp->payload_len < sizeof(*ext))
+		if (rtp->payload_len < sizeof(*rtp->ext_hdr))
 			goto error;
-		ext = (void *) rtp->payload;
-		ext_len = sizeof(*ext) + ntohs(ext->length) * 4;
+		rtp->ext_hdr = (struct rtp_exthdr *) rtp->payload;
+		rtp->extension_len = ntohs(rtp->ext_hdr->length) * 4;
+		ext_len = sizeof(*rtp->ext_hdr) + rtp->extension_len;
 		if (rtp->payload_len < ext_len)
 			goto error;
+		rtp->extension = rtp->payload + sizeof(*rtp->ext_hdr);
 		rtp->payload += ext_len;
 		rtp->payload_len -= ext_len;
 		rtp->header_len += ext_len;
 	}
+	else
+		rtp->ext_hdr = NULL;
 
 	DBG("rtp header parsed, payload length is %u\n", rtp->payload_len);
 
@@ -6065,6 +6078,8 @@ static uint32_t proxy_packet_srtp_encrypt(struct sk_buff *skb, struct re_crypto_
 	return pkt_idx;
 }
 
+#include "extmap_filter.inc.c"
+
 static bool proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_output *o,
 		int rtp_pt_idx,
 		struct rtp_parsed *rtp, int ssrc_idx)
@@ -6076,6 +6091,9 @@ static bool proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_outpu
 		proxy_packet_output_rtcp(skb, o, rtp, ssrc_idx);
 		return true;
 	}
+
+	if (o->output.extmap)
+		apply_extmap_filter(skb, o, rtp);
 
 	if (rtp_pt_idx >= 0) {
 		// blackhole?
@@ -6465,6 +6483,10 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 		if (rtp.rtp_header)
 			rtp2.rtp_header = (void *) (((char *) rtp2.rtp_header) + offset);
 		rtp2.payload = (void *) (((char *) rtp2.payload) + offset);
+		if (rtp2.extension)
+			rtp2.extension = (void *) (((char *) rtp2.extension) + offset);
+		if (rtp2.ext_hdr)
+			rtp2.ext_hdr = (void *) (((char *) rtp2.ext_hdr) + offset);
 
 		datalen_out = skb2->len;
 

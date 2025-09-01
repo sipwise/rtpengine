@@ -97,6 +97,8 @@ endif
 SRCS+=		s3-auth.c
 LIBSRCS+=	s3utils.c
 
+SRCS+=		kernel-extmap-filter.c
+
 COMMONOBJS=	str.o auxlib.o rtplib.o loglib.o ssllib.o
 
 include ../lib/common.Makefile
@@ -129,7 +131,7 @@ all-tests:	unit-tests
 endif
 	true # override linking recipe from common.Makefile
 
-unit-tests:	$(TESTS) aead-decrypt
+unit-tests:	$(TESTS) aead-decrypt kernel-extmap-filter
 	failed="" ; \
 	for x in $(TESTS); do \
 	  echo `date +"%Y-%m-%d %H:%M:%S"` testing: $$x ; \
@@ -342,6 +344,8 @@ test-kernel-module: test-kernel-module.o $(COMMONOBJS) kernel.o
 test-const_str_hash.strhash: test-const_str_hash.strhash.o $(COMMONOBJS) bencode.o
 
 s3-auth:	s3-auth.o s3utils.o
+
+kernel-extmap-filter:	kernel-extmap-filter.o
 
 PRELOAD_CFLAGS += -D_GNU_SOURCE -std=c11
 PRELOAD_LIBS += -ldl

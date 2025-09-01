@@ -1728,7 +1728,6 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
  * The linkage between userspace and kernel module is in the kernelize_one().
  *
  * Called with stream->lock held.
- * sink_handler can be NULL.
  */
 __attribute__((nonnull(1, 2, 3)))
 static const char *kernelize_one(kernelize_state *s,
@@ -1836,6 +1835,7 @@ static const char *kernelize_one(kernelize_state *s,
 	}
 
 	handler->out->kernel(&redi->output.encrypt, sink);
+	sink_handler->rtpext->kernel(&redi->output, media, sink->media);
 
 	if (sink != stream)
 		mutex_unlock(&sink->lock);
@@ -2071,9 +2071,15 @@ static size_t rtpext_printer_copy_print(struct rtp_header *rh, void *dst, const 
 	return mp->extensions.len;
 }
 
+static void rtpext_printer_copy_kernel(struct rtpengine_output_info *roi,
+		struct call_media *src, struct call_media *dst)
+{
+}
+
 const struct rtpext_printer rtpext_printer_copy = {
 	.length = rtpext_printer_copy_length,
 	.print = rtpext_printer_copy_print,
+	.kernel = rtpext_printer_copy_kernel,
 	.may_copy = true,
 };
 
@@ -2154,9 +2160,41 @@ static size_t rtpext_printer_extmap_print(struct rtp_header *rh, void *dst, cons
 	return padded;
 }
 
+
+static int uint8_sort(const void *a, const void *b) {
+	const uint8_t *A = a, *B = b;
+	if (*A < *B)
+		return -1;
+	if (*A > *B)
+		return 1;
+	return 0;
+}
+
+static void rtpext_printer_extmap_kernel(struct rtpengine_output_info *roi,
+		struct call_media *src, struct call_media *dst)
+{
+	roi->extmap = 1;
+
+	unsigned int u = 0;
+
+	for (__auto_type l = dst->extmap.head; l; l = l->next) {
+		__auto_type ext = l->data;
+		if (u >= RTPE_NUM_EXTMAP_FILTER) {
+			ilog(LOG_WARN, "Too many RTP header extensions for kernel module");
+			break;
+		}
+		roi->extmap_filter[u] = ext->id;
+		u++;
+	}
+
+	qsort(roi->extmap_filter, u, sizeof(*roi->extmap_filter), uint8_sort);
+}
+
+
 static const struct rtpext_printer rtpext_printer_extmap = {
 	.length = rtpext_printer_extmap_length,
 	.print = rtpext_printer_extmap_print,
+	.kernel = rtpext_printer_extmap_kernel,
 	.may_copy = false,
 };
 

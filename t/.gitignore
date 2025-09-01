@@ -29,3 +29,4 @@ test-amr-decode
 test-amr-encode
 aead-decrypt
 s3-auth
+kernel-extmap-filter
