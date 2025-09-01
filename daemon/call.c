@@ -670,6 +670,9 @@ static struct rtp_extension *call_media_ext_lookup_ht(struct call_media *m, unsi
 
 static const struct extmap_ops extmap_ops_short = {
 	.lookup = call_media_ext_lookup_array,
+	.length = extmap_length_short,
+	.header = extmap_header_short,
+	.print = extmap_print_short,
 };
 static const struct extmap_ops extmap_ops_long = {
 	.lookup = call_media_ext_lookup_ht,

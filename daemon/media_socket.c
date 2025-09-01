@@ -2079,6 +2079,52 @@ const struct rtpext_printer rtpext_printer_copy = {
 
 
 
+static bool extmap_short_is_valid(const struct rtp_extension_data *ext) {
+	// valid ranges for short form?
+	if (ext->ext->id <= 0 || ext->ext->id >= 15)
+		return false;
+	if (ext->content.len > 16)
+		return false;
+	return true;
+}
+
+size_t extmap_length_short(const struct media_packet *mp) {
+	const extmap_data_q *q = &mp->extmap;
+
+	size_t ret = 4; // 0xbede + int16 length
+	for (__auto_type l = q->head; l; l = l->next) {
+		__auto_type ext = l->data;
+		if (!extmap_short_is_valid(ext)) {
+			ilog(LOG_WARN | LOG_FLAG_LIMIT, "RTP extension with id %d length %zu not valid "
+					"for short form", ext->ext->id, ext->content.len);
+			continue;
+		}
+		ret++; // 1-byte header
+		ret += ext->content.len;
+	}
+
+	return ret;
+}
+
+void extmap_header_short(void *_dst) {
+	unsigned char *dst = _dst;
+	dst[0] = 0xbe;
+	dst[1] = 0xde;
+}
+
+size_t extmap_print_short(void *_dst, const struct rtp_extension_data *ext) {
+	unsigned char *dst = _dst;
+
+	if (!extmap_short_is_valid(ext))
+		return 0;
+
+	dst[0] = (ext->ext->id << 4) | (ext->content.len - 1);
+	memcpy(dst + 1, ext->content.s, ext->content.len);
+	return ext->content.len + 1;
+}
+
+
+
 // `out_media` can be NULL XXX streamline this to remove this exception
 const struct streamhandler *determine_handler(const struct transport_protocol *in_proto,
 		struct call_media *out_media, bool must_recrypt)

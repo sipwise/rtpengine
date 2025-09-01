@@ -325,6 +325,11 @@ TYPED_GQUEUE(extmap, struct rtp_extension);
 TYPED_GHASHTABLE(extmap_ht, void, struct rtp_extension, g_direct_hash, g_direct_equal, NULL, NULL);
 TYPED_GHASHTABLE(ext_name_ht, str, struct rtp_extension, str_hash, str_equal, NULL, NULL);
 
+size_t extmap_length_short(const struct media_packet *);
+void extmap_header_short(void *);
+size_t extmap_print_short(void *, const struct rtp_extension_data *);
+
+
 
 extern local_intf_q all_local_interfaces; // read-only during runtime
 
