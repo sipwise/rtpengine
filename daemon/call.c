@@ -674,7 +674,7 @@ static const struct extmap_ops extmap_ops_short = {
 	.header = extmap_header_short,
 	.print = extmap_print_short,
 };
-static const struct extmap_ops extmap_ops_long = {
+const struct extmap_ops extmap_ops_long = {
 	.lookup = call_media_ext_lookup_ht,
 	.length = extmap_length_long,
 	.header = extmap_header_long,

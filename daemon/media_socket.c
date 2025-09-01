@@ -2185,6 +2185,12 @@ size_t extmap_length_short(const struct media_packet *mp) {
 			continue;
 
 		if (!extmap_short_is_valid(ext)) {
+			if (mp->media_out && !MEDIA_ISSET(mp->media_out, EXTMAP_SHORT)) {
+				// attempt in long form
+				ilog(LOG_DEBUG, "Switching RTP header extension format to long form");
+				mp->media_out->extmap_ops = &extmap_ops_long;
+				return extmap_ops_long.length(mp);
+			}
 			ilog(LOG_WARN | LOG_FLAG_LIMIT, "RTP extension with id %d length %zu not valid "
 					"for short form", ext->ext->id, ext->content.len);
 			continue;

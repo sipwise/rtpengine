@@ -475,6 +475,8 @@ struct extmap_ops {
 	size_t			(*print)(void *dst, const struct rtp_extension_data *);
 };
 
+extern const struct extmap_ops extmap_ops_long;
+
 
 /**
  * Protected by call->master_lock, except the RO elements.
