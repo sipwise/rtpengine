@@ -103,6 +103,9 @@ static void meta_mix_file_output(metafile_t *mf) {
 		return;
 	}
 
+	if (!mf->metadata)
+		return;
+
 	if (!mf->mix) {
 		mf->mix_out = output_new_ext(mf, "mix", "mixed", "mix");
 		mf->mix = mix_new(&mf->mix_lock, &mf->mix_out->sink, mf->media_rec_slots);
@@ -124,6 +127,9 @@ static void meta_mix_tls_output(metafile_t *mf) {
 		mix_destroy(mf->tls_mix);
 		mf->tls_mix = NULL;
 	}
+
+	if (!mf->metadata)
+		return;
 
 	if (!tls_fwd_new(&mf->mix_tls_fwd))
 		return;
