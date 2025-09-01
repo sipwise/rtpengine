@@ -647,7 +647,7 @@ INLINE void bf_copy(atomic64 *u, const uint64_t f,
 }
 /* works for multiple flags */
 INLINE void bf_copy_same(atomic64 *u, const atomic64 *s, const uint64_t g) {
-	unsigned int old, set, clear;
+	uint64_t old, set, clear;
 	old = atomic64_get(s);
 	set = old & g;
 	clear = ~old & g;
