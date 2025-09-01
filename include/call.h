@@ -135,6 +135,7 @@ enum {
 #define SHARED_FLAG_LEGACY_OSRTP_REV		(1LL << 15)
 /* empty range [16 - 29] in-between for non-shared flags */
 #define SHARED_FLAG_END_OF_CANDIDATES		(1LL << 30)
+#define SHARED_FLAG_EXTMAP_SHORT		(1LL << 39)
 
 /* struct stream_params */
 #define SP_FLAG_IMPLICIT_RTCP			SHARED_FLAG_IMPLICIT_RTCP
@@ -154,6 +155,7 @@ enum {
 #define SP_FLAG_LEGACY_OSRTP			SHARED_FLAG_LEGACY_OSRTP
 #define SP_FLAG_LEGACY_OSRTP_REV		SHARED_FLAG_LEGACY_OSRTP_REV
 #define SP_FLAG_END_OF_CANDIDATES		SHARED_FLAG_END_OF_CANDIDATES
+#define SP_FLAG_EXTMAP_SHORT			SHARED_FLAG_EXTMAP_SHORT
 
 /* struct packet_stream */
 #define PS_FLAG_RTP				(1LL << 16)
@@ -216,6 +218,7 @@ enum {
 #define MEDIA_FLAG_SELECT_PT			(1LL << 36)
 #define MEDIA_FLAG_RECRYPT			(1LL << 37)
 #define MEDIA_FLAG_PUBLIC			(1LL << 38)
+#define MEDIA_FLAG_EXTMAP_SHORT			SHARED_FLAG_EXTMAP_SHORT
 
 /* struct call_monologue */
 #define ML_FLAG_REC_FORWARDING			(1LL << 16)
@@ -481,7 +484,7 @@ struct extmap_ops {
  */
 struct call_media {
 	struct call_monologue	*monologue;			/* RO */
-	call_t		*call;				/* RO */
+	call_t			*call;				/* RO */
 
 	unsigned int		index;				/* RO */
 	unsigned int		unique_id;			/* RO */

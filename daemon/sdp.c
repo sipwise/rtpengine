@@ -67,6 +67,7 @@ enum attr_id {
 	ATTR_END_OF_CANDIDATES,
 	ATTR_MOH_ATTR_NAME,
 	ATTR_EXTMAP,
+	ATTR_EXTMAP_ALLOW_MIXED,
 };
 // make sure g_direct_hash can be used
 static_assert(sizeof(void *) >= sizeof(enum attr_id), "sizeof enum attr_id wrong");
@@ -1220,6 +1221,9 @@ static bool parse_attribute(struct sdp_attribute *a) {
 		case CSH_LOOKUP("extmap"):
 			ret = parse_attribute_extmap(a);
 			break;
+		case CSH_LOOKUP("extmap-allow-mixed"):
+			a->attr = ATTR_EXTMAP_ALLOW_MIXED;
+			break;
 		case CSH_LOOKUP("rtpmap"):
 			ret = parse_attribute_rtpmap(a);
 			break;
@@ -2107,12 +2111,17 @@ bool sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_
 			attrs = attr_list_get_by_id(&media->attributes, ATTR_EXTMAP);
 			if (!attrs)
 				attrs = attr_list_get_by_id(&session->attributes, ATTR_EXTMAP);
-			for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
-				attr = ll->data;
-				__auto_type ext = g_new0(struct rtp_extension, 1);
-				ext->id = attr->extmap.id;
-				ext->name = attr->extmap.ext;
-				t_queue_push_tail(&sp->extmap, ext);
+			if (attrs) {
+				for (__auto_type ll = attrs->head; ll; ll = ll->next) {
+					attr = ll->data;
+					__auto_type ext = g_new0(struct rtp_extension, 1);
+					ext->id = attr->extmap.id;
+					ext->name = attr->extmap.ext;
+					t_queue_push_tail(&sp->extmap, ext);
+				}
+
+				if (!attr_get_by_id_m_s(media, ATTR_EXTMAP_ALLOW_MIXED))
+					SP_SET(sp, EXTMAP_SHORT);
 			}
 
 			/* determine RTCP endpoint */
@@ -2255,6 +2264,11 @@ void sdp_insert_all_attributes(GString *s, struct call_media *media, struct sdp_
 static void sdp_print_extmap(GString *s, struct call_media *source_media, const sdp_ng_flags *flags) {
 	if (!source_media)
 		return;
+	if (!source_media->extmap.length)
+		return;
+
+	if (!MEDIA_ISSET(source_media, EXTMAP_SHORT))
+		append_null_attr_to_gstring(s, "extmap-allow-mixed", flags, source_media->type_id);
 
 	for (__auto_type l = source_media->extmap.head; l; l = l->next) {
 		__auto_type ext = l->data;
