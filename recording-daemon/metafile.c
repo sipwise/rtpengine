@@ -130,6 +130,8 @@ static void meta_mix_tls_output(metafile_t *mf) {
 
 	if (!mf->metadata)
 		return;
+	if (!mf->forwarding_on)
+		return;
 
 	if (!tls_fwd_new(&mf->mix_tls_fwd))
 		return;
