@@ -513,10 +513,10 @@ rcv($sock_a, $port_b, rtpm(8, 8000, 7000+160*0, 0x6543, "\x39" . ("\x29" x 158) 
 
 
 ($sock_a, $sock_ax, $sock_b, $sock_bx) = new_call(
-	[qw(198.51.100.1 7040)],
-	[qw(198.51.100.1 7041)],
-	[qw(198.51.100.3 7042)],
-	[qw(198.51.100.3 7043)],
+	[qw(198.51.100.1 7048)],
+	[qw(198.51.100.1 7049)],
+	[qw(198.51.100.3 7050)],
+	[qw(198.51.100.3 7051)],
 );
 
 ($port_a, $port_ax) = offer('extmap-mask w tc', {
@@ -527,7 +527,7 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 7040 RTP/AVP 8
+m=audio 7048 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=sendrecv
 a=extmap:1 foo
@@ -557,7 +557,7 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.3
 s=tester
 t=0 0
-m=audio 7042 RTP/AVP 0
+m=audio 7050 RTP/AVP 0
 c=IN IP4 198.51.100.3
 a=rtpmap:8 PCMA/8000
 a=sendrecv
@@ -582,6 +582,150 @@ snd($sock_a, $port_b, rtp( 8, 1000, 3000+160*0, 0x1234, "\x39" . ("\x29" x 158) 
 rcv($sock_b, $port_a, rtpm(0, 1000, 3000+160*0, 0x1234, "\x13" . ("\x03" x 158) . "\x5a", [[1, "foo"], [2, "blah"], [3, "yikes"]]));
 snd($sock_b, $port_a, rtp( 0, 8000, 7000+160*0, 0x6543, "\x39" . ("\x29" x 158) . "\x74", [[1, "foo"], [2, "blah"], [4, "argh"], [3, "yikes"]]));
 rcv($sock_a, $port_b, rtpm(8, 8000, 7000+160*0, 0x6543, "\x10" . ("\x00" x 158) . "\x50", [[1, "foo"], [2, "blah"]]));
+
+
+
+
+
+
+($sock_a, $sock_ax, $sock_b, $sock_bx) = new_call(
+	[qw(198.51.100.1 7166)],
+	[qw(198.51.100.1 7167)],
+	[qw(198.51.100.3 7168)],
+	[qw(198.51.100.3 7169)],
+);
+
+($port_a, $port_ax) = offer('extmap-mask long', { extmap => { mask => ['blah'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7166 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=extmap:18 foo
+a=extmap:19 bar
+a=extmap:20 blah
+a=extmap:21 quux
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=extmap:18 foo
+a=extmap:19 bar
+a=extmap:21 quux
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b, $port_bx) = answer('extmap-mask long', { extmap => { mask => ['foo'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7168 RTP/AVP 8
+c=IN IP4 198.51.100.3
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=extmap:18 foo
+a=extmap:19 bar
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=extmap:20 blah
+a=extmap:18 foo
+a=extmap:19 bar
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp( 8, 1000, 3000+160*0, 0x1234, "\x39" . ("\x29" x 158) . "\x74", [[18, "foo"], [19, "blah"], [21, "argh"], [20, "yikes"]]));
+rcv($sock_b, $port_a, rtpm(8, 1000, 3000+160*0, 0x1234, "\x39" . ("\x29" x 158) . "\x74", [[18, "foo"], [19, "blah"], [20, "yikes"]]));
+snd($sock_b, $port_a, rtp( 8, 8000, 7000+160*0, 0x6543, "\x39" . ("\x29" x 158) . "\x74", [[18, "foo"], [19, "blah"], [21, "argh"], [20, "yikes"]]));
+rcv($sock_a, $port_b, rtpm(8, 8000, 7000+160*0, 0x6543, "\x39" . ("\x29" x 158) . "\x74", [[18, "foo"], [19, "blah"]]));
+
+
+
+
+($sock_a, $sock_ax, $sock_b, $sock_bx) = new_call(
+	[qw(198.51.100.1 7174)],
+	[qw(198.51.100.1 7175)],
+	[qw(198.51.100.3 7176)],
+	[qw(198.51.100.3 7177)],
+);
+
+($port_a, $port_ax) = offer('extmap-mask w tc long', {
+		extmap => { mask => ['blah'] },
+		codec => { transcode => [ 'PCMU' ] },
+}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7174 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=extmap:18 foo
+a=extmap:19 bar
+a=extmap:20 blah
+a=extmap:21 quux
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=extmap:18 foo
+a=extmap:19 bar
+a=extmap:21 quux
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b, $port_bx) = answer('extmap-mask w tc long', {
+		extmap => { mask => ['foo'] },
+}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7176 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=extmap:18 foo
+a=extmap:19 bar
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=extmap:20 blah
+a=extmap:18 foo
+a=extmap:19 bar
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp( 8, 1000, 3000+160*0, 0x1234, "\x39" . ("\x29" x 158) . "\x74", [[18, "foo"], [19, "blah"], [21, "argh"], [20, "yikes"]]));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000+160*0, 0x1234, "\x13" . ("\x03" x 158) . "\x5a", [[18, "foo"], [19, "blah"], [20, "yikes"]]));
+snd($sock_b, $port_a, rtp( 0, 8000, 7000+160*0, 0x6543, "\x39" . ("\x29" x 158) . "\x74", [[18, "foo"], [19, "blah"], [21, "argh"], [20, "yikes"]]));
+rcv($sock_a, $port_b, rtpm(8, 8000, 7000+160*0, 0x6543, "\x10" . ("\x00" x 158) . "\x50", [[18, "foo"], [19, "blah"]]));
 
 
 
