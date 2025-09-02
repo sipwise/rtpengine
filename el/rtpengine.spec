@@ -5,7 +5,7 @@ Summary:	The Sipwise NGCP rtpengine daemon
 Group:		System Environment/Daemons
 License:	GPLv3
 URL:		https://github.com/sipwise/rtpengine
-Source0:	https://github.com/sipwise/rtpengine/archive/%{name}-%{version}.tar.gz
+Source0:	https://github.com/sipwise/rtpengine/archive/refs/tags/mr%{version}.tar.gz?download=%{name}-%{version}.tar.gz
 Conflicts:	%{name}-kernel < %{version}-%{release}
 
 %global with_transcoding 1
