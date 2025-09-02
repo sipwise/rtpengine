@@ -2078,6 +2078,14 @@ const struct rtpext_printer rtpext_printer_copy = {
 };
 
 
+
+static bool extmap_has_ext(const struct media_packet *mp, const struct rtp_extension_data *ext) {
+	if (!mp->media_out->extmap_ops->lookup(mp->media_out, ext->ext->id))
+		return false;
+	return true;
+}
+
+
 static size_t rtpext_printer_extmap_length(const struct media_packet *mp) {
 	if (mp->rtcp)
 		return 0;
@@ -2102,6 +2110,8 @@ static size_t rtpext_printer_extmap_print(struct rtp_header *rh, void *dst, cons
 		return 0;
 	if (!mp->extmap.length)
 		return 0;
+	if (!mp->media_out || !mp->media_out->extmap.length)
+		return 0; // no extensions
 
 	__auto_type media = mp->media_out;
 	if (!media)
@@ -2113,6 +2123,10 @@ static size_t rtpext_printer_extmap_print(struct rtp_header *rh, void *dst, cons
 
 	for (__auto_type l = mp->extmap.head; l; l = l->next) {
 		__auto_type ext = l->data;
+
+		if (!extmap_has_ext(mp, ext))
+			continue;
+
 		size_t len = media->extmap_ops->print(dst, ext);
 		dst += len;
 	}
@@ -2158,16 +2172,24 @@ static bool extmap_short_is_valid(const struct rtp_extension_data *ext) {
 }
 
 size_t extmap_length_short(const struct media_packet *mp) {
+	if (!mp->media_out || !mp->media_out->extmap.length)
+		return 0; // no extensions
+
 	const extmap_data_q *q = &mp->extmap;
 
 	size_t ret = 4; // 0xbede + int16 length
 	for (__auto_type l = q->head; l; l = l->next) {
 		__auto_type ext = l->data;
+
+		if (!extmap_has_ext(mp, ext))
+			continue;
+
 		if (!extmap_short_is_valid(ext)) {
 			ilog(LOG_WARN | LOG_FLAG_LIMIT, "RTP extension with id %d length %zu not valid "
 					"for short form", ext->ext->id, ext->content.len);
 			continue;
 		}
+
 		ret++; // 1-byte header
 		ret += ext->content.len;
 	}
@@ -2206,19 +2228,30 @@ static bool extmap_long_is_valid(const struct rtp_extension_data *ext) {
 }
 
 size_t extmap_length_long(const struct media_packet *mp) {
+	if (!mp->media_out || !mp->media_out->extmap.length)
+		return 0; // no extensions
+
 	const extmap_data_q *q = &mp->extmap;
 
 	size_t ret = 4; // 0x0100 + int16 length
 	for (__auto_type l = q->head; l; l = l->next) {
 		__auto_type ext = l->data;
+
+		if (!extmap_has_ext(mp, ext))
+			continue;
+
 		if (!extmap_long_is_valid(ext)) {
 			ilog(LOG_WARN | LOG_FLAG_LIMIT, "RTP extension with id %d length %zu not valid "
 					"for long form", ext->ext->id, ext->content.len);
 			continue;
 		}
+
 		ret += 2; // 2-byte header
 		ret += ext->content.len;
 	}
+
+	if (ret == 4)
+		return 0; // nothing left
 
 	return ret;
 }
