@@ -61,7 +61,7 @@ Requires(pre):	ffmpeg-libs
 Requires:	perl-Config-Tiny
 Requires:	nc
 # Remain compat with other installations
-Provides:	ngcp-rtpengine = %{version}-%{release}
+Provides:	rtpengine = %{version}-%{release}
 
 %description
 The Sipwise NGCP rtpengine is a proxy for RTP traffic and other UDP based
