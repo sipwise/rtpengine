@@ -2803,8 +2803,7 @@ void media_packet_copy(struct media_packet *dst, const struct media_packet *src)
 	dst->extensions = STR_NULL;
 }
 void media_packet_release(struct media_packet *mp) {
-	if (mp->sfd)
-		obj_put(mp->sfd);
+	obj_release(mp->sfd);
 	ssrc_entry_release(mp->ssrc_in);
 	ssrc_entry_release(mp->ssrc_out);
 	media_socket_dequeue(mp, NULL);
