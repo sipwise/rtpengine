@@ -399,7 +399,6 @@ struct loop_protector {
 };
 
 
-TYPED_GPTRARRAY(rtp_stats_arr, struct rtp_stats)
 TYPED_GHASHTABLE_PROTO(rtp_stats_ht, void, struct rtp_stats)
 
 /**

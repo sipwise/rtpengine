@@ -1537,7 +1537,8 @@ INLINE void __re_address_translate_ep(struct re_address *o, const endpoint_t *ep
 	ep->address.family->endpoint2kernel(o, ep);
 }
 
-static int __rtp_stats_pt_sort(const struct rtp_stats **a, const struct rtp_stats **b) {
+static int __rtp_stats_pt_sort(const void *A, const void *B) {
+	const struct rtp_stats *const *a = A, *const *b = B;
 	if ((*a)->payload_type < (*b)->payload_type)
 		return -1;
 	if ((*a)->payload_type > (*b)->payload_type)
@@ -1552,7 +1553,8 @@ typedef struct {
 	struct rtpengine_target_info reti;
 	struct ssrc_entry_call *ssrc[RTPE_NUM_SSRC_TRACKING];
 	kernel_output_q outputs;
-	rtp_stats_arr *payload_types;
+	struct rtp_stats *payload_types[RTPE_NUM_PAYLOAD_TYPES];
+	unsigned int num_payload_types;
 	bool blackhole;
 	bool non_forwarding;
 	bool silenced;
@@ -1560,7 +1562,6 @@ typedef struct {
 } kernelize_state;
 
 static void kernelize_state_clear(kernelize_state *s) {
-	rtp_stats_arr_destroy_ptr(&s->payload_types);
 	t_queue_clear_full(&s->outputs,
 			(void (*)(struct rtpengine_destination_info *)) g_free);
 }
@@ -1667,25 +1668,19 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 
 	// handle known RTP payload types:
 	// create sorted list of payload types
-	unsigned int num_pts = t_hash_table_size(stream->rtp_stats);
-	s->payload_types = rtp_stats_arr_new_sized(num_pts);
-	s->payload_types->len = num_pts;
 
 	rtp_stats_ht_iter iter;
 	t_hash_table_iter_init(&iter, stream->rtp_stats);
-	unsigned int i = 0;
+	s->num_payload_types = 0;
 	struct rtp_stats *rs;
-	while (t_hash_table_iter_next(&iter, NULL, &rs))
-		s->payload_types->pdata[i++] = rs;
-	t_ptr_array_sort(s->payload_types, __rtp_stats_pt_sort);
+	while (t_hash_table_iter_next(&iter, NULL, &rs) && s->num_payload_types < RTPE_NUM_PAYLOAD_TYPES)
+		s->payload_types[s->num_payload_types++] = rs;
+	qsort(s->payload_types, s->num_payload_types, sizeof(*s->payload_types),
+			__rtp_stats_pt_sort);
 
-	i = 0;
-	while (i < num_pts) {
-		if (reti->num_payload_types >= G_N_ELEMENTS(reti->pt_stats)) {
-			ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Too many RTP payload types for kernel module");
-			break;
-		}
-		rs = s->payload_types->pdata[i];
+	unsigned int i = 0;
+	while (i < s->num_payload_types) {
+		rs = s->payload_types[i];
 		// only add payload types that are passthrough for all sinks
 		bool can_kernelize = true;
 		for (__auto_type k = stream->rtp_sinks.head; k; k = k->next) {
@@ -1710,8 +1705,9 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 			reti->pt_filter = 1;
 			// ensure that the final list in *payload_types reflects the payload
 			// types populated in reti->payload_types
-			t_ptr_array_remove_index(s->payload_types, i);
-			num_pts--;
+			memmove(s->payload_types + i, s->payload_types + i + 1,
+					sizeof(*s->payload_types) * (s->num_payload_types - i - 1));
+			s->num_payload_types--;
 			continue;
 		}
 
@@ -1719,7 +1715,7 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 		i++;
 	}
 
-	reti->num_payload_types = num_pts;
+	reti->num_payload_types = s->num_payload_types;
 
 	return NULL;
 }
@@ -1774,9 +1770,9 @@ static const char *kernelize_one(kernelize_state *s,
 
 	// PT manipulations
 	bool silenced = s->silenced || sink_handler->attrs.silence_media;
-	if (s->manipulate_pt && s->payload_types) {
-		for (unsigned int i = 0; i < s->payload_types->len; i++) {
-			__auto_type rs = s->payload_types->pdata[i];
+	if (s->manipulate_pt) {
+		for (unsigned int i = 0; i < s->num_payload_types; i++) {
+			__auto_type rs = s->payload_types[i];
 			struct rtpengine_pt_output *rpt = &redi->output.pt_output[i];
 			struct codec_handler *ch = codec_handler_get(media, rs->payload_type,
 					sink->media, sink_handler);
@@ -1922,7 +1918,6 @@ static void kernelize(struct packet_stream *stream) {
 	// record number of RTP destinations up to now
 	unsigned int num_rtp_dests = s.reti.num_destinations;
 	// ignore RTP payload types
-	rtp_stats_arr_destroy_ptr(&s.payload_types);
 	for (__auto_type l = stream->rtcp_sinks.head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
 		bool ok = kernelize_one_sink_handler(&s, stream, sh);
