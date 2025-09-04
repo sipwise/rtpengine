@@ -301,6 +301,9 @@ void update_metadata_call(call_t *call, const sdp_ng_flags *flags) {
 	update_call_field(call, &call->recording_path, flags ? &flags->recording_path : NULL, "RECORDING_PATH");
 	update_call_field(call, &call->recording_pattern, flags ? &flags->recording_pattern : NULL,
 			"RECORDING_PATTERN");
+
+	if (call->recording)
+		append_meta_chunk_null(call->recording, "STARTED");
 }
 
 // lock must be held

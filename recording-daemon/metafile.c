@@ -103,7 +103,7 @@ static void meta_mix_file_output(metafile_t *mf) {
 		return;
 	}
 
-	if (!mf->metadata)
+	if (!mf->started)
 		return;
 
 	if (!mf->mix) {
@@ -128,7 +128,7 @@ static void meta_mix_tls_output(metafile_t *mf) {
 		mf->tls_mix = NULL;
 	}
 
-	if (!mf->metadata)
+	if (!mf->started)
 		return;
 	if (!mf->forwarding_on)
 		return;
@@ -317,6 +317,8 @@ static void meta_section(metafile_t *mf, char *section, char *content, unsigned 
 		mf->output_pattern = g_string_chunk_insert(mf->gsc, content);
 	else if (!strcmp(section, "SKIP_DATABASE"))
 		mf->skip_db = 1;
+	else if (!strcmp(section, "STARTED"))
+		mf->started = 1;
 
 	db_do_call(mf);
 	meta_mix_output(mf);

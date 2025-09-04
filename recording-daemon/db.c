@@ -260,7 +260,7 @@ static void db_do_call_id(metafile_t *mf) {
 		return;
 	if (mf->skip_db)
 		return;
-	if (!mf->metadata)
+	if (!mf->started)
 		return;
 
 	MYSQL_BIND b[2];
