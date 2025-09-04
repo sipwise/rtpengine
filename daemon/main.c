@@ -1228,7 +1228,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 					count, rtpe_config.mysql_query);
 	}
 
-	enum endpoint_learning el_config = EL_DELAYED;
+	enum endpoint_learning el_config = EL_HEURISTIC;
 	if (endpoint_learning) {
 		if (!strcasecmp(endpoint_learning, "delayed"))
 			el_config = EL_DELAYED;

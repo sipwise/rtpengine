@@ -9,7 +9,7 @@ use Test::More;
 
 
 autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1
-			-n 2223 -f -L 7 -E))
+			-n 2223 -f -L 7 -E --endpoint-learning=delayed))
 		or die;
 
 
