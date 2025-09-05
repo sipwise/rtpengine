@@ -2044,7 +2044,7 @@ static void __disable_streams(struct call_media *media, unsigned int num_ports) 
 }
 
 static void __rtcp_mux_set(const sdp_ng_flags *flags, struct call_media *media) {
-	if (flags->rtcp_mux_offer || flags->rtcp_mux_require)
+	if (flags->rtcp_mux_offer)
 		MEDIA_SET(media, RTCP_MUX);
 	else if (flags->rtcp_mux_demux)
 		MEDIA_CLEAR(media, RTCP_MUX);

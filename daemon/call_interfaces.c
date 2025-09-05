@@ -831,6 +831,7 @@ static void call_ng_flags_rtcp_mux(str *s, unsigned int idx, helper_arg arg) {
 			out->rtcp_mux_reject = true;
 			break;
 		case CSH_LOOKUP("require"):
+			out->rtcp_mux_offer = true;
 			out->rtcp_mux_require = true;
 			break;
 		default:
