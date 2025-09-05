@@ -3339,6 +3339,14 @@ static void monologue_bundle_check_consistency(struct call_monologue *ml) {
 		if (!bundle)
 			continue;
 
+		// same number of streams?
+		if (media->streams.length != bundle->streams.length) {
+			ilog(LOG_WARN, "Mismatched number of streams (%u vs %u), cannot bundle media",
+					media->streams.length, bundle->streams.length);
+			media->bundle = NULL;
+			continue;
+		}
+
 		// are PTs unique?
 		for (__auto_type l = media->codecs.codec_prefs.head; l; l = l->next) {
 			__auto_type pt = l->data;
