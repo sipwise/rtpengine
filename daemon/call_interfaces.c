@@ -853,6 +853,7 @@ static void call_ng_flags_bundle(str *s, unsigned int idx, helper_arg arg) {
 			out->bundle_reject = true;
 			break;
 		case CSH_LOOKUP("require"):
+			out->bundle_offer = true;
 			out->bundle_require = true;
 			break;
 		default:

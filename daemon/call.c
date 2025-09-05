@@ -2797,9 +2797,9 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 		for (__auto_type ll = flags->groups_other.head; ll; ll = ll->next)
 			t_queue_push_tail(&ml->groups_other, call_str_dup(ll->data));
 
-		if (t_hash_table_is_set(flags->bundles))
+		if (t_hash_table_is_set(flags->bundles) && flags->bundle_accept)
 			ML_SET(ml, BUNDLE);
-		else
+		else if (flags->bundle_reject)
 			ML_CLEAR(ml, BUNDLE);
 
 		ml->sdp_session_uri = call_str_cpy(&flags->session_uri);
