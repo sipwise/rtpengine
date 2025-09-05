@@ -3160,6 +3160,8 @@ static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 		for (__auto_type ll = source_ml->groups_other.head; ll; ll = ll->next)
 			append_attr_to_gstring(out, "group", ll->data, flags, media->type_id);
 	}
+	else
+		append_bundle_groups(out, monologue, flags);
 
 	/* carry other session level a= attributes to the outgoing SDP */
 	monologue->sdp_attr_print(out, monologue, flags);
