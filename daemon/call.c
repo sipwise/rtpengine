@@ -3353,6 +3353,20 @@ static void monologue_bundle_check_consistency(struct call_monologue *ml) {
 	}
 }
 
+// check to see if all bundle heads are also bundled
+__attribute__((nonnull(1)))
+static void monologue_bundle_check_heads(struct call_monologue *ml) {
+	for (unsigned int i = 0; i < ml->medias->len; i++) {
+		__auto_type media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+		if (!media->bundle)
+			continue;
+		if (!media->bundle->bundle)
+			media->bundle = NULL;
+	}
+}
+
 __attribute__((nonnull(1, 2)))
 static void monologue_bundle_accept(struct call_monologue *ml, sdp_ng_flags *flags) {
 	if (!ML_ISSET(ml, BUNDLE))
@@ -3394,6 +3408,7 @@ static void monologue_bundle_accept(struct call_monologue *ml, sdp_ng_flags *fla
 	}
 
 	monologue_bundle_check_consistency(ml);
+	monologue_bundle_check_heads(ml);
 }
 
 /* called with call->master_lock held in W */
