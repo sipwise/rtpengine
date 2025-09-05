@@ -416,7 +416,7 @@ isnt($port_a, $port_c, 'different ports');
 isnt($port_a, $port_d, 'different ports');
 isnt($port_b, $port_c, 'different ports');
 isnt($port_b, $port_d, 'different ports');
-isnt($port_c, $port_d, 'different ports');
+is($port_c, $port_d, 'same ports');
 
 snd($sock_a, $port_c,  rtp(0, 2000, 6000, 0x1234, "\x44" x 160));
 rcv($sock_c, $port_a, rtpm(0, 2000, 6000, 0x1234, "\x44" x 160));
@@ -529,7 +529,7 @@ isnt($port_a, $port_c, 'different ports');
 isnt($port_a, $port_d, 'different ports');
 isnt($port_b, $port_c, 'different ports');
 isnt($port_b, $port_d, 'different ports');
-isnt($port_c, $port_d, 'different ports');
+is($port_c, $port_d, 'same ports');
 
 snd($sock_a, $port_c,  rtp(0, 2000, 6000, 0x1234, "\x44" x 160));
 rcv($sock_c, $port_a, rtpm(0, 2000, 6000, 0x1234, "\x44" x 160));

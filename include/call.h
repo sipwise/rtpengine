@@ -219,6 +219,7 @@ enum {
 #define MEDIA_FLAG_RECRYPT			(1LL << 37)
 #define MEDIA_FLAG_PUBLIC			(1LL << 38)
 #define MEDIA_FLAG_EXTMAP_SHORT			SHARED_FLAG_EXTMAP_SHORT
+#define MEDIA_FLAG_BUNDLE_ONLY			(1LL << 40)
 
 /* struct call_monologue */
 #define ML_FLAG_REC_FORWARDING			(1LL << 16)

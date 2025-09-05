@@ -3375,6 +3375,42 @@ static void monologue_bundle_check_heads(struct call_monologue *ml) {
 	}
 }
 
+// assigns sockets to be shared
+__attribute__((nonnull(1)))
+static void monologue_bundle_set_fds(struct call_monologue *ml) {
+	for (unsigned int i = 0; i < ml->medias->len; i++) {
+		__auto_type media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+		if (!media->bundle)
+			continue;
+		if (!MEDIA_ISSET(media, BUNDLE_ONLY))
+			continue;
+		__auto_type bundle = media->bundle;
+		if (bundle == media)
+			continue;
+
+		__auto_type msl = media->streams.head;
+		__auto_type bsl = bundle->streams.head;
+
+		while (msl) {
+			__auto_type ms = msl->data;
+			__auto_type bs = bsl->data;
+
+			// XXX close sockets that are not needed?
+			t_queue_clear(&ms->sfds);
+
+			for (__auto_type sl = bs->sfds.head; sl; sl = sl->next)
+				t_queue_push_tail(&ms->sfds, sl->data);
+
+			ms->selected_sfd = bs->selected_sfd;
+
+			msl = msl->next;
+			bsl = bsl->next;
+		}
+	}
+}
+
 __attribute__((nonnull(1, 2)))
 static void monologue_bundle_accept(struct call_monologue *ml, sdp_ng_flags *flags) {
 	if (!ML_ISSET(ml, BUNDLE))
@@ -3412,11 +3448,15 @@ static void monologue_bundle_accept(struct call_monologue *ml, sdp_ng_flags *fla
 			continue;
 		}
 
+		// remember as accepted
+		MEDIA_SET(media, BUNDLE_ONLY);
+
 		track_bundle_media_pt(media, exclude_pt);
 	}
 
 	monologue_bundle_check_consistency(ml);
 	monologue_bundle_check_heads(ml);
+	monologue_bundle_set_fds(ml);
 }
 
 /* called with call->master_lock held in W */
@@ -3661,6 +3701,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 	}
 
 	monologue_bundle_accept(sender_ml, flags);
+	monologue_bundle_set_fds(receiver_ml);
 
 	// set ipv4/ipv6/mixed media stats
 	if (flags->opmode == OP_OFFER || flags->opmode == OP_ANSWER) {
