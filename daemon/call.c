@@ -3328,6 +3328,31 @@ static void track_bundle_media_pt(struct call_media *media, pt_media_ht tracker)
 	}
 }
 
+// check to see if all bundled media can actually be bundled
+__attribute__((nonnull(1)))
+static void monologue_bundle_check_consistency(struct call_monologue *ml) {
+	for (unsigned int i = 0; i < ml->medias->len; i++) {
+		__auto_type media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+		__auto_type bundle = media->bundle;
+		if (!bundle)
+			continue;
+
+		// are PTs unique?
+		for (__auto_type l = media->codecs.codec_prefs.head; l; l = l->next) {
+			__auto_type pt = l->data;
+			if (!t_hash_table_lookup(bundle->pt_media, GINT_TO_POINTER(pt->payload_type))) {
+				ilog(LOG_WARN, "Payload type %d of media #%u cannot be uniquely associated, "
+						"therefore cannot bundle media", pt->payload_type,
+						media->index);
+				media->bundle = NULL;
+				break;
+			}
+		}
+	}
+}
+
 __attribute__((nonnull(1, 2)))
 static void monologue_bundle_accept(struct call_monologue *ml, sdp_ng_flags *flags) {
 	if (!ML_ISSET(ml, BUNDLE))
@@ -3367,6 +3392,8 @@ static void monologue_bundle_accept(struct call_monologue *ml, sdp_ng_flags *fla
 
 		track_bundle_media_pt(media, exclude_pt);
 	}
+
+	monologue_bundle_check_consistency(ml);
 }
 
 /* called with call->master_lock held in W */

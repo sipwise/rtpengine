@@ -555,5 +555,155 @@ rcv_no($sock_c);
 
 
 
+offer('same port bundle with non unique PT',
+	{ bundle => ['accept'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE a v
+m=audio 6208 RTP/AVP 0 100
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:a
+a=rtpmap:100 foo/8000
+m=video 6208 RTP/AVP 105 100
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=rtpmap:100 bar/90000
+a=sendrecv
+a=mid:v
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 100
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=rtpmap:100 foo/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105 100
+c=IN IP4 203.0.113.1
+a=mid:v
+a=rtpmap:105 H264/90000
+a=rtpmap:100 bar/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('same port bundle with non unique PT',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6210 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:a
+m=video 6212 RTP/AVP 105
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=mid:v
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105
+c=IN IP4 203.0.113.1
+a=mid:v
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+offer('optional bundle with non unique PT',
+	{ bundle => ['accept'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE a v
+m=audio 7106 RTP/AVP 0 100
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:a
+a=rtpmap:100 foo/8000
+m=video 7108 RTP/AVP 105 100
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=rtpmap:100 bar/90000
+a=sendrecv
+a=mid:v
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 100
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=rtpmap:100 foo/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105 100
+c=IN IP4 203.0.113.1
+a=mid:v
+a=rtpmap:105 H264/90000
+a=rtpmap:100 bar/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('same port bundle with non unique PT',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7110 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:a
+m=video 7112 RTP/AVP 105
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=mid:v
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105
+c=IN IP4 203.0.113.1
+a=mid:v
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
