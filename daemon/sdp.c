@@ -1993,7 +1993,7 @@ bool sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_
 		__auto_type attrs = attr_list_get_by_id(&session->attributes, ATTR_GROUP);
 		for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 			attr = ll->data;
-			if (attr->group.semantics == GROUP_BUNDLE)
+			if (attr->group.semantics == GROUP_BUNDLE && flags->ice_option != ICE_FORCE_RELAY)
 				sdp_bundle_group(flags, &attr->group);
 			else
 				t_queue_push_tail(&flags->groups_other, &attr->strs.value);
