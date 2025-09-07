@@ -1104,57 +1104,6 @@ static int media_player_find_file_begin(struct media_player *mp) {
 static bool media_player_read_packet(struct media_player *mp) {
 	if (!mp->coder.fmtctx)
 		return true;
-	// Handle raw RTP file playback
-    if (mp->coder.audio_raw_rtp_mode) {
-        // Check if we have more data
-        if (mp->coder.audio_raw_rtp_pos >= mp->coder.audio_raw_rtp_data.len) {
-            ilog(LOG_DEBUG, "End of raw RTP file reached");
-            return true;
-        }
-        
-        // Calculate bytes to read (one frame)
-        size_t bytes_to_read = MIN(mp->coder.audio_raw_rtp_frame_size, 
-                                  mp->coder.audio_raw_rtp_data.len - mp->coder.audio_raw_rtp_pos);
-        // Allocate packet
-        mp->coder.pkt = av_packet_alloc();
-        if (!mp->coder.pkt) {
-            ilog(LOG_ERR, "Failed to allocate packet");
-            return true;
-        }
-        
-        // Fill packet with raw RTP data
-        if (av_new_packet(mp->coder.pkt, bytes_to_read) < 0) {
-            ilog(LOG_ERR, "Failed to create packet");
-            av_packet_free(&mp->coder.pkt);
-            return true;
-        }
-        if (bytes_to_read > 0) {
-        	memcpy(mp->coder.pkt->data, 
-				   mp->coder.audio_raw_rtp_data.s + mp->coder.audio_raw_rtp_pos,
-				   bytes_to_read);
-		}
-		if (bytes_to_read < mp->coder.audio_raw_rtp_frame_size) {
-			// Pad with silence if needed
-			memset(mp->coder.pkt->data + bytes_to_read, 
-				mp->coder.silence_byte,
-				mp->coder.audio_raw_rtp_frame_size - bytes_to_read);
-			ilog(LOG_DEBUG, "Padding %zu bytes of silence",
-				mp->coder.audio_raw_rtp_frame_size - bytes_to_read);
-		}
-        mp->coder.audio_raw_rtp_pos += bytes_to_read;
-        
-        // Simulate packet timing (20ms per frame)
-		mp->coder.pkt->pts = mp->last_frame_ts;
-        mp->coder.pkt->duration = 160;
-		mp->last_frame_ts += mp->coder.pkt->duration;  
-        // Process packet
-        media_player_coder_add_packet(&mp->coder, media_player_add_packet, mp);
-        av_packet_free(&mp->coder.pkt);
-        
-        // Schedule next read in 20ms
-        mp->next_run = rtpe_now + 20000;
-        return false;
-    }
 
 	int ret = av_read_frame(mp->coder.fmtctx, mp->coder.pkt);
 	if (ret < 0) {
@@ -1283,18 +1232,17 @@ static bool media_player_play_start(struct media_player *mp, const rtp_payload_t
 		return true;
 
 	mp->next_run = rtpe_now;
-    if (!mp->coder.audio_raw_rtp_mode) {
-		// give ourselves a bit of a head start with decoding
-		mp->next_run -= 50000;
+	// give ourselves a bit of a head start with decoding
+	mp->next_run -= 50000;
 
-		// if start_pos is positive, try to seek to that position
-		if (mp->opts.start_pos > 0) {
-			ilog(LOG_DEBUG, "Seeking to position %lli", mp->opts.start_pos);
-			av_seek_frame(mp->coder.fmtctx, 0, mp->opts.start_pos, 0);
-		}
-		else // in case this is a repeated start
-			av_seek_frame(mp->coder.fmtctx, 0, 0, 0);
+	// if start_pos is positive, try to seek to that position
+	if (mp->opts.start_pos > 0) {
+		ilog(LOG_DEBUG, "Seeking to position %lli", mp->opts.start_pos);
+		av_seek_frame(mp->coder.fmtctx, 0, mp->opts.start_pos, 0);
 	}
+	else // in case this is a repeated start
+		av_seek_frame(mp->coder.fmtctx, 0, 0, 0);
+
 	media_player_read_packet(mp);
 
 	return true;
@@ -1527,61 +1475,72 @@ static mp_cached_code __media_player_add_file(struct media_player *mp,
 	return MPC_OK;
 }
 
+struct rtp_payload_data{
+    int pt;                     // RTP payload type
+    const char ffmpeg_codec_name[6];     // Codec name (case-sensitive)
+    enum AVMediaType codec_type;// Media type
+    enum AVCodecID codec_id;    // FFmpeg codec ID
+    int sample_rate;             // Sample rate
+	int channels;                // Default channels
+};
+
+const struct rtp_payload_data rtp_payload_types[] = {
+    {0,  "mulaw",  AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_PCM_MULAW, 8000, 1},
+    {8,  "alaw",  AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_PCM_ALAW,   8000, 1},
+	{9,  "g722",  AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_ADPCM_G722, 8000, 1},
+	{18, "g729",  AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_G729,      8000, 1},
+    {-1, "",      AVMEDIA_TYPE_UNKNOWN, AV_CODEC_ID_NONE,     -1,  -1}
+};
+
+// Helper function to find codec configuration
+static const struct rtp_payload_data *find_rtp_payload_data(const str *codec_str) {
+    // Check static payload types
+    for (int i = 0; rtp_payload_types[i].pt != -1; i++) {
+        if (str_cmp(codec_str, rtp_payload_types[i].ffmpeg_codec_name) == 0) {
+            return &rtp_payload_types[i];
+        }
+    }
+    ilog(LOG_ERR, "Unsupported codec: '" STR_FORMAT "'", STR_FMT(codec_str));
+    return NULL;
+}
+
 static bool __media_player_open_audio_raw_rtp_file(struct media_player *mp, media_player_opts_t opts) {
     // Validate codec
     if (!opts.audio_raw_rtp_codec.len) {
         ilog(LOG_ERR, "Raw RTP playback requires codec specification");
         return false;
     }
+    
+	// Find codec configuration
+   const struct rtp_payload_data *payload_data = find_rtp_payload_data(&opts.audio_raw_rtp_codec);
+    if (!payload_data || payload_data->codec_id == AV_CODEC_ID_NONE) {
+        ilog(LOG_ERR, "Codec '" STR_FORMAT "' is not supported by FFmpeg", STR_FMT(&opts.audio_raw_rtp_codec));
+        return false;
+    }
 
-    // Convert file path
+	// Convert file path
     char file_path[PATH_MAX];
     snprintf(file_path, sizeof(file_path), STR_FORMAT, STR_FMT(&opts.audio_raw_rtp_file));
     
-    // Open file
-    FILE *f = fopen(file_path, "rb");
-    if (!f) {
-        ilog(LOG_ERR, "Failed to open raw RTP file: %s", file_path);
+	AVInputFormat *iformat = av_find_input_format(opts.audio_raw_rtp_codec.s);
+	if (!iformat) {
+        ilog(LOG_ERR, "Failed to find input format:'" STR_FORMAT "'", STR_FMT(&opts.audio_raw_rtp_codec));
         return false;
     }
-    
-    // Get file size
-    fseek(f, 0, SEEK_END);
-    long file_size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    // Read entire file into memory
-    char *file_data = malloc(file_size);
-    if (!file_data || fread(file_data, 1, file_size, f) != file_size) {
-        ilog(LOG_ERR, "Failed to read raw RTP file");
-        fclose(f);
-        free(file_data);
+
+	int ret = avformat_open_input(&mp->coder.fmtctx, file_path, iformat , NULL);
+    if (ret < 0) {
+		ilog(LOG_ERR, "Raw RTP playback failing in avformat_open_input");
+		return false;
+	}
+
+    if (!mp->coder.fmtctx->streams || !mp->coder.fmtctx->streams[0]) {
+        ilog(LOG_ERR, "No streams found in input file");
         return false;
     }
-    fclose(f);
-    
-    // Store in player context
-    mp->coder.audio_raw_rtp_data.s = file_data;
-    mp->coder.audio_raw_rtp_data.len = file_size;
-    mp->coder.audio_raw_rtp_pos = 0;
-    // Set codec parameters based on input
-    if (opts.audio_raw_rtp_codec.len == 4 && strncasecmp(opts.audio_raw_rtp_codec.s, "PCMU", 4) == 0) {
-        mp->coder.audio_raw_rtp_codec = AV_CODEC_ID_PCM_MULAW;
-        mp->coder.audio_raw_rtp_frame_size = 160; // 20ms frames
-		mp->coder.silence_byte = 0xFF;            // μ-law silence
-		mp->coder.time_base = (AVRational){1, 8000}; // Default for 8kHz audio
-    }
-    else if (opts.audio_raw_rtp_codec.len == 4 && strncasecmp(opts.audio_raw_rtp_codec.s, "PCMA", 4) == 0) {
-        mp->coder.audio_raw_rtp_codec = AV_CODEC_ID_PCM_ALAW;
-        mp->coder.audio_raw_rtp_frame_size = 160; // 20ms frames
-		mp->coder.silence_byte = 0x55;	// A-law silence
-		mp->coder.time_base = (AVRational){1, 8000}; // Default for 8kHz audio
-    }
-    else {
-        ilog(LOG_ERR, "Unsupported raw RTP codec: " STR_FORMAT, STR_FMT(&opts.audio_raw_rtp_codec));
-        free(file_data);
-        return false;
-    }
-    
+	mp->coder.fmtctx->streams[0]->time_base = (AVRational){1, payload_data->sample_rate > 0 ? payload_data->sample_rate : 8000}; // Default for 8kHz audio;
+	mp->coder.fmtctx->streams[0]->codecpar->sample_rate = payload_data->sample_rate;
+	
     return true;
 }
 
@@ -1591,28 +1550,7 @@ static bool media_player_play_audio_raw_rtp_file(struct media_player *mp, media_
         return false;
 
     if (!__media_player_open_audio_raw_rtp_file(mp, opts))
-        return false;
-
-    // Set up fake format context
-    mp->coder.fmtctx = avformat_alloc_context();
-    if (!mp->coder.fmtctx) {
-        ilog(LOG_ERR, "Failed to alloc format context");
-        return false;
-    }
-
-	// Create a dummy stream
-    AVStream *stream = avformat_new_stream(mp->coder.fmtctx, NULL);
-    if (!stream) {
-        ilog(LOG_ERR, "Failed to create stream");
-        return false;
-    }
-    
-    // Set codec parameters
-	stream->time_base = mp->coder.time_base;  
-	stream->codecpar->codec_id = mp->coder.audio_raw_rtp_codec;
-	stream->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
-	stream->codecpar->channels = 1;
-    stream->codecpar->channel_layout = AV_CH_LAYOUT_MONO;
+        return false;    
 
     mp->coder.audio_raw_rtp_mode = true;
     return media_player_play_start(mp, dst_pt, opts.codec_set);
