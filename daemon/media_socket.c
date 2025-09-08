@@ -2086,11 +2086,17 @@ static bool extmap_has_ext(const struct media_packet *mp, const struct rtp_exten
 	return true;
 }
 
+static bool extmap_ext_override(const struct media_packet *mp, const struct rtp_extension_data *ext) {
+	if (ext->ext->handler.id >= RTP_EXT_NUM)
+		return false;
+	if (mp->media_out->extmap_id[ext->ext->handler.id])
+		return true;
+	return false;
+}
+
 
 static size_t rtpext_printer_extmap_length(const struct media_packet *mp) {
 	if (mp->rtcp)
-		return 0;
-	if (!mp->extmap.length)
 		return 0;
 
 	__auto_type media = mp->media_out;
@@ -2109,10 +2115,6 @@ static size_t rtpext_printer_extmap_print(struct rtp_header *rh, void *dst, cons
 
 	if (mp->rtcp)
 		return 0;
-	if (!mp->extmap.length)
-		return 0;
-	if (!mp->media_out || !mp->media_out->extmap.length)
-		return 0; // no extensions
 
 	__auto_type media = mp->media_out;
 	if (!media)
@@ -2122,10 +2124,24 @@ static size_t rtpext_printer_extmap_print(struct rtp_header *rh, void *dst, cons
 	dst += 4; // fixed size header
 	void *first = dst;
 
+	for (unsigned int i = 0; i < RTP_EXT_NUM; i++) {
+		__auto_type ext = media->extmap_id[i];
+		if (!ext)
+			continue;
+
+		ssize_t len = ext->handler.print(dst, ext, media);
+		if (len < 0)
+			continue;
+
+		dst += len;
+	}
+
 	for (auto_iter(l, mp->extmap.head); l; l = l->next) {
 		__auto_type ext = l->data;
 
 		if (!extmap_has_ext(mp, ext))
+			continue;
+		if (extmap_ext_override(mp, ext))
 			continue;
 
 		size_t len = media->extmap_ops->print(dst, ext->ext->id, &ext->content);
@@ -2224,6 +2240,30 @@ size_t extmap_length_short(const struct media_packet *mp) {
 
 	size_t ret = 4; // 0xbede + int16 length
 
+	for (unsigned int i = 0; i < RTP_EXT_NUM; i++) {
+		__auto_type ext = media->extmap_id[i];
+		if (!ext)
+			continue;
+
+		ssize_t len = ext->handler.len(media);
+		if (len < 0) {
+			ilog(LOG_WARN | LOG_FLAG_LIMIT, "Unable to add RTP extension with internal id %d "
+					"for short form", i);
+			continue;
+		}
+		if (!extmap_short_is_valid_data(ext->id, len)) {
+			if (extmap_switch_long(media))
+				return extmap_ops_long.length(mp);
+
+			ilog(LOG_WARN | LOG_FLAG_LIMIT, "Unable to add RTP extension with internal id %d "
+					"for short form", i);
+			continue;
+		}
+
+		ret++; // 1-byte header
+		ret += len;
+	}
+
 	const extmap_data_q *q = &mp->extmap;
 
 	for (auto_iter(l, q->head); l; l = l->next) {
@@ -2231,10 +2271,13 @@ size_t extmap_length_short(const struct media_packet *mp) {
 
 		if (!extmap_has_ext(mp, ext))
 			continue;
+		if (extmap_ext_override(mp, ext))
+			continue;
 
 		if (!extmap_short_is_valid(ext)) {
 			if (extmap_switch_long(media))
 				return extmap_ops_long.length(mp);
+
 			ilog(LOG_WARN | LOG_FLAG_LIMIT, "RTP extension with id %d length %zu not valid "
 					"for short form", ext->ext->id, ext->content.len);
 			continue;
@@ -2245,7 +2288,7 @@ size_t extmap_length_short(const struct media_packet *mp) {
 	}
 
 	if (ret == 4)
-		return 0; // nothing left
+		return 0; // nothing there
 
 	return ret;
 }
@@ -2281,16 +2324,36 @@ static bool extmap_long_is_valid(const struct rtp_extension_data *ext) {
 }
 
 size_t extmap_length_long(const struct media_packet *mp) {
-	if (!mp->media_out || !mp->media_out->extmap.length)
-		return 0; // no extensions
+	__auto_type media = mp->media_out;
+	if (!media)
+		return 0;
+
+	size_t ret = 4; // 0x0100 + int16 length
+
+	for (unsigned int i = 0; i < RTP_EXT_NUM; i++) {
+		__auto_type ext = media->extmap_id[i];
+		if (!ext)
+			continue;
+
+		ssize_t len = ext->handler.len(media);
+		if (len < 0 || !extmap_long_is_valid_data(ext->id, len)) {
+			ilog(LOG_WARN | LOG_FLAG_LIMIT, "Unable to add RTP extension with internal id %d "
+					"for long form", i);
+			continue;
+		}
+
+		ret += 2; // 2-byte header
+		ret += len;
+	}
 
 	const extmap_data_q *q = &mp->extmap;
 
-	size_t ret = 4; // 0x0100 + int16 length
 	for (auto_iter(l, q->head); l; l = l->next) {
 		__auto_type ext = l->data;
 
 		if (!extmap_has_ext(mp, ext))
+			continue;
+		if (extmap_ext_override(mp, ext))
 			continue;
 
 		if (!extmap_long_is_valid(ext)) {
@@ -2304,7 +2367,7 @@ size_t extmap_length_long(const struct media_packet *mp) {
 	}
 
 	if (ret == 4)
-		return 0; // nothing left
+		return 0; // nothing there
 
 	return ret;
 }
@@ -2689,9 +2752,19 @@ static void rtp_ext_mid_parse(struct packet_handler_ctx *phc, const struct rtp_e
 
 	media_packet_reset_media(phc, media);
 }
+static ssize_t rtp_ext_mid_len(struct call_media *media) {
+	return media->media_id.len ?: -1;
+}
+static ssize_t rtp_ext_mid_print(void *dst, struct rtp_extension *ext, struct call_media *media) {
+	if (!media->media_id.len)
+		return -1;
+	return media->extmap_ops->print(dst, ext->id, &media->media_id);
+}
 
 static const rtp_ext_handler rtp_ext_mid = {
 	.parse = rtp_ext_mid_parse,
+	.len = rtp_ext_mid_len,
+	.print = rtp_ext_mid_print,
 	.id = RTP_EXT_MID,
 };
 
