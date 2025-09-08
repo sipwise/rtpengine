@@ -2978,6 +2978,11 @@ static bool media_extmap_strip_mask(const str *name, const struct sdp_ng_flags *
 
 __attribute__((nonnull(1, 2)))
 static void media_extmap_accept(struct rtp_extension *ext, const struct sdp_ng_flags *flags) {
+	if (flags->bundle_accept && ext->handler.id == RTP_EXT_MID) {
+		ext->accepted = true;
+		return;
+	}
+
 	if (t_hash_table_is_set(flags->rtpext_mask)) {
 		if (t_hash_table_lookup(flags->rtpext_mask, &ext->name)
 				|| t_hash_table_lookup(flags->rtpext_mask, STR_PTR("all")))
@@ -3345,6 +3350,32 @@ static void monologue_bundle_check_consistency(struct call_monologue *ml) {
 					media->streams.length, bundle->streams.length);
 			media->bundle = NULL;
 			continue;
+		}
+
+		// MID extension available?
+		if (media->extmap_id[RTP_EXT_MID]) {
+			if (media->media_id.len > 255) {
+				ilog(LOG_WARN, "Media ID too long, rejecting bundle");
+				media->bundle = NULL;
+				break;
+			}
+			if (!bundle->extmap_id[RTP_EXT_MID]) {
+				ilog(LOG_WARN, "Bundle head does not advertise MID extension, rejecting bundle");
+				media->bundle = NULL;
+				break;
+			}
+			if (media->extmap_id[RTP_EXT_MID]->id != bundle->extmap_id[RTP_EXT_MID]->id) {
+				ilog(LOG_WARN, "Mismatched identifier for MID extension, rejecting bundle");
+				media->bundle = NULL;
+				break;
+			}
+			if (media->media_id.len == 0) {
+				ilog(LOG_WARN, "MID header extension advertised, but no media ID present, "
+						"rejecting bundle");
+				media->bundle = NULL;
+				break;
+			}
+			continue; // skip PT uniqueness test for this media
 		}
 
 		// are PTs unique?
