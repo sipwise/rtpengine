@@ -2884,8 +2884,9 @@ __attribute__((nonnull(1)))
 static void media_reset_extmap(struct call_media *media,
 		bool (*exclude)(struct rtp_extension *))
 {
-	// reset basic table
+	// reset basic tables
 	memset(media->extmap_a, 0, sizeof(media->extmap_a));
+	memset(media->extmap_id, 0, sizeof(media->extmap_id));
 	media->extmap_ops = &extmap_ops_short;
 
 	if (!exclude) {
@@ -2909,6 +2910,9 @@ static void media_reset_extmap(struct call_media *media,
 				media->extmap_a[ext->id - 1] = ext;
 			else
 				media->extmap_ops = &extmap_ops_long;
+
+			if (ext->handler.id < RTP_EXT_NUM)
+				media->extmap_id[ext->handler.id] = ext;
 
 			ele = ele->next;
 			continue;
@@ -2943,6 +2947,9 @@ static void media_init_extmap(struct call_media *media, struct rtp_extension *ex
 		media->extmap_a[ext->id - 1] = ext;
 	else
 		media->extmap_ops = &extmap_ops_long;
+
+	if (ext->handler.id < RTP_EXT_NUM)
+		media->extmap_id[ext->handler.id] = ext;
 }
 
 __attribute__((nonnull(1, 2)))

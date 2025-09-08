@@ -503,6 +503,7 @@ struct call_media {
 
 	extmap_q		extmap; // container
 	struct rtp_extension	*extmap_a[14]; // 1-14 -> [0..13]
+	struct rtp_extension	*extmap_id[RTP_EXT_NUM];
 	extmap_ht		extmap_ht;
 	const struct extmap_ops	*extmap_ops;
 	ext_name_ht		ext_name_ht;
