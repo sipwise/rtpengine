@@ -3007,7 +3007,7 @@ static void media_set_extmap(struct call_media *media, const extmap_q *emq,
 	media_reset_extmap(media, media_extmap_exclude_accepted);
 
 	// copy entries
-	for (__auto_type ll = emq->head; ll; ll = ll->next) {
+	for (auto_iter(ll, emq->head); ll; ll = ll->next) {
 		__auto_type ext_o = ll->data;
 		if (manip && !manip(&ext_o->name, flags))
 			continue;
