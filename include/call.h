@@ -474,7 +474,7 @@ struct extmap_ops {
 
 	size_t			(*length)(const struct media_packet *);
 	void			(*header)(void *dst);
-	size_t			(*print)(void *dst, const struct rtp_extension_data *);
+	size_t			(*print)(void *dst, unsigned int id, const str *);
 };
 
 extern const struct extmap_ops extmap_ops_long;

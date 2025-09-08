@@ -351,11 +351,11 @@ TYPED_GHASHTABLE(ext_name_ht, str, struct rtp_extension, str_hash, str_equal, NU
 
 size_t extmap_length_short(const struct media_packet *);
 void extmap_header_short(void *);
-size_t extmap_print_short(void *, const struct rtp_extension_data *);
+size_t extmap_print_short(void *, unsigned int, const str *);
 
 size_t extmap_length_long(const struct media_packet *);
 void extmap_header_long(void *);
-size_t extmap_print_long(void *, const struct rtp_extension_data *);
+size_t extmap_print_long(void *, unsigned int, const str *);
 
 
 rtp_ext_handler rtp_extension_get_handler(const str *);
