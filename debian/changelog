@@ -1,3 +1,186 @@
+ngcp-rtpengine (14.0.0.0+0~mr14.0.0.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [4574af0] MT#55283 remove debugging remnants
+  * [18f1077] MT#55283 add tester rtpe_raw_req
+  * [4cd65cc] MT#55283 add test for invalid SDP
+  * [a68888d] MT#55283 consider transcoding codecs as symmetric
+  * [4f66464] MT#55283 add test for Ie233a4a45b
+  * [a7a43c9] MT#55283 fix mem leak
+  * [59cea58] MT#55283 support soft shutdown for DTX
+  * [cac4b2b] MT#55283 add test for I9cbb9e946
+  * [02897cc] MT#55283 fix sdes_accept logic booboo
+  * [14af582] MT#55283 tests for I577371570
+  * [f50c056] MT#55283 fix double free
+  * [38d2f07] MT#62571 make sure mix output exists when needed
+  * [d14db53] MT#55283 use proper atomic ops
+  * [872049b] MT#55283 fix possible off-by-one
+  * [f5277e5] MT#55283 add http-buf-size option
+  * [0dbbc94] MT#55283 create mix output only after tag is known
+  * [3ce25d0] MT#55283 version-guard lws buf size
+  * [c56899f] MT#55283 use intptr_t for pointer arith
+  * [b39a43a] MT#62571 split out TLS send code
+  * [3743573] MT#62571 remove redundant decls
+  * [08ee3b2] MT#62571 abstract sink/output
+  * [98db2ba] MT#62571 add sink config method
+  * [fb2b698] MT#62571 add sink resampling stage
+  * [293b393] MT#62571 remove output_config from decoder_new
+  * [316161f] MT#62571 add sink to decode_t
+  * [06c8920] MT#62571 turn mix output into sink
+  * [ad06336] MT#62571 encapsulate tls_fwd
+  * [5ebd94d] MT#62571 turn tls_fwd into allocated obj
+  * [aa627d7] MT#62571 further encapsulate tls_fwd
+  * [a14c20d] MT#62571 turn tls_fwd into sink
+  * [7dfe1e3] MT#62571 support sending multi channel audio
+  * [15465d0] MT#62571 allow creation of mix after streams
+  * [6476b81] MT#62571 generic mix sink
+  * [549e98e] MT#62571 generalise tls_fwd_new
+  * [ef3b1c2] MT#62571 support mixed TLS/TCP output
+  * [2845bb1] MT#62571 streamline resampling
+  * [fe39a79] MT#55283 fix clashing PT numbers
+  * [62b2166] MT#55283 test for Ia69cbb69a82
+  * [7b7580d] MT#55283 fix typo
+  * [fa8123e] MT#55283 explicitly return PTS/duration
+  * [3ca9941] MT#55283 add ptime to logging in a few places
+  * [daa769f] MT#55283 distinguish player cache ptimes
+  * [e2e5e22] MT#55283 add tests for Ib118cd2ce/Ib36b36bb
+  * [9c83de9] MT#55283 update format_parse to bool
+  * [7998309] MT#55283 ignore G.729 fmtp
+  * [7ac4c3e] MT#55283 whitespace fixes
+  * [1b077c3] MT#55283 use auto lock in a few more places
+  * [ffc539c] MT#55283 locking updates
+  * [8f13d83] MT#55283 fix num_ports not being set
+  * [3118b1e] MT#55283 update function to bool
+  * [215500b] MT#55283 add port_is_in_range helper
+  * [589bf0b] MT#55283 split up reserve_port
+  * [98a78a3] MT#55283 update condition to test for socket
+  * [116fc22] MT#55283 move subscribe-keyspace option
+  * [6a72ce3] MT#55283 move Redis macros
+  * [052f16d] MT#55283 allow allocation of out-of-pool ports
+  * [7fbc612] MT#55283 add keyspace notification test
+  * [b6bd980] MT#55283 upgrade xmlrpc_callback to string
+  * [ab48284] MT#55283 allow null logical_intf
+  * [8f92c6e] MT#55283 update test
+  * [a9d48c0] MT#55283 update codec getter for jitter buffer
+  * [16ab6ff] MT#55283 extend test
+  * [35d3110] MT#55283 add alternative opus output
+  * [eda9cc5] MT#63151 move asan flags
+  * [e600a58] MT#63151 make poller.h override more specific
+  * [d276ba4] MT#63151 move overridable headers
+  * [4cfaf1a] MT#63151 remove duplication of files during make
+  * [25ef320] MT#55283 update YCM conf
+  * [ffacde5] MT#55283 trigger RTCP send from both send funcs
+  * [70be9e6] MT#55283 use gcc for .S files
+  * [262d1f7] MT#63317 fix RTP extension parsing
+  * [646850c] MT#55283 remove duplicate make dep
+  * [675eb7b] MT#55283 fix int size issues
+  * [649e225] MT#55283 fix alloc alignment
+  * [c0b245b] MT#55283 support SO_TIMESTAMP_OLD
+  * [98c088f] MT#55283 silence asan warning
+  * [f7eea45] MT#55283 remove support for buster
+  * [b780349] MT#55283 support ICE nomination in test
+  * [632d125] MT#55283 add remote-candidates test
+  * [fdc6178] MT#55283 add forky backports script
+  * [a9bfb88] MT#55283 fix forky script
+  * [f2a9111] MT#55283 distinguish transcoding PTs
+  * [eb28875] MT#55283 tests for I19c2aff7
+  * [e03f814] MT#55283 combine in/out_lock
+  * [cec0afa] MT#55283 clean up RTCP send locking
+  * [f9ae163] MT#55283 add missing lock destruction
+  * [08239c9] MT#55283 clarify _destroy_ptr
+  * [7cf0b86] MT#55283 move kernelize_state into scope
+  * [d9fbda8] MT#55283 fix RTD dashes in man page
+  * [48ce74f] MT#55283 fix possible null dereference
+  * [6626fd4] MT#55283 add alternative G.722 encoding
+  * [6b66fa8] MT#63317 modernise __rtp_payload_types
+  * [a04c77f] MT#63317 use direct int hashing
+  * [a7e9d52] MT#55283 remove sp->desired_family
+  * [1e0c91c] MT#55283 move option to correct section
+  * [5927967] MT#55283 make sure DB entry exists
+  * [0c06ed0] MT#61977 fix DB timestamping
+  * [e2e4d8f] MT#55283 fix DB metadata output
+  * [7d37d8b] MT#55283 set frame size after avcodec_open2
+  * [0b64fb3] MT#55283 fix Homer timestamp byte order
+  * [428999c] MT#61977 turn output-storage= into list
+  * [2888415] MT#61977 remove logically dead test
+  * [844a7e0] MT#61977 remove unused function
+  * [644b664] MT#61977 rename functions
+  * [496ae5f] MT#61977 split up output_config
+  * [6a939c4] MT#61977 split up output_setup
+  * [b2837ed] MT#61977 move unlinking to output_close
+  * [c066b69] MT#61977 streamline output_close
+  * [00a6119] MT#61977 reverse logic for file open mode
+  * [820de80] MT#61977 convert notify-record option
+  * [e8973a6] MT#61977 support output-storage=none
+  * [74bc521] MT#61977 use _get_content for notifications
+  * [09c87d5] MT#61977 move cleanup of notifiers
+  * [d484e2d] MT#61977 generalise notification mechanism
+  * [d122b39] MT#61977 introduce content_t
+  * [b5019b8] MT#61977 move notification types
+  * [bc9fc1e] MT#61977 add notification failure handling
+  * [c425a65] MT#61977 add return value to execute_wrap
+  * [3670f75] MT#61977 turn DB writing into a notification
+  * [453ede0] MT#61977 add http/curl wrappers
+  * [0b5d094] MT#61977 add S3 auth helpers
+  * [c7edd6c] MT#61977 unit test for S3 auth
+  * [c13c916] MT#61977 add up/download capability to HTTP
+  * [f48fc84] MT#55283 defuse unstable tests
+  * [0d1eedd] MT#61977 add S3 storage option
+  * [1546d8a] MT#61977 add oauth/JWT helpers
+  * [ed68ee3] MT#61977 add GCS storage option
+  * [8a3d8c9] MT#63317 re-fix extension parsing
+  * [afdeea8] MT#55283 more specific callback arg name
+  * [8297449] MT#55283 switch callback argument
+  * [b85e007] MT#55283 add extra dtls_connection_cleanup
+  * [271b3b1] MT#55283 store sfd in fsin in dtls_connection
+  * [89313ed] MT#55283 call del_item callback even on failure
+  * [ec84147] MT#55283 final release of all sockets at shutdown
+  * [529a701] MT#55283 use an intrusive list for ports release
+  * [d7d7a98] MT#55283 lump in subscription log output
+  * [ceb0639] MT#62571 wait with mix outputs until metadata
+  * [14acdb2] MT#62571 don't open TCP when forwarding is not on
+  * [25a28db] MT#55283 fix naughty bit field bug
+  * [214316b] MT#55283 update GH actions to Ubuntu noble
+  * [0548168] MT#55283 use explicit started flag
+  * [923d99d] MT#55283 change default learning mode to heuristic
+
+  [ wangduanduan ]
+  * [eba58fd] MT#55283 log: add log recevied stun request
+  * [7b5235b] MT#55283 test: add test for unknown fmtp
+  * [16ccd39] MT#55283 log: dtls log add src ip
+  * [ec6d07d] MT#55283 dtls: add handshake type log
+
+  [ Donat Zenichev ]
+  * [fd763f2] MT#63082 crypto: ignore dummy suites
+  * [538d06a] MT#63082 parse crypto and rtcp: on error handling return -1
+  * [f2c8922] MT#63082 rtcp parsing: improvements
+  * [836423e] MT#61856 main: first static, then const
+  * [856ab58] MT#61856 parse_attribute_crypto: initialize `err` at least to something
+  * [2fd1480] MT#61856 recording-daemon: update const qualifiers
+  * [03e6b84] MT#61856 recording-daemon: output.c make some of funcs static
+
+  [ Aki Huolman ]
+  * [2abda66] MT#55283 Add documentation for MySQL database schema
+
+  [ Orgad Shaneh ]
+  * [fa7b466] MT#55283 respect pause recording command
+  * [2d55657] MT#55283 add timestamp markers to recording metadata for pause/resume events
+  * [80240f6] MT#55283 fix recording auto-start when paused on new offer
+
+  [ John Burke ]
+  * [afce798] MT#55283 early exit heuristic endpoint learning if endpoint matches SDP
+
+  [ Ivan Poddubnyi ]
+  * [264014b] MT#55283 el: fix a typo in spec
+  * [e9717df] MT#55283 el: fix build without systemd-notify support
+  * [c55076a] MT#55283 el: fix dkms failing to build because of a missing file
+
+  [ Sergey Safarov ]
+  * [d3c1937] MT#55283 el: updated GitHub sources download URL
+  * [10925a2] MT#55283 el: Provides "ngcp-rtpengine" do not required because added
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 08 Sep 2025 11:46:44 +0200
+
 ngcp-rtpengine (13.5.0.0+0~mr13.5.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
