@@ -1505,34 +1505,36 @@ static GString *rtcp_sender_report(struct ssrc_sender_report *ssr,
 	sr->rtcp.header.length = htons((ret->len >> 2) - 1);
 
 	// sdes
-	assert(rtpe_instance_id.len == 12);
-
+	// cname
 	struct {
 		struct source_description_packet sdes;
 		struct sdes_chunk chunk;
 		struct sdes_item cname;
-		char str[12];
-		char nul;
-		char pad;
 	} __attribute__ ((packed)) *sdes;
 
-	assert(sizeof(*sdes) == 24);
-
-	g_string_set_size(ret, ret->len + sizeof(*sdes));
-	sdes = (void *) ret->str + ret->len - sizeof(*sdes);
+	size_t sdes_start_len = ret->len;
+	g_string_set_size(ret, sdes_start_len + sizeof(*sdes));
+	sdes = (void *) ret->str + sdes_start_len;
 
 	*sdes = (__typeof(*sdes)) {
 		.sdes.header.version = 2,
 		.sdes.header.pt = RTCP_PT_SDES,
 		.sdes.header.count = 1,
-		.sdes.header.length = htons((sizeof(*sdes) >> 2) - 1),
 		.chunk.ssrc = htonl(ssrc),
 		.cname.type = SDES_TYPE_CNAME,
 		.cname.length = rtpe_instance_id.len,
-		.nul = 0,
-		.pad = 0,
 	};
-	memcpy(sdes->str, rtpe_instance_id.s, rtpe_instance_id.len);
+	g_string_append_len(ret, rtpe_instance_id.s, rtpe_instance_id.len);
+
+	// padding and set final length
+	size_t sdes_end_len = ret->len;
+	size_t padded_len = (sdes_end_len + 3L) & ~3L;
+	g_string_set_size(ret, padded_len);
+	memset(ret->str + sdes_end_len, 0, padded_len - sdes_end_len);
+
+	// reset pointer for length field
+	sdes = (void *) ret->str + sdes_start_len;
+	sdes->sdes.header.length = htons((padded_len - sdes_start_len) / 4 - 1);
 
 	return ret;
 }
