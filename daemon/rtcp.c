@@ -54,6 +54,7 @@
 #define SDES_TYPE_TOOL	6
 #define SDES_TYPE_NOTE	7
 #define SDES_TYPE_PRIV	8
+#define SDES_TYPE_MID	15
 
 /* RTCP XR block types */
 #define BT_LOSS_RLE	    1
@@ -1412,7 +1413,7 @@ void rtcp_init(void) {
 
 static GString *rtcp_sender_report(struct ssrc_sender_report *ssr,
 		uint32_t ssrc, uint32_t ssrc_out, uint32_t ts, uint32_t packets, uint32_t octets, ssrc_q *rrs,
-		ssrc_rr_q *srrs)
+		ssrc_rr_q *srrs, struct call_media *media)
 {
 	GString *ret = g_string_sized_new(128);
 	g_string_set_size(ret, sizeof(struct sender_report_packet));
@@ -1526,6 +1527,14 @@ static GString *rtcp_sender_report(struct ssrc_sender_report *ssr,
 	};
 	g_string_append_len(ret, rtpe_instance_id.s, rtpe_instance_id.len);
 
+	// mid
+	if (media->bundle) {
+		// assume that we have a media ID and that the extension is available
+		g_string_append_c(ret, SDES_TYPE_MID);
+		g_string_append_c(ret, media->media_id.len);
+		g_string_append_len(ret, media->media_id.s, media->media_id.len);
+	}
+
 	// padding and set final length
 	size_t sdes_end_len = ret->len;
 	size_t padded_len = (sdes_end_len + 3L) & ~3L;
@@ -1593,7 +1602,7 @@ void rtcp_send_report(struct call_media *media, struct ssrc_entry_call *ssrc_out
 			atomic_get_na(&ssrc_out->stats->timestamp),
 			atomic64_get_na(&ssrc_out->stats->packets),
 			atomic64_get(&ssrc_out->stats->bytes),
-			&rrs, &srrs);
+			&rrs, &srrs, media);
 
 	// handle crypto
 
