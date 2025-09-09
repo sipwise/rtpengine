@@ -2127,7 +2127,7 @@ static size_t rtpext_printer_extmap_print(struct rtp_header *rh, void *dst, cons
 	dst += 4; // fixed size header
 	void *first = dst;
 
-	for (__auto_type l = mp->extmap.head; l; l = l->next) {
+	for (auto_iter(l, mp->extmap.head); l; l = l->next) {
 		__auto_type ext = l->data;
 
 		if (!extmap_has_ext(mp, ext))
@@ -2216,7 +2216,7 @@ size_t extmap_length_short(const struct media_packet *mp) {
 	const extmap_data_q *q = &mp->extmap;
 
 	size_t ret = 4; // 0xbede + int16 length
-	for (__auto_type l = q->head; l; l = l->next) {
+	for (auto_iter(l, q->head); l; l = l->next) {
 		__auto_type ext = l->data;
 
 		if (!extmap_has_ext(mp, ext))
@@ -2278,7 +2278,7 @@ size_t extmap_length_long(const struct media_packet *mp) {
 	const extmap_data_q *q = &mp->extmap;
 
 	size_t ret = 4; // 0x0100 + int16 length
-	for (__auto_type l = q->head; l; l = l->next) {
+	for (auto_iter(l, q->head); l; l = l->next) {
 		__auto_type ext = l->data;
 
 		if (!extmap_has_ext(mp, ext))
