@@ -12,6 +12,10 @@ struct rtpengine_output {
 	struct {
 		uint8_t extmap_filter[32];
 		unsigned int num_extmap_filter;
+
+		uint8_t extmap_mid;
+		uint8_t extmap_mid_len;
+		char extmap_mid_str[32];
 	} output;
 };
 
@@ -40,6 +44,9 @@ struct rtp_parsed {
 
 static void skb_trim(struct sk_buff *s, unsigned int len) {
 	s->len = len;
+}
+static void skb_put(struct sk_buff *s, unsigned int len) {
+	s->len += len;
 }
 
 #include "../kernel-module/extmap_filter.inc.c"

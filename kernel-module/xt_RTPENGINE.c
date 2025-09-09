@@ -63,7 +63,7 @@ MODULE_ALIAS("ip6t_RTPENGINE");
 
 
 #define MAX_ID 64 /* - 1 */
-#define MAX_SKB_TAIL_ROOM (sizeof(((struct rtpengine_srtp *) 0)->mki) + 20 + 16)
+#define MAX_SKB_TAIL_ROOM (sizeof(((struct rtpengine_srtp *) 0)->mki) + 20 + 16 + 22)
 
 #define MIPF		"%i:%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x:%u"
 #define MIPP(x)		(x).family,		\
@@ -1807,10 +1807,17 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		}
 
 		if (o->output.extmap) {
-			seq_printf(f, "        Allowed RTP extensions:");
+			seq_printf(f, "       Allowed RTP extensions:");
 			for (j = 0; j < o->output.num_extmap_filter; j++)
 				seq_printf(f, " %u", (unsigned int) o->output.extmap_filter[j]);
 			seq_printf(f, "\n");
+
+			if (o->output.extmap_mid) {
+				seq_printf(f, "       Media ID (ext %u): '%.*s'\n",
+						(int) o->output.extmap_mid,
+						(int) o->output.extmap_mid_len,
+						o->output.extmap_mid_str);
+			}
 		}
 
 		proc_list_crypto_print(f, &o->encrypt_rtp, &o->output.encrypt, "encryption");

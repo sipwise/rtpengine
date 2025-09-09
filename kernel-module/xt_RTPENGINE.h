@@ -129,6 +129,10 @@ struct rtpengine_output_info {
 	uint8_t				extmap_filter[RTPE_NUM_EXTMAP_FILTER]; // must be sorted
 	unsigned int			num_extmap_filter;
 
+	uint8_t				extmap_mid;
+	uint8_t				extmap_mid_len;
+	char				extmap_mid_str[255];
+
 	struct interface_stats_block	*iface_stats; // for egress stats
 	struct stream_stats		*stats; // for egress stats
 	struct ssrc_stats		*ssrc_stats[RTPE_NUM_SSRC_TRACKING];
