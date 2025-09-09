@@ -49,9 +49,9 @@ static void pkt(unsigned char *d, struct sk_buff *skb, struct rtp_parsed *r,
 		size_t ext_hdr_len, const unsigned char *ext_hdr,
 		size_t extensions_len, const unsigned char *extensions)
 {
-	*d = hdr_val;
 	r->rtp_header = (struct rtp_header *) d;
 	memset(r->rtp_header, 0, sizeof(*r->rtp_header));
+	*d = hdr_val;
 	d += sizeof(struct rtp_header);
 
 	if (ext_hdr_len == 0) {
@@ -328,7 +328,7 @@ int main(void) {
 	);
 
 
-	// multiple one-byte extensions, empty filter (not allowed)
+	// multiple two-byte extensions, empty filter (not allowed)
 	TEST(
 			0x90, "\x01\x00", "\x01\x03" "foo"   "\x02\x03" "bar"   "\x03\x03" "yax"   "\x04\x03" "wuz",
 			"",
@@ -346,7 +346,7 @@ int main(void) {
 	);
 
 
-	// multiple one-byte extensions, allow first
+	// multiple two-byte extensions, allow first
 	TEST(
 			0x90, "\x01\x00", "\x01\x03" "foo"   "\x02\x03" "bar"   "\x03\x03" "yax"   "\x04\x03" "wuz",
 			"\x01",
@@ -364,7 +364,7 @@ int main(void) {
 	);
 
 
-	// multiple one-byte extensions, allow second
+	// multiple two-byte extensions, allow second
 	TEST(
 			0x90, "\x01\x00", "\x01\x03" "foo"   "\x02\x03" "bar"   "\x03\x03" "yax"   "\x04\x03" "wuz",
 			"\x02",
@@ -382,7 +382,7 @@ int main(void) {
 	);
 
 
-	// multiple one-byte extensions, allow last
+	// multiple two-byte extensions, allow last
 	TEST(
 			0x90, "\x01\x00", "\x01\x03" "foo"   "\x02\x03" "bar"   "\x03\x03" "yax"   "\x04\x03" "wuz",
 			"\x04",
@@ -400,7 +400,7 @@ int main(void) {
 	);
 
 
-	// multiple one-byte extensions, allow first and third
+	// multiple two-byte extensions, allow first and third
 	TEST(
 			0x90, "\x01\x00", "\x01\x03" "foo"   "\x02\x03" "bar"   "\x03\x03" "yax"   "\x04\x03" "wuz",
 			"\x01\x03",
@@ -418,7 +418,7 @@ int main(void) {
 	);
 
 
-	// multiple one-byte extensions, allow second and last
+	// multiple two-byte extensions, allow second and last
 	TEST(
 			0x90, "\x01\x00", "\x01\x03" "foo"   "\x02\x03" "bar"   "\x03\x03" "yax"   "\x04\x03" "wuz",
 			"\x02\x04",
