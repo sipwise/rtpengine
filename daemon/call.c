@@ -3265,7 +3265,7 @@ static void media_update_transcoding_flag(struct call_media *media) {
  * For handling sdp media level manipulations (media sessions remove).
  * This function just adds a fictitious media for this side, pretending it had 0 port.
  */
-static struct call_media * monologue_add_zero_media(struct call_monologue *sender_ml, struct stream_params *sp,
+static struct call_media *monologue_add_zero_media(struct call_monologue *sender_ml, struct stream_params *sp,
 	unsigned int *num_ports_other, sdp_ng_flags *flags, str_ht tracker)
 {
 	struct call_media *sender_media = NULL;
@@ -3287,6 +3287,15 @@ static struct call_media * monologue_add_zero_media(struct call_monologue *sende
 	__disable_streams(sender_media, *num_ports_other);
 	__init_interface(sender_media, &sp->direction[0], *num_ports_other);
 	return sender_media;
+}
+
+struct packet_stream *get_media_component(struct call_media *media, unsigned int component) {
+	// XXX maybe turn into array?
+	for (__auto_type l = media->streams.head; l; l = l->next) {
+		if (l->data->component == component)
+			return l->data;
+	}
+	return NULL;
 }
 
 // reset all bundle state

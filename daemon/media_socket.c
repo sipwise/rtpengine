@@ -1553,6 +1553,9 @@ typedef struct {
 	struct rtpengine_target_info reti;
 	struct ssrc_entry_call *ssrc[RTPE_NUM_SSRC_TRACKING];
 	kernel_output_q outputs;
+	sink_handler_q *rtp_sinks[RTPE_NUM_OUTPUT_MEDIA];
+	sink_handler_q *rtp_mirrors[RTPE_NUM_OUTPUT_MEDIA];
+	sink_handler_q *rtcp_sinks[RTPE_NUM_OUTPUT_MEDIA];
 	struct rtp_stats *payload_types[RTPE_NUM_PAYLOAD_TYPES];
 	unsigned int num_payload_types;
 	bool blackhole;
@@ -1572,6 +1575,10 @@ G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(kernelize_state, kernelize_state_clear)
 __attribute__((nonnull(1, 2)))
 static const char *kernelize_target(kernelize_state *s, struct packet_stream *stream) {
 	struct call_media *media = stream->media;
+	unsigned int media_idx = media->index - 1;
+
+	if (media_idx >= RTPE_NUM_OUTPUT_MEDIA)
+		return "media index too large";
 
 	if (MEDIA_ISSET(media, BLACKHOLE))
 		s->blackhole = true;
@@ -1643,7 +1650,7 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 
 	reti->track_ssrc = 1;
 	unsigned int u = 0;
-	for (GList *l = stream->media->ssrc_hash_in.nq.head; l; l = l->next) {
+	for (GList *l = media->ssrc_hash_in.nq.head; l; l = l->next) {
 		struct ssrc_entry_call *se = l->data;
 		if (u >= G_N_ELEMENTS(reti->ssrc))
 			break;
@@ -1654,6 +1661,11 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 	}
 
 	recording_stream_kernel_info(stream, reti);
+
+	// record our outputs for this media
+	s->rtp_sinks[media_idx] = &stream->rtp_sinks;
+	s->rtp_mirrors[media_idx] = &stream->rtp_mirrors;
+	s->rtcp_sinks[media_idx] = &stream->rtcp_sinks;
 
 	if (!proto_is_rtp(media->protocol))
 		return NULL; // everything below is RTP-specific
@@ -1712,6 +1724,8 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 		}
 
 		reti->pt_stats[i] = rs;
+		reti->pt_media_idx[i] = media_idx;
+
 		i++;
 	}
 
@@ -1727,7 +1741,8 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
  */
 __attribute__((nonnull(1, 2, 3)))
 static const char *kernelize_one(kernelize_state *s,
-		struct packet_stream *stream, struct sink_handler *sink_handler)
+		struct packet_stream *stream, struct sink_handler *sink_handler,
+		bool rtcp)
 {
 	call_t *call = stream->call;
 	struct call_media *media = stream->media;
@@ -1767,6 +1782,7 @@ static const char *kernelize_one(kernelize_state *s,
 	__auto_type redi = g_new0(struct rtpengine_destination_info, 1);
 	redi->local = reti->local;
 	redi->output.tos = call->tos;
+	redi->output.rtcp = rtcp;
 
 	// PT manipulations
 	bool silenced = s->silenced || sink_handler->attrs.silence_media;
@@ -1850,13 +1866,15 @@ static const char *kernelize_one(kernelize_state *s,
 }
 // helper function for kernelize()
 // called with stream->lock held
+__attribute__((nonnull(1, 2, 3)))
 static bool kernelize_one_sink_handler(kernelize_state *s,
-		struct packet_stream *stream, struct sink_handler *sink_handler)
+		struct packet_stream *stream, struct sink_handler *sink_handler,
+		bool rtcp)
 {
 	struct packet_stream *sink = sink_handler->sink;
 	if (PS_ISSET(sink, NAT_WAIT) && !PS_ISSET(sink, RECEIVED))
 		return true;
-	const char *err = kernelize_one(s, stream, sink_handler);
+	const char *err = kernelize_one(s, stream, sink_handler, rtcp);
 	if (err) {
 		if (!*err)
 			return false; // indicate deadlock
@@ -1864,10 +1882,20 @@ static bool kernelize_one_sink_handler(kernelize_state *s,
 	}
 	return true;
 }
+
 /* called with master_lock held */
 static void kernelize(struct packet_stream *stream) {
 	call_t *call = stream->call;
 	struct call_media *media = stream->media;
+
+	// act on bundle head if there is one
+	if (media->bundle) {
+		unsigned int component = stream->component;
+		media = media->bundle;
+		stream = get_media_component(media, component);
+		if (!stream)
+			return; // nothing to do?
+	}
 
 	while (true) {
 
@@ -1900,37 +1928,45 @@ static void kernelize(struct packet_stream *stream) {
 	if (err)
 		ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
 
-	// primary RTP sinks
-	for (__auto_type l = stream->rtp_sinks.head; l; l = l->next) {
-		struct sink_handler *sh = l->data;
-		if (sh->attrs.block_media)
-			continue;
-		bool ok = kernelize_one_sink_handler(&s, stream, sh);
-		if (!ok)
-			continue; // retry
-	}
-	// RTP egress mirrors
-	for (__auto_type l = stream->rtp_mirrors.head; l; l = l->next) {
-		struct sink_handler *sh = l->data;
-		bool ok = kernelize_one_sink_handler(&s, stream, sh);
-		if (!ok)
-			continue; // retry
-	}
-	// RTP -> RTCP sinks
-	// record number of RTP destinations up to now
-	unsigned int num_rtp_dests = s.reti.num_destinations;
-	// ignore RTP payload types
-	for (__auto_type l = stream->rtcp_sinks.head; l; l = l->next) {
-		struct sink_handler *sh = l->data;
-		bool ok = kernelize_one_sink_handler(&s, stream, sh);
-		if (!ok)
-			continue; // retry
-	}
-	// mark the start of RTCP outputs
-	s.reti.num_rtcp_destinations = s.reti.num_destinations - num_rtp_dests;
-
 	if (!s.reti.local.family)
 		goto no_kernel;
+
+	for (unsigned int mi = 0; mi < RTPE_NUM_OUTPUT_MEDIA; mi++) {
+		if (!s.rtp_sinks[mi])
+			continue; // not filled
+
+		// primary RTP sinks
+		s.reti.media_output_idxs[mi].rtp_start_idx = s.reti.num_destinations;
+		for (__auto_type l = s.rtp_sinks[mi]->head; l; l = l->next) {
+			struct sink_handler *sh = l->data;
+			if (sh->attrs.block_media)
+				continue;
+			bool ok = kernelize_one_sink_handler(&s, stream, sh, false);
+			if (!ok)
+				continue; // retry
+		}
+		// RTP egress mirrors
+		for (__auto_type l = s.rtp_mirrors[mi]->head; l; l = l->next) {
+			struct sink_handler *sh = l->data;
+			bool ok = kernelize_one_sink_handler(&s, stream, sh, false);
+			if (!ok)
+				continue; // retry
+		}
+		// RTP -> RTCP sinks
+		// record number of RTP destinations up to now
+		s.reti.media_output_idxs[mi].rtp_end_idx = s.reti.num_destinations;
+		// also marks the start of RTCP outputs
+		s.reti.media_output_idxs[mi].rtcp_start_idx = s.reti.num_destinations;
+		// ignore RTP payload types
+		for (__auto_type l = s.rtcp_sinks[mi]->head; l; l = l->next) {
+			struct sink_handler *sh = l->data;
+			bool ok = kernelize_one_sink_handler(&s, stream, sh, true);
+			if (!ok)
+				continue; // retry
+		}
+		// mark the end of RTCP outputs
+		s.reti.media_output_idxs[mi].rtcp_end_idx = s.reti.num_destinations;
+	}
 
 	if (!s.outputs.length && !s.reti.non_forwarding) {
 		s.reti.non_forwarding = 1;

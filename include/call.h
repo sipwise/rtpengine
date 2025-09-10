@@ -847,7 +847,10 @@ struct media_subscription *call_ml_get_top_ms(struct call_monologue *ml);
 bool call_ml_sendonly_inactive(struct call_monologue *ml);
 struct media_subscription *call_media_get_top_ms(struct call_media * cm);
 struct media_subscription *call_get_media_subscription(subscription_ht ht, struct call_media * cm);
-struct call_monologue * ml_medias_subscribed_to_single_ml(struct call_monologue *ml);
+struct call_monologue *ml_medias_subscribed_to_single_ml(struct call_monologue *ml);
+
+__attribute__((nonnull(1)))
+struct packet_stream *get_media_component(struct call_media *media, unsigned int component);
 
 void free_sink_handler(struct sink_handler *);
 void __add_sink_handler(sink_handler_q *, struct packet_stream *, const struct sink_attrs *);

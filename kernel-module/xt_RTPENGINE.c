@@ -340,7 +340,6 @@ struct rtpengine_target {
 
 	rwlock_t			outputs_lock;
 	struct rtpengine_output		*outputs;
-	unsigned int			num_rtp_destinations;
 	unsigned int			outputs_unfilled; // only ever decreases
 };
 
@@ -1715,10 +1714,11 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		(unsigned long long) atomic64_read(&g->target.stats->packets),
 		(unsigned long long) atomic64_read(&g->target.stats->errors));
 	for (i = 0; i < g->target.num_payload_types; i++) {
-		seq_printf(f, "        RTP payload type %3u: %20llu bytes, %20llu packets\n",
+		seq_printf(f, "        RTP payload type %3u: %20llu bytes, %20llu packets   [group #%u]\n",
 			g->target.pt_stats[i]->payload_type,
 			(unsigned long long) atomic64_read(&g->target.pt_stats[i]->bytes),
-			(unsigned long long) atomic64_read(&g->target.pt_stats[i]->packets));
+			(unsigned long long) atomic64_read(&g->target.pt_stats[i]->packets),
+			g->target.pt_media_idx[i]);
 	}
 
 	seq_printf(f, "    last packet: %lli",
@@ -1767,12 +1767,26 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		seq_printf(f, " forward-RTCP-FB");
 	seq_printf(f, "\n");
 
+	seq_printf(f, "    output groups:");
+	for (i = 0; i < RTPE_NUM_OUTPUT_MEDIA; i++) {
+		if (g->target.media_output_idxs[i].rtp_start_idx
+				!= g->target.media_output_idxs[i].rtp_end_idx
+				|| g->target.media_output_idxs[i].rtcp_start_idx
+				!= g->target.media_output_idxs[i].rtcp_end_idx)
+			seq_printf(f, " [%u]=(%u->%u/%u->%u)", i,
+					g->target.media_output_idxs[i].rtp_start_idx,
+					g->target.media_output_idxs[i].rtp_end_idx,
+					g->target.media_output_idxs[i].rtcp_start_idx,
+					g->target.media_output_idxs[i].rtcp_end_idx);
+	}
+	seq_printf(f, "\n");
+
 	for (i = 0; i < g->target.num_destinations; i++) {
 		struct rtpengine_output *o = &g->outputs[i];
-		if (i < g->num_rtp_destinations)
-			seq_printf(f, "    output #%u\n", i);
-		else
-			seq_printf(f, "    output #%u (RTCP)\n", i);
+
+		seq_printf(f, "    output #%u (media #%u%s)\n", i, o->output.media_idx,
+				o->output.rtcp ? ", RTCP" : "");
+
 		proc_list_addr_print(f, "src", &o->output.src_addr);
 		proc_list_addr_print(f, "dst", &o->output.dst_addr);
 
@@ -2459,8 +2473,20 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 		return -EINVAL;
 	if (i->num_destinations > RTPE_MAX_FORWARD_DESTINATIONS)
 		return -EINVAL;
-	if (i->num_rtcp_destinations > i->num_destinations)
-		return -EINVAL;
+	for (u = 0; u < RTPE_NUM_OUTPUT_MEDIA; u++) {
+		if (i->media_output_idxs[u].rtp_start_idx >= i->num_destinations)
+			return -EINVAL;
+		if (i->media_output_idxs[u].rtp_end_idx > i->num_destinations)
+			return -EINVAL;
+		if (i->media_output_idxs[u].rtp_end_idx < i->media_output_idxs[u].rtp_start_idx)
+			return -EINVAL;
+		if (i->media_output_idxs[u].rtcp_start_idx >= i->num_destinations)
+			return -EINVAL;
+		if (i->media_output_idxs[u].rtcp_end_idx > i->num_destinations)
+			return -EINVAL;
+		if (i->media_output_idxs[u].rtcp_end_idx < i->media_output_idxs[u].rtcp_start_idx)
+			return -EINVAL;
+	}
 	if (i->num_payload_types > RTPE_NUM_PAYLOAD_TYPES)
 		return -EINVAL;
 	if (!i->non_forwarding) {
@@ -2484,6 +2510,8 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 		pt_stats[u] = shm_map_resolve(i->pt_stats[u], sizeof(*pt_stats[u]));
 		if (!pt_stats[u])
 			return -EFAULT;
+		if (i->pt_media_idx[u] > RTPE_NUM_OUTPUT_MEDIA)
+			return -EINVAL;
 	}
 	for (u = 0; u < RTPE_NUM_SSRC_TRACKING; u++) {
 		if (!i->ssrc[u])
@@ -2526,7 +2554,6 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 		if (!g->outputs)
 			goto fail2;
 		g->outputs_unfilled = i->num_destinations;
-		g->num_rtp_destinations = i->num_destinations - i->num_rtcp_destinations;
 	}
 
 	err = gen_rtp_session_keys(&g->decrypt_rtp, &g->target.decrypt);
@@ -6276,6 +6303,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 	unsigned int start_idx, end_idx;
 	enum {NOT_RTCP = 0, RTCP, RTCP_FORWARD} is_rtcp;
 	ktime_t packet_ts;
+	struct rtpengine_output_group *output_group;
 
 	skb_reset_transport_header(skb);
 	uh = udp_hdr(skb);
@@ -6446,11 +6474,9 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 	}
 
 	// output
-	start_idx = (is_rtcp != NOT_RTCP) ? g->num_rtp_destinations : 0;
-	end_idx = (is_rtcp != NOT_RTCP) ? g->target.num_destinations : g->num_rtp_destinations;
-
-	if (start_idx == end_idx)
-		goto out; // pass to userspace
+	output_group = &g->target.media_output_idxs[0];
+	start_idx = (is_rtcp != NOT_RTCP) ? output_group->rtcp_start_idx : output_group->rtp_start_idx;
+	end_idx = (is_rtcp != NOT_RTCP) ? output_group->rtcp_end_idx : output_group->rtp_end_idx;
 
 	for (i = start_idx; i < end_idx; i++) {
 		struct rtpengine_output *o = &g->outputs[i];

@@ -9,6 +9,7 @@
 #define RTPE_MAX_FORWARD_DESTINATIONS 32
 #define RTPE_NUM_SSRC_TRACKING 4
 #define RTPE_NUM_EXTMAP_FILTER 32
+#define RTPE_NUM_OUTPUT_MEDIA 8
 
 
 
@@ -82,19 +83,28 @@ struct rtpengine_pt_output {
 	unsigned int blackhole:1;
 };
 
+struct rtpengine_output_group {
+	unsigned int rtp_start_idx;
+	unsigned int rtp_end_idx;
+	unsigned int rtcp_start_idx;
+	unsigned int rtcp_end_idx;
+};
+
 struct rtpengine_target_info {
 	struct re_address		local;
 	struct re_address		expected_src; /* for incoming packets */
 	enum rtpengine_src_mismatch	src_mismatch;
 	unsigned int			num_destinations; // total
-	unsigned int			num_rtcp_destinations;
 	unsigned int			intercept_stream_idx;
+
+	struct rtpengine_output_group	media_output_idxs[RTPE_NUM_OUTPUT_MEDIA];
 
 	struct rtpengine_srtp		decrypt;
 	uint32_t			ssrc[RTPE_NUM_SSRC_TRACKING]; // Expose the SSRC to userspace when we resync.
 	struct ssrc_stats		*ssrc_stats[RTPE_NUM_SSRC_TRACKING];
 
 	struct rtp_stats		*pt_stats[RTPE_NUM_PAYLOAD_TYPES]; // must be sorted by PT
+	unsigned int			pt_media_idx[RTPE_NUM_PAYLOAD_TYPES]; // same idx as pt_stats
 	unsigned int			num_payload_types;
 
 	struct interface_stats_block	*iface_stats; // for ingress stats
@@ -121,6 +131,8 @@ struct rtpengine_output_info {
 	struct re_address		src_addr; /* for outgoing packets */
 	struct re_address		dst_addr;
 
+	unsigned int			media_idx;
+
 	struct rtpengine_srtp		encrypt;
 	uint32_t			ssrc_out[RTPE_NUM_SSRC_TRACKING]; // Rewrite SSRC
 	uint32_t			seq_offset[RTPE_NUM_SSRC_TRACKING]; // Rewrite output seq
@@ -139,7 +151,8 @@ struct rtpengine_output_info {
 
 	unsigned char			tos;
 	unsigned int			ssrc_subst:1,
-					extmap:1;
+					extmap:1,
+					rtcp:1;
 };
 
 struct rtpengine_destination_info {
