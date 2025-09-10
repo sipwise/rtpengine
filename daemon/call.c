@@ -1168,7 +1168,7 @@ enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
 		mutex_unlock(&ps->lock);
 	}
 
-	if (PS_ISSET(ps, PIERCE_NAT) && PS_ISSET(ps, FILLED) && !PS_ISSET(ps, CONFIRMED)) {
+	if (PS_ISSET(ps, PIERCE_NAT) && PS_ISSET(ps, FILLED) && !ps->selected_sfd->confirmed) {
 		for (__auto_type l = ps->sfds.head; l; l = l->next) {
 			static const str fake_rtp = STR_CONST("\x80\x7f\xff\xff\x00\x00\x00\x00"
 					"\x00\x00\x00\x00");

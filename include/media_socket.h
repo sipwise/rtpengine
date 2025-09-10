@@ -241,6 +241,9 @@ struct stream_fd {
 	int				error_strikes;
 	int				active_read_events;
 	struct poller			*poller;
+
+	bool				kernelized:1,
+					confirmed:1;
 };
 
 struct sink_attrs {

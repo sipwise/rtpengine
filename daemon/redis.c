@@ -1515,8 +1515,6 @@ static int redis_streams(call_t *c, struct redis_list *streams) {
 			return -1;
 
 		streams->ptrs[i] = ps;
-
-		PS_CLEAR(ps, KERNELIZED);
 	}
 	return 0;
 }

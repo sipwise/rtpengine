@@ -2799,8 +2799,10 @@ static void ng_stats_stream(ng_command_ctx_t *ctx, parser_arg list, const struct
 	BF_PS("RTCP", RTCP);
 	BF_PS("fallback RTCP", FALLBACK_RTCP);
 	BF_PS("filled", FILLED);
-	BF_PS("confirmed", CONFIRMED);
-	BF_PS("kernelized", KERNELIZED);
+	if (ps->selected_sfd && ps->selected_sfd->confirmed)
+		parser->list_add_string(flags, "confirmed");
+	if (ps->selected_sfd && ps->selected_sfd->kernelized)
+		parser->list_add_string(flags, "kernelized");
 	BF_PS("no kernel support", NO_KERNEL_SUPPORT);
 	BF_PS("DTLS fingerprint verified", FINGERPRINT_VERIFIED);
 	BF_PS("strict source address", STRICT_SOURCE);

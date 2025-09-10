@@ -1875,9 +1875,11 @@ static void kernelize(struct packet_stream *stream) {
 
 	LOCK(&stream->lock);
 
-	// set flag, return if set already
-	if (PS_SET(stream, KERNELIZED))
-		return;
+	if (stream->selected_sfd) {
+		if (stream->selected_sfd->kernelized)
+			return;
+		stream->selected_sfd->kernelized = true;
+	}
 
 	if (call->recording != NULL && !selected_recording_method->kernel_support)
 		goto no_kernel;
@@ -1987,8 +1989,7 @@ struct ssrc_entry_call *__hunt_ssrc_ctx(uint32_t ssrc, struct ssrc_entry_call *l
 void __unkernelize(struct packet_stream *p, const char *reason) {
 	if (!p->selected_sfd)
 		return;
-
-	if (!PS_ISSET(p, KERNELIZED))
+	if (!p->selected_sfd->kernelized)
 		return;
 
 	if (kernel.is_open && !PS_ISSET(p, NO_KERNEL_SUPPORT)) {
@@ -2000,7 +2001,7 @@ void __unkernelize(struct packet_stream *p, const char *reason) {
 		kernel_del_stream(&cmd);
 	}
 
-	PS_CLEAR(p, KERNELIZED);
+	p->selected_sfd->kernelized = false;
 	PS_CLEAR(p, NO_KERNEL_SUPPORT);
 }
 
@@ -2018,11 +2019,12 @@ void __reset_sink_handlers(struct packet_stream *ps) {
 void __stream_unconfirm(struct packet_stream *ps, const char *reason) {
 	__unkernelize(ps, reason);
 	if (!MEDIA_ISSET(ps->media, ASYMMETRIC)) {
-		if (ps->selected_sfd)
+		if (ps->selected_sfd) {
 			ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Unconfirming peer address for local %s (%s)",
 					endpoint_print_buf(&ps->selected_sfd->socket.local),
 					reason);
-		PS_CLEAR(ps, CONFIRMED);
+			ps->selected_sfd->confirmed = false;
+		}
 	}
 	__reset_sink_handlers(ps);
 }
@@ -2840,7 +2842,7 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 	// work around this by detecting this situation and ignoring the packet for
 	// confirmation purposes when needed. This is regardless of whether rtcp-mux
 	// is enabled or not.
-	if (!PS_ISSET(phc->mp.stream, CONFIRMED) && PS_ISSET(phc->mp.stream, RTP)) {
+	if (!phc->mp.sfd->confirmed && PS_ISSET(phc->mp.stream, RTP)) {
 		if (rtcp_demux_is_rtcp(&phc->s)) {
 			ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Ignoring stray RTCP packet from %s%s%s for "
 					"peer address confirmation purposes",
@@ -2857,18 +2859,19 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 		update_endpoint = &phc->mp.stream->learned_endpoint;
 
 	if (phc->mp.stream->el_flags == EL_OFF)
-		PS_SET(phc->mp.stream, CONFIRMED);
+		phc->mp.sfd->confirmed = true;
 
 	/* confirm sinks for unidirectional streams in order to kernelize */
 	if (MEDIA_ISSET(phc->mp.media, UNIDIRECTIONAL)) {
 		for (__auto_type l = phc->sinks->head; l; l = l->next) {
 			struct sink_handler *sh = l->data;
-			PS_SET(sh->sink, CONFIRMED);
+			if (sh->sink->selected_sfd)
+				sh->sink->selected_sfd->confirmed = true;
 		}
 	}
 
 	/* if we have already updated the endpoint in the past ... */
-	if (PS_ISSET(phc->mp.stream, CONFIRMED)) {
+	if (phc->mp.sfd->confirmed) {
 		/* see if we need to compare the source address with the known endpoint */
 		if (PS_ISSET2(phc->mp.stream, STRICT_SOURCE, MEDIA_HANDOVER)) {
 			endpoint_t endpoint = phc->mp.fsin;
@@ -2971,7 +2974,7 @@ confirm_now:
 
 	ilog(LOG_INFO, "Confirmed peer address as %s%s%s", FMT_M(endpoint_print_buf(use_endpoint_confirm)));
 
-	PS_SET(phc->mp.stream, CONFIRMED);
+	phc->mp.sfd->confirmed = true;
 
 update_peerinfo:
 	// if we're during the wait time, check the received address against the previously
@@ -3024,7 +3027,7 @@ static void media_packet_kernel_check(struct packet_handler_ctx *phc) {
 		return;
 	}
 
-	if (!PS_ISSET(phc->mp.stream, CONFIRMED)) {
+	if (!phc->mp.sfd->confirmed) {
 		__C_DBG("stream %s%s%s not CONFIRMED", FMT_M(endpoint_print_buf(&phc->mp.stream->endpoint)));
 		return;
 	}
