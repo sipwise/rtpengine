@@ -1287,7 +1287,6 @@ void free_sink_handler(struct sink_handler *sh) {
 void __add_sink_handler(sink_handler_q *q, struct packet_stream *sink, const struct sink_attrs *attrs) {
 	struct sink_handler *sh = g_new0(__typeof(*sh), 1);
 	sh->sink = sink;
-	sh->kernel_output_idx = -1;
 	if (attrs)
 		sh->attrs = *attrs;
 	t_queue_push_tail(q, sh);

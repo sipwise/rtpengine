@@ -268,7 +268,6 @@ struct rtpext_printer {
 struct sink_handler {
 	struct packet_stream *sink;
 	const struct streamhandler *handler;
-	int kernel_output_idx;
 	struct sink_attrs attrs;
 	const struct rtpext_printer *rtpext;
 };

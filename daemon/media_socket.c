@@ -1739,7 +1739,6 @@ static const char *kernelize_one(kernelize_state *s,
 
 	if (MEDIA_ISSET(sink->media, BLOCK_EGRESS))
 		return NULL;
-	sink_handler->kernel_output_idx = -1;
 
 	if (!sink->endpoint.address.family)
 		return NULL;
@@ -1848,7 +1847,6 @@ static const char *kernelize_one(kernelize_state *s,
 	// got a new output
 	redi->num = reti->num_destinations;
 	reti->num_destinations++;
-	sink_handler->kernel_output_idx = redi->num;
 	t_queue_push_tail(&s->outputs, redi);
 	assert(s->outputs.length == reti->num_destinations);
 
