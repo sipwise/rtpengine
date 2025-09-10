@@ -1777,12 +1777,12 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		proc_list_addr_print(f, "src", &o->output.src_addr);
 		proc_list_addr_print(f, "dst", &o->output.dst_addr);
 
-		seq_printf(f, "      stats: %20llu bytes, %20llu packets, %20llu errors\n",
+		seq_printf(f, "       stats: %20llu bytes, %20llu packets, %20llu errors\n",
 			(unsigned long long) atomic64_read(&o->output.stats->bytes),
 			(unsigned long long) atomic64_read(&o->output.stats->packets),
 			(unsigned long long) atomic64_read(&o->output.stats->errors));
 
-		seq_printf(f, " SSRC out:");
+		seq_printf(f, "       SSRC out:");
 		for (j = 0; j < ARRAY_SIZE(o->output.ssrc_out); j++) {
 			if (!o->output.ssrc_stats[j])
 				break;
@@ -1816,6 +1816,8 @@ static int proc_list_show(struct seq_file *f, void *v) {
 
 		proc_list_crypto_print(f, &o->encrypt_rtp, &o->output.encrypt, "encryption");
 	}
+
+	seq_printf(f, "\n");
 
 out:
 	target_put(g);
