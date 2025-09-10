@@ -2187,6 +2187,7 @@ static void rtpext_printer_extmap_kernel(struct rtpengine_output_info *roi,
 	roi->extmap = 1;
 
 	unsigned int u = 0;
+	unsigned int mid = 0;
 
 	for (__auto_type l = dst->extmap.head; l; l = l->next) {
 		__auto_type ext = l->data;
@@ -2194,11 +2195,24 @@ static void rtpext_printer_extmap_kernel(struct rtpengine_output_info *roi,
 			ilog(LOG_WARN, "Too many RTP header extensions for kernel module");
 			break;
 		}
+
+		// filter out MID for bundle support
+		if (dst->bundle && ext->handler.id == RTP_EXT_MID) {
+			mid = ext->id;
+			continue;
+		}
+
 		roi->extmap_filter[u] = ext->id;
 		u++;
 	}
 
 	qsort(roi->extmap_filter, u, sizeof(*roi->extmap_filter), uint8_sort);
+
+	if (mid && dst->media_id.len && dst->media_id.len <= sizeof(roi->extmap_mid_str)) {
+		roi->extmap_mid = mid;
+		roi->extmap_mid_len = dst->media_id.len;
+		snprintf(roi->extmap_mid_str, sizeof(roi->extmap_mid_str), STR_FORMAT, STR_FMT(&dst->media_id));
+	}
 }
 
 
