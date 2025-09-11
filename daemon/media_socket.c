@@ -1557,6 +1557,7 @@ struct kernelize_state {
 	sink_handler_q *rtp_mirrors[RTPE_NUM_OUTPUT_MEDIA];
 	sink_handler_q *rtcp_sinks[RTPE_NUM_OUTPUT_MEDIA];
 	struct rtp_stats *payload_types[RTPE_NUM_PAYLOAD_TYPES];
+	struct packet_stream *pt_streams[RTPE_NUM_PAYLOAD_TYPES];
 	unsigned int num_payload_types;
 	bool blackhole;
 	bool non_forwarding;
@@ -1572,13 +1573,27 @@ static void kernelize_state_clear(kernelize_state *s) {
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(kernelize_state, kernelize_state_clear)
 
 
+static void fill_pt_stats(kernelize_state *s, struct packet_stream *stream) {
+	rtp_stats_ht_iter iter;
+	t_hash_table_iter_init(&iter, stream->rtp_stats);
+	s->num_payload_types = 0;
+	struct rtp_stats *rs;
+	while (t_hash_table_iter_next(&iter, NULL, &rs) && s->num_payload_types < RTPE_NUM_PAYLOAD_TYPES) {
+		s->pt_streams[s->num_payload_types] = stream;
+		s->payload_types[s->num_payload_types++] = rs;
+	}
+}
+
+__attribute__((nonnull(1, 3)))
+static void fill_media_sinks(kernelize_state *s, unsigned int media_idx, struct packet_stream *ps) {
+	s->rtp_sinks[media_idx] = &ps->rtp_sinks;
+	s->rtp_mirrors[media_idx] = &ps->rtp_mirrors;
+	s->rtcp_sinks[media_idx] = &ps->rtcp_sinks;
+}
+
 __attribute__((nonnull(1, 2)))
 static const char *kernelize_target(kernelize_state *s, struct packet_stream *stream) {
 	struct call_media *media = stream->media;
-	unsigned int media_idx = media->index - 1;
-
-	if (media_idx >= RTPE_NUM_OUTPUT_MEDIA)
-		return "media index too large";
 
 	if (MEDIA_ISSET(media, BLACKHOLE))
 		s->blackhole = true;
@@ -1662,11 +1677,6 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 
 	recording_stream_kernel_info(stream, reti);
 
-	// record our outputs for this media
-	s->rtp_sinks[media_idx] = &stream->rtp_sinks;
-	s->rtp_mirrors[media_idx] = &stream->rtp_mirrors;
-	s->rtcp_sinks[media_idx] = &stream->rtcp_sinks;
-
 	if (!proto_is_rtp(media->protocol))
 		return NULL; // everything below is RTP-specific
 
@@ -1681,28 +1691,41 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 	// handle known RTP payload types:
 	// create sorted list of payload types
 
-	rtp_stats_ht_iter iter;
-	t_hash_table_iter_init(&iter, stream->rtp_stats);
-	s->num_payload_types = 0;
-	struct rtp_stats *rs;
-	while (t_hash_table_iter_next(&iter, NULL, &rs) && s->num_payload_types < RTPE_NUM_PAYLOAD_TYPES)
-		s->payload_types[s->num_payload_types++] = rs;
+	fill_pt_stats(s, stream);
+
+	if (!s->num_payload_types) {
+		// set single output
+		fill_media_sinks(s, 0, stream);
+		return NULL;
+	}
+
 	qsort(s->payload_types, s->num_payload_types, sizeof(*s->payload_types),
 			__rtp_stats_pt_sort);
 
 	unsigned int i = 0;
 	while (i < s->num_payload_types) {
-		rs = s->payload_types[i];
+		struct rtp_stats *rs = s->payload_types[i];
 		// only add payload types that are passthrough for all sinks
 		bool can_kernelize = true;
-		for (__auto_type k = stream->rtp_sinks.head; k; k = k->next) {
+
+		// set sinks for this media
+		struct packet_stream *pt_stream = s->pt_streams[i];
+		struct call_media *stream_media = pt_stream->media;
+
+		unsigned int media_idx = stream_media->index - 1;
+		if (media_idx >= RTPE_NUM_OUTPUT_MEDIA)
+			return "media index too large";
+
+		fill_media_sinks(s, media_idx, pt_stream);
+
+		for (__auto_type k = pt_stream->rtp_sinks.head; k; k = k->next) {
 			struct sink_handler *ksh = k->data;
 
 			if (ksh->attrs.silence_media)
 				s->manipulate_pt = true;
 
 			struct packet_stream *ksink = ksh->sink;
-			struct codec_handler *ch = codec_handler_get(media, rs->payload_type,
+			struct codec_handler *ch = codec_handler_get(stream_media, rs->payload_type,
 					ksink->media, ksh);
 
 			if (ch->blackhole)
