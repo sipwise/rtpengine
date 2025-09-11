@@ -89,6 +89,83 @@ sub stun_succ {
 
 
 
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 7354)], [qw(198.51.100.3 7356)]);
+
+($port_a) = offer('reuse + transcoding', {
+		flags => ['reuse codecs'],
+		codec => { strip => ['all'],
+		transcode => ['opus', 'PCMA', 'PCMU'],
+		offer => ['telephone-event'] },
+}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7354 RTP/AVP 8 101 13
+c=IN IP4 198.51.100.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=rtpmap:13 CN/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 8 0 97 101
+c=IN IP4 203.0.113.1
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 useinbandfec=1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:97 telephone-event/48000
+a=fmtp:97 0-15
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('reuse + transcoding', {
+		flags => ['single codec', 'reuse codecs'],
+}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7356 RTP/AVP 96 8 0 97 101
+c=IN IP4 198.51.100.3
+a=sendrecv
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 useinbandfec=1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:97 telephone-event/48000
+a=fmtp:97 0-15
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b,  rtp(8, 1000, 3000, 0x1234, "\x99" x 160));
+Time::HiRes::usleep(20000); # resample delay
+snd($sock_a, $port_b,  rtp(8, 1001, 3160, 0x1234, "\x99" x 160));
+rcv($sock_b, $port_a, rtpm(96, 1000, 3000, 0x1234, "\x08\x82\x2d\x52\x03\x59\x82\x1b\x59\x44\x6c\xa8\x4e\x56\xc8\x0d\xc2\xe4\x8b\xa1\x2e\xf2\x00\x63\x97\x16\x84\x31\x40"));
+
+
+
+
 # GH 1989
 ($sock_a, $sock_b) = new_call([qw(198.51.100.1 7294)], [qw(198.51.100.3 7296)]);
 
