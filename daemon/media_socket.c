@@ -1576,7 +1576,6 @@ G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(kernelize_state, kernelize_state_clear)
 static void fill_pt_stats(kernelize_state *s, struct packet_stream *stream) {
 	rtp_stats_ht_iter iter;
 	t_hash_table_iter_init(&iter, stream->rtp_stats);
-	s->num_payload_types = 0;
 	struct rtp_stats *rs;
 	while (t_hash_table_iter_next(&iter, NULL, &rs) && s->num_payload_types < RTPE_NUM_PAYLOAD_TYPES) {
 		s->pt_streams[s->num_payload_types] = stream;
@@ -1589,6 +1588,28 @@ static void fill_media_sinks(kernelize_state *s, unsigned int media_idx, struct 
 	s->rtp_sinks[media_idx] = &ps->rtp_sinks;
 	s->rtp_mirrors[media_idx] = &ps->rtp_mirrors;
 	s->rtcp_sinks[media_idx] = &ps->rtcp_sinks;
+}
+
+__attribute__((nonnull(1, 2)))
+static void fill_pt_bundle_media(kernelize_state *s, struct call_media *media, unsigned int component) {
+	if (!t_hash_table_is_set(media->pt_media))
+		return;
+
+	// reset output stream and stats for any PTs known to belong to other media
+	for (unsigned int i = 0; i < s->num_payload_types; i++) {
+		struct rtp_stats *rs = s->payload_types[i];
+		__auto_type pt_media = t_hash_table_lookup(media->pt_media, GUINT_TO_POINTER(rs->payload_type));
+		if (!pt_media)
+			continue;
+		if (pt_media == media)
+			continue;
+
+		struct packet_stream *pt_ps = get_media_component(pt_media, component);
+		if (!pt_ps)
+			continue; // log as error?
+		s->pt_streams[s->num_payload_types] = pt_ps;
+	}
+
 }
 
 __attribute__((nonnull(1, 2)))
@@ -1691,7 +1712,10 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 	// handle known RTP payload types:
 	// create sorted list of payload types
 
+	s->num_payload_types = 0;
+
 	fill_pt_stats(s, stream);
+	fill_pt_bundle_media(s, media, stream->component);
 
 	if (!s->num_payload_types) {
 		// set single output
