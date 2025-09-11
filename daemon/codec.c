@@ -5668,10 +5668,16 @@ void __codec_store_populate_reuse(struct codec_store *dst, struct codec_store *s
 					STR_FMT(&pt->encoding_with_params),
 					STR_FMT0(&pt->format_parameters),
 					pt->payload_type);
+
 			// replace existing entry with new one in same position,
 			// in case options have changed
+			// but carry over flags
+			__auto_type dup = rtp_payload_type_dup(pt);
+			dup->for_transcoding = orig_pt->for_transcoding;
+			dup->accepted = orig_pt->accepted;
+
 			__auto_type pos = __codec_store_delete_link(orig_pt->prefs_link, dst);
-			codec_store_add_raw_link(dst, rtp_payload_type_dup(pt), pos);
+			codec_store_add_raw_link(dst, dup, pos);
 		}
 		else {
 			if (!a.answer_only) {
