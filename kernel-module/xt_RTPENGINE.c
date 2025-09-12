@@ -6303,6 +6303,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 	unsigned int start_idx, end_idx;
 	enum {NOT_RTCP = 0, RTCP, RTCP_FORWARD} is_rtcp;
 	ktime_t packet_ts;
+	unsigned int output_group_idx = 0;
 	struct rtpengine_output_group *output_group;
 
 	skb_reset_transport_header(skb);
@@ -6411,10 +6412,14 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 			if (g->target.pt_filter)
 				goto out;
 		}
-		else if (ssrc_idx >= 0 && g->target.ssrc_stats[ssrc_idx]) {
-			atomic_set(&g->target.ssrc_stats[ssrc_idx]->last_pt,
-					g->target.pt_stats[rtp_pt_idx]->payload_type);
-			atomic64_set(&g->target.ssrc_stats[ssrc_idx]->last_packet_us, packet_ts);
+		else {
+			output_group_idx = g->target.pt_media_idx[rtp_pt_idx];
+
+			if (ssrc_idx >= 0 && g->target.ssrc_stats[ssrc_idx]) {
+				atomic_set(&g->target.ssrc_stats[ssrc_idx]->last_pt,
+						g->target.pt_stats[rtp_pt_idx]->payload_type);
+				atomic64_set(&g->target.ssrc_stats[ssrc_idx]->last_packet_us, packet_ts);
+			}
 		}
 
 		errstr = "SRTP decryption failed";
@@ -6474,7 +6479,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 	}
 
 	// output
-	output_group = &g->target.media_output_idxs[0];
+	output_group = &g->target.media_output_idxs[output_group_idx];
 	start_idx = (is_rtcp != NOT_RTCP) ? output_group->rtcp_start_idx : output_group->rtp_start_idx;
 	end_idx = (is_rtcp != NOT_RTCP) ? output_group->rtcp_end_idx : output_group->rtp_end_idx;
 
