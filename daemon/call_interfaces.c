@@ -3255,6 +3255,8 @@ static const char *call_recording_common_ng(ng_command_ctx_t *ctx,
 
 	fn(ctx, call);
 
+	call_unlock_release_update(&call);
+
 	return NULL;
 }
 
@@ -3477,6 +3479,8 @@ const char *call_start_forwarding_ng(ng_command_ctx_t *ctx) {
 		update_metadata_call(call, &flags);
 
 	recording_start_daemon(call);
+
+	call_unlock_release_update(&call);
 	return NULL;
 }
 
@@ -3512,6 +3516,8 @@ const char *call_stop_forwarding_ng(ng_command_ctx_t *ctx) {
 		update_metadata_call(call, &flags);
 
 	recording_stop_daemon(call);
+
+	call_unlock_release_update(&call);
 
 	return NULL;
 }
