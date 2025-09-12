@@ -15,6 +15,7 @@
 
 static ssize_t ssrc_tls_write(void *, const void *, size_t);
 static ssize_t ssrc_tls_read(void *, void *, size_t);
+static void tls_fwd_state(tls_fwd_t *tls_fwd);
 
 static struct streambuf_funcs ssrc_tls_funcs = {
 	.write = ssrc_tls_write,
@@ -69,8 +70,13 @@ static ssize_t ssrc_tls_read(void *fd, void *b, size_t s) {
 }
 
 
-void tls_fwd_shutdown(tls_fwd_t **p) {
+void tls_fwd_free(tls_fwd_t **p) {
 	tls_fwd_t *tls_fwd = *p;
+	tls_fwd_shutdown(tls_fwd);
+	g_clear_pointer(p, g_free);
+}
+
+void tls_fwd_shutdown(tls_fwd_t *tls_fwd) {
 	if (!tls_fwd)
 		return;
 	streambuf_destroy(tls_fwd->stream);
@@ -86,15 +92,72 @@ void tls_fwd_shutdown(tls_fwd_t **p) {
 	close_socket(&tls_fwd->sock);
 	av_frame_free(&tls_fwd->silence_frame);
 	sink_close(&tls_fwd->sink);
-	g_clear_pointer(p, g_free);
+	tls_fwd->sent_intro = 0;
+	ZERO(tls_fwd->poller);
 }
 
 
-static void tls_fwd_state(tls_fwd_t **p) {
-	tls_fwd_t *tls_fwd = *p;
+static bool tls_fwd_connect(tls_fwd_t *tls_fwd) {
+	// initialise the connection
+	ZERO(tls_fwd->poller);
+	if (!tls_disable) {
+		dbg("Starting TLS connection to %s", endpoint_print_buf(&tls_send_to_ep));
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+		tls_fwd->ssl_ctx = SSL_CTX_new(TLS_client_method());
+#else
+		tls_fwd->ssl_ctx = SSL_CTX_new(SSLv23_client_method());
+#endif
+		if (!tls_fwd->ssl_ctx) {
+			ilog(LOG_ERR, "Failed to create TLS context");
+			tls_fwd_shutdown(tls_fwd);
+			return false;
+		}
+		tls_fwd->ssl = SSL_new(tls_fwd->ssl_ctx);
+		if (!tls_fwd->ssl) {
+			ilog(LOG_ERR, "Failed to create TLS connection");
+			tls_fwd_shutdown(tls_fwd);
+			return false;
+		}
+	} else {
+		dbg("Starting TCP connection to %s", endpoint_print_buf(&tls_send_to_ep));
+	}
+	int status = connect_socket_nb(&tls_fwd->sock, SOCK_STREAM, &tls_send_to_ep);
+	if (status < 0) {
+		ilog(LOG_ERR, "Failed to open/connect TLS/TCP socket to %s: %s",
+			endpoint_print_buf(&tls_send_to_ep),
+			strerror(errno));
+		tls_fwd_shutdown(tls_fwd);
+		return false;
+	}
+
+	tls_fwd->poller.state = PS_CONNECTING;
+	if (!tls_disable) {
+		if (SSL_set_fd(tls_fwd->ssl, tls_fwd->sock.fd) != 1) {
+			ilog(LOG_ERR, "Failed to set TLS fd");
+			tls_fwd_shutdown(tls_fwd);
+			return false;
+		}
+		tls_fwd->stream = streambuf_new_ptr(&tls_fwd->poller, tls_fwd->ssl, &ssrc_tls_funcs);
+	} else {
+		tls_fwd->stream = streambuf_new(&tls_fwd->poller, tls_fwd->sock.fd);
+	}
+
+	tls_fwd_state(tls_fwd);
+
+	return true;
+}
+
+static void tls_fwd_state(tls_fwd_t *tls_fwd) {
+	if (!tls_fwd)
+		return;
+
 	int ret;
 
 	ssrc_tls_log_errors();
+
+	if (tls_fwd->poller.state == PS_CLOSED)
+		tls_fwd_connect(tls_fwd);
+
 	if (tls_fwd->poller.state == PS_CONNECTING) {
 		int status = connect_socket_retry(&tls_fwd->sock);
 		if (status == 0) {
@@ -117,7 +180,7 @@ static void tls_fwd_state(tls_fwd_t **p) {
 		}
 		else if (status < 0) {
 			ilog(LOG_ERR, "Failed to connect TLS/TCP socket: %s", strerror(errno));
-			tls_fwd_shutdown(p);
+			tls_fwd_shutdown(tls_fwd);
 		}
 	}
 	else if (tls_fwd->poller.state == PS_HANDSHAKE) {
@@ -137,7 +200,7 @@ static void tls_fwd_state(tls_fwd_t **p) {
 		streambuf_writeable(tls_fwd->stream);
 	}
 	else if (tls_fwd->poller.state == PS_ERROR)
-		tls_fwd_shutdown(p);
+		tls_fwd_shutdown(tls_fwd);
 	ssrc_tls_log_errors();
 }
 
@@ -187,14 +250,14 @@ static void tls_fwd_silence_frames_upto(tls_fwd_t *tls_fwd, AVFrame *frame, int6
 
 static bool tls_fwd_add(sink_t *sink, AVFrame *frame) {
 	tls_fwd_t **p = sink->tls_fwd;
+	tls_fwd_t *tls_fwd = *p;
 
-	tls_fwd_state(p);
+	tls_fwd_state(tls_fwd);
 
 	// if we're in the middle of a disconnect then ssrc_tls_state may have destroyed the streambuf
 	// so we need to skip the below to ensure we only send metadata for the new connection
 	// once we've got a new streambuf
-	tls_fwd_t *tls_fwd = *p;
-	if (!tls_fwd) {
+	if (!tls_fwd || !tls_fwd->stream) {
 		av_frame_free(&frame);
 		return false;
 	}
@@ -251,53 +314,10 @@ bool tls_fwd_new(tls_fwd_t **tlsp) {
 
 	tls_fwd_t *tls_fwd = *tlsp = g_new0(tls_fwd_t, 1);
 
-	// initialise the connection
-	ZERO(tls_fwd->poller);
-	if (!tls_disable) {
-		dbg("Starting TLS connection to %s", endpoint_print_buf(&tls_send_to_ep));
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
-		tls_fwd->ssl_ctx = SSL_CTX_new(TLS_client_method());
-#else
-		tls_fwd->ssl_ctx = SSL_CTX_new(SSLv23_client_method());
-#endif
-		if (!tls_fwd->ssl_ctx) {
-			ilog(LOG_ERR, "Failed to create TLS context");
-			tls_fwd_shutdown(tlsp);
-			return false;
-		}
-		tls_fwd->ssl = SSL_new(tls_fwd->ssl_ctx);
-		if (!tls_fwd->ssl) {
-			ilog(LOG_ERR, "Failed to create TLS connection");
-			tls_fwd_shutdown(tlsp);
-			return false;
-		}
-	} else {
-		dbg("Starting TCP connection to %s", endpoint_print_buf(&tls_send_to_ep));
-	}
-	int status = connect_socket_nb(&tls_fwd->sock, SOCK_STREAM, &tls_send_to_ep);
-	if (status < 0) {
-		ilog(LOG_ERR, "Failed to open/connect TLS/TCP socket to %s: %s",
-			endpoint_print_buf(&tls_send_to_ep),
-			strerror(errno));
-		tls_fwd_shutdown(tlsp);
+	if (!tls_fwd_connect(tls_fwd)) {
+		tls_fwd_free(tlsp);
 		return false;
 	}
-
-	tls_fwd->poller.state = PS_CONNECTING;
-	if (!tls_disable) {
-		if (SSL_set_fd(tls_fwd->ssl, tls_fwd->sock.fd) != 1) {
-			ilog(LOG_ERR, "Failed to set TLS fd");
-			tls_fwd_shutdown(tlsp);
-			return false;
-		}
-		tls_fwd->stream = streambuf_new_ptr(&tls_fwd->poller, tls_fwd->ssl, &ssrc_tls_funcs);
-	} else {
-		tls_fwd->stream = streambuf_new(&tls_fwd->poller, tls_fwd->sock.fd);
-	}
-
-	tls_fwd_state(tlsp);
-	if (!*tlsp) // may have been closed
-		return false;
 
 	sink_init(&tls_fwd->sink);
 	tls_fwd->sink.tls_fwd = tlsp;
@@ -314,7 +334,7 @@ bool tls_fwd_new(tls_fwd_t **tlsp) {
 
 void tls_fwd_init(stream_t *stream, metafile_t *mf, ssrc_t *ssrc) {
 	if ((!stream->forwarding_on && !mf->forwarding_on) || !tls_send_to_ep.port || tls_mixed) {
-		tls_fwd_shutdown(&ssrc->tls_fwd);
+		tls_fwd_free(&ssrc->tls_fwd);
 		return;
 	}
 
