@@ -29,7 +29,7 @@ static void meta_free(void *ptr) {
 	dbg("freeing metafile info for %s%s%s", FMT_M(mf->name));
 	mix_destroy(mf->mix);
 	mix_destroy(mf->tls_mix);
-	tls_fwd_shutdown(&mf->mix_tls_fwd);
+	tls_fwd_free(&mf->mix_tls_fwd);
 	db_close_call(mf);
 	g_string_chunk_free(mf->gsc);
 	// SSRCs first as they have linked outputs which need to be closed first
@@ -119,7 +119,7 @@ static void meta_mix_tls_output(metafile_t *mf) {
 	if (!tls_mixed) {
 		mix_destroy(mf->tls_mix);
 		mf->tls_mix = NULL;
-		tls_fwd_shutdown(&mf->mix_tls_fwd);
+		tls_fwd_free(&mf->mix_tls_fwd);
 		return;
 	}
 

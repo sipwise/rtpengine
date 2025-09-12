@@ -38,7 +38,7 @@ void ssrc_close(ssrc_t *s) {
 		decoder_free(s->decoders[i]);
 		s->decoders[i] = NULL;
 	}
-	tls_fwd_shutdown(&s->tls_fwd);
+	tls_fwd_free(&s->tls_fwd);
 }
 
 void ssrc_free(void *p) {
