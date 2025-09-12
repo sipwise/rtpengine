@@ -1765,6 +1765,8 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		seq_printf(f, " forward-RTCP");
 	if (g->target.rtcp_fb_fw)
 		seq_printf(f, " forward-RTCP-FB");
+	if (g->target.extmap)
+		seq_printf(f, " extmap[%u]", g->target.extmap_mid);
 	seq_printf(f, "\n");
 
 	seq_printf(f, "    output groups:");
@@ -1773,11 +1775,22 @@ static int proc_list_show(struct seq_file *f, void *v) {
 				!= g->target.media_output_idxs[i].rtp_end_idx
 				|| g->target.media_output_idxs[i].rtcp_start_idx
 				!= g->target.media_output_idxs[i].rtcp_end_idx)
-			seq_printf(f, " [%u]=(%u->%u/%u->%u)", i,
-					g->target.media_output_idxs[i].rtp_start_idx,
-					g->target.media_output_idxs[i].rtp_end_idx,
-					g->target.media_output_idxs[i].rtcp_start_idx,
-					g->target.media_output_idxs[i].rtcp_end_idx);
+		{
+			if (g->target.mid_output[i].len)
+				seq_printf(f, " [%u/'%.*s']=(%u->%u/%u->%u)", i,
+						(int) g->target.mid_output[i].len,
+						g->target.mid_output[i].mid,
+						g->target.media_output_idxs[i].rtp_start_idx,
+						g->target.media_output_idxs[i].rtp_end_idx,
+						g->target.media_output_idxs[i].rtcp_start_idx,
+						g->target.media_output_idxs[i].rtcp_end_idx);
+			else
+				seq_printf(f, " [%u]=(%u->%u/%u->%u)", i,
+						g->target.media_output_idxs[i].rtp_start_idx,
+						g->target.media_output_idxs[i].rtp_end_idx,
+						g->target.media_output_idxs[i].rtcp_start_idx,
+						g->target.media_output_idxs[i].rtcp_end_idx);
+		}
 	}
 	seq_printf(f, "\n");
 
@@ -6279,6 +6292,74 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 }
 
 
+static unsigned int rtp_mid_ext_media_find(const char *mid, size_t len,
+		const struct rtpengine_target_info *tg)
+{
+	if (len == 0)
+		return -1u;
+
+	// XXX not an efficient search
+	for (unsigned int i = 0; i < RTPE_NUM_OUTPUT_MEDIA; i++) {
+		if (len != tg->mid_output[i].len)
+			continue;
+		if (!memcmp(tg->mid_output[i].mid, mid, len))
+			return i;
+	}
+
+	return -1u;
+}
+static unsigned int rtp_mid_ext_media_short(const struct rtp_parsed *rtp,
+		const struct rtpengine_target_info *tg)
+{
+	size_t left = rtp->extension_len;
+	unsigned char *r = rtp->extension;
+	// XXX duplicates filter code somewhat
+	while (left >= 1) {
+		if (*r == 0) {
+			r++;
+			left--;
+			continue;
+		}
+
+		uint8_t id = *r >> 4;
+		uint8_t len = (*r & 0xf) + 1;
+		r++;
+		left--;
+		if (len > left)
+			break;
+
+		if (id == tg->extmap_mid)
+			return rtp_mid_ext_media_find(r, len, tg);
+
+		r += len;
+		left -= len;
+	}
+	return -1u;
+}
+static unsigned int rtp_mid_ext_media_long(const struct rtp_parsed *rtp,
+		const struct rtpengine_target_info *tg)
+{
+	return -1u;
+}
+static unsigned int rtp_mid_ext_media(const struct rtp_parsed *rtp,
+		const struct rtpengine_target_info *tg)
+{
+	if (!rtp->ext_hdr)
+		return -1u;
+	if (!tg->extmap)
+		return -1u;
+	if (!tg->extmap_mid)
+		return -1u;
+
+	if (ntohs(rtp->ext_hdr->undefined) == 0xbede)
+		return rtp_mid_ext_media_short(rtp, tg);
+	else if ((ntohs(rtp->ext_hdr->undefined) & 0xfff0) == 0x0100)
+		return rtp_mid_ext_media_long(rtp, tg);
+
+	return -1u;
+}
+
+
 static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 		struct rtpengine_table *t, struct re_address *src,
 		struct re_address *dst, uint8_t in_tos, const struct xt_action_param *par)
@@ -6393,6 +6474,8 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 		// RTP ok
 		rtp_pt_idx = rtp_payload_type(rtp.rtp_header, &g->target, &g->last_pt);
 
+		output_group_idx = rtp_mid_ext_media(&rtp, &g->target);
+
 		// Pass to userspace if SSRC has changed.
 		// Look for matching SSRC index if any SSRC were given
 		ssrc_idx = target_find_ssrc(g, rtp.rtp_header->ssrc);
@@ -6413,7 +6496,8 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 				goto out;
 		}
 		else {
-			output_group_idx = g->target.pt_media_idx[rtp_pt_idx];
+			if (output_group_idx == -1u)
+				output_group_idx = g->target.pt_media_idx[rtp_pt_idx];
 
 			if (ssrc_idx >= 0 && g->target.ssrc_stats[ssrc_idx]) {
 				atomic_set(&g->target.ssrc_stats[ssrc_idx]->last_pt,
@@ -6479,6 +6563,8 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 	}
 
 	// output
+	if (output_group_idx == -1u)
+		output_group_idx = 0;
 	output_group = &g->target.media_output_idxs[output_group_idx];
 	start_idx = (is_rtcp != NOT_RTCP) ? output_group->rtcp_start_idx : output_group->rtp_start_idx;
 	end_idx = (is_rtcp != NOT_RTCP) ? output_group->rtcp_end_idx : output_group->rtp_end_idx;

@@ -317,6 +317,8 @@ typedef struct {
 	ssize_t (*len)(struct call_media *);
 	ssize_t (*print)(void *dst, struct rtp_extension *, struct call_media *);
 
+	void (*kernel)(kernelize_state *, unsigned int component, struct call_media *);
+
 	enum {
 		RTP_EXT_MID = 0,
 

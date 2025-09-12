@@ -1696,6 +1696,14 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 		u++;
 	}
 
+	for (u = 0; u < RTP_EXT_NUM; u++) {
+		__auto_type ext = media->extmap_id[u];
+		if (!ext)
+			continue;
+		if (ext->handler.kernel)
+			ext->handler.kernel(s, stream->component, media);
+	}
+
 	recording_stream_kernel_info(stream, reti);
 
 	if (!proto_is_rtp(media->protocol))
@@ -2857,11 +2865,51 @@ static ssize_t rtp_ext_mid_print(void *dst, struct rtp_extension *ext, struct ca
 		return -1;
 	return media->extmap_ops->print(dst, ext->id, &media->media_id);
 }
+__attribute__((nonnull(1, 3)))
+static void rtp_ext_mid_kernel(kernelize_state *s, unsigned int component, struct call_media *media) {
+	struct call_media *bundle = media->bundle;
+	if (!bundle)
+		return;
+	if (!bundle->extmap_id[RTP_EXT_MID])
+		return;
+	if (bundle->extmap_id[RTP_EXT_MID]->id != bundle->extmap_id[RTP_EXT_MID]->id)
+		return;
+
+	s->reti.extmap = 1;
+	s->reti.extmap_mid = bundle->extmap_id[RTP_EXT_MID]->id;
+
+	struct call_monologue *ml = bundle->monologue;
+
+	for (unsigned int i = 0; i < ml->medias->len; i++) {
+		media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+		if (media->bundle != bundle)
+			continue;
+		if (!media->media_id.len)
+			continue;
+		unsigned int idx = media->index - 1;
+		if (idx >= RTPE_NUM_OUTPUT_MEDIA)
+			continue; // warn?
+		if (media->media_id.len > 255)
+			continue;
+
+		s->reti.mid_output[idx].len = media->media_id.len;
+		memcpy(s->reti.mid_output[idx].mid, media->media_id.s, media->media_id.len);
+
+		struct packet_stream *bundle_ps = get_media_component(media, component);
+		if (!bundle_ps)
+			continue; // log as error?
+
+		fill_media_sinks(s, idx, bundle_ps);
+	}
+}
 
 static const rtp_ext_handler rtp_ext_mid = {
 	.parse = rtp_ext_mid_parse,
 	.len = rtp_ext_mid_len,
 	.print = rtp_ext_mid_print,
+	.kernel = rtp_ext_mid_kernel,
 	.id = RTP_EXT_MID,
 };
 

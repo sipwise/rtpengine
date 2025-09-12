@@ -107,10 +107,16 @@ struct rtpengine_target_info {
 	unsigned int			pt_media_idx[RTPE_NUM_PAYLOAD_TYPES]; // same idx as pt_stats
 	unsigned int			num_payload_types;
 
+	uint8_t				extmap_mid;
+	struct {
+		char				mid[255];
+		size_t				len;
+	}				mid_output[RTPE_NUM_OUTPUT_MEDIA];
+
 	struct interface_stats_block	*iface_stats; // for ingress stats
 	struct stream_stats		*stats; // for ingress stats
 
-	unsigned int			__unused1:1,
+	unsigned int			extmap:1,
 					dtls:1,
 					stun:1,
 					rtp:1,
