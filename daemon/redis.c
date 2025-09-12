@@ -1500,7 +1500,7 @@ static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 		if (!redis_hash_get_str(&s, rh, "label"))
 			ml->label = call_str_cpy(&s);
 		if (!redis_hash_get_str(&s, rh, "metadata"))
-			c->metadata = call_str_cpy(&s);
+			ml->metadata = call_str_cpy(&s);
 		redis_hash_get_time_t(&ml->deleted, rh, "deleted");
 		if (!redis_hash_get_int(&ii, rh, "block_dtmf"))
 			ml->block_dtmf = ii;
