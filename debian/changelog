@@ -1,3 +1,13 @@
+ngcp-rtpengine (12.5.1.46+0~mr12.5.1.46) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [1c88fe0] MT#55283 fix naughty bit field bug
+  * [b95a443] MT#62735 add `recrypt` flag
+  * [d9ea526] MT#55283 carry over PT flags with reuse
+  * [1a4ae35] MT#55283 fix redis metadata typo
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 12 Sep 2025 21:01:33 +0200
+
 ngcp-rtpengine (12.5.1.45+0~mr12.5.1.45) unstable; urgency=medium
 
   [ Richard Fuchs ]
