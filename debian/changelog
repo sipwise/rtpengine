@@ -1,3 +1,11 @@
+ngcp-rtpengine (13.3.1.14+0~mr13.3.1.14) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [ff45bef] MT#55283 fix naughty bit field bug
+  * [2af02b2] MT#55283 fix redis metadata typo
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 12 Sep 2025 21:01:25 +0200
+
 ngcp-rtpengine (13.3.1.13+0~mr13.3.1.13) unstable; urgency=medium
 
   [ Richard Fuchs ]
