@@ -1500,7 +1500,7 @@ static int redis_tags(call_t *c, struct redis_list *tags, JsonReader *root_reade
 		if (!redis_hash_get_str(&s, rh, "label"))
 			call_str_cpy(c, &ml->label, &s);
 		if (!redis_hash_get_str(&s, rh, "metadata"))
-			call_str_cpy(c, &c->metadata, &s);
+			call_str_cpy(c, &ml->metadata, &s);
 		redis_hash_get_time_t(&ml->deleted, rh, "deleted");
 		if (!redis_hash_get_int(&ii, rh, "block_dtmf"))
 			ml->block_dtmf = ii;
