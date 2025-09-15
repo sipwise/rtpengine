@@ -66,6 +66,7 @@ struct packet_handler_ctx {
 	sink_handler_q *sinks; // where to send output packets to (forward destination)
 	rewrite_func decrypt_func, encrypt_func; // handlers for decrypt/encrypt
 	rtcp_filter_func *rtcp_filter;
+	struct packet_stream *orig_stream; // saved input stream in case of demux change
 	struct packet_stream *in_srtp, *out_srtp; // SRTP contexts for decrypt/encrypt (relevant for muxed RTCP)
 	int payload_type; // -1 if unknown or not RTP
 	bool rtcp; // true if this is an RTCP packet
@@ -2823,6 +2824,7 @@ static void media_packet_demux_pt(struct packet_handler_ctx *phc) {
 
 // sets in_srtp and sinks
 static void media_packet_set_streams(struct packet_handler_ctx *phc) {
+	phc->orig_stream = phc->mp.stream;
 	phc->in_srtp = phc->mp.stream;
 	phc->sinks = &phc->mp.stream->rtp_sinks;
 
@@ -3174,6 +3176,14 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 				*update_endpoint = phc->mp.fsin;
 				goto update_addr;
 			}
+
+			// try some other options before dropping
+			if (!matched && !MEDIA_ISSET(phc->mp.media, ASYMMETRIC))
+				matched = memcmp(&phc->mp.fsin, &phc->orig_stream->endpoint,
+						sizeof(phc->mp.fsin)) == 0;
+			if (!matched)
+				matched = memcmp(&phc->mp.fsin, &phc->orig_stream->learned_endpoint,
+						sizeof(phc->mp.fsin)) == 0;
 
 			if (!matched && PS_ISSET(phc->mp.stream, STRICT_SOURCE)) {
 				ilog(LOG_INFO | LOG_FLAG_LIMIT, "Drop due to strict-source attribute; "
