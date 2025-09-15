@@ -2599,7 +2599,7 @@ static void media_packet_parse(struct packet_handler_ctx *phc) {
 		}
 	}
 	else {
-		phc->mp.rtcp = rtcp_payload(NULL, &phc->s);
+		phc->mp.rtcp = rtcp_payload(&phc->mp.payload, &phc->s);
 		if (G_UNLIKELY(!phc->mp.rtcp))
 			phc->rtcp = false;
 	}
