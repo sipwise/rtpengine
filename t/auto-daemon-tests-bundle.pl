@@ -1033,6 +1033,7 @@ m=audio 7118 RTP/AVP 0
 c=IN IP4 198.51.100.14
 a=sendrecv
 a=mid:a
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
 m=video 7120 RTP/AVP 105
 c=IN IP4 198.51.100.14
 a=rtpmap:105 H264/90000
@@ -1068,7 +1069,7 @@ isnt($port_b, $port_d, 'different ports');
 is($port_c, $port_d, 'same ports');
 
 snd($sock_a, $port_c,  rtp(0, 2000, 6000, 0x1234, "\x44" x 160));
-rcv($sock_c, $port_a, rtpm(0, 2000, 6000, 0x1234, "\x44" x 160));
+rcv($sock_c, $port_a, rtpm(0, 2000, 6000, 0x1234, "\x44" x 160, [[1, 'a']]));
 
 snd($sock_c, $port_a,  rtp(0, 6000, 8000, 0x5678, "\x77" x 160));
 rcv($sock_a, $port_c, rtpm(0, 6000, 8000, 0x5678, "\x77" x 160, [[1, 'a']]));
@@ -1082,7 +1083,7 @@ rcv($sock_b, $port_d, rtpm(105, 7000, 9000, 0x8741, "\x22" x 800, [[1, 'v']])); 
 # mix up bundle ports
 
 snd($sock_a, $port_d,  rtp(0, 2000, 6000, 0x1234, "\x44" x 160));
-rcv($sock_c, $port_a, rtpm(0, 2000, 6000, 0x1234, "\x44" x 160));
+rcv($sock_c, $port_a, rtpm(0, 2000, 6000, 0x1234, "\x44" x 160, [[1, 'a']]));
 rcv_no($sock_d);
 
 snd($sock_a, $port_c,  rtp(105, 3000, 4000, 0x6321, "\x33" x 800));
@@ -1243,6 +1244,309 @@ rcv_no($sock_c);
 
 
 
+
+
+
+($sock_a, $sock_b, $sock_c, $sock_d) =
+	new_call([qw(198.51.100.14 6236)],
+		[qw(198.51.100.14 6234)],
+		[qw(198.51.100.14 6238)],
+		[qw(198.51.100.14 6240)]);
+
+($port_a, undef, $port_b) = offer('optional bundle with extmap & non unique PTs & strict source',
+	{ bundle => ['accept'], flags => ['strict source'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE a v
+m=audio 6236 RTP/AVP 0 100
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:a
+a=rtpmap:100 foobar/1000
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+m=video 6234 RTP/AVP 105 100
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=mid:v
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=rtpmap:100 bozo/90000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 100
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=rtpmap:100 foobar/1000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105 100
+c=IN IP4 203.0.113.1
+a=mid:v
+a=rtpmap:105 H264/90000
+a=rtpmap:100 bozo/90000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_c, undef, $port_d) = answer('optional bundle with extmap & non unique PTs & strict source',
+	{ flags => ['strict source'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6238 RTP/AVP 0 100
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:a
+a=rtpmap:100 foobar/1000
+m=video 6240 RTP/AVP 105 100
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=rtpmap:100 bozo/90000
+a=sendrecv
+a=mid:v
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE a v
+m=audio PORT RTP/AVP 0 100
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=rtpmap:100 foobar/1000
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105 100
+c=IN IP4 203.0.113.1
+a=mid:v
+a=rtpmap:105 H264/90000
+a=rtpmap:100 bozo/90000
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+isnt($port_a, $port_b, 'different ports');
+isnt($port_a, $port_c, 'different ports');
+isnt($port_a, $port_d, 'different ports');
+isnt($port_b, $port_c, 'different ports');
+isnt($port_b, $port_d, 'different ports');
+is($port_c, $port_d, 'same ports');
+
+snd($sock_a, $port_c,  rtp(0, 2000, 6000, 0x1234, "\x44" x 160));
+rcv($sock_c, $port_a, rtpm(0, 2000, 6000, 0x1234, "\x44" x 160));
+
+snd($sock_c, $port_a,  rtp(0, 6000, 8000, 0x5678, "\x77" x 160));
+rcv($sock_a, $port_c, rtpm(0, 6000, 8000, 0x5678, "\x77" x 160, [[1, 'a']]));
+
+snd($sock_a, $port_d,  rtp(105, 3000, 4000, 0x6321, "\x33" x 800));
+rcv($sock_d, $port_b, rtpm(105, 3000, 4000, 0x6321, "\x33" x 800));
+
+snd($sock_d, $port_b,  rtp(105, 7000, 9000, 0x8741, "\x22" x 800));
+rcv($sock_b, $port_d, rtpm(105, 7000, 9000, 0x8741, "\x22" x 800, [[1, 'v']])); # XXX wrong socket
+
+# mix up bundle ports
+
+snd($sock_a, $port_d,  rtp(0, 2000, 6000, 0x1234, "\x44" x 160));
+rcv($sock_c, $port_a, rtpm(0, 2000, 6000, 0x1234, "\x44" x 160));
+rcv_no($sock_d);
+
+snd($sock_a, $port_c,  rtp(105, 3000, 4000, 0x6321, "\x33" x 800));
+rcv($sock_d, $port_b, rtpm(105, 3000, 4000, 0x6321, "\x33" x 800));
+rcv_no($sock_c);
+
+snd($sock_a, $port_d,  rtp(100, 7000, 11000, 0x25bc, "\x44" x 160));
+rcv($sock_c, $port_a, rtpm(100, 7000, 11000, 0x25bc, "\x44" x 160));
+rcv_no($sock_d);
+
+snd($sock_a, $port_c,  rtp(100, 8000, 9000, 0x76a9, "\x33" x 800));
+# recv on wrong sock
+rcv($sock_c, $port_a, rtpm(100, 8000, 9000, 0x76a9, "\x33" x 800));
+rcv_no($sock_d);
+
+# with extension
+
+snd($sock_a, $port_d,  rtp(0, 2001, 6160, 0x1234, "\x44" x 160, [[1, 'a']]));
+rcv($sock_c, $port_a, rtpm(0, 2001, 6160, 0x1234, "\x44" x 160));
+rcv_no($sock_d);
+
+snd($sock_a, $port_c,  rtp(105, 3001, 4160, 0x6321, "\x33" x 800, [[1, 'v']]));
+rcv($sock_d, $port_b, rtpm(105, 3001, 4160, 0x6321, "\x33" x 800));
+rcv_no($sock_c);
+
+snd($sock_a, $port_d,  rtp(100, 7001, 11160, 0x25bc, "\x44" x 160, [[1, 'a']]));
+rcv($sock_c, $port_a, rtpm(100, 7001, 11160, 0x25bc, "\x44" x 160));
+rcv_no($sock_d);
+
+snd($sock_a, $port_c,  rtp(100, 8001, 9160, 0x76a9, "\x33" x 800, [[1, 'v']]));
+# recv now on correct sock
+rcv($sock_d, $port_b, rtpm(100, 8001, 9160, 0x76a9, "\x33" x 800));
+rcv_no($sock_c);
+
+
+
+
+
+($sock_a, $sock_c, $sock_d) =
+	new_call([qw(198.51.100.14 6248)],
+		[qw(198.51.100.14 6250)],
+		[qw(198.51.100.14 6252)]);
+
+($port_a, undef, $port_b) = offer('same port bundle with extmap & non unique PTs & strict source',
+	{ bundle => ['accept'], flags => ['strict source'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE a v
+m=audio 6248 RTP/AVP 0 100
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:a
+a=rtpmap:100 foobar/1000
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+m=video 6248 RTP/AVP 105 100
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=mid:v
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=rtpmap:100 bozo/90000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 100
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=rtpmap:100 foobar/1000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105 100
+c=IN IP4 203.0.113.1
+a=mid:v
+a=rtpmap:105 H264/90000
+a=rtpmap:100 bozo/90000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_c, undef, $port_d) = answer('same port bundle with extmap & non unique PTs & strict source',
+	{ flags => ['strict source'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6250 RTP/AVP 0 100
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:a
+a=rtpmap:100 foobar/1000
+m=video 6252 RTP/AVP 105 100
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=rtpmap:100 bozo/90000
+a=sendrecv
+a=mid:v
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE a v
+m=audio PORT RTP/AVP 0 100
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=rtpmap:100 foobar/1000
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105 100
+c=IN IP4 203.0.113.1
+a=mid:v
+a=rtpmap:105 H264/90000
+a=rtpmap:100 bozo/90000
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+isnt($port_a, $port_b, 'different ports');
+isnt($port_a, $port_c, 'different ports');
+isnt($port_a, $port_d, 'different ports');
+isnt($port_b, $port_c, 'different ports');
+isnt($port_b, $port_d, 'different ports');
+is($port_c, $port_d, 'same ports');
+
+snd($sock_a, $port_c,  rtp(0, 2000, 6000, 0x1234, "\x44" x 160));
+rcv($sock_c, $port_a, rtpm(0, 2000, 6000, 0x1234, "\x44" x 160));
+
+snd($sock_c, $port_a,  rtp(0, 6000, 8000, 0x5678, "\x77" x 160));
+rcv($sock_a, $port_c, rtpm(0, 6000, 8000, 0x5678, "\x77" x 160, [[1, 'a']]));
+
+snd($sock_a, $port_d,  rtp(105, 3000, 4000, 0x6321, "\x33" x 800));
+rcv($sock_d, $port_b, rtpm(105, 3000, 4000, 0x6321, "\x33" x 800));
+
+snd($sock_d, $port_b,  rtp(105, 7000, 9000, 0x8741, "\x22" x 800));
+rcv($sock_a, $port_d, rtpm(105, 7000, 9000, 0x8741, "\x22" x 800, [[1, 'v']]));
+
+# mix up bundle ports
+
+snd($sock_a, $port_d,  rtp(0, 2000, 6000, 0x1234, "\x44" x 160));
+rcv($sock_c, $port_a, rtpm(0, 2000, 6000, 0x1234, "\x44" x 160));
+rcv_no($sock_d);
+
+snd($sock_a, $port_c,  rtp(105, 3000, 4000, 0x6321, "\x33" x 800));
+rcv($sock_d, $port_b, rtpm(105, 3000, 4000, 0x6321, "\x33" x 800));
+rcv_no($sock_c);
+
+snd($sock_a, $port_d,  rtp(100, 7000, 11000, 0x25bc, "\x44" x 160));
+rcv($sock_c, $port_a, rtpm(100, 7000, 11000, 0x25bc, "\x44" x 160));
+rcv_no($sock_d);
+
+snd($sock_a, $port_c,  rtp(100, 8000, 9000, 0x76a9, "\x33" x 800));
+# recv on wrong sock
+rcv($sock_c, $port_a, rtpm(100, 8000, 9000, 0x76a9, "\x33" x 800));
+rcv_no($sock_d);
+
+# with extension
+
+snd($sock_a, $port_d,  rtp(0, 2001, 6160, 0x1234, "\x44" x 160, [[1, 'a']]));
+rcv($sock_c, $port_a, rtpm(0, 2001, 6160, 0x1234, "\x44" x 160));
+rcv_no($sock_d);
+
+snd($sock_a, $port_c,  rtp(105, 3001, 4160, 0x6321, "\x33" x 800, [[1, 'v']]));
+rcv($sock_d, $port_b, rtpm(105, 3001, 4160, 0x6321, "\x33" x 800));
+rcv_no($sock_c);
+
+snd($sock_a, $port_d,  rtp(100, 7001, 11160, 0x25bc, "\x44" x 160, [[1, 'a']]));
+rcv($sock_c, $port_a, rtpm(100, 7001, 11160, 0x25bc, "\x44" x 160));
+rcv_no($sock_d);
+
+snd($sock_a, $port_c,  rtp(100, 8001, 9160, 0x76a9, "\x33" x 800, [[1, 'v']]));
+# recv now on correct sock
+rcv($sock_d, $port_b, rtpm(100, 8001, 9160, 0x76a9, "\x33" x 800));
+rcv_no($sock_c);
 
 
 
