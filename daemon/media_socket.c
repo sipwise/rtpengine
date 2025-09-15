@@ -2844,11 +2844,10 @@ static void media_packet_set_streams(struct packet_handler_ctx *phc) {
 
 // out_srtp is set to point to the SRTP context to use
 static void media_packet_rtcp_mux(struct packet_handler_ctx *phc, struct sink_handler *sh) {
-	phc->out_srtp = sh->sink;
-	if (phc->rtcp && sh->sink->rtcp_sibling)
-		phc->out_srtp = sh->sink->rtcp_sibling; // use RTCP SRTP context
-
 	phc->mp.media_out = sh->sink->media;
+	phc->out_srtp = sh->bundle_sink;
+	if (phc->rtcp && phc->out_srtp->rtcp_sibling)
+		phc->out_srtp = phc->out_srtp->rtcp_sibling; // use RTCP SRTP context
 }
 
 
@@ -3573,7 +3572,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 	for (__auto_type sh_link = phc->sinks->head; sh_link; sh_link = sh_link->next) {
 		struct sink_handler *sh = sh_link->data;
-		struct packet_stream *sink = sh->sink;
+		struct packet_stream *sink = sh->bundle_sink;
 
 		// this sets rtcp, in_srtp, out_srtp, media_out, and sink
 		media_packet_rtcp_mux(phc, sh);

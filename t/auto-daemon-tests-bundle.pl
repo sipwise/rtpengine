@@ -429,8 +429,8 @@ snd($sock_b, $port_d,  rtp(105, 3000, 4000, 0x6321, "\x33" x 800));
 rcv($sock_d, $port_b, rtpm(105, 3000, 4000, 0x6321, "\x33" x 800));
 
 snd($sock_d, $port_b,  rtp(105, 7000, 9000, 0x8741, "\x22" x 800));
-rcv($sock_b, $port_d, rtpm(105, 7000, 9000, 0x8741, "\x22" x 800)); # XXX wrong port
-rcv_no($sock_a);
+rcv($sock_a, $port_d, rtpm(105, 7000, 9000, 0x8741, "\x22" x 800));
+rcv_no($sock_b);
 
 
 # mix up bundle ports
@@ -1073,12 +1073,14 @@ rcv($sock_c, $port_a, rtpm(0, 2000, 6000, 0x1234, "\x44" x 160, [[1, 'a']]));
 
 snd($sock_c, $port_a,  rtp(0, 6000, 8000, 0x5678, "\x77" x 160));
 rcv($sock_a, $port_c, rtpm(0, 6000, 8000, 0x5678, "\x77" x 160, [[1, 'a']]));
+rcv_no($sock_b);
 
 snd($sock_a, $port_d,  rtp(105, 3000, 4000, 0x6321, "\x33" x 800));
 rcv($sock_d, $port_b, rtpm(105, 3000, 4000, 0x6321, "\x33" x 800));
 
 snd($sock_d, $port_b,  rtp(105, 7000, 9000, 0x8741, "\x22" x 800));
-rcv($sock_b, $port_d, rtpm(105, 7000, 9000, 0x8741, "\x22" x 800, [[1, 'v']])); # XXX wrong socket
+rcv($sock_a, $port_d, rtpm(105, 7000, 9000, 0x8741, "\x22" x 800, [[1, 'v']]));
+rcv_no($sock_b);
 
 # mix up bundle ports
 
@@ -1197,12 +1199,14 @@ rcv($sock_c, $port_a, rtpm(0, 2000, 6000, 0x1234, "\x44" x 160));
 
 snd($sock_c, $port_a,  rtp(0, 6000, 8000, 0x5678, "\x77" x 160));
 rcv($sock_a, $port_c, rtpm(0, 6000, 8000, 0x5678, "\x77" x 160, [[1, 'a']]));
+rcv_no($sock_b);
 
 snd($sock_a, $port_d,  rtp(105, 3000, 4000, 0x6321, "\x33" x 800));
 rcv($sock_d, $port_b, rtpm(105, 3000, 4000, 0x6321, "\x33" x 800));
 
 snd($sock_d, $port_b,  rtp(105, 7000, 9000, 0x8741, "\x22" x 800));
-rcv($sock_b, $port_d, rtpm(105, 7000, 9000, 0x8741, "\x22" x 800, [[1, 'v']])); # XXX wrong socket
+rcv($sock_a, $port_d, rtpm(105, 7000, 9000, 0x8741, "\x22" x 800, [[1, 'v']]));
+rcv_no($sock_b);
 
 # mix up bundle ports
 
@@ -1351,12 +1355,14 @@ rcv($sock_c, $port_a, rtpm(0, 2000, 6000, 0x1234, "\x44" x 160));
 
 snd($sock_c, $port_a,  rtp(0, 6000, 8000, 0x5678, "\x77" x 160));
 rcv($sock_a, $port_c, rtpm(0, 6000, 8000, 0x5678, "\x77" x 160, [[1, 'a']]));
+rcv_no($sock_b);
 
 snd($sock_a, $port_d,  rtp(105, 3000, 4000, 0x6321, "\x33" x 800));
 rcv($sock_d, $port_b, rtpm(105, 3000, 4000, 0x6321, "\x33" x 800));
 
 snd($sock_d, $port_b,  rtp(105, 7000, 9000, 0x8741, "\x22" x 800));
-rcv($sock_b, $port_d, rtpm(105, 7000, 9000, 0x8741, "\x22" x 800, [[1, 'v']])); # XXX wrong socket
+rcv($sock_a, $port_d, rtpm(105, 7000, 9000, 0x8741, "\x22" x 800, [[1, 'v']]));
+rcv_no($sock_b);
 
 # mix up bundle ports
 

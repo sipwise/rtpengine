@@ -269,7 +269,8 @@ struct rtpext_printer {
  * only the sink_handler objects (and the packet_stream objects they are related to) are used.
  */
 struct sink_handler {
-	struct packet_stream *sink;
+	struct packet_stream *sink; // part of the appropriate output media
+	struct packet_stream *bundle_sink; // from the bundle head media
 	const struct streamhandler *handler;
 	struct sink_attrs attrs;
 	const struct rtpext_printer *rtpext;

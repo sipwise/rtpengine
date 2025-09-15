@@ -1287,6 +1287,7 @@ void free_sink_handler(struct sink_handler *sh) {
 void __add_sink_handler(sink_handler_q *q, struct packet_stream *sink, const struct sink_attrs *attrs) {
 	struct sink_handler *sh = g_new0(__typeof(*sh), 1);
 	sh->sink = sink;
+	sh->bundle_sink = sink;
 	if (attrs)
 		sh->attrs = *attrs;
 	t_queue_push_tail(q, sh);
@@ -3451,6 +3452,40 @@ static void monologue_bundle_set_fds(struct call_monologue *ml) {
 	}
 }
 
+// reset/assign handler sinks
+__attribute__((nonnull(1)))
+static void monologue_bundle_set_sink_handlers(sink_handler_q *q) {
+	for (__auto_type l = q->head; l; l = l->next) {
+		__auto_type sh = l->data;
+		__auto_type sink = sh->sink;
+		__auto_type media = sink->media;
+		__auto_type bundle = media->bundle;
+		if (!bundle)
+			continue;
+		__auto_type ps = get_media_component(bundle, sink->component);
+		if (ps)
+			sh->bundle_sink = ps;
+		else
+			ilog(LOG_WARN, "No matching bundle stream for component #%u found", sink->component);
+	}
+}
+
+// reset/assign handler sinks
+__attribute__((nonnull(1)))
+static void monologue_bundle_set_sinks(struct call_monologue *ml) {
+	for (unsigned int i = 0; i < ml->medias->len; i++) {
+		__auto_type media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+		for (__auto_type l = media->streams.head; l; l = l->next) {
+			__auto_type ps = l->data;
+			monologue_bundle_set_sink_handlers(&ps->rtp_sinks);
+			monologue_bundle_set_sink_handlers(&ps->rtcp_sinks);
+			monologue_bundle_set_sink_handlers(&ps->rtp_mirrors);
+		}
+	}
+}
+
 __attribute__((nonnull(1, 2)))
 static void monologue_bundle_accept(struct call_monologue *ml, sdp_ng_flags *flags) {
 	if (!ML_ISSET(ml, BUNDLE))
@@ -3742,6 +3777,8 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 
 	monologue_bundle_accept(sender_ml, flags);
 	monologue_bundle_set_fds(receiver_ml);
+	monologue_bundle_set_sinks(sender_ml);
+	monologue_bundle_set_sinks(receiver_ml);
 
 	// set ipv4/ipv6/mixed media stats
 	if (flags->opmode == OP_OFFER || flags->opmode == OP_ANSWER) {
