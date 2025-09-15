@@ -3162,10 +3162,9 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 	if (phc->mp.sfd->confirmed) {
 		/* see if we need to compare the source address with the known endpoint */
 		if (PS_ISSET2(phc->mp.stream, STRICT_SOURCE, MEDIA_HANDOVER)) {
-			endpoint_t endpoint = phc->mp.fsin;
+			bool matched = memcmp(&phc->mp.fsin, update_endpoint, sizeof(phc->mp.fsin)) == 0;
 
-			int tmp = memcmp(&endpoint, update_endpoint, sizeof(endpoint));
-			if (tmp && PS_ISSET(phc->mp.stream, MEDIA_HANDOVER)) {
+			if (!matched && PS_ISSET(phc->mp.stream, MEDIA_HANDOVER)) {
 				/* out_lock remains locked */
 				ilog(LOG_INFO | LOG_FLAG_LIMIT, "Peer address changed to %s%s%s",
 						FMT_M(endpoint_print_buf(&phc->mp.fsin)));
@@ -3176,11 +3175,11 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 				goto update_addr;
 			}
 
-			if (tmp && PS_ISSET(phc->mp.stream, STRICT_SOURCE)) {
+			if (!matched && PS_ISSET(phc->mp.stream, STRICT_SOURCE)) {
 				ilog(LOG_INFO | LOG_FLAG_LIMIT, "Drop due to strict-source attribute; "
 						"got %s%s%s, "
 						"expected %s%s%s",
-					FMT_M(endpoint_print_buf(&endpoint)),
+					FMT_M(endpoint_print_buf(&phc->mp.fsin)),
 					FMT_M(endpoint_print_buf(update_endpoint)));
 				atomic64_inc_na(&phc->mp.stream->stats_in->errors);
 				atomic64_inc_na(&phc->mp.sfd->local_intf->stats->in.errors);
