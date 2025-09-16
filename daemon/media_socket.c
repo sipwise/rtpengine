@@ -1549,7 +1549,7 @@ static int __rtp_stats_pt_sort(const void *A, const void *B) {
 
 TYPED_GQUEUE(kernel_output, struct rtpengine_destination_info)
 
-typedef struct {
+struct kernelize_state {
 	struct rtpengine_target_info reti;
 	struct ssrc_entry_call *ssrc[RTPE_NUM_SSRC_TRACKING];
 	kernel_output_q outputs;
@@ -1562,7 +1562,7 @@ typedef struct {
 	bool non_forwarding;
 	bool silenced;
 	bool manipulate_pt;
-} kernelize_state;
+};
 
 static void kernelize_state_clear(kernelize_state *s) {
 	t_queue_clear_full(&s->outputs,

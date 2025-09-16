@@ -309,6 +309,7 @@ struct packet_handler_ctx;
 
 
 struct rtp_extension;
+typedef struct kernelize_state kernelize_state;
 
 typedef struct {
 	void (*parse)(struct packet_handler_ctx *, const struct rtp_extension_data *);
