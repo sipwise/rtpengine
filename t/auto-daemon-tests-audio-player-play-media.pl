@@ -186,7 +186,7 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
-($seq_b, $ts_b, $ssrc_b) = rcv($sock_a, $port_b, rtpm(0 | 0x80, -1, -1, -1, "\xff" x 160));
+(undef, undef, $seq_b, $ts_b, $ssrc_b) = rcv($sock_a, -1, rtpm(0 | 0x80, -1, -1, -1, "\xff" x 160));
 
 ($port_b) = answer('early media',
 	{ 'audio-player' => 'force', flags => ['early media'] }, <<SDP);

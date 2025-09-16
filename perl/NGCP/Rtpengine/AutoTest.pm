@@ -282,18 +282,23 @@ sub rcv {
 			($m) = unpack('N', $m);
 		}
 	}
-	if ($port == -1 && @matches) {
-		if (sockaddr_family($addr) == AF_INET) {
-			my @addr = unpack_sockaddr_in($addr) or die;
-			unshift(@matches, $addr[0], inet_ntoa($addr[1]));
-		}
-		elsif (sockaddr_family($addr) == AF_INET6) {
-			my @addr = unpack_sockaddr_in6($addr) or die;
-			unshift(@matches, $addr[0], inet_ntop(AF_INET6, $addr[1]));
-		}
-		else {
-			die;
-		}
+	my ($rport, $raddr);
+	if (sockaddr_family($addr) == AF_INET) {
+		my @addr = unpack_sockaddr_in($addr) or die;
+		($rport, $raddr) = ($addr[0], inet_ntoa($addr[1]));
+	}
+	elsif (sockaddr_family($addr) == AF_INET6) {
+		my @addr = unpack_sockaddr_in6($addr) or die;
+		($rport, $raddr) = ($addr[0], inet_ntop(AF_INET6, $addr[1]));
+	}
+	else {
+		die;
+	}
+	if ($port != -1) {
+		is($port, $rport, "receive port matches");
+	}
+	elsif ($port == -1 && @matches) {
+		unshift(@matches, $rport, $raddr);
 	}
 	return @matches;
 }

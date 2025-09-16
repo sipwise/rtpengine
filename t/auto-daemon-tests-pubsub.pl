@@ -2096,7 +2096,7 @@ a=recvonly
 a=rtcp:PORT
 SDP
 
-(undef, undef, undef, $tag_medias, $media_labels, $port_d, undef, $port_c) = subscribe_request('SIPREC sub pause/resume',
+(undef, undef, undef, $tag_medias, $media_labels, $port_c, undef, $port_d) = subscribe_request('SIPREC sub pause/resume',
 	{ flags => ['all', 'SIPREC'], 'to-tag' => $ttr }, <<SDP);
 v=0
 o=- SDP_VERSION IN IP4 198.51.100.1
@@ -3368,7 +3368,7 @@ SDP
 snd($sock_a, $port_a, rtp(0, 2001, 4160, 0x3456, "\x00" x 160));
 rcv($sock_b, $port_b, rtpm(0, 2001, 4160, 0x3456, "\x00" x 160));
 
-($ftr, $ttr, undef, undef, undef, $port_b) = subscribe_request('publish/subscribe',
+($ftr, $ttr, undef, undef, undef, $port_c) = subscribe_request('publish/subscribe',
 	{ 'from-tag' => ft() }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
@@ -3464,7 +3464,7 @@ SDP
 snd($sock_a, $port_a, rtp(8, 2001, 4160, 0x3456, "\x00" x 160));
 rcv($sock_b, $port_b, rtpm(8, 2001, 4160, 0x3456, "\x00" x 160));
 
-($ftr, $ttr, undef, undef, undef, $port_b) = subscribe_request('publish/subscribe w codec-accept',
+($ftr, $ttr, undef, undef, undef, $port_c) = subscribe_request('publish/subscribe w codec-accept',
 	{ 'from-tag' => ft() }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
@@ -3554,7 +3554,7 @@ SDP
 snd($sock_a, $port_a, rtp(8, 2001, 4160, 0x3456, "\x00" x 160));
 rcv($sock_b, $port_b, rtpm(8, 2001, 4160, 0x3456, "\x00" x 160));
 
-($ftr, $ttr, undef, undef, undef, $port_b) = subscribe_request('publish/subscribe w unsupp and t/c',
+($ftr, $ttr, undef, undef, undef, $port_c) = subscribe_request('publish/subscribe w unsupp and t/c',
 	{ 'from-tag' => ft(), codec => { strip => ['PCMA'], transcode => ['PCMU'] } }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
