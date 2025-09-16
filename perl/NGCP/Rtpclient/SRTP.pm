@@ -273,10 +273,22 @@ sub encrypt_rtp {
 	$roc = $roc || 0;
 	$seq == 0 and $roc++;
 
+	my ($exttype, $extlen, $ext) = ('', '', '');
+	print(unpack('H*', $hdr) . "\n");
+	if ((unpack('C', $hdr))[0] & 0x10) {
+		# extension
+		my $rest;
+		($exttype, $extlen, $rest) = unpack('a2a2a*', $to_enc);
+		my ($len) = unpack('n', $extlen);
+		my $len = $len * 4;
+		$ext = substr($rest, 0, $len);
+		$to_enc = substr($rest, $len);
+	}
+
 	my $iv = $$suite{iv_rtp}->($packet, $ssalt, $roc);
 	my $enc = $unenc_srtp ? $to_enc : $$suite{enc_func}->($to_enc, $skey,
 		$iv, $ssalt);
-	my $pkt = pack('a*na*a*', $hdr, $seq, $h2, $enc);
+	my $pkt = pack('a*na*a*a*a*a*', $hdr, $seq, $h2, $exttype, $extlen, $ext, $enc);
 
 	my $hmac = hmac_sha1($pkt . pack("N", $roc), $sauth);
 #	print("HMAC for packet " . unpack("H*", $pkt) . " ROC $roc is " . unpack("H*", $hmac) . "\n");
@@ -302,10 +314,21 @@ sub decrypt_rtp {
 	$roc = $roc || 0;
 	$seq == 0 and $roc++;
 
+	my ($exttype, $extlen, $ext) = ('', '', '');
+	if ((unpack('C', $hdr))[0] & 0x10) {
+		# extension
+		my $rest;
+		($exttype, $extlen, $rest) = unpack('a2a2a*', $to_enc);
+		my ($len) = unpack('n', $extlen);
+		my $len = $len * 4;
+		$ext = substr($rest, 0, $len);
+		$to_enc = substr($rest, $len);
+	}
+
 	my $iv = $$suite{iv_rtp}->($packet, $ssalt, $roc);
 	my $enc = $$suite{enc_func}->($to_enc, $skey,
 		$iv, $ssalt);
-	my $pkt = pack('a*na*a*', $hdr, $seq, $h2, $enc);
+	my $pkt = pack('a*na*a*a*a*a*', $hdr, $seq, $h2, $exttype, $extlen, $ext, $enc);
 
 	my $hmac = hmac_sha1($packet . pack("N", $roc), $sauth);
 #	print("HMAC for packet " . unpack("H*", $pkt) . " ROC $roc is " . unpack("H*", $hmac) . "\n");
