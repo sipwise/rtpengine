@@ -79,6 +79,7 @@ struct packet_handler_ctx {
 	bool unkernelize_subscriptions; // if our peer address changed
 	bool kernelize; // true if stream can be kernelized
 	bool rtcp_discard; // do not forward RTCP
+	bool media_set; // media explicitly know via MID header extension
 
 	// output:
 	struct media_packet mp; // passed to handlers
@@ -2857,6 +2858,7 @@ static void rtp_ext_mid_parse(struct packet_handler_ctx *phc, const struct rtp_e
 		return; // XXX log error?
 
 	media_packet_reset_media(phc, media);
+	phc->media_set = true;
 }
 static ssize_t rtp_ext_mid_len(struct call_media *media) {
 	return media->media_id.len ?: -1;
@@ -2955,9 +2957,13 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc) {
 
 	const char *unkern = NULL;
 
+	__auto_type ssrc_hash = &phc->mp.media->ssrc_hash_in;
+	if (phc->mp.media->bundle)
+		ssrc_hash = &phc->mp.media->bundle->ssrc_hash_in;
+
 	if (phc->mp.rtp) {
 		unkern = __stream_ssrc_in(phc->in_srtp, phc->mp.rtp->ssrc, &phc->mp.ssrc_in,
-				&phc->mp.media->ssrc_hash_in);
+				ssrc_hash);
 
 		if (G_LIKELY(phc->mp.ssrc_in))
 			payload_tracker_add(&phc->mp.ssrc_in->tracker, phc->payload_type);
@@ -2986,11 +2992,18 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc) {
 	}
 	else if (phc->rtcp) {
 		unkern = __stream_ssrc_in(phc->in_srtp, phc->mp.rtcp->ssrc, &phc->mp.ssrc_in,
-				&phc->mp.media->ssrc_hash_in);
+				ssrc_hash);
 	}
 
 	if (unkern)
 		phc->unkernelize = unkern;
+
+	if (phc->mp.media->bundle) {
+		if (phc->media_set)
+			phc->mp.ssrc_in->media = phc->mp.media;
+		else if (phc->mp.ssrc_in->media)
+			media_packet_reset_media(phc, phc->mp.ssrc_in->media);
+	}
 }
 static void media_packet_rtp_out(struct packet_handler_ctx *phc, struct sink_handler *sh)
 {

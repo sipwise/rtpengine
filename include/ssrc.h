@@ -59,6 +59,8 @@ struct ssrc_entry {
 struct ssrc_entry_call {
 	struct ssrc_entry h; // must be first
 
+	struct call_media *media; // bundle receive media
+
 	struct payload_tracker tracker;
 
 	// XXX move entire crypto context in here?
