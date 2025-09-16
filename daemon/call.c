@@ -3011,6 +3011,10 @@ static void media_set_extmap(struct call_media *media, const extmap_q *emq,
 		if (manip && !manip(&ext_o->name, flags))
 			continue;
 
+		// already present?
+		if (media->extmap_ops->lookup(media, ext_o->id))
+			continue;
+
 		__auto_type ext = g_new(__typeof(*ext_o), 1);
 		*ext = *ext_o;
 		t_queue_push_tail(&media->extmap, ext);
