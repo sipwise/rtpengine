@@ -223,6 +223,10 @@ struct timeval32 {
 	int32_t tv_usec;
 };
 
+#ifndef SO_TIMESTAMP_OLD
+#define SO_TIMESTAMP_OLD SO_TIMESTAMP // pointless, compiler should remove it
+#endif
+
 #define socket_recvfrom_parse_cmsg(tv, to, parse_to, msgh, firsthdr, nexthdr) do { \
 	if ((*tv) || (*to)) { \
 		struct cmsghdr *cm; \
