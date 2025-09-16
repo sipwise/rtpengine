@@ -971,6 +971,17 @@ snd($sock_a, $port_c,  rtp(100, 8001, 9160, 0x76a9, "\x33" x 800, [[1, 'v']]));
 rcv($sock_d, $port_b, rtpm(100, 8001, 9160, 0x76a9, "\x33" x 800));
 rcv_no($sock_c);
 
+# SSRCs are remembered
+
+snd($sock_a, $port_d,  rtp(100, 7000, 11000, 0x25bc, "\x44" x 160));
+rcv($sock_c, $port_a, rtpm(100, 7000, 11000, 0x25bc, "\x44" x 160));
+rcv_no($sock_d);
+
+snd($sock_a, $port_c,  rtp(100, 8000, 9000, 0x76a9, "\x33" x 800));
+# recv still in correct port
+rcv($sock_d, $port_b, rtpm(100, 8000, 9000, 0x76a9, "\x33" x 800));
+rcv_no($sock_c);
+
 
 
 
