@@ -478,7 +478,6 @@ struct re_hmac {
 };
 
 struct re_shm {
-	atomic_t			users;
 	void				*head;
 	struct rtpengine_table		*table;
 	struct list_head		list_entry;
@@ -2006,31 +2005,20 @@ static void vm_mmap_open(struct vm_area_struct *vma) {
 	if (!(shm = vma->vm_private_data))
 		return;
 
-	atomic_inc(&shm->users);
+	ref_get(shm->table);
 }
 
 static void vm_mmap_close(struct vm_area_struct *vma) {
 	struct re_shm *shm;
-	struct rtpengine_table *t;
 
 	if (vma->vm_ops != &vm_mmap_ops)
 		return;
 	if (!(shm = vma->vm_private_data))
 		return;
 
-	if (!atomic_dec_and_test(&shm->users))
-		return;
-
-	t = shm->table;
-
-	spin_lock(&t->shm_lock);
-	list_del_init(&shm->list_entry);
-	spin_unlock(&t->shm_lock);
-
-	vfree(shm->head);
-	kfree(shm);
-
 	vma->vm_private_data = NULL;
+
+	table_put(shm->table);
 }
 
 static void *shm_map_resolve(void *p, size_t size) {
@@ -2898,8 +2886,7 @@ static int proc_control_mmap(struct file *file, struct vm_area_struct *vma) {
 	}
 
 	shm->head = pages;
-	atomic_set(&shm->users, 1);
-	shm->table = t;
+	shm->table = t; // not a reference
 
 	vma->vm_private_data = shm;
 	vma->vm_ops = &vm_mmap_ops;
@@ -2923,7 +2910,7 @@ static int proc_control_mmap(struct file *file, struct vm_area_struct *vma) {
 	list_add(&shm->list_entry, &t->shm_list);
 	spin_unlock(&t->shm_lock);
 
-	table_put(t);
+	// retain reference on table - belongs to the shm list now
 
 	return 0;
 }
