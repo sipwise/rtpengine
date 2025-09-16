@@ -280,7 +280,7 @@ sub encrypt_rtp {
 		my $rest;
 		($exttype, $extlen, $rest) = unpack('a2a2a*', $to_enc);
 		my ($len) = unpack('n', $extlen);
-		my $len = $len * 4;
+		$len = $len * 4;
 		$ext = substr($rest, 0, $len);
 		$to_enc = substr($rest, $len);
 	}
@@ -320,7 +320,7 @@ sub decrypt_rtp {
 		my $rest;
 		($exttype, $extlen, $rest) = unpack('a2a2a*', $to_enc);
 		my ($len) = unpack('n', $extlen);
-		my $len = $len * 4;
+		$len = $len * 4;
 		$ext = substr($rest, 0, $len);
 		$to_enc = substr($rest, $len);
 	}
