@@ -1695,6 +1695,12 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 		s->ssrc[u] = se; // no reference needed
 		reti->ssrc[u] = htonl(se->h.ssrc);
 		reti->ssrc_stats[u] = se->stats;
+		reti->ssrc_media_idx[u] = -1u;
+		if (se->media) {
+			unsigned int media_idx = se->media->index - 1;
+			reti->ssrc_media_idx[u] = media_idx;
+			fill_media_sinks(s, media_idx, stream);
+		}
 		u++;
 	}
 

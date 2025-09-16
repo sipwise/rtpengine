@@ -1728,11 +1728,19 @@ static int proc_list_show(struct seq_file *f, void *v) {
 	for (i = 0; i < ARRAY_SIZE(g->target.ssrc); i++) {
 		if (!g->target.ssrc[i] || !g->target.ssrc_stats[i])
 			break;
-		seq_printf(f, "%s %lx [seq %u/%u]",
-				(i == 0) ? "" : ",",
-				(unsigned long) ntohl(g->target.ssrc[i]),
-				atomic_read(&g->target.ssrc_stats[i]->ext_seq),
-				atomic_read(&g->target.ssrc_stats[i]->rtcp_seq));
+		if (g->target.ssrc_media_idx[i] == -1u)
+			seq_printf(f, "%s %lx [seq %u/%u]",
+					(i == 0) ? "" : ",",
+					(unsigned long) ntohl(g->target.ssrc[i]),
+					atomic_read(&g->target.ssrc_stats[i]->ext_seq),
+					atomic_read(&g->target.ssrc_stats[i]->rtcp_seq));
+		else
+			seq_printf(f, "%s %lx [seq %u/%u #%u]",
+					(i == 0) ? "" : ",",
+					(unsigned long) ntohl(g->target.ssrc[i]),
+					atomic_read(&g->target.ssrc_stats[i]->ext_seq),
+					atomic_read(&g->target.ssrc_stats[i]->rtcp_seq),
+					g->target.ssrc_media_idx[i]);
 	}
 	seq_printf(f, "\n");
 
@@ -6482,6 +6490,9 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 		errstr = "SSRC mismatch";
 		if (ssrc_idx == -2 || (ssrc_idx == -1 && g->target.ssrc_req))
 			goto out_error;
+
+		if (output_group_idx == -1u)
+			output_group_idx = g->target.ssrc_media_idx[ssrc_idx];
 
 		pkt_idx = rtp_packet_index(&g->decrypt_rtp, &g->target.decrypt, rtp.rtp_header, ssrc_idx,
 				g->target.ssrc_stats);
