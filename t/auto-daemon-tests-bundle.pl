@@ -10,7 +10,7 @@ use POSIX;
 
 
 autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
-			-n 2223 -c 12345 -f -L 7 -E -u 2222 --log-level-internals=7))
+			-n 2223 -f -L 7 -E --log-level-internals=7))
 		or die;
 
 
@@ -20,6 +20,411 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $port_c, $ssrc_a, $ssr
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev, $ufrag_a, $ufrag_b,
 	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq, $tag_medias, $media_labels,
 	$ftr, $ttr, $fts, $ttr2);
+
+
+
+new_call;
+
+offer('reject video control',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE a v
+m=audio 4444 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:a
+m=video 4444 RTP/AVP 105
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=mid:v
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105
+c=IN IP4 203.0.113.1
+a=mid:v
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('reject video control',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2222 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:a
+m=video 0 RTP/AVP 105
+c=IN IP4 0.0.0.0
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video 0 RTP/AVP 105
+c=IN IP4 0.0.0.0
+a=mid:v
+SDP
+
+
+
+new_call;
+
+offer('invalid reject video control',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE a v
+m=audio 4444 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:a
+m=video 4444 RTP/AVP 105
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=mid:v
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105
+c=IN IP4 203.0.113.1
+a=mid:v
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('invalid reject video control',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2222 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105
+c=IN IP4 0.0.0.0
+a=mid:v
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+# XXX ^ should disable the video media?
+
+
+
+new_call;
+
+offer('reject video control',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 4444 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:a
+m=video 4444 RTP/AVP 105
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=mid:v
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105
+c=IN IP4 203.0.113.1
+a=mid:v
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('reject video control',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2222 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:a
+m=video 0 RTP/AVP 105
+c=IN IP4 0.0.0.0
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video 0 RTP/AVP 105
+c=IN IP4 0.0.0.0
+a=mid:v
+SDP
+
+
+
+new_call;
+
+offer('invalid reject video control',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 4444 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:a
+m=video 4444 RTP/AVP 105
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=mid:v
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105
+c=IN IP4 203.0.113.1
+a=mid:v
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('invalid reject video control',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2222 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105
+c=IN IP4 0.0.0.0
+a=mid:v
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+# XXX ^ should disable the video media?
+
+
+
+new_call;
+
+offer('reject video',
+	{ bundle => ['accept'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE a v
+m=audio 4444 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:a
+m=video 4444 RTP/AVP 105
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=mid:v
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105
+c=IN IP4 203.0.113.1
+a=mid:v
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('reject video',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2222 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:a
+m=video 0 RTP/AVP 105
+c=IN IP4 0.0.0.0
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE a
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video 0 RTP/AVP 105
+c=IN IP4 0.0.0.0
+a=mid:v
+SDP
+
+
+
+new_call;
+
+offer('invalid reject video',
+	{ bundle => ['accept'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE a v
+m=audio 4444 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:a
+m=video 4444 RTP/AVP 105
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=mid:v
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105
+c=IN IP4 203.0.113.1
+a=mid:v
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('invalid reject video',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2222 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE a v
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105
+c=IN IP4 0.0.0.0
+a=mid:v
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+# XXX ^ should disable the video media?
 
 
 
