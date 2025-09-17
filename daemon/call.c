@@ -3661,6 +3661,9 @@ static void monologue_bundle_offer(struct call_monologue *ml, sdp_ng_flags *flag
 		// set bundle group
 		media->bundle = bundle;
 
+		if (flags->bundle_require)
+			MEDIA_SET(media, BUNDLE_ONLY);
+
 		track_bundle_media_pt(media, exclude_pt);
 	}
 
