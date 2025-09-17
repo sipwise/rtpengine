@@ -116,20 +116,19 @@ static void packet_decode(ssrc_t *ssrc, packet_t *packet) {
 
 		dbg("payload type for %u is %s", payload_type, payload_str);
 
-		pthread_mutex_lock(&mf->mix_lock);
+		LOCK(&mf->mix_lock);
 		ssrc->decoders[payload_type] = decoder_new(payload_str, format, ptime);
+
+		if (!ssrc->decoders[payload_type]) {
+			ilog(LOG_WARN | LOG_FLAG_LIMIT, "Cannot decode RTP payload type %u (%s)",
+					payload_type, payload_str);
+			return;
+		}
 
 		mix_sink_init(&ssrc->decoders[payload_type]->mix_sink, ssrc, &mf->mix,
 				resample_audio);
 		mix_sink_init(&ssrc->decoders[payload_type]->tls_mix_sink, ssrc, &mf->tls_mix,
 				tls_resample);
-
-		pthread_mutex_unlock(&mf->mix_lock);
-		if (!ssrc->decoders[payload_type]) {
-			ilog(LOG_WARN, "Cannot decode RTP payload type %u (%s)",
-					payload_type, payload_str);
-			return;
-		}
 	}
 
 	if (decoder_input(ssrc->decoders[payload_type], &packet->payload, ntohl(packet->rtp->timestamp),
