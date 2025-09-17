@@ -2882,7 +2882,8 @@ static void media_set_siprec_label(struct call_media *other_media, struct call_m
 
 __attribute__((nonnull(1)))
 static void media_reset_extmap(struct call_media *media,
-		bool (*exclude)(struct rtp_extension *))
+		bool (*exclude)(struct rtp_extension *),
+		extmap_ht *orig)
 {
 	// reset basic tables
 	memset(media->extmap_a, 0, sizeof(media->extmap_a));
@@ -2890,10 +2891,19 @@ static void media_reset_extmap(struct call_media *media,
 	media->extmap_ops = &extmap_ops_short;
 
 	if (!exclude) {
-		// shortcut, reset everything
-		t_queue_clear_full(&media->extmap, rtp_extension_free);
+		if (!orig) {
+			// shortcut, reset everything
+			t_queue_clear_full(&media->extmap, rtp_extension_free);
 
-		t_hash_table_remove_all(media->extmap_ht);
+			t_hash_table_remove_all(media->extmap_ht);
+		}
+		else {
+			// the HT becomes the container and is returned
+			t_queue_clear(&media->extmap);
+
+			*orig = media->extmap_ht;
+			media->extmap_ht = extmap_ht_new();
+		}
 
 		return;
 	}
@@ -2992,7 +3002,7 @@ static void media_update_extmap(struct call_media *media, struct stream_params *
 		void (*manip)(struct rtp_extension *, const struct sdp_ng_flags *),
 		const struct sdp_ng_flags *flags)
 {
-	media_reset_extmap(media, NULL);
+	media_reset_extmap(media, NULL, NULL);
 
 	// take over from `sp`
 	media->extmap = sp->extmap;
@@ -3020,7 +3030,7 @@ __attribute__((nonnull(1, 2, 4)))
 static void media_set_extmap(struct call_media *media, const extmap_q *emq,
 		bool (*manip)(const str *, const struct sdp_ng_flags *), const struct sdp_ng_flags *flags)
 {
-	media_reset_extmap(media, media_extmap_exclude_accepted);
+	media_reset_extmap(media, media_extmap_exclude_accepted, NULL);
 
 	// copy entries
 	for (auto_iter(ll, emq->head); ll; ll = ll->next) {
