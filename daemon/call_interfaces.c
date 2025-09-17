@@ -848,6 +848,7 @@ static void call_ng_flags_bundle(str *s, unsigned int idx, helper_arg arg) {
 			break;
 		case CSH_LOOKUP("offer"):
 			out->bundle_offer = true;
+			out->generate_mid = true;
 			break;
 		case CSH_LOOKUP("reject"):
 			out->bundle_reject = true;
@@ -855,6 +856,7 @@ static void call_ng_flags_bundle(str *s, unsigned int idx, helper_arg arg) {
 		case CSH_LOOKUP("require"):
 			out->bundle_offer = true;
 			out->bundle_require = true;
+			out->generate_mid = true;
 			break;
 		default:
 			ilog(LOG_WARN, "Unknown 'BUNDLE' flag encountered: '" STR_FORMAT "'",

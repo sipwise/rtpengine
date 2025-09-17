@@ -2881,6 +2881,16 @@ static void media_set_siprec_label(struct call_media *other_media, struct call_m
 }
 
 __attribute__((nonnull(1)))
+static unsigned int media_extmap_id(struct call_media *media) {
+	// XXX slow search?
+	for (unsigned int i = 1; i < 255; i++) {
+		if (!media->extmap_ops->lookup(media, i))
+			return i;
+	}
+	return -1u;
+}
+
+__attribute__((nonnull(1)))
 static void media_reset_extmap(struct call_media *media,
 		bool (*exclude)(struct rtp_extension *),
 		extmap_ht *orig)
@@ -3002,7 +3012,8 @@ static void media_update_extmap(struct call_media *media, struct stream_params *
 		void (*manip)(struct rtp_extension *, const struct sdp_ng_flags *),
 		const struct sdp_ng_flags *flags)
 {
-	media_reset_extmap(media, NULL, NULL);
+	extmap_ht orig;
+	media_reset_extmap(media, NULL, &orig);
 
 	// take over from `sp`
 	media->extmap = sp->extmap;
@@ -3012,11 +3023,29 @@ static void media_update_extmap(struct call_media *media, struct stream_params *
 	for (__auto_type ll = media->extmap.head; ll; ll = ll->next) {
 		__auto_type ext = ll->data;
 
+		// previously present?
+		__auto_type orig_ext = t_hash_table_lookup(orig, GUINT_TO_POINTER(ext->id));
+		if (orig_ext && !str_cmp_str(&orig_ext->name, &ext->name)) {
+			// swap with original object, remove from HT, free new one
+			ll->data = orig_ext;
+			t_hash_table_remove(orig, GUINT_TO_POINTER(ext->id));
+			rtp_extension_free(ext);
+			ext = orig_ext;
+		}
+
 		media_init_extmap(media, ext);
 
 		if (manip)
 			manip(ext, flags);
 	}
+
+	// clean up of orig table
+	extmap_ht_iter iter;
+	t_hash_table_iter_init(&iter, orig);
+	struct rtp_extension *ext;
+	while (t_hash_table_iter_next(&iter, NULL, &ext))
+		rtp_extension_free(ext);
+	t_hash_table_destroy(orig);
 }
 
 __attribute__((nonnull(1)))
@@ -3035,6 +3064,8 @@ static void media_set_extmap(struct call_media *media, const extmap_q *emq,
 	// copy entries
 	for (auto_iter(ll, emq->head); ll; ll = ll->next) {
 		__auto_type ext_o = ll->data;
+		if (ext_o->synthetic)
+			continue;
 		if (manip && !manip(&ext_o->name, flags))
 			continue;
 
@@ -3501,6 +3532,68 @@ static void monologue_bundle_set_sinks(struct call_monologue *ml) {
 }
 
 __attribute__((nonnull(1, 2)))
+static void monologue_bundle_offer(struct call_monologue *ml, sdp_ng_flags *flags) {
+	if (!flags->bundle_offer || flags->opmode != OP_OFFER)
+		return;
+
+	ML_SET(ml, BUNDLE);
+
+	// track PTs that appear in multiple medias
+	g_auto(pt_media_ht) exclude_pt = pt_media_ht_new();
+
+	struct call_media *bundle = NULL;
+
+	// iterate all medias and set up bundle groups as requested
+	for (unsigned int i = 0; i < ml->medias->len; i++) {
+		__auto_type media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+
+		if (!media->streams.length || !media->streams.head->data->selected_sfd)
+			continue; // disabled stream
+
+		// we should have a MID, but check anyway
+		if (!media->media_id.len)
+			continue;
+
+		if (media->bundle) {
+			// already bundled
+			if (!bundle)
+				bundle = media->bundle;
+			continue;
+		}
+
+		// first media to bundle is the head
+		if (!bundle)
+			bundle = media;
+
+		// set bundle group
+		media->bundle = bundle;
+
+		// offer MID header extension
+		if (!media->extmap_id[RTP_EXT_MID]) {
+			unsigned int id = media_extmap_id(media);
+			if (id == -1u)
+				ilog(LOG_WARN, "Out of IDs for RTP header extension");
+			else {
+				__auto_type ext = g_new0(struct rtp_extension, 1);
+				// XXX string duplication and duplicate lookup via init_extmap -> get_handler
+				ext->name = STR("urn:ietf:params:rtp-hdrext:sdes:mid");
+				ext->id = id;
+				ext->synthetic = true;
+				t_queue_push_tail(&media->extmap, ext);
+				media_init_extmap(media, ext);
+			}
+		}
+
+		track_bundle_media_pt(media, exclude_pt);
+	}
+
+	monologue_bundle_check_consistency(ml);
+	monologue_bundle_check_heads(ml);
+}
+
+__attribute__((nonnull(1, 2)))
 static void monologue_bundle_accept(struct call_monologue *ml, sdp_ng_flags *flags) {
 	if (!ML_ISSET(ml, BUNDLE))
 		return;
@@ -3790,6 +3883,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 	}
 
 	monologue_bundle_accept(sender_ml, flags);
+	monologue_bundle_offer(receiver_ml, flags);
 	monologue_bundle_check_consistency(receiver_ml);
 	monologue_bundle_set_fds(receiver_ml);
 	monologue_bundle_set_sinks(sender_ml);

@@ -334,6 +334,7 @@ struct rtp_extension {
 	str name; // urn:ietf:params:rtp- hdrext:... or URI
 	rtp_ext_handler handler;
 	bool accepted:1;
+	bool synthetic:1;
 };
 
 struct rtp_extension_data {
