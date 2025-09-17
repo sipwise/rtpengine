@@ -2910,6 +2910,9 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 		append_attr_to_gstring(s, "mid", &media->media_id, flags, media->type_id);
 	if (media->label.len && flags->siprec)
 		append_attr_to_gstring(s, "label", &media->label, flags, media->type_id);
+	if (media->bundle && MEDIA_ISSET(media, BUNDLE_ONLY) && flags->opmode == OP_OFFER
+			&& media->bundle != media)
+		append_null_attr_to_gstring(s, "bundle-only", flags, media->type_id);
 
 	/* nothing more to be printed for inactive stream (non-accepted media session) */
 	if (inactive_media)
