@@ -3362,6 +3362,14 @@ static void monologue_bundle_check_consistency(struct call_monologue *ml) {
 			continue;
 		}
 
+		// rejected/disabled stream?
+		if (!media->streams.head->data->selected_sfd) {
+			if (media->bundle == media)
+				ilog(LOG_WARN, "Bundle head has been rejected/disabled");
+			media->bundle = NULL;
+			continue;
+		}
+
 		// MID extension available?
 		if (media->extmap_id[RTP_EXT_MID]) {
 			if (media->media_id.len > 255) {
@@ -3776,6 +3784,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 	}
 
 	monologue_bundle_accept(sender_ml, flags);
+	monologue_bundle_check_consistency(receiver_ml);
 	monologue_bundle_set_fds(receiver_ml);
 	monologue_bundle_set_sinks(sender_ml);
 	monologue_bundle_set_sinks(receiver_ml);
