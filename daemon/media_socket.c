@@ -1809,9 +1809,10 @@ static const char *kernelize_one(kernelize_state *s,
 {
 	call_t *call = stream->call;
 	struct call_media *media = stream->media;
-	struct packet_stream *sink = sink_handler->sink;
+	struct packet_stream *sink = sink_handler->bundle_sink;
+	struct call_media *sink_media = sink_handler->sink->media;
 
-	if (MEDIA_ISSET(sink->media, BLOCK_EGRESS))
+	if (MEDIA_ISSET(sink_media, BLOCK_EGRESS))
 		return NULL;
 
 	if (!sink->endpoint.address.family)
@@ -1854,7 +1855,7 @@ static const char *kernelize_one(kernelize_state *s,
 			__auto_type rs = s->payload_types[i];
 			struct rtpengine_pt_output *rpt = &redi->output.pt_output[i];
 			struct codec_handler *ch = codec_handler_get(media, rs->payload_type,
-					sink->media, sink_handler);
+					sink_media, sink_handler);
 
 			str replace_pattern = STR_NULL;
 			if (silenced && ch->source_pt.codec_def)
@@ -1909,7 +1910,7 @@ static const char *kernelize_one(kernelize_state *s,
 	}
 
 	handler->out->kernel(&redi->output.encrypt, sink);
-	sink_handler->rtpext->kernel(&redi->output, media, sink->media);
+	sink_handler->rtpext->kernel(&redi->output, media, sink_media);
 
 	if (sink != stream)
 		mutex_unlock(&sink->lock);
