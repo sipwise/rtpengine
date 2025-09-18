@@ -351,7 +351,6 @@ static inline void rtp_ext_data_free(struct rtp_extension_data *r) {
 
 TYPED_GQUEUE(extmap, struct rtp_extension);
 TYPED_GHASHTABLE(extmap_ht, void, struct rtp_extension, g_direct_hash, g_direct_equal, NULL, NULL);
-TYPED_GHASHTABLE(ext_name_ht, str, struct rtp_extension, str_hash, str_equal, NULL, NULL);
 
 size_t extmap_length_short(const struct media_packet *);
 void extmap_header_short(void *);

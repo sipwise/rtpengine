@@ -696,7 +696,6 @@ struct call_media *call_media_new(call_t *call) {
 	ssrc_hash_call_init(&med->ssrc_hash_in);
 	ssrc_hash_call_init(&med->ssrc_hash_out);
 	med->extmap_ht = extmap_ht_new();
-	med->ext_name_ht = ext_name_ht_new();
 	med->extmap_ops = &extmap_ops_short;
 	return med;
 }
@@ -2894,7 +2893,6 @@ static void media_reset_extmap(struct call_media *media,
 		// shortcut, reset everything
 		t_queue_clear_full(&media->extmap, rtp_extension_free);
 
-		t_hash_table_remove_all(media->ext_name_ht);
 		t_hash_table_remove_all(media->extmap_ht);
 
 		return;
@@ -2920,7 +2918,6 @@ static void media_reset_extmap(struct call_media *media,
 		}
 
 		// remove from tables
-		t_hash_table_remove(media->ext_name_ht, &ext->name);
 		t_hash_table_remove(media->extmap_ht, GUINT_TO_POINTER(ext->id));
 
 		if (ext->id > 0 && ext->id <= 14)
@@ -2939,7 +2936,6 @@ __attribute__((nonnull(1, 2)))
 static void media_init_extmap(struct call_media *media, struct rtp_extension *ext) {
 	ext->name = call_str_cpy(&ext->name);
 
-	t_hash_table_insert(media->ext_name_ht, &ext->name, ext);
 	t_hash_table_insert(media->extmap_ht, GUINT_TO_POINTER(ext->id), ext);
 
 	ext->handler = rtp_extension_get_handler(&ext->name);
@@ -4838,7 +4834,6 @@ void call_media_free(struct call_media **mdp) {
 	ssrc_hash_destroy(&md->ssrc_hash_in);
 	ssrc_hash_destroy(&md->ssrc_hash_out);
 	t_hash_table_destroy(md->extmap_ht);
-	t_hash_table_destroy(md->ext_name_ht);
 	t_queue_clear_full(&md->extmap, rtp_extension_free);
 	t_hash_table_destroy_ptr(&md->pt_media);
 	g_free(md);

@@ -507,7 +507,6 @@ struct call_media {
 	struct rtp_extension	*extmap_id[RTP_EXT_NUM];
 	extmap_ht		extmap_ht;
 	const struct extmap_ops	*extmap_ops;
-	ext_name_ht		ext_name_ht;
 
 	str			media_id;
 	str			label;
