@@ -2920,16 +2920,24 @@ static const rtp_ext_handler rtp_ext_mid = {
 	.print = rtp_ext_mid_print,
 	.kernel = rtp_ext_mid_kernel,
 	.id = RTP_EXT_MID,
+	.set = true,
 };
 
 rtp_ext_handler rtp_extension_get_handler(const str *name) {
 	if (!str_cmp(name, "urn:ietf:params:rtp-hdrext:sdes:mid"))
 		return rtp_ext_mid;
-	return (rtp_ext_handler) { .id = RTP_EXT_UNKNOWN };
+	return (rtp_ext_handler) { .id = RTP_EXT_UNKNOWN, .set = true };
 }
 
+struct rtp_extension media_rtp_ext_mid = {
+	.name = STR_CONST("urn:ietf:params:rtp-hdrext:sdes:mid"),
+	.handler = rtp_ext_mid,
+};
+
 static void media_packet_rtp_extension(struct packet_handler_ctx *phc, unsigned int id, const str *data) {
-	__auto_type ext = phc->mp.media->extmap_ops->lookup(phc->mp.media, id);
+	__auto_type media = phc->mp.media->bundle ?: phc->mp.media;
+
+	__auto_type ext = media->extmap_ops->lookup(phc->mp.media, id);
 	if (!ext)
 		return;
 
@@ -2945,7 +2953,9 @@ static void media_packet_rtp_extension(struct packet_handler_ctx *phc, unsigned 
 }
 
 static void media_packet_rtp_extensions(struct packet_handler_ctx *phc) {
-	if (!phc->mp.media->extmap.length)
+	__auto_type media = phc->mp.media->bundle ?: phc->mp.media;
+
+	if (!media->extmap.length)
 		return;
 	if (!phc->mp.extensions.len)
 		return;

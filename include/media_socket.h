@@ -327,6 +327,8 @@ typedef struct {
 
 		RTP_EXT_UNKNOWN,
 	} id;
+
+	bool set; // used by rtp_extension_get_handler to detect non-init
 } rtp_ext_handler;
 
 struct rtp_extension {
@@ -363,6 +365,8 @@ size_t extmap_print_long(void *, unsigned int, const str *);
 
 
 rtp_ext_handler rtp_extension_get_handler(const str *);
+
+extern struct rtp_extension media_rtp_ext_mid;
 
 
 extern local_intf_q all_local_interfaces; // read-only during runtime

@@ -2881,12 +2881,35 @@ static void media_set_siprec_label(struct call_media *other_media, struct call_m
 }
 
 __attribute__((nonnull(1)))
-static unsigned int media_extmap_id(struct call_media *media) {
+static unsigned int media_bundle_extmap_id(struct call_media *media) {
+	__auto_type ml = media->monologue;
+
 	// XXX slow search?
 	for (unsigned int i = 1; i < 255; i++) {
-		if (!media->extmap_ops->lookup(media, i))
+		if (media->extmap_ops->lookup(media, i))
+			continue;
+
+		// used by any other media in the bundle?
+		bool good = true;
+		// XXX even worse search
+		for (unsigned int j = 0; j < ml->medias->len; j++) {
+			__auto_type bundle_media = ml->medias->pdata[j];
+			if (!bundle_media)
+				continue;
+			if (bundle_media == media)
+				continue;
+			if (bundle_media->bundle != media->bundle)
+				continue;
+			if (bundle_media->extmap_ops->lookup(bundle_media, i)) {
+				good = false;
+				break;
+			}
+		}
+
+		if (good)
 			return i;
 	}
+
 	return -1u;
 }
 
@@ -2958,7 +2981,8 @@ static void media_init_extmap(struct call_media *media, struct rtp_extension *ex
 
 	t_hash_table_insert(media->extmap_ht, GUINT_TO_POINTER(ext->id), ext);
 
-	ext->handler = rtp_extension_get_handler(&ext->name);
+	if (!ext->handler.set)
+		ext->handler = rtp_extension_get_handler(&ext->name);
 
 	if (ext->id > 0 && ext->id <= 14)
 		media->extmap_a[ext->id - 1] = ext;
@@ -3531,6 +3555,73 @@ static void monologue_bundle_set_sinks(struct call_monologue *ml) {
 	}
 }
 
+// see if any other media in a bundle has the extension already
+static struct rtp_extension *monologue_ext_any_bundle(struct call_media *media, unsigned int id) {
+	__auto_type ml = media->monologue;
+	__auto_type bundle = media->bundle;
+	// XXX bit silly to do this in a loop
+	for (unsigned int i = 0; i < ml->medias->len; i++) {
+		__auto_type bundle_media = ml->medias->pdata[i];
+		if (!bundle_media)
+			continue;
+		if (bundle_media->bundle != bundle)
+			continue;
+		if (bundle_media->extmap_id[id])
+			return bundle_media->extmap_id[id];
+	}
+	return NULL;
+}
+
+__attribute__((nonnull(1)))
+static void monologue_bundle_mid(struct call_monologue *ml) {
+	for (unsigned int i = 0; i < ml->medias->len; i++) {
+		__auto_type media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+		if (!media->bundle)
+			continue;
+		if (media->extmap_id[RTP_EXT_MID])
+			continue;
+
+		struct rtp_extension *new_ext;
+
+		__auto_type ext = monologue_ext_any_bundle(media, RTP_EXT_MID);
+		if (ext) {
+			__auto_type ext_exist = media->extmap_ops->lookup(media, ext->id);
+			if (ext_exist) {
+				// XXX ideally we would support extension renumbering here
+				ilog(LOG_WARN, "RTP header extension collision for MID (%u vs "
+					"%u/'" STR_FORMAT "'), removing it in favour of MID",
+					ext->id, ext_exist->id, STR_FMT(&ext_exist->name));
+				t_hash_table_remove(media->extmap_ht, GUINT_TO_POINTER(ext_exist->id));
+				if (ext_exist->id <= 14)
+					media->extmap_a[ext_exist->id] = NULL;
+				t_queue_remove(&media->extmap, ext_exist); // XXX also not ideal
+				rtp_extension_free(ext_exist);
+			}
+
+			new_ext = g_new(struct rtp_extension, 1);
+			*new_ext = *ext;
+		}
+		else {
+			unsigned int id = media_bundle_extmap_id(media);
+			if (id == -1u) {
+				ilog(LOG_WARN, "Out of IDs for RTP header extension");
+				continue;
+			}
+
+			new_ext = g_new(struct rtp_extension, 1);
+			*new_ext = media_rtp_ext_mid;
+			new_ext->id = id;
+		}
+
+		new_ext->synthetic = true;
+		new_ext->accepted = true;
+		t_queue_push_tail(&media->extmap, new_ext);
+		media_init_extmap(media, new_ext);
+	}
+}
+
 __attribute__((nonnull(1, 2)))
 static void monologue_bundle_offer(struct call_monologue *ml, sdp_ng_flags *flags) {
 	if (!flags->bundle_offer || flags->opmode != OP_OFFER)
@@ -3570,27 +3661,11 @@ static void monologue_bundle_offer(struct call_monologue *ml, sdp_ng_flags *flag
 		// set bundle group
 		media->bundle = bundle;
 
-		// offer MID header extension
-		if (!media->extmap_id[RTP_EXT_MID]) {
-			unsigned int id = media_extmap_id(media);
-			if (id == -1u)
-				ilog(LOG_WARN, "Out of IDs for RTP header extension");
-			else {
-				__auto_type ext = g_new0(struct rtp_extension, 1);
-				// XXX string duplication and duplicate lookup via init_extmap -> get_handler
-				ext->name = STR("urn:ietf:params:rtp-hdrext:sdes:mid");
-				ext->id = id;
-				ext->synthetic = true;
-				t_queue_push_tail(&media->extmap, ext);
-				media_init_extmap(media, ext);
-			}
-		}
-
 		track_bundle_media_pt(media, exclude_pt);
 	}
 
-	monologue_bundle_check_consistency(ml);
-	monologue_bundle_check_heads(ml);
+	// make sure MID is offered for all medias in a bundle
+	monologue_bundle_mid(ml);
 }
 
 __attribute__((nonnull(1, 2)))
@@ -3885,6 +3960,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 	monologue_bundle_accept(sender_ml, flags);
 	monologue_bundle_offer(receiver_ml, flags);
 	monologue_bundle_check_consistency(receiver_ml);
+	monologue_bundle_check_heads(receiver_ml);
 	monologue_bundle_set_fds(receiver_ml);
 	monologue_bundle_set_sinks(sender_ml);
 	monologue_bundle_set_sinks(receiver_ml);
