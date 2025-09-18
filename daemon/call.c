@@ -3934,7 +3934,8 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 
 		/* get that many ports for each side, and one packet stream for each port, then
 		 * assign the ports to the streams */
-		em = __get_endpoint_map(receiver_media, num_ports_this, &sp->rtp_endpoint, flags, false);
+		em = __get_endpoint_map(receiver_media, num_ports_this, &sp->rtp_endpoint, flags,
+				sender_media->bundle ? true : false);
 		if (!em) {
 			goto error_ports;
 		}
