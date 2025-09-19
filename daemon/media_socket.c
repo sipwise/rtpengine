@@ -1389,7 +1389,6 @@ bool get_consecutive_ports(socket_intf_list_q *out, unsigned int num_ports, unsi
 	for (l = log->list.head; l; l = l->next) {
 		loc = l->data;
 		inet_ntop(loc->spec->local_address.addr.family->af, &loc->spec->local_address.addr.u, ip, sizeof(ip));
-		ilog(LOG_DEBUG, "XXXXXXXXXX IP: %s", ip);
 	}
 	ilog(LOG_DEBUG, "");
 	*/
@@ -1653,7 +1652,7 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 
 	reti->rtp = 1;
 	reti->ssrc_req = 1;
-	if (!MEDIA_ISSET(media, TRANSCODING)) {
+	if (rtcp_kernel_fw(media)) {
 		reti->rtcp_fw = 1;
 		if (media->protocol->avpf)
 			reti->rtcp_fb_fw = 1;
