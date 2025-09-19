@@ -2687,20 +2687,30 @@ static const char *__stream_ssrc_out(struct packet_stream *out_srtp, uint32_t ss
 // -1 = packet not handled, proceed;
 // 1 = same as 0, but stream can be kernelized
 static int media_demux_protocols(struct packet_handler_ctx *phc) {
-	if (MEDIA_ISSET(phc->mp.media, DTLS) && is_dtls(&phc->s)) {
-		// verify DTLS packet against ICE checks if present
-		if (MEDIA_ISSET(phc->mp.media, ICE) && phc->mp.media->ice_agent) {
-			if (!ice_peer_address_known(phc->mp.media->ice_agent, &phc->mp.fsin, phc->mp.stream,
-						phc->mp.sfd->local_intf))
-			{
-				ilog(LOG_DEBUG, "Ignoring DTLS packet from %s%s%s to %s as no matching valid "
-					"ICE candidate pair exists",
-						FMT_M(endpoint_print_buf(&phc->mp.fsin)),
-						endpoint_print_buf(&phc->mp.sfd->socket.local));
-				return 0;
-			}
+	if (phc->mp.media->ice_agent && is_stun(&phc->s)) {
+		int stun_ret = stun(&phc->s, phc->mp.sfd, &phc->mp.fsin);
+		if (!stun_ret)
+			return 0;
+		if (stun_ret == 1) {
+			call_media_state_machine(phc->mp.media);
+			return 1;
 		}
+	}
 
+	// verify packet against ICE checks if present
+	if (MEDIA_ISSET(phc->mp.media, ICE) && phc->mp.media->ice_agent) {
+		if (!ice_peer_address_known(phc->mp.media->ice_agent, &phc->mp.fsin, phc->mp.stream,
+					phc->mp.sfd->local_intf))
+		{
+			ilog(LOG_DEBUG, "Ignoring packet from %s%s%s to %s as no matching valid "
+				"ICE candidate pair exists",
+					FMT_M(endpoint_print_buf(&phc->mp.fsin)),
+					endpoint_print_buf(&phc->mp.sfd->socket.local));
+			return 0;
+		}
+	}
+
+	if (MEDIA_ISSET(phc->mp.media, DTLS) && is_dtls(&phc->s)) {
 		LOCK(&phc->mp.stream->lock);
 		int ret = dtls(phc->mp.sfd, &phc->s, &phc->mp.fsin);
 		if (ret == 1) {
@@ -2712,18 +2722,6 @@ static int media_demux_protocols(struct packet_handler_ctx *phc) {
 			return 0;
 	}
 
-	if (phc->mp.media->ice_agent && is_stun(&phc->s)) {
-		int stun_ret = stun(&phc->s, phc->mp.sfd, &phc->mp.fsin);
-		if (!stun_ret)
-			return 0;
-		if (stun_ret == 1) {
-			call_media_state_machine(phc->mp.media);
-			return 1;
-		}
-		else {
-			/* not an stun packet */
-		}
-	}
 	return -1;
 }
 
