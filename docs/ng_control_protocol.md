@@ -178,6 +178,42 @@ Optionally included keys are:
     audio player regardless of the global config setting. The option `default`
     results in the behaviour mandated by the global config setting.
 
+* `bundle`
+
+    Contains a list of strings and controls behaviour regarding SDP stream
+    bundling (RFC 9143).
+
+    The default behaviour matches legacy behaviour and is to ignore bundled
+    SDPs. Outgoing SDPs are never bundled, and incoming SDPs are always treated
+    as if they're not bundled. Consequently, if an incoming SDP is bundled as
+    uses zero ports together with the `bundle-only` attribute, this would
+    result in rejected streams.
+
+    Including the string `accept` in this list enables support for receiving
+    bundled offer SDPs. The respective answer will then also be a bundled SDP.
+    The rewritten outgoing offer SDP however will not be bundled. It's safe to
+    use this flag unconditionally.
+
+    The string `offer` enables bundling of outgoing offer SDPs, regardless of
+    whether the respective incoming SDP was bundled or not. Bundle offers may
+    be rejected by the answering party.
+
+    Both strings `accept` and `offer` may be listed at the same time.
+
+    Instead of `offer`, the string `require` can be used to enable outgoing
+    `bundle-only` offer SDPs. Contrary to the RFC, all bundled SDP media is
+    listed with the same port instead of a zero port, enabling connectivity
+    with peers not supporting bundled SDPs.
+
+    To create an RFC-complient `bundle-only` offer with for all bundled media
+    except the primary one, the string `strict` can be included in the list.
+    Note that unlike with `offer` or `require`, strict behaviour is not
+    remembered across subsequent offers, and so this flag must be included with
+    every offer if the same behaviour is desired.
+
+    If the string `reject` is included, then previously negotiated bundle
+    groups will be broken up.
+
 * `extmap`
 
     Contains a dictionary to allow manipulation of RFC-8285-style RTP header
