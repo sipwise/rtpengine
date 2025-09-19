@@ -3518,6 +3518,8 @@ static void monologue_bundle_set_fds(struct call_monologue *ml) {
 			__auto_type ms = msl->data;
 			__auto_type bs = bsl->data;
 
+			dtls_shutdown(ms);
+
 			// XXX close sockets that are not needed?
 			t_queue_clear(&ms->sfds);
 
