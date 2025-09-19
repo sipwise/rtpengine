@@ -1241,8 +1241,6 @@ bool __init_stream(struct packet_stream *ps) {
 			if (dtls_verify_cert(ps))
 				return false;
 		}
-
-		call_stream_state_machine(ps);
 	}
 
 	return true;
@@ -2645,6 +2643,7 @@ static void monologue_media_start(struct call_monologue *ml) {
 			continue;
 
 		ice_start(media->ice_agent);
+		call_media_state_machine(media);
 	}
 }
 
