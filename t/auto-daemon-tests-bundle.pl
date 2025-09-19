@@ -23,6 +23,62 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $port_c, $ssrc_a, $ssr
 
 
 
+($sock_a, $sock_b) =
+	new_call([qw(198.51.100.14 6438)],
+		[qw(198.51.100.14 6440)]);
+
+($port_a, undef, $port_b) = offer('optional bundle w DTLS',
+	{ bundle => ['accept'], ICE => 'remove', 'transport-protocol' => 'RTP/AVP' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE a v
+m=audio 6438 RTP/SAVPF 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:a
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=fingerprint:sha-256 43:92:E2:A9:BC:FD:53:00:32:4D:EC:97:55:B5:C9:52:95:40:BE:CB:1A:26:4B:34:7A:48:42:96:09:F7:50:97
+a=setup:actpass
+m=video 6440 RTP/SAVPF 105
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=mid:v
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=fingerprint:sha-256 43:92:E2:A9:BC:FD:53:00:32:4D:EC:97:55:B5:C9:52:95:40:BE:CB:1A:26:4B:34:7A:48:42:96:09:F7:50:97
+a=setup:actpass
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105
+c=IN IP4 203.0.113.1
+a=mid:v
+a=rtpmap:105 H264/90000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+rcv_no($sock_b);
+
+rcv($sock_a, -1, qr/^\x16\xfe\xff\x00\x00\x00\x00\x00\x00\x00/s);
+
+
+
+
 ($sock_a, $sock_ax, $sock_b, $sock_bx) =
 	new_call([qw(198.51.100.14 6414)],
 		[qw(2001:db8:4321::3 6200)],
