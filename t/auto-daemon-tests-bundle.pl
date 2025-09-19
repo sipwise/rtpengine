@@ -19,7 +19,129 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $port_c, $ssrc_a, $ssr
 	$sock_ax, $sock_bx, $port_ax, $port_bx, $port_d, $port_dx, $sock_e, $port_e, $sock_cx, $port_cx,
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev, $ufrag_a, $ufrag_b,
 	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq, $tag_medias, $media_labels,
-	$ftr, $ttr, $fts, $ttr2);
+	$ftr, $ttr, $fts, $ttr2, $ice_ufrag_a, $ice_ufrag_b, $ice_pwd_a, $ice_pwd_b);
+
+
+
+($sock_a, $sock_ax, $sock_b, $sock_bx) =
+	new_call([qw(198.51.100.14 6414)],
+		[qw(2001:db8:4321::3 6200)],
+		[qw(198.51.100.14 6416)],
+		[qw(2001:db8:4321::3 6202)]);
+
+($port_a, undef, $port_b) = offer('optional bundle w ICE',
+	{ bundle => ['accept'], ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE a v
+m=audio 6414 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=ice-ufrag:UXPd
+a=ice-pwd:02K77oy8PHQ2tmz6RjF4gyWB
+a=candidate:xxxxxxx 1 udp 2130706431 198.51.100.14 6414 typ host
+a=candidate:aaaaaaa 1 udp 2130706175 2001:db8:4321::3 6200 typ host
+a=candidate:xxxxxxx 2 UDP 2130706430 198.51.100.14 6415 typ host
+a=candidate:aaaaaaa 2 UDP 2130706174 2001:db8:4321::3 6201 typ host
+a=mid:a
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+m=video 6416 RTP/AVP 105
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=ice-ufrag:55Pd
+a=ice-pwd:02K77oy8PHggggz6RjF4gyWB
+a=candidate:xxxxxxx 1 udp 2130706431 198.51.100.14 6416 typ host
+a=candidate:aaaaaaa 1 udp 2130706175 2001:db8:4321::3 6202 typ host
+a=candidate:xxxxxxx 2 UDP 2130706430 198.51.100.14 6417 typ host
+a=candidate:aaaaaaa 2 UDP 2130706174 2001:db8:4321::3 6203 typ host
+a=mid:v
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105
+c=IN IP4 203.0.113.1
+a=mid:v
+a=rtpmap:105 H264/90000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_c, undef, $ice_ufrag_a, $ice_pwd_a, undef, $port_cx, undef, undef, undef, undef, undef, undef, $port_d, undef, $ice_ufrag_b, $ice_pwd_b, undef, $port_dx) = answer('optional bundle w ICE',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3696 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:a
+m=video 6398 RTP/AVP 105
+a=rtpmap:105 H264/90000
+c=IN IP4 198.51.100.14
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE a v
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:a
+a=rtpmap:0 PCMU/8000
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+m=video PORT RTP/AVP 105
+c=IN IP4 203.0.113.1
+a=mid:v
+a=rtpmap:105 H264/90000
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+SDP
+
+is($port_c, $port_cx, "same port");
+is($port_d, $port_dx, "same port");
+is($port_c, $port_d, "same port");
+is($ice_ufrag_a, $ice_ufrag_b, "same ufrag");
+is($ice_pwd_a, $ice_pwd_b, "same ufrag");
+
+rcv_no($sock_b);
+rcv_no($sock_bx);
+
+rcv($sock_a, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
+rcv($sock_ax, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
+
+
 
 
 

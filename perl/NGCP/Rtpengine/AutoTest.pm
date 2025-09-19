@@ -11,6 +11,7 @@ use Time::HiRes;
 use POSIX ":sys_wait_h";
 use IO::Socket;
 use Exporter;
+use Socket qw,inet_ntop,;
 
 
 our @ISA;
