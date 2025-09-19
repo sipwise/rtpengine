@@ -3085,5 +3085,269 @@ is($port_d, $port_dx, "same port");
 
 
 
+($sock_a, $sock_b, $sock_c) =
+	new_call([qw(198.51.100.14 6470)],
+		[qw(198.51.100.14 6472)],
+		[qw(198.51.100.14 6474)]);
+
+($port_a, undef, $port_b) = offer('strict bundle, accept',
+	{ bundle => ['strict'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6470 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+m=video 6472 RTP/AVP 105
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE 1 2
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:0 PCMU/8000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105
+c=IN IP4 203.0.113.1
+a=mid:2
+a=bundle-only
+a=rtpmap:105 H264/90000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_c, undef, $port_d) = answer('strict bundle, accept',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE 1 2
+m=audio 6474 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:1
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+m=video 6474 RTP/AVP 105
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=mid:2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105
+c=IN IP4 203.0.113.1
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+is($port_b, 0, 'zero port');
+isnt($port_a, $port_c, 'different ports');
+isnt($port_a, $port_d, 'different ports');
+isnt($port_c, $port_d, 'different ports');
+
+snd($sock_a, $port_c,  rtp(0, 2000, 6000, 0x1234, "\x44" x 160));
+rcv($sock_c, $port_a, rtpm(0, 2000, 6000, 0x1234, "\x44" x 160, [[1, '1']]));
+
+snd($sock_c, $port_a,  rtp(0, 6000, 8000, 0x5678, "\x77" x 160));
+rcv($sock_a, $port_c, rtpm(0, 6000, 8000, 0x5678, "\x77" x 160));
+
+snd($sock_b, $port_d,  rtp(105, 3000, 4000, 0x6321, "\x33" x 800));
+rcv($sock_c, $port_a, rtpm(105, 3000, 4000, 0x6321, "\x33" x 800, [[1, '2']]));
+
+snd($sock_c, $port_a,  rtp(105, 7000, 9000, 0x8741, "\x22" x 800));
+rcv($sock_b, $port_d, rtpm(105, 7000, 9000, 0x8741, "\x22" x 800));
+
+($port_ax, undef, $port_bx) = offer('strict bundle, accept reinvite',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6470 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+m=video 6472 RTP/AVP 105
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE 1 2
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:0 PCMU/8000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105
+c=IN IP4 203.0.113.1
+a=mid:2
+a=bundle-only
+a=rtpmap:105 H264/90000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_cx, undef, $port_dx) = answer('strict bundle, accept reinvite',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE 1 2
+m=audio 6474 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:1
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+m=video 6474 RTP/AVP 105
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=mid:2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105
+c=IN IP4 203.0.113.1
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+is($port_a, $port_ax, "same port");
+is($port_a, $port_bx, "same port");
+is($port_c, $port_cx, "same port");
+is($port_d, $port_dx, "same port");
+
+reverse_tags;
+
+($port_cx, undef, $port_dx) = offer('strict bundle, accept reinvite',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE 1 2
+m=audio 6474 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:1
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+m=video 6474 RTP/AVP 105
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=mid:2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105
+c=IN IP4 203.0.113.1
+a=mid:2
+a=rtpmap:105 H264/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_ax, undef, $port_bx) = answer('strict bundle, accept reinvite',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6470 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+m=video 6472 RTP/AVP 105
+c=IN IP4 198.51.100.14
+a=rtpmap:105 H264/90000
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE 1 2
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:0 PCMU/8000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 105
+c=IN IP4 203.0.113.1
+a=mid:2
+a=rtpmap:105 H264/90000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+is($port_a, $port_ax, "same port");
+is($port_a, $port_bx, "same port");
+is($port_c, $port_cx, "same port");
+is($port_d, $port_dx, "same port");
+
+
+
+
+
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
