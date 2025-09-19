@@ -858,6 +858,12 @@ static void call_ng_flags_bundle(str *s, unsigned int idx, helper_arg arg) {
 			out->bundle_require = true;
 			out->generate_mid = true;
 			break;
+		case CSH_LOOKUP("strict"):
+			out->bundle_offer = true;
+			out->bundle_require = true;
+			out->bundle_strict = true;
+			out->generate_mid = true;
+			break;
 		default:
 			ilog(LOG_WARN, "Unknown 'BUNDLE' flag encountered: '" STR_FORMAT "'",
 					STR_FMT(s));

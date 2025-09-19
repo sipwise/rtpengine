@@ -3496,6 +3496,10 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 				&sdp_address);
 		unsigned int port = sdp_address.port;
 
+		if (media->bundle && MEDIA_ISSET(media, BUNDLE_ONLY) && flags->opmode == OP_OFFER &&
+				flags->bundle_strict && media->bundle != media)
+			port = 0;
+
 		prtp = NULL;
 		if (media->protocol && media->protocol->srtp)
 			prtp = &transport_protocols[media->protocol->rtp_proto];
