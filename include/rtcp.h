@@ -27,6 +27,7 @@ struct rtcp_packet *rtcp_payload(str *p, const str *s);
 
 int rtcp_parse(GQueue *q, struct media_packet *);
 void rtcp_list_free(GQueue *q);
+bool rtcp_kernel_fw(struct call_media *);
 
 rtcp_filter_func rtcp_avpf2avp_filter;
 

@@ -272,6 +272,8 @@ struct rtcp_handler {
 	void (*finish)(struct rtcp_process_ctx *, call_t *, const endpoint_t *, const endpoint_t *,
 			int64_t);
 	void (*destroy)(struct rtcp_process_ctx *);
+
+	bool no_kernel_fw;
 };
 // collection of all handler types
 struct rtcp_handlers {
@@ -366,9 +368,11 @@ static struct rtcp_handler transcode_handlers = {
 	.common = transcode_common,
 	.rr = transcode_rr,
 	.sr = transcode_sr,
+	.no_kernel_fw = true,
 };
 static struct rtcp_handler sink_handlers = {
 	.common = sink_common,
+	.no_kernel_fw = true,
 };
 static struct rtcp_handler transcode_handlers_wrap = {
 	.common = transcode_common_wrap,
@@ -1649,4 +1653,11 @@ out:
 
 static void sink_common(struct rtcp_process_ctx *ctx, struct rtcp_packet *common) {
 	ctx->discard = 1;
+}
+
+
+bool rtcp_kernel_fw(struct call_media *media) {
+	if (!media->rtcp_handler)
+		return true;
+	return !media->rtcp_handler->no_kernel_fw;
 }
