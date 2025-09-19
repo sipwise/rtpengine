@@ -2682,7 +2682,6 @@ __attribute__((nonnull(1)))
 static void update_init_subscribers(struct call_media *media, struct stream_params *sp,
 		sdp_ng_flags *flags, enum ng_opmode opmode)
 {
-	g_autoptr(GHashTable) recurs_ht = g_hash_table_new(g_direct_hash, g_direct_equal);
 	__update_init_subscribers(media, sp, flags, opmode, ++media->call->update_iter);
 }
 
