@@ -117,6 +117,7 @@ static void ice_update_media_streams(struct call_monologue *ml, sdp_streams_q *s
 		}
 
 		ice_update(media->ice_agent, sp, false);
+		ice_start(media->ice_agent);
 	}
 }
 
@@ -587,7 +588,17 @@ pair:
 	else
 		__all_pairs_list(ag);
 
-	if (comps)
+	log_info_pop();
+}
+
+/* called with the call lock held in W, hence agent doesn't need to be locked */
+void ice_start(struct ice_agent *ag) {
+	if (!ag)
+		return;
+
+	log_info_ice_agent(ag);
+
+	if (ag->active_components)
 		__do_ice_checks(ag);
 	else
 		__agent_shutdown(ag);

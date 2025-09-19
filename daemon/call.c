@@ -2259,7 +2259,7 @@ static void __dtls_logic(const sdp_ng_flags *flags,
 }
 
 
-static void __ice_start(struct call_media *media) {
+static void __ice_init(struct call_media *media) {
 	if (MEDIA_ISSET(media, PASSTHRU)) {
 		ice_shutdown(&media->ice_agent);
 		return;
@@ -2637,6 +2637,16 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 		codecs_answer(media, other_media, sp, flags);
 }
 
+__attribute__((nonnull(1)))
+static void monologue_media_start(struct call_monologue *ml) {
+	for (unsigned int i = 0; i < ml->medias->len; i++) {
+		__auto_type media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+
+		ice_start(media->ice_agent);
+	}
+}
 
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1)))
@@ -2653,7 +2663,7 @@ static void __update_init_subscribers(struct call_media *media, struct stream_pa
 	if (flags && flags->block_short)
 		ML_SET(media->monologue, BLOCK_SHORT);
 
-	__ice_start(media);
+	__ice_init(media);
 
 	if (!__init_streams(media, sp, flags))
 		ilog(LOG_WARN, "Error setting stream flags");
@@ -3968,6 +3978,9 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 	monologue_bundle_set_sinks(sender_ml);
 	monologue_bundle_set_sinks(receiver_ml);
 
+	monologue_media_start(sender_ml);
+	monologue_media_start(receiver_ml);
+
 	// set ipv4/ipv6/mixed media stats
 	if (flags->opmode == OP_OFFER || flags->opmode == OP_ANSWER) {
 		statistics_update_ip46_inc_dec(receiver_ml->call, CMC_INCREMENT);
@@ -4316,9 +4329,11 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		// XXX this should be covered by __update_init_subscribers ?
 		if (!__init_streams(media, sp, flags))
 			return -1;
-		__ice_start(media);
+		__ice_init(media);
 		ice_update(media->ice_agent, sp, false);
 	}
+
+	monologue_media_start(ml);
 
 	return 0;
 }
@@ -4440,6 +4455,9 @@ int monologue_subscribe_request(const subscription_q *srms, struct call_monologu
 		if (src_ml && src_ml->session_last_sdp_orig && !dst_ml->session_last_sdp_orig)
 			dst_ml->session_last_sdp_orig = sdp_orig_dup(src_ml->session_last_sdp_orig);
 	}
+
+	monologue_media_start(dst_ml);
+
 	return 0;
 }
 
@@ -4533,6 +4551,8 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 			}
 		}
 	}
+
+	monologue_media_start(dst_ml);
 
 	return 0;
 }
