@@ -3509,6 +3509,9 @@ static void monologue_bundle_set_fds(struct call_monologue *ml) {
 		if (bundle == media)
 			continue;
 
+		if (media->ice_agent)
+			ice_shutdown(&media->ice_agent);
+
 		__auto_type msl = media->streams.head;
 		__auto_type bsl = bundle->streams.head;
 

@@ -2962,14 +2962,16 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 					media->type_id);
 	}
 
-	if (MEDIA_ISSET(media, ICE) && media->ice_agent) {
-		append_attr_to_gstring(s, "ice-ufrag", &media->ice_agent->ufrag[1], flags,
+	__auto_type ice_agent = media->bundle ? media->bundle->ice_agent : media->ice_agent;
+
+	if (MEDIA_ISSET(media, ICE) && ice_agent) {
+		append_attr_to_gstring(s, "ice-ufrag", &ice_agent->ufrag[1], flags,
 				media->type_id);
-		append_attr_to_gstring(s, "ice-pwd", &media->ice_agent->pwd[1], flags,
+		append_attr_to_gstring(s, "ice-pwd", &ice_agent->pwd[1], flags,
 				media->type_id);
 	}
 
-	if (MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent) {
+	if (MEDIA_ISSET(media, TRICKLE_ICE) && ice_agent) {
 		append_attr_to_gstring(s, "ice-options", &STR_CONST("trickle"), flags,
 				media->type_id);
 	}
@@ -2977,9 +2979,8 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 		insert_candidates(s, rtp_ps, ps_rtcp, flags, NULL);
 	}
 
-	if ((MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent)) {
+	if ((MEDIA_ISSET(media, TRICKLE_ICE) && ice_agent))
 		append_null_attr_to_gstring(s, "end-of-candidates", flags, media->type_id);
-	}
 
 	return;
 }
