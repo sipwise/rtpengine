@@ -206,6 +206,7 @@ enum rtpengine_command {
 	REMG_PLAY_STREAM,
 	REMG_STOP_STREAM,
 	REMG_FREE_PACKET_STREAM,
+	REMG_PIN_MEMORY,
 
 	__REMG_LAST
 };
@@ -243,6 +244,11 @@ struct rtpengine_play_stream_packet_info {
 	uint32_t			delay_ts; // first packet = 0
 	uint32_t			duration_ts;
 	unsigned char			data[];
+};
+
+struct rtpengine_pin_memory_info {
+	void				*addr;
+	size_t				size;
 };
 
 struct rtpengine_command_add_target {
@@ -315,6 +321,11 @@ struct rtpengine_command_stop_stream {
 struct rtpengine_command_free_packet_stream {
 	enum rtpengine_command		cmd;
 	unsigned int			packet_stream_idx;
+};
+
+struct rtpengine_command_pin_memory {
+	enum rtpengine_command		cmd;
+	struct rtpengine_pin_memory_info pin_memory;
 };
 
 

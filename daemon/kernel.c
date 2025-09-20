@@ -63,7 +63,7 @@ static void *kernel_alloc(void) {
 	// enough to contain at least one correctly aligned block. This may seem like
 	// a waste, but the extra pages won't ever be used, and so usually won't even
 	// be mapped.
-	void *b = mmap(NULL, BUFFERPOOL_SHARD_SIZE * 2, PROT_READ | PROT_WRITE, MAP_SHARED, kernel.fd, 0);
+	void *b = mmap(NULL, BUFFERPOOL_SHARD_SIZE * 2, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 
 	if (b == NULL || b == MAP_FAILED) {
 		ilog(LOG_CRIT, "Failed to allocate shared kernel memory: %s", strerror(errno));
@@ -81,6 +81,21 @@ static void *kernel_alloc(void) {
 	assert((void *) back_ptr + sizeof(void *) < b + BUFFERPOOL_SHARD_SIZE * 2);
 
 	*back_ptr = b;
+
+	// register it with the kernel
+	struct rtpengine_command_pin_memory pmc = {
+		.cmd = REMG_PIN_MEMORY,
+		.pin_memory = {
+			.addr = aligned,
+			.size = BUFFERPOOL_SHARD_SIZE,
+		},
+	};
+
+	ssize_t ret = write(kernel.fd, &pmc, sizeof(pmc));
+	if (ret != sizeof(pmc)) {
+		ilog(LOG_CRIT, "Failed to pin shared kernel memory: %s", strerror(errno));
+		abort();
+	}
 
 	return aligned;
 }
@@ -129,6 +144,7 @@ bool kernel_init_table(void) {
 				[REMG_PLAY_STREAM] = sizeof(struct rtpengine_command_play_stream),
 				[REMG_STOP_STREAM] = sizeof(struct rtpengine_command_stop_stream),
 				[REMG_FREE_PACKET_STREAM] = sizeof(struct rtpengine_command_free_packet_stream),
+				[REMG_PIN_MEMORY] = sizeof(struct rtpengine_command_pin_memory),
 			},
 			.rtpe_stats = rtpe_stats,
 		},

@@ -34,6 +34,7 @@
 #include <linux/math64.h>
 #include <linux/kthread.h>
 #include <linux/wait.h>
+#include <linux/sort.h>
 #ifdef CONFIG_BTREE
 #include <linux/btree.h>
 #define KERNEL_PLAYER
@@ -230,7 +231,6 @@ static ssize_t proc_control_read(struct file *, char __user *, size_t, loff_t *)
 static ssize_t proc_control_write(struct file *, const char __user *, size_t, loff_t *);
 static int proc_control_open(struct inode *, struct file *);
 static int proc_control_close(struct inode *, struct file *);
-static int proc_control_mmap(struct file *, struct vm_area_struct *);
 
 static ssize_t proc_status(struct file *, char __user *, size_t, loff_t *);
 
@@ -418,7 +418,17 @@ struct re_stream {
 	int				eof; /* protected by packet_list_lock */
 };
 
+struct re_shm {
+	unsigned long			uaddr;
+	size_t				size;
+	struct page			**pages;
+	unsigned int			npages;
+	void				*kaddr;
+ };
+
 #define RE_HASH_BITS 8 /* make configurable? */
+#define MAX_SHM_AREAS 16
+
 struct rtpengine_table {
 	atomic_t			refcnt;
 	rwlock_t			target_lock;
@@ -443,7 +453,9 @@ struct rtpengine_table {
 	struct hlist_head		streams_hash[1 << RE_HASH_BITS];
 
 	spinlock_t			shm_lock;
-	struct list_head		shm_list;
+	struct re_shm			shms[MAX_SHM_AREAS];
+	unsigned int			nshms;
+	unsigned long			shm_total;
 
 	struct global_stats_counter	*rtpe_stats;
 
@@ -474,12 +486,6 @@ struct re_hmac {
 	enum rtpengine_hmac		id;
 	const char			*name;
 	const char			*tfm_name;
-};
-
-struct re_shm {
-	void				*head;
-	struct rtpengine_table		*table;
-	struct list_head		list_entry;
 };
 
 /* XXX shared */
@@ -615,7 +621,6 @@ static atomic_t last_timer_thread_idx;
 #  define PROC_RELEASE release
 #  define PROC_LSEEK llseek
 #  define PROC_POLL poll
-#  define PROC_MMAP mmap
 #else
 #  define PROC_OP_STRUCT proc_ops
 #  define PROC_OWNER
@@ -625,7 +630,6 @@ static atomic_t last_timer_thread_idx;
 #  define PROC_RELEASE proc_release
 #  define PROC_LSEEK proc_lseek
 #  define PROC_POLL proc_poll
-#  define PROC_MMAP proc_mmap
 #endif
 
 static const struct PROC_OP_STRUCT proc_control_ops = {
@@ -634,7 +638,6 @@ static const struct PROC_OP_STRUCT proc_control_ops = {
 	.PROC_WRITE		= proc_control_write,
 	.PROC_OPEN		= proc_control_open,
 	.PROC_RELEASE		= proc_control_close,
-	.PROC_MMAP		= proc_control_mmap,
 };
 
 static const struct PROC_OP_STRUCT proc_main_control_ops = {
@@ -848,8 +851,6 @@ static struct rtpengine_table *new_table(void) {
 	atomic_set(&t->refcnt, 1);
 	rwlock_init(&t->target_lock);
 	INIT_LIST_HEAD(&t->calls);
-	INIT_LIST_HEAD(&t->shm_list);
-	spin_lock_init(&t->shm_lock);
 	INIT_LIST_HEAD(&t->packet_streams);
 	INIT_LIST_HEAD(&t->play_streams);
 	t->id = -1;
@@ -1113,11 +1114,17 @@ static void clear_table_player(struct rtpengine_table *t) {
 
 #endif
 
+static void release_shm(struct re_shm *rmm) {
+	if (rmm->kaddr)
+		vunmap(rmm->kaddr);
+	unpin_user_pages(rmm->pages, rmm->npages);
+	kvfree(rmm->pages);
+}
+
 static void table_put(struct rtpengine_table *t) {
 	int i, j, k;
 	struct re_dest_addr *rda;
 	struct re_bucket *b;
-	struct re_shm *shm;
 
 	if (!t)
 		return;
@@ -1153,12 +1160,8 @@ static void table_put(struct rtpengine_table *t) {
 		t->dest_addr_hash.addrs[k] = NULL;
 	}
 
-	while (!list_empty(&t->shm_list)) {
-		shm = list_first_entry(&t->shm_list, struct re_shm, list_entry);
-		list_del_init(&shm->list_entry);
-		vfree(shm->head);
-		kfree(shm);
-	}
+	for (unsigned int i = 0; i < t->nshms; i++)
+		release_shm(&t->shms[i]);
 
 	clear_table_proc_files(t);
 #ifdef KERNEL_PLAYER
@@ -1340,6 +1343,8 @@ static ssize_t proc_status(struct file *f, char __user *b, size_t l, loff_t *o) 
 	// unlocked/unsafe read
 	len += sprintf(buf + len, "Players:     %u\n", t->num_play_streams);
 	len += sprintf(buf + len, "PStreams:    %u\n", t->num_packet_streams);
+	len += sprintf(buf + len, "Memory pins: %u\n", t->nshms);
+	len += sprintf(buf + len, "Memory:      %lu\n",t->shm_total);
 
 	table_put(t);
 
@@ -2031,60 +2036,40 @@ static int is_valid_address(const struct re_address *rea) {
 	return 1;
 }
 
-static void vm_mmap_open(struct vm_area_struct *vma);
-static void vm_mmap_close(struct vm_area_struct *vma);
 
-static const struct vm_operations_struct vm_mmap_ops = {
-	.open = vm_mmap_open,
-	.close = vm_mmap_close,
-};
 
-static void vm_mmap_open(struct vm_area_struct *vma) {
-	struct re_shm *shm;
-
-	if (vma->vm_ops != &vm_mmap_ops)
-		return;
-	if (!(shm = vma->vm_private_data))
-		return;
-
-	ref_get(shm->table);
+static int search_shm(const void *p, const void *m) {
+	const struct re_shm *M = m;
+	unsigned long a = (unsigned long) p;
+	if (a < M->uaddr)
+		return -1;
+	if (a >= M->uaddr + M->size)
+		return 1;
+	return 0;
 }
 
-static void vm_mmap_close(struct vm_area_struct *vma) {
-	struct re_shm *shm;
+static void *shm_map_resolve(struct rtpengine_table *t, void *p, size_t size) {
+	spin_lock(&t->shm_lock);
 
-	if (vma->vm_ops != &vm_mmap_ops)
-		return;
-	if (!(shm = vma->vm_private_data))
-		return;
+	struct re_shm *rmm = bsearch(p, &t->shms, t->nshms, sizeof(t->shms[0]), search_shm);
 
-	vma->vm_private_data = NULL;
+	void *ret = NULL;
 
-	table_put(shm->table);
+	if (!rmm)
+		goto out;
+
+	// start address is within range - check end address
+	if ((unsigned long) p + size >= rmm->uaddr + rmm->size)
+		goto out;
+
+	ret = rmm->kaddr + ((unsigned long) p - rmm->uaddr);
+
+out:
+	spin_unlock(&t->shm_lock);
+
+	return ret;
 }
 
-static void *shm_map_resolve(void *p, size_t size) {
-	struct vm_area_struct *vma;
-	struct re_shm *shm;
-
-	// XXX is there a better way to map this to the kernel address?
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,14,0)
-	vma = vma_lookup(current->mm, (unsigned long) p);
-#else
-	vma = find_vma(current->mm, (unsigned long) p);
-	if (vma && (unsigned long) p < vma->vm_start)
-		vma = NULL;
-#endif
-	if (!vma)
-		return NULL;
-	if (!(shm = vma->vm_private_data))
-		return NULL;
-	if ((unsigned long) p + size > vma->vm_end || (unsigned long) p + size < vma->vm_start)
-		return NULL;
-	if (vma->vm_ops != &vm_mmap_ops)
-		return NULL;
-	return shm->head + ((unsigned long) p - (unsigned long) vma->vm_start);
-}
 
 
 
@@ -2521,14 +2506,14 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	if (validate_srtp(&i->decrypt))
 		return -EINVAL;
 
-	iface_stats = shm_map_resolve(i->iface_stats, sizeof(*iface_stats));
+	iface_stats = shm_map_resolve(t, i->iface_stats, sizeof(*iface_stats));
 	if (!iface_stats)
 		return -EFAULT;
-	stats = shm_map_resolve(i->stats, sizeof(*stats));
+	stats = shm_map_resolve(t, i->stats, sizeof(*stats));
 	if (!stats)
 		return -EFAULT;
 	for (u = 0; u < i->num_payload_types; u++) {
-		pt_stats[u] = shm_map_resolve(i->pt_stats[u], sizeof(*pt_stats[u]));
+		pt_stats[u] = shm_map_resolve(t, i->pt_stats[u], sizeof(*pt_stats[u]));
 		if (!pt_stats[u])
 			return -EFAULT;
 		if (i->pt_media_idx[u] > RTPE_NUM_OUTPUT_MEDIA)
@@ -2539,7 +2524,7 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 			break;
 		if (!i->ssrc_stats[u])
 			return -EFAULT;
-		ssrc_stats[u] = shm_map_resolve(i->ssrc_stats[u], sizeof(*ssrc_stats[u]));
+		ssrc_stats[u] = shm_map_resolve(t, i->ssrc_stats[u], sizeof(*ssrc_stats[u]));
 		if (!ssrc_stats[u])
 			return -EFAULT;
 	}
@@ -2701,10 +2686,10 @@ static int table_add_destination(struct rtpengine_table *t, struct rtpengine_des
 	if (validate_srtp(&i->output.encrypt))
 		return -EINVAL;
 
-	iface_stats = shm_map_resolve(i->output.iface_stats, sizeof(*iface_stats));
+	iface_stats = shm_map_resolve(t, i->output.iface_stats, sizeof(*iface_stats));
 	if (!iface_stats)
 		return -EFAULT;
-	stats = shm_map_resolve(i->output.stats, sizeof(*stats));
+	stats = shm_map_resolve(t, i->output.stats, sizeof(*stats));
 	if (!stats)
 		return -EFAULT;
 	for (u = 0; u < RTPE_NUM_SSRC_TRACKING; u++) {
@@ -2712,7 +2697,7 @@ static int table_add_destination(struct rtpengine_table *t, struct rtpengine_des
 		// XXX validate if target->ssrc[u] is set?
 		if (!i->output.ssrc_stats[u])
 			break;
-		ssrc_stats[u] = shm_map_resolve(i->output.ssrc_stats[u], sizeof(*ssrc_stats[u]));
+		ssrc_stats[u] = shm_map_resolve(t, i->output.ssrc_stats[u], sizeof(*ssrc_stats[u]));
 		if (!ssrc_stats[u])
 			return -EFAULT;
 	}
@@ -2882,93 +2867,6 @@ static ssize_t proc_main_control_write(struct file *file, const char __user *buf
 }
 
 
-static int proc_control_mmap(struct file *file, struct vm_area_struct *vma) {
-	size_t size;
-	unsigned long pfn;
-	void *pages;
-	uint32_t id;
-	struct rtpengine_table *t;
-	int ret;
-	struct re_shm *shm;
-	struct inode *inode;
-	size_t offset;
-
-	// verify arguments
-	if ((vma->vm_flags & VM_EXEC))
-		return -EPERM;
-	if (vma->vm_pgoff)
-		return -EINVAL;
-
-	// verify size
-	size = vma->vm_end - vma->vm_start;
-	if (size == 0)
-		return -EINVAL;
-
-	// determine and verify order (1<<n)
-	// is a power of 2?
-	if ((size & (size - 1)) != 0)
-		return -EIO;
-
-	// is it a multiple of the page size?
-	if ((size & (PAGE_SIZE - 1)) != 0)
-		return -EIO;
-
-	// ok, allocate
-	pages = vmalloc(size);
-	if (!pages)
-		return -ENOMEM;
-
-	// make sure what we got is page-aligned
-	if (((size_t) pages & (PAGE_SIZE - 1)) != 0) {
-		vfree(pages);
-		return -EAGAIN;
-	}
-
-	shm = kzalloc(sizeof(*shm), GFP_KERNEL);
-	if (!shm) {
-		vfree(pages);
-		return -ENOMEM;
-	}
-
-	// get our table
-	inode = file->f_path.dentry->d_inode;
-	id = (uint32_t) (unsigned long) PDE_DATA(inode);
-	t = get_table(id);
-	if (!t) {
-		vfree(pages);
-		kfree(shm);
-		return -ENOENT;
-	}
-
-	shm->head = pages;
-	shm->table = t; // not a reference
-
-	vma->vm_private_data = shm;
-	vma->vm_ops = &vm_mmap_ops;
-
-	// remap to userspace, page by page
-	for (offset = 0; offset < size; offset += PAGE_SIZE) {
-		pfn = vmalloc_to_pfn(pages + offset);
-		ret = remap_pfn_range(vma, vma->vm_start + offset, pfn, PAGE_SIZE, vma->vm_page_prot);
-
-		if (ret) {
-			vfree(pages);
-			kfree(shm);
-			table_put(t);
-			return ret;
-		}
-	}
-
-	// all done
-
-	spin_lock(&t->shm_lock);
-	list_add(&shm->list_entry, &t->shm_list);
-	spin_unlock(&t->shm_lock);
-
-	// retain reference on table - belongs to the shm list now
-
-	return 0;
-}
 
 static int proc_control_open(struct inode *inode, struct file *file) {
 	uint32_t id;
@@ -3854,6 +3752,94 @@ static void parse_rtcp(struct rtp_parsed *rtp, struct sk_buff *skb) {
 	rtp->rtcp = 1;
 }
 
+static int cmp_shm(const void *a, const void *b) {
+	const struct re_shm *A = a, *B = b;
+	if (A->uaddr < B->uaddr)
+		return -1;
+	if (A->uaddr > B->uaddr)
+		return 1;
+	return 0;
+}
+
+static int cmd_pin_memory(struct rtpengine_table *t, struct rtpengine_pin_memory_info *mi) {
+	// verify size
+	if (mi->size == 0)
+		return -EINVAL;
+
+	// is it a multiple of the page size?
+	if ((mi->size & (PAGE_SIZE - 1)) != 0)
+		return -EIO;
+
+	// address is page-aligned?
+	unsigned long addr = (unsigned long) mi->addr;
+	if ((addr & (PAGE_SIZE - 1)) != 0)
+		return -ENXIO;
+
+	// full pages?
+	int npages = mi->size / PAGE_SIZE;
+	if (npages <= 0)
+		return -EMSGSIZE;
+
+	// primary object
+	struct re_shm rmm = {0};
+
+	// fill in basics
+	rmm.uaddr = addr;
+	rmm.size = mi->size;
+
+	// array for page pointers
+	rmm.pages = kvmalloc(sizeof(*rmm.pages) * npages, GFP_KERNEL);
+	if (!rmm.pages) {
+		release_shm(&rmm);
+		return -ENOMEM;
+	}
+
+	// pin pages
+	int ret = pin_user_pages_fast(addr, npages, WRITE, rmm.pages);
+
+	// successful?
+	if (ret != npages) {
+		if (ret > 0)
+			rmm.npages = ret;
+		release_shm(&rmm);
+		return -EFAULT;
+	}
+
+	// got our pages
+	rmm.npages = npages;
+
+	// map to kernel
+	rmm.kaddr = vmap(rmm.pages, npages, VM_MAP, PAGE_KERNEL);
+
+	// successful?
+	if (!rmm.kaddr) {
+		release_shm(&rmm);
+		return -ENOBUFS;
+	}
+
+	// ok, add to our list
+
+	spin_lock(&t->shm_lock);
+
+	if (t->nshms >= MAX_SHM_AREAS) {
+		spin_unlock(&t->shm_lock);
+		release_shm(&rmm);
+		return -E2BIG;
+	}
+
+	// add to end
+	t->shms[t->nshms] = rmm;
+	t->nshms++;
+	t->shm_total += mi->size;
+
+	// sort it by user address
+	sort(t->shms, t->nshms, sizeof(t->shms[0]), cmp_shm, NULL);
+
+	spin_unlock(&t->shm_lock);
+
+	return 0;
+}
+
 #ifdef KERNEL_PLAYER
 
 static void shut_threads(struct timer_thread **thr, unsigned int nt) {
@@ -4459,13 +4445,13 @@ static int play_stream(struct rtpengine_table *t, const struct rtpengine_play_st
 	if (validate_srtp(&info->encrypt))
 		return -EINVAL;
 
-	iface_stats = shm_map_resolve(info->iface_stats, sizeof(*iface_stats));
+	iface_stats = shm_map_resolve(t, info->iface_stats, sizeof(*iface_stats));
 	if (!iface_stats)
 		return -EFAULT;
-	stats = shm_map_resolve(info->stats, sizeof(*stats));
+	stats = shm_map_resolve(t, info->stats, sizeof(*stats));
 	if (!stats)
 		return -EFAULT;
-	ssrc_stats = shm_map_resolve(info->ssrc_stats, sizeof(*ssrc_stats));
+	ssrc_stats = shm_map_resolve(t, info->ssrc_stats, sizeof(*ssrc_stats));
 	if (!ssrc_stats)
 		return -EFAULT;
 
@@ -4740,6 +4726,7 @@ static const size_t min_req_sizes[__REMG_LAST] = {
 	[REMG_PLAY_STREAM]	= sizeof(struct rtpengine_command_play_stream),
 	[REMG_STOP_STREAM]	= sizeof(struct rtpengine_command_stop_stream),
 	[REMG_FREE_PACKET_STREAM]= sizeof(struct rtpengine_command_free_packet_stream),
+	[REMG_PIN_MEMORY]	= sizeof(struct rtpengine_command_pin_memory),
 
 };
 static const size_t max_req_sizes[__REMG_LAST] = {
@@ -4758,6 +4745,7 @@ static const size_t max_req_sizes[__REMG_LAST] = {
 	[REMG_PLAY_STREAM]	= sizeof(struct rtpengine_command_play_stream),
 	[REMG_STOP_STREAM]	= sizeof(struct rtpengine_command_stop_stream),
 	[REMG_FREE_PACKET_STREAM]= sizeof(struct rtpengine_command_free_packet_stream),
+	[REMG_PIN_MEMORY]	= sizeof(struct rtpengine_command_pin_memory),
 };
 
 static int rtpengine_init_table(struct rtpengine_table *t, struct rtpengine_init_info *init) {
@@ -4765,7 +4753,7 @@ static int rtpengine_init_table(struct rtpengine_table *t, struct rtpengine_init
 
 	if (t->rtpe_stats)
 		return -EBUSY;
-	t->rtpe_stats = shm_map_resolve(init->rtpe_stats, sizeof(*t->rtpe_stats));
+	t->rtpe_stats = shm_map_resolve(t, init->rtpe_stats, sizeof(*t->rtpe_stats));
 	if (!t->rtpe_stats)
 		return -EFAULT;
 	if (init->last_cmd != __REMG_LAST)
@@ -4796,6 +4784,7 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 		struct rtpengine_command_add_stream *add_stream;
 		struct rtpengine_command_del_stream *del_stream;
 		struct rtpengine_command_packet *packet;
+		struct rtpengine_command_pin_memory *pin_memory;
 #ifdef KERNEL_PLAYER
 		struct rtpengine_command_init_play_streams *init_play_streams;
 		struct rtpengine_command_get_packet_stream *get_packet_stream;
@@ -4892,6 +4881,10 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 
 		case REMG_PACKET:
 			err = stream_packet(t, &msg.packet->packet, buflen - sizeof(*msg.packet));
+			break;
+
+		case REMG_PIN_MEMORY:
+			err = cmd_pin_memory(t, &msg.pin_memory->pin_memory);
 			break;
 
 #ifdef KERNEL_PLAYER
