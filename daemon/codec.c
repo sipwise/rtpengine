@@ -3932,6 +3932,8 @@ static void __dtx_send_later(struct codec_timer *ct) {
 		else {
 			shutdown = true; // default if no last used PTs are known
 
+			LOCK(&se->tracker.lock);
+
 			for (int i = 0; i < G_N_ELEMENTS(se->tracker.last_pts); i++) {
 				int pt_idx = se->tracker.last_pt_idx - i;
 				pt_idx += G_N_ELEMENTS(se->tracker.last_pts);

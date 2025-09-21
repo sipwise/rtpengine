@@ -651,7 +651,7 @@ void payload_tracker_add(struct payload_tracker *t, int pt) {
 	if (G_UNLIKELY(pt < 0) || G_UNLIKELY(pt >= 128))
 		return;
 
-	mutex_lock(&t->lock);
+	LOCK(&t->lock);
 
 	int pt_idx = (t->last_pt_idx + 1) % G_N_ELEMENTS(t->last_pts);
 	t->last_pts[pt_idx] = pt;
@@ -698,7 +698,6 @@ void payload_tracker_add(struct payload_tracker *t, int pt) {
 out:
 	if (++t->last_idx >= G_N_ELEMENTS(t->last))
 		t->last_idx = 0;
-	mutex_unlock(&t->lock);
 }
 
 
