@@ -3354,7 +3354,7 @@ static int packetizer_amr(AVPacket *pkt, GString *buf, str *output, encoder_t *e
 	unsigned char *s = (unsigned char *) output->s; // for safe bit shifting
 
 	*pts = pkt->pts;
-	*duration = enc->actual_format.clockrate * 20 / 1000; // 160 or 320
+	*duration = enc->actual_format.clockrate * 20LL / 1000; // 160 or 320
 
 	s[0] = '\xf0'; // no CMR req (4 bits)
 
