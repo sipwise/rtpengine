@@ -1172,7 +1172,8 @@ void media_player_set_media(struct media_player *mp, struct call_media *media) {
 	}
 	if (!mp->ssrc_out || mp->ssrc_out->h.ssrc != mp->ssrc) {
 		struct ssrc_entry_call *ssrc_ctx = get_ssrc(mp->ssrc, &media->ssrc_hash_out);
-		ssrc_ctx->next_rtcp = rtpe_now;
+		if (ssrc_ctx)
+			ssrc_ctx->next_rtcp = rtpe_now;
 		mp->ssrc_out = ssrc_ctx;
 	}
 }

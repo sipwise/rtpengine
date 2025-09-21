@@ -1313,6 +1313,8 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 
 	// reverse SSRC mapping
 	struct ssrc_entry_call *map_ctx = get_ssrc(ctx->scratch.rr.ssrc, &ctx->mp->media->ssrc_hash_out);
+	if (!map_ctx)
+		return;
 	rr->ssrc = htonl(map_ctx->ssrc_map_out);
 
 	if (!ctx->mp->media_out)
