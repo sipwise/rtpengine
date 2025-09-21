@@ -3593,8 +3593,8 @@ static void monologue_bundle_mid(struct call_monologue *ml) {
 					"%u/'" STR_FORMAT "'), removing it in favour of MID",
 					ext->id, ext_exist->id, STR_FMT(&ext_exist->name));
 				t_hash_table_remove(media->extmap_ht, GUINT_TO_POINTER(ext_exist->id));
-				if (ext_exist->id <= 14)
-					media->extmap_a[ext_exist->id] = NULL;
+				if (ext_exist->id > 0 && ext_exist->id <= 14)
+					media->extmap_a[ext_exist->id - 1] = NULL;
 				t_queue_remove(&media->extmap, ext_exist); // XXX also not ideal
 				rtp_extension_free(ext_exist);
 			}
