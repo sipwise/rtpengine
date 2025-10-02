@@ -1,3 +1,19 @@
+ngcp-rtpengine (13.5.1.1+0~mr13.5.1.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [8ce304d] MT#55283 carry over PT flags with reuse
+  * [f692de5] MT#55283 test for I19a4ae523f
+  * [9f1b740] MT#55283 fix possible tcp-mixed segfault
+  * [cf9047e] MT#55283 update redis data after rec/fwd commands
+  * [c5a630a] MT#55283 fix redis metadata typo
+  * [961c353] MT#55283 delegate shm refcount to table
+  * [8a3d59d] MT#55283 compile fix for older glibc
+  * [8f6af92] MT#55283 check for null return first
+  * [6c6dc64] MT#55283 disable kernel RTCP FW if filtering
+  * [04d9ab3] MT#55283 remove useless hash table
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 02 Oct 2025 10:55:19 +0200
+
 ngcp-rtpengine (13.5.1.0+0~mr13.5.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
