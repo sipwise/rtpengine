@@ -395,8 +395,6 @@ void metafile_change(char *name) {
 		g_string_append_len(s, buf, ret);
 	}
 
-	// save read position and close file
-	mf->pos = lseek(fd, 0, SEEK_CUR);
 	close(fd);
 
 	// process contents of metadata file
@@ -404,6 +402,7 @@ void metafile_change(char *name) {
 	char *head = s->str;
 	char *endp = s->str + s->len;
 	while (head < endp) {
+		char *section_start = head;
 		// section header
 		char *nl = memchr(head, '\n', endp - head);
 		if (!nl || nl == head) {
@@ -412,6 +411,8 @@ void metafile_change(char *name) {
 		}
 		if (memchr(head, '\0', nl - head)) {
 			ilog(LOG_WARN, "NUL character in section header in %s%s%s", FMT_M(name));
+			// jump to the end of the read so we don't continually try and process this bad data
+			mf->pos += (endp - section_start);
 			break;
 		}
 		*(nl++) = '\0';
@@ -447,6 +448,8 @@ void metafile_change(char *name) {
 		char *content = head;
 		if (memchr(content, '\0', slen)) {
 			ilog(LOG_WARN, "NUL character in content in section %s in %s%s%s", section, FMT_M(name));
+			// jump to the end of the read so we don't continually try and process this bad data
+			mf->pos += (endp - section_start);
 			break;
 		}
 
@@ -460,6 +463,10 @@ void metafile_change(char *name) {
 		head += 2;
 
 		meta_section(mf, section, content, slen);
+		// update read position by the amount of data we processed
+		// so that any issues causing a break above will resume at the
+		// correct position on the next inotify event
+		mf->pos += (head - section_start);
 	}
 
 	g_string_free(s, TRUE);
