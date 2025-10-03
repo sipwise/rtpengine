@@ -27,7 +27,7 @@ struct mix_s {
 	uint64_t pts_offs[MIX_MAX_INPUTS]; // initialized at first input seen
 	uint64_t in_pts[MIX_MAX_INPUTS]; // running counter of next expected adjusted pts
 	struct timeval last_use[MIX_MAX_INPUTS]; // to recycle old mix inputs
-	void *input_ref[MIX_MAX_INPUTS]; // to avoid collisions in case of idx re-use
+	uint32_t input_ref[MIX_MAX_INPUTS]; // use SSRC value as key
 	CH_LAYOUT_T channel_layout[MIX_MAX_INPUTS];
 	AVFilterContext *amix_ctx;
 	AVFilterContext *sink_ctx;
@@ -78,16 +78,29 @@ void mix_destroy(mix_t *mix) {
 static void mix_input_reset(mix_t *mix, unsigned int idx) {
 	mix->pts_offs[idx] = (uint64_t) -1LL;
 	ZERO(mix->last_use[idx]);
-	mix->input_ref[idx] = NULL;
+	mix->input_ref[idx] = 0xFFFFFFFF; // invalid SSRC
 	mix->in_pts[idx] = 0;
 }
 
 
-unsigned int mix_get_index(mix_t *mix, void *ptr) {
-	unsigned int next = mix->next_idx++;
+unsigned int mix_get_index(mix_t *mix, uint32_t ssrc, unsigned int media_sdp_id, unsigned int stream_channel_slot) {
+	unsigned int next;
+
+	if (mix_output_per_media) {
+		next = media_sdp_id;
+		if (next >= mix_num_inputs) {
+			ilog(LOG_WARNING, "Error with mix_output_per_media sdp_label next %i is bigger than mix_num_inputs %i", next, mix_num_inputs );
+		}
+	} else {
+		ilog(LOG_DEBUG, "getting mix input index for slot %u. channel slots for this mix are %u", stream_channel_slot, mix->channel_slots);
+		next = mix->next_idx[stream_channel_slot];
+		mix->next_idx[stream_channel_slot] += mix->channel_slots;
+		ilog(LOG_DEBUG, "mix input index chosen is #%u", next);
+	}
+
 	if (next < mix_num_inputs) {
-		// must be unused
-		mix->input_ref[next] = ptr;
+		ilog(LOG_DEBUG, "mix_get_index: assigning slot %u to SSRC 0x%08x (was 0x%08x)", next, ssrc, mix->input_ref[next]);
+		mix->input_ref[next] = ssrc;
 		return next;
 	}
 
@@ -103,7 +116,9 @@ unsigned int mix_get_index(mix_t *mix, void *ptr) {
 
 	ilog(LOG_DEBUG, "Re-using mix input index #%u", next);
 	mix_input_reset(mix, next);
-	mix->input_ref[next] = ptr;
+	ilog(LOG_DEBUG, "mix_get_index: re-assigning slot %u to SSRC 0x%08x (was 0x%08x)", next, ssrc, mix->input_ref[next]);
+	mix->input_ref[next] = ssrc;
+	mix->next_idx[stream_channel_slot] = next;
 	return next;
 }
 
@@ -222,8 +237,10 @@ mix_t *mix_new(void) {
 	format_init(&mix->out_format);
 	mix->sink_frame = av_frame_alloc();
 
-	for (unsigned int i = 0; i < mix_num_inputs; i++)
+	for (unsigned int i = 0; i < mix_num_inputs; i++) {
 		mix->pts_offs[i] = (uint64_t) -1LL;
+		mix->input_ref[i] = 0xFFFFFFFF; // invalid SSRC
+	}
 
 	return mix;
 }
@@ -283,20 +300,27 @@ static void mix_silence_fill(mix_t *mix) {
 }
 
 
-int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, void *ptr, output_t *output) {
+int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, uint32_t ssrc, output_t *output) {
 	const char *err;
+
+	ilog(LOG_DEBUG, "mix_add: slot %u, incoming SSRC 0x%08x, input_ref[%u]=0x%08x", idx, ssrc, idx, mix->input_ref[idx]);
 
 	err = "index out of range";
 	if (idx >= mix_num_inputs)
 		goto err;
 
+	ilog(LOG_DEBUG, "mix_add: about to use src_ctxs[%u]=%p", idx, mix->src_ctxs[idx]);
 	err = "mixer not initialized";
-	if (!mix->src_ctxs[idx])
+	if (!mix->src_ctxs[idx]) {
+		ilog(LOG_ERR, "mix_add: src_ctxs[%u] is NULL!", idx);
 		goto err;
+	}
 
 	err = "received samples for old re-used input channel";
-	if (ptr != mix->input_ref[idx])
+	if (ssrc != mix->input_ref[idx]) {
+		mix_input_reset(mix, idx); // Reset slot for next use
 		goto err;
+	}
 
 	gettimeofday(&mix->last_use[idx], NULL);
 
