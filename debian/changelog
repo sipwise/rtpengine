@@ -1,3 +1,15 @@
+ngcp-rtpengine (13.4.1.9+0~mr13.4.1.9) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [9adfb90] MT#55283 carry over PT flags with reuse
+  * [7b4ee48] MT#55283 delegate shm refcount to table
+  * [28c62cc] MT#55283 compile fix for older glibc
+  * [7897cde] MT#55283 add alternative opus output
+  * [2ce8f53] MT#55283 fix clashing PT numbers
+  * [fb81bcb] MT#55283 test for Ia69cbb69a82
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 06 Oct 2025 15:03:08 +0200
+
 ngcp-rtpengine (13.4.1.8+0~mr13.4.1.8) unstable; urgency=medium
 
   [ Richard Fuchs ]
