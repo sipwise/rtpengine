@@ -1,3 +1,13 @@
+ngcp-rtpengine (12.5.1.47+0~mr12.5.1.47) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [3c66c6f] MT#55283 compile fix for older glibc
+  * [1ada187] MT#55283 defuse unstable tests
+  * [d9ed4d8] MT#55283 fix clashing PT numbers
+  * [7184966] MT#55283 test for Ia69cbb69a82
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 06 Oct 2025 15:03:28 +0200
+
 ngcp-rtpengine (12.5.1.46+0~mr12.5.1.46) unstable; urgency=medium
 
   [ Richard Fuchs ]
