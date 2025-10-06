@@ -119,6 +119,8 @@ static void json_restore_call(struct redis *r, const str *id, bool foreign);
 static int redis_connect(struct redis *r, int wait, bool resolve);
 static int json_build_ssrc(struct call_media *, parser_arg arg);
 
+static void redis_do_delete(call_t *c, struct redis *r);
+
 
 // mutually exclusive multi-A multi-B lock
 // careful with deadlocks against redis->lock
@@ -438,7 +440,7 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 		goto err;
 	}
 
-	if (strncmp(rr->element[3]->str,"set",3)==0) {
+	if (strncmp(rr->element[3]->str, "set", 3) == 0) {
 		c = call_get(&callid);
 		if (c) {
 			rwlock_unlock_w(&c->master_lock);
@@ -446,6 +448,7 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 				c->redis_hosted_db = rtpe_redis_write->db; // don't delete from foreign DB
 				// redis_notify->lock is held
 				redis_ports_release_push(true);
+				redis_do_delete(c, rtpe_redis_write);
 				call_destroy(c);
 				release_closed_sockets();
 				redis_ports_release_pop(true);
@@ -465,7 +468,7 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 	        mutex_lock(&r->lock);
 	}
 
-	if (strncmp(rr->element[3]->str,"del",3)==0) {
+	if (strncmp(rr->element[3]->str, "del", 3) == 0) {
 		c = call_get(&callid);
 		if (!c) {
 			rlog(LOG_NOTICE, "Redis-Notifier: DEL did not find call with callid: " STR_FORMAT "\n", STR_FMT(&callid));
@@ -2866,14 +2869,14 @@ err:
 }
 
 /* must be called lock-free */
-void redis_delete(call_t *c, struct redis *r) {
+static void redis_do_delete(call_t *c, struct redis *r) {
 	int delete_async = rtpe_config.redis_delete_async;
 	rlog(LOG_DEBUG, "Redis delete_async=%d", delete_async);
 
 	if (!r)
 		return;
 
-	if (IS_FOREIGN_CALL(c))
+	if (c->redis_hosted_db < 0)
 		return;
 
 	if (delete_async) {
@@ -2905,6 +2908,14 @@ err:
 	r->ctx = NULL;
 
 	rwlock_unlock_r(&c->master_lock);
+}
+
+/* must be called lock-free */
+void redis_delete(call_t *c, struct redis *r) {
+	if (IS_FOREIGN_CALL(c))
+		return;
+
+	redis_do_delete(c, r);
 }
 
 
