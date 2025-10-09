@@ -4589,6 +4589,8 @@ int monologue_unsubscribe(struct call_monologue *dst_ml, sdp_ng_flags *flags) {
 		update_init_subscribers(media, NULL, NULL, flags->opmode);
 	}
 
+	monologue_destroy(dst_ml);
+
 	return 0;
 }
 
