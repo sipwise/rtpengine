@@ -103,12 +103,14 @@ int socket(int domain, int type, int protocol) {
 static const char *addr_translate(struct sockaddr_un *sun, const struct sockaddr *addr,
 		socklen_t addrlen,
 		int type,
-		int allow_anon)
+		int allow_anon,
+		int alloc_port)
 {
 	const char *err;
 	char sockname[64];
 	const char *any_name;
 	unsigned int port;
+	uint16_t *set_port = NULL;
 	const char *prefix = "unk";
 
 	switch (type) {
@@ -131,6 +133,7 @@ static const char *addr_translate(struct sockaddr_un *sun, const struct sockaddr
 				goto err;
 			any_name = "0.0.0.0";
 			port = ntohs(sin->sin_port);
+			set_port = &sin->sin_port;
 			break;
 		case AF_INET6:;
 			struct sockaddr_in6 *sin6 = (void *) addr;
@@ -142,6 +145,7 @@ static const char *addr_translate(struct sockaddr_un *sun, const struct sockaddr
 				goto err;
 			any_name = "::";
 			port = ntohs(sin6->sin6_port);
+			set_port = &sin6->sin6_port;
 			break;
 		default:
 			goto skip;
@@ -149,26 +153,50 @@ static const char *addr_translate(struct sockaddr_un *sun, const struct sockaddr
 
 	int do_specific = 1;
 
+
 	if (allow_anon) {
+retry_anon:
 		err = "Unix socket path truncated";
+		unsigned int use_port = port;
+		if (!use_port && alloc_port)
+			use_port = rand() % 1000 + 63000;
 		if (snprintf(sun->sun_path, sizeof(sun->sun_path), "%s/%s:[%s]:%u", path_prefix(),
-					prefix, any_name, port)
+					prefix, any_name, use_port)
 				>= sizeof(sun->sun_path))
 			goto err;
 
 		struct stat sb;
 		int ret = stat(sun->sun_path, &sb);
-		if (ret == 0 && sb.st_mode & S_IFSOCK)
+		if (ret == 0 && sb.st_mode & S_IFSOCK) {
+			if (!port && alloc_port)
+				goto retry_anon;
 			do_specific = 0;
+		}
+		port = use_port;
 	}
 
 	if (do_specific) {
+retry_specific:
 		err = "Unix socket path truncated";
+		unsigned int use_port = port;
+		if (!use_port && alloc_port)
+			use_port = rand() % 1000 + 63000;
 		if (snprintf(sun->sun_path, sizeof(sun->sun_path), "%s/%s:[%s]:%u", path_prefix(),
-					prefix, sockname, port)
+					prefix, sockname, use_port)
 				>= sizeof(sun->sun_path))
 			goto err;
+
+		if (!port && alloc_port) {
+			struct stat sb;
+			int ret = stat(sun->sun_path, &sb);
+			if (ret == 0 && sb.st_mode & S_IFSOCK)
+				goto retry_specific;
+		}
+		port = use_port;
 	}
+
+	if (alloc_port)
+		*set_port = htons(port);
 
 	sun->sun_family = AF_UNIX;
 	return NULL;
@@ -278,7 +306,7 @@ int bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 	assert(s->wanted_domain == addr->sa_family);
 
 	struct sockaddr_un sun;
-	err = addr_translate(&sun, addr, addrlen, s->type, 0);
+	err = addr_translate(&sun, addr, addrlen, s->type, 0, 1);
 	if (err) {
 		if (!err[0])
 			goto do_bind;
@@ -506,7 +534,7 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 	assert(s->wanted_domain == addr->sa_family);
 
 	struct sockaddr_un sun;
-	err = addr_translate(&sun, addr, addrlen, s->type, 1);
+	err = addr_translate(&sun, addr, addrlen, s->type, 1, 0);
 	if (err) {
 		if (!err[0])
 			goto do_connect;
@@ -758,7 +786,7 @@ static const struct sockaddr *addr_send_translate(const struct sockaddr *addr, i
 		return ret;
 
 	static __thread struct sockaddr_un sun;
-	const char *err = addr_translate(&sun, addr, *addrlen, type, 0);
+	const char *err = addr_translate(&sun, addr, *addrlen, type, 0, 0);
 	if (!err) {
 		*addrlen = sizeof(sun);
 		return (void *) &sun;
