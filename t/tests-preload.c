@@ -49,6 +49,7 @@ static void do_init(void) __attribute__((constructor));
 static void do_exit(void) __attribute__((destructor));
 
 static socklen_t anon_addr(int domain, struct sockaddr_storage *sst, unsigned int id, unsigned int id2);
+static const struct sockaddr *addr_find(const struct sockaddr *addr, socklen_t *addrlen);
 
 static void do_init(void) {
 	setenv("RTPE_PRELOAD_TEST_ACTIVE", "1", 1);
@@ -533,22 +534,29 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 	assert(s->used_domain == AF_UNIX);
 	assert(s->wanted_domain == addr->sa_family);
 
-	struct sockaddr_un sun;
-	err = addr_translate(&sun, addr, addrlen, s->type, 1, 0);
-	if (err) {
-		if (!err[0])
-			goto do_connect;
-		goto do_connect_warn;
-	}
-
 	struct sockaddr_storage sst = {0,};
 	if (addrlen > sizeof(sst))
 		goto do_connect_warn;
 	memcpy(&sst, addr, addrlen);
 	s->peername = sst;
 
-	addr = (void *) &sun;
-	addrlen = sizeof(sun);
+	struct sockaddr_un sun;
+
+	const struct sockaddr *anon_addr = addr_find(addr, &addrlen);
+	if (anon_addr)
+		addr = anon_addr;
+	else {
+		err = addr_translate(&sun, addr, addrlen, s->type, 1, 0);
+		if (err) {
+			if (!err[0])
+				goto do_connect;
+			goto do_connect_warn;
+		}
+
+		addr = (void *) &sun;
+		addrlen = sizeof(sun);
+	}
+
 
 	goto do_connect;
 
