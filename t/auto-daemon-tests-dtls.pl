@@ -24,7 +24,8 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 	$sock_cx, $sock_dx, $port_c, $port_d, $port_cx, $port_dx,
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev, $ufrag_a, $ufrag_b,
 	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq, $has_recv, $tmp_blob,
-	$pwd_a, $pwd_b, $packet, $tid, $dtls, $mux, $fingerprint, @components);
+	$pwd_a, $pwd_b, $packet, $tls_id_a, $tls_id_b, $dtls, $mux, $fingerprint,
+	$fingerprint_a, $fingerprint_b, @components);
 
 
 
@@ -172,6 +173,108 @@ SDP
 $dtls->connect();
 
 $mux->loop();
+
+rtpe_req('delete', 'delete');
+
+
+
+($sock_a, $sock_ax, $sock_b, $sock_bx, $sock_c, $sock_cx, $sock_d, $sock_dx) = new_call(
+	[qw(198.51.100.35 3016)], [qw(198.51.100.35 3017)],
+	[qw(198.51.100.35 3018)], [qw(198.51.100.35 3019)],
+	[qw(198.51.100.35 3020)], [qw(198.51.100.35 3021)],
+	[qw(198.51.100.35 3022)], [qw(198.51.100.35 3023)],
+);
+
+$mux = IO::Multiplex->new();
+$mux->set_callback_object(__PACKAGE__);
+$mux->add($sock_a);
+$mux->add($sock_ax);
+$dtls = NGCP::Rtpclient::DTLS::Group->new($mux, $dtls_func, [[$sock_a], [$sock_ax]]);
+$fingerprint = $dtls->[0]->fingerprint();
+
+($port_a, $port_ax, $port_c, $port_cx) = offer('bundle DTLS bkw', { 'transport-protocol' => 'RTP/AVP', bundle => ['accept'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+a=group:BUNDLE 1 2
+m=audio 3016 RTP/SAVP 0
+a=setup:actpass
+a=fingerprint:sha-256 $fingerprint
+a=tls-id:xxxxxxxxxxxxxxxx
+a=mid:1
+m=audio 3020 RTP/SAVP 8
+a=setup:actpass
+a=fingerprint:sha-256 $fingerprint
+a=tls-id:xxxxxxxxxxxxxxxx
+a=mid:2
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=mid:2
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b, $port_bx, $fingerprint_a, $tls_id_a, $port_d, $port_dx, $fingerprint_b, $tls_id_b) = answer('bundle DTLS bkw', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3018 RTP/AVP 0
+m=audio 3022 RTP/AVP 8
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+a=group:BUNDLE 1 2
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=setup:active
+a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
+m=audio PORT RTP/SAVP 8
+c=IN IP4 203.0.113.1
+a=mid:2
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=setup:active
+a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
+SDP
+
+is($port_b, $port_d, 'same port');
+is($port_bx, $port_dx, 'same port');
+is($fingerprint_a, $fingerprint_b, 'same fingerprint');
+is($tls_id_a, $tls_id_b, 'same TLS ID');
+
+@components = ([$sock_a, $port_b], [$sock_ax, $port_bx]);
+
+$dtls->accept();
+
+$mux->loop();
+
+rcv_no($sock_c);
+rcv_no($sock_cx);
 
 rtpe_req('delete', 'delete');
 
