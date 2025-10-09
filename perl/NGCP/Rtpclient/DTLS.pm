@@ -34,7 +34,7 @@ sub new {
 sub new_cert {
 	my ($self) = @_;
 
-	my $rsa_key = Crypt::OpenSSL::RSA->generate_key(1024);
+	my $rsa_key = Crypt::OpenSSL::RSA->generate_key(4096);
 	my $priv_key = $rsa_key->get_private_key_string();
 	my $key_file = File::Temp->new();
 	print $key_file $priv_key;
@@ -83,9 +83,9 @@ sub connect { ## no critic: Subroutines::ProhibitBuiltinHomonyms
 
 	my ($openssl_in, $openssl_out);
 	$self->{_openssl_pid} = open3($openssl_in, $openssl_out, undef,
-		qw(openssl s_client -connect),
+		qw(openssl s_client -4 -connect),
 		"localhost:$near_port",
-		'-cert', $self->{_cert_key_file}->filename(), qw(-dtls1 -use_srtp
+		'-cert', $self->{_cert_key_file}->filename(), qw(-dtls1_2 -use_srtp
 		SRTP_AES128_CM_SHA1_80:SRTP_AES128_CM_SHA1_32 -keymatexport EXTRACTOR-dtls_srtp
 		-keymatexportlen 60));
 	$self->{_openssl_out} = $openssl_out;
@@ -121,12 +121,11 @@ sub accept { ## no critic: Subroutines::ProhibitBuiltinHomonyms
 
 	my ($openssl_in, $openssl_out);
 	$self->{_openssl_pid} = open3($openssl_in, $openssl_out, undef,
-		qw(openssl s_server -accept),
+		qw(openssl s_server -4 -accept),
 		$near_port,
-		'-cert', $self->{_cert_key_file}->filename(), qw(-dtls1 -use_srtp
+		'-cert', $self->{_cert_key_file}->filename(), qw(-dtls1_2 -use_srtp
 		SRTP_AES128_CM_SHA1_80:SRTP_AES128_CM_SHA1_32 -keymatexport EXTRACTOR-dtls_srtp
 		-keymatexportlen 60));
-	# XXX dtls 1.2 ?
 
 	sleep(0.2); # given openssl a short while to start up
 
@@ -143,13 +142,14 @@ sub accept { ## no critic: Subroutines::ProhibitBuiltinHomonyms
 sub _kill_openssl_child {
 	my ($self) = @_;
 
-	if ($self->{_openssl_pid}) {
-		kill(9, $self->{_openssl_pid});
-		waitpid($self->{_openssl_pid}, 0);
-	}
-	delete($self->{_openssl_pid});
 	delete($self->{_openssl_in});
 	delete($self->{_openssl_out});
+
+	if ($self->{_openssl_pid}) {
+		waitpid($self->{_openssl_pid}, 0);
+	}
+
+	delete($self->{_openssl_pid});
 }
 
 sub DESTROY {
@@ -169,10 +169,9 @@ sub _openssl_input {
 	$self->{_openssl_buf} .= $$s_r;
 	$$s_r = '';
 
-	if ($self->{_openssl_buf} =~ /Server certificate\n(-----BEGIN CERTIFICATE-----\n.*?\n-----END CERTIFICATE-----\n).*SRTP Extension negotiated, profile=(\S+).*Keying material: ([0-9a-fA-F]{120})/s) {
-		$self->{_peer_cert} = $1;
-		$self->{_profile} = $2;
-		$self->{_keys} = pack('H*', $3);
+	if ($self->{_openssl_buf} =~ /SRTP Extension negotiated, profile=(\S+).*Keying material: ([0-9a-fA-F]{120})/s) {
+		$self->{_profile} = $1;
+		$self->{_keys} = pack('H*', $2);
 		$self->{_connected} = 1;
 		$self->{_openssl_done} = 1;
 	}
@@ -228,25 +227,13 @@ sub input {
 	$$s_r = '';
 }
 
-sub peer_cert {
-	my ($self) = @_;
-	$self->{_peer_cert_file} and return $self->{_peer_cert_file};
-	$self->{_peer_cert} or return;
-
-	my $cert_file = File::Temp->new();
-	print $cert_file $self->{_peer_cert};
-	close($cert_file);
-
-	return ($self->{_peer_cert_file} = $cert_file);
-}
-
 sub cert_fingerprint {
 	my ($cert_file) = @_;
 	my $fd;
-	open($fd, '-|', qw(openssl x509 -in), $cert_file->filename(), qw(-fingerprint -noout));
+	open($fd, '-|', qw(openssl x509 -in), $cert_file->filename(), qw(-fingerprint -noout -sha256));
 	my $fp = <$fd>;
 	close($fd);
-	$fp =~ /SHA1 Fingerprint=([0-9a-f:]+)/i or return;
+	$fp =~ /SHA256 Fingerprint=([0-9a-f:]+)/i or return;
 	return $1;
 }
 
@@ -306,7 +293,7 @@ sub encode {
 sub connect { ## no critic: Subroutines::ProhibitBuiltinHomonyms
 	my ($self, @rest) = @_;
 	for my $cl (@$self) {
-		$cl->accept(@rest);
+		$cl->connect(@rest);
 	}
 }
 sub accept { ## no critic: Subroutines::ProhibitBuiltinHomonyms
