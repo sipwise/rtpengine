@@ -8,7 +8,7 @@ static int extmap_find(const void *key, const void *ele) {
 }
 
 static bool extmap_has_ext(uint8_t id, struct rtpengine_output *o) {
-	uint8_t *const *match = bsearch(&id, o->output.extmap_filter, o->output.num_extmap_filter,
+	uint8_t const *match = bsearch(&id, o->output.extmap_filter, o->output.num_extmap_filter,
 			sizeof(*o->output.extmap_filter), extmap_find);
 	return match != NULL;
 }
