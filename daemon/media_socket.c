@@ -2305,6 +2305,7 @@ static void rtpext_printer_extmap_kernel(struct rtpengine_output_info *roi,
 		u++;
 	}
 
+	roi->num_extmap_filter = u;
 	qsort(roi->extmap_filter, u, sizeof(*roi->extmap_filter), uint8_sort);
 
 	if (mid && dst->media_id.len && dst->media_id.len <= sizeof(roi->extmap_mid_str)) {
