@@ -2643,9 +2643,10 @@ static const char *__stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc,
 		first = NULL;
 	mutex_unlock(&ssrc_hash->lock);
 
-	struct ssrc_entry_call *se = first ?: get_ssrc(ssrc, ssrc_hash);
+	bool created = false;
+	struct ssrc_entry_call *se = first ?: get_ssrc_full(ssrc, ssrc_hash, &created);
 
-	if (se != first) {
+	if (created) {
 		ret = "SSRC changed";
 		ilog(LOG_DEBUG, "New %s SSRC for: %s%s:%d SSRC: %x%s", label,
 			      FMT_M(sockaddr_print_buf(&ps->endpoint.address), ps->endpoint.port, ssrc));
