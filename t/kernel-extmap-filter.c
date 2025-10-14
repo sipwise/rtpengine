@@ -50,6 +50,8 @@ static void skb_put(struct sk_buff *s, unsigned int len) {
 	s->len += len;
 }
 
+#define printk(...)
+
 #include "../kernel-module/extmap_filter.inc.c"
 
 static void pkt(unsigned char *d, struct sk_buff *skb, struct rtp_parsed *r,
@@ -61,6 +63,7 @@ static void pkt(unsigned char *d, struct sk_buff *skb, struct rtp_parsed *r,
 	memset(r->rtp_header, 0, sizeof(*r->rtp_header));
 	*d = hdr_val;
 	d += sizeof(struct rtp_header);
+	r->header_len = sizeof(struct rtp_header);
 
 	if (ext_hdr_len == 0) {
 		assert(extensions_len == 0);
@@ -86,6 +89,7 @@ static void pkt(unsigned char *d, struct sk_buff *skb, struct rtp_parsed *r,
 		memset(d, 0, padding);
 		d += padding;
 		r->extension_len = padded;
+		r->header_len += 4 + padded;
 	}
 	else
 		abort();
@@ -127,6 +131,9 @@ static void tester(
 	pkt(in,  &is, &ip,  rtp_hdr_val_in,  ext_hdr_in_len,  ext_hdr_in,  extensions_in_len,  extensions_in);
 	pkt(exp, &es, &ep,  rtp_hdr_val_exp, ext_hdr_exp_len, ext_hdr_exp, extensions_exp_len, extensions_exp);
 
+	assert(ip.payload - (unsigned char *) ip.rtp_header == ip.header_len);
+	assert(ep.payload - (unsigned char *) ep.rtp_header == ep.header_len);
+
 	struct rtpengine_output o = {0};
 	assert(filter_len <= sizeof(o.output.extmap_filter));
 	o.output.num_extmap_filter = filter_len;
@@ -148,6 +155,7 @@ static void tester(
 		assert(0);
 	}
 	assert(ip.payload_len == ep.payload_len);
+	assert(ip.header_len == ep.header_len);
 	assert(memcmp(ip.payload, ep.payload, ip.payload_len) == 0);
 
 	printf("ok\n");
