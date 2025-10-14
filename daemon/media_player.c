@@ -341,9 +341,10 @@ static bool __send_timer_send_1(struct rtp_header *rh, struct packet_stream *sin
 
 	if (rh) {
 		ilog(LOG_DEBUG, "Forward to sink endpoint: local %s -> remote %s%s%s "
-				"(RTP seq %u TS %u SSRC %x)",
+				"(RTP PT %u seq %u TS %u SSRC %x)",
 				endpoint_print_buf(&sink_fd->socket.local),
 				FMT_M(endpoint_print_buf(&sink->endpoint)),
+				rh->m_pt,
 				ntohs(rh->seq_num),
 				ntohl(rh->timestamp),
 				ntohl(rh->ssrc));
