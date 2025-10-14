@@ -1720,7 +1720,7 @@ static int proc_list_show(struct seq_file *f, void *v) {
 			(unsigned long long) atomic64_read(&g->target.pt_stats[i]->packets));
 	}
 
-	seq_printf(f, "    last packet: %lli",
+	seq_printf(f, "    last packet: %lli\n",
 			(long long) atomic64_read(&g->target.stats->last_packet_us) / 1000000L);
 
 	seq_printf(f, "    SSRC in:");
