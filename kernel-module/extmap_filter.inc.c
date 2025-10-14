@@ -241,6 +241,7 @@ static void apply_extmap_filter(struct sk_buff *skb, struct rtpengine_output *o,
 		else
 			add_extmap_hdr_short(skb, o, rtp);
 	}
+	rtp->header_len = rtp->payload - (unsigned char *) rtp->rtp_header;
 }
 
 

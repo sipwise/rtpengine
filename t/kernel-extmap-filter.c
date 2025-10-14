@@ -35,6 +35,7 @@ struct rtp_exthdr {
 
 struct rtp_parsed {
 	struct rtp_header *rtp_header;
+	size_t header_len;
 	unsigned char *payload;
 	size_t payload_len;
 	struct rtp_exthdr *ext_hdr;
