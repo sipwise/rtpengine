@@ -400,6 +400,8 @@ INLINE void ng_flags_webrtc(sdp_ng_flags *f) {
 	f->no_rtcp_attr = 1;
 	f->sdes_off = 1;
 	f->generate_mid = 1;
+	f->bundle_offer = 1;
+	f->bundle_require = 1;
 }
 
 
