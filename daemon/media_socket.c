@@ -3542,10 +3542,11 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 	if (phc->mp.rtp)
 		ilog(LOG_DEBUG, "Handling packet: remote %s%s%s (expected: %s%s%s) -> local %s "
-				"(RTP seq %u TS %u SSRC %s%x%s)",
+				"(RTP PT %u seq %u TS %u SSRC %s%x%s)",
 				FMT_M(endpoint_print_buf(&phc->mp.fsin)),
 				FMT_M(endpoint_print_buf(&phc->mp.stream->endpoint)),
 				endpoint_print_buf(&phc->mp.sfd->socket.local),
+				phc->mp.rtp->m_pt,
 				ntohs(phc->mp.rtp->seq_num),
 				ntohl(phc->mp.rtp->timestamp),
 				FMT_M(ntohl(phc->mp.rtp->ssrc)));

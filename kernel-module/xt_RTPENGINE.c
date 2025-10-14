@@ -1726,7 +1726,7 @@ static int proc_list_show(struct seq_file *f, void *v) {
 			g->target.pt_media_idx[i]);
 	}
 
-	seq_printf(f, "    last packet: %lli",
+	seq_printf(f, "    last packet: %lli\n",
 			(long long) atomic64_read(&g->target.stats->last_packet_us) / 1000000L);
 
 	seq_printf(f, "    SSRC in:");
