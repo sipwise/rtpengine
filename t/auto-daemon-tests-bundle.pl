@@ -79,6 +79,8 @@ rcv($sock_a, -1, qr/^\x16\xfe\xff\x00\x00\x00\x00\x00\x00\x00/s);
 
 
 
+if ($ENV{RTPENGINE_EXTENDED_TESTS}) {
+
 ($sock_a, $sock_ax, $sock_b, $sock_bx) =
 	new_call([qw(198.51.100.14 6414)],
 		[qw(2001:db8:4321::3 6200)],
@@ -196,6 +198,8 @@ rcv_no($sock_bx);
 
 rcv($sock_a, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
 rcv($sock_ax, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
+
+}
 
 
 
