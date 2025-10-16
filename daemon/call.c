@@ -807,16 +807,6 @@ static struct endpoint_map *__hunt_endpoint_map(struct call_media *media, unsign
 		if (em->logical_intf != media->logical_intf)
 			continue;
 
-		// any of our sockets shut down?
-		for (__auto_type k = em->intf_sfds.head; k; k = k->next) {
-			struct sfd_intf_list *il = k->data;
-			for (__auto_type j = il->list.head; j; j = j->next) {
-				stream_fd *sfd = j->data;
-				if (sfd->socket.fd == -1)
-					return NULL;
-			}
-		}
-
 		if ((em->wildcard || always_reuse) && em->num_ports >= num_ports
 				&& em->intf_sfds.length >= want_interfaces)
 		{
@@ -5604,6 +5594,8 @@ void monologue_destroy(struct call_monologue *monologue) {
 			while ((sfd = t_queue_pop_head(&ps->sfds)))
 				stream_fd_release(sfd);
 		}
+		if (m->endpoint_map)
+			t_queue_clear_full(&m->endpoint_map->intf_sfds, free_release_sfd_intf_list);
 		m->endpoint_map = NULL;
 	}
 

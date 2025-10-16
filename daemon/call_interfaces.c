@@ -2813,7 +2813,7 @@ static void ng_stats_stream(ng_command_ctx_t *ctx, parser_arg list, const struct
 
 	dict = parser->list_add_dict(list);
 
-	if (ps->selected_sfd) {
+	if (ps->selected_sfd && ps->selected_sfd->socket.local.address.family) {
 		parser->dict_add_int(dict, "local port", ps->selected_sfd->socket.local.port);
 		parser->dict_add_str_dup(dict, "local address",
 				STR_PTR(sockaddr_print_buf(&ps->selected_sfd->socket.local.address)));
