@@ -1378,57 +1378,12 @@ fail:
 	return false;
 }
 
-/* puts a list of "struct intf_list" into "out", containing socket_t list */
-bool get_consecutive_ports(socket_intf_list_q *out, unsigned int num_ports, unsigned int num_intfs,
-		struct call_media *media)
+bool get_consecutive_ports(socket_port_q *out, unsigned int num_ports, struct local_intf *loc,
+		const str *label)
 {
-	struct socket_intf_list *il;
-	struct local_intf *loc;
-	const struct logical_intf *log = media->logical_intf;
-	const str *label = &media->call->callid; /* call's callid */
-
-	/*
-	// debug locals of logical incerface
-	char ip[100];
-	for (l = log->list.head; l; l = l->next) {
-		loc = l->data;
-		inet_ntop(loc->spec->local_address.addr.family->af, &loc->spec->local_address.addr.u, ip, sizeof(ip));
-	}
-	ilog(LOG_DEBUG, "");
-	*/
-
-	for (auto_iter(l, log->list.head); l; l = l->next) {
-		if (out->length >= num_intfs)
-			break;
-
-		loc = l->data;
-
-		il = g_new0(__typeof(*il), 1);
-		il->local_intf = loc;
-		t_queue_push_tail(out, il);
-		if (G_LIKELY(__get_consecutive_ports(&il->list, num_ports, loc->spec, label))) {
-			// success - found available ports on local interfaces, so far
-			continue;
-		} else {
-			// fail - did not found available ports on at least one local interface
-			goto error_ports;
-		}
-	}
-
-	return true;
-
-error_ports:
-	ilog(LOG_ERR, "Failed to get %d consecutive ports on all locals of logical '"STR_FORMAT"'",
-		num_ports, STR_FMT(&log->name));
-
-	// free all ports alloc'ed so far for the previous local interfaces
-	while ((il = t_queue_pop_head(out))) {
-		free_socket_intf_list(il);
-	}
-
-	return false;
-
+	return __get_consecutive_ports(out, num_ports, loc->spec, label);
 }
+
 void free_socket_intf_list(struct socket_intf_list *il) {
 	struct socket_port_link *spl;
 

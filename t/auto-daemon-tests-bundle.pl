@@ -3361,10 +3361,10 @@ if ($ENV{RTPENGINE_EXTENDED_TESTS}) {
 
 	is($resp->{interfaces}[0]{name}, 'default', 'intf found');
 	is($resp->{interfaces}[0]{address}, '203.0.113.1', 'address found');
-	is($resp->{interfaces}[0]{ports}{used}, 192, 'port usage');
+	is($resp->{interfaces}[0]{ports}{used}, 166, 'port usage');
 	is($resp->{interfaces}[1]{name}, 'default', 'intf found');
 	is($resp->{interfaces}[1]{address}, '2001:db8:4321::1', 'address found');
-	is($resp->{interfaces}[1]{ports}{used}, 4, 'port usage');
+	is($resp->{interfaces}[1]{ports}{used}, 2, 'port usage');
 
 }
 

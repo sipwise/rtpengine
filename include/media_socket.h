@@ -385,8 +385,11 @@ bool is_local_endpoint(const struct intf_address *addr, unsigned int port);
 
 struct socket_port_link get_specific_port(unsigned int port,
 		struct intf_spec *spec, const str *label);
-bool get_consecutive_ports(socket_intf_list_q *out, unsigned int num_ports, unsigned int num_intfs,
-		struct call_media *media);
+
+__attribute__((nonnull(1, 3, 4)))
+bool get_consecutive_ports(socket_port_q *out, unsigned int num_ports, struct local_intf *,
+		const str *label);
+
 stream_fd *stream_fd_new(struct socket_port_link *, call_t *call, struct local_intf *lif);
 stream_fd *stream_fd_lookup(const endpoint_t *);
 void stream_fd_release(stream_fd *);
