@@ -26192,6 +26192,7 @@ rcv($sock_ax, $port_bx, qr/^\x80\xc8\x00\x06\x69\x28\x80\x8c\xe9\x71\x56\xff\xcc
 
 
 
+new_call;
 
 offer('webrtc', { flags => ['WebRTC'] }, <<SDP);
 v=0
@@ -26222,6 +26223,7 @@ a=ice-ufrag:ICEUFRAG
 a=ice-pwd:ICEPWD
 a=ice-options:trickle
 a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
 a=end-of-candidates
 SDP
 
