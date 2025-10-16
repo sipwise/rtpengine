@@ -8,7 +8,7 @@
 set -e
 
 if [[ -z $1 || -z $2 ]]; then
-    echo $0: Require package version and git commit
+    echo "$0: Require package version and git commit"
     echo "Usage: build-with-mock.sh <version> <commit>"
     exit 1
 fi
@@ -18,10 +18,12 @@ GIT_COMMIT=$2
 
 mkdir -p rpmbuild/{SOURCES,SPECS}
 
-git archive --format=tar --prefix=ngcp-rtpengine-${RTPENGINE_VERSION}/ $2 | gzip -c > rpmbuild/SOURCES/ngcp-rtpengine-${RTPENGINE_VERSION}.tar.gz
+git archive --format=tar --prefix="ngcp-rtpengine-${RTPENGINE_VERSION}/" \
+  "${GIT_COMMIT}" \
+  | gzip -c >"rpmbuild/SOURCES/ngcp-rtpengine-${RTPENGINE_VERSION}.tar.gz"
 
-
-sed /^Version/s"/^Version:.*/Version: ${RTPENGINE_VERSION}/" el/rtpengine.spec > rpmbuild/SPECS/rtpengine.spec
+sed /^Version/s"/^Version:.*/Version: ${RTPENGINE_VERSION}/" el/rtpengine.spec \
+  >rpmbuild/SPECS/rtpengine.spec
 
 rm -f rpmbuild/SRPMS/*.src.rpm
 rpmbuild --define "_topdir $PWD/rpmbuild" -bs rpmbuild/SPECS/rtpengine.spec

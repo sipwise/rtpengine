@@ -24,8 +24,10 @@ sed -i -e 's/^execute_before_dh_auto_install-indep:/override_dh_auto_install-ind
 sed -i -e '/^\tgzip -9 < README.md/a\\n\tdh_auto_install' ${DIST}/rules
 
 # fix links
+# shellcheck disable=SC2016
 sed -i -e 's#${env:deb_systemdsystemunitdir}#/lib/systemd/system/#g' \
   ${DIST}/rtpengine-recording-daemon.links
+# shellcheck disable=SC2016
 sed -i -e 's#${env:deb_systemdsystemunitdir}#/lib/systemd/system/#g' \
   ${DIST}/rtpengine-daemon.links
 
@@ -49,6 +51,7 @@ sed -i '/^override_dh_dkms/d' "${DIST}"/rules
 sed -i '/dh_dkms /d' "${DIST}"/rules
 sed -i '/^export DEB_VERSION_UPSTREAM/d' "${DIST}"/rules
 sed -i '/^export DEB_SOURCE/d' "${DIST}"/rules
+# shellcheck disable=SC2016
 sed -i 's;^include /usr/share/dpkg/pkg-info.mk;include /usr/share/dpkg/pkg-info.mk\
 ## kernel package specific stuff\
 # Name of the dkms package\
@@ -59,6 +62,7 @@ sname:=rtpengine\
 sversion:=$(DEB_VERSION_UPSTREAM)\
 ## end of kernel package specific stuff\
 ;' "${DIST}"/rules
+# shellcheck disable=SC2016
 sed -i 's;^override_dh_auto_install-indep:;override_dh_auto_install-indep:\
 \t# Create the directories to install the source into\
 \tdh_installdirs -p$(pdkms)    usr/src/$(sname)-$(sversion)\

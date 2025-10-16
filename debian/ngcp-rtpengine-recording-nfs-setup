@@ -6,10 +6,12 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin
 DEFAULTS=/etc/default/ngcp-rtpengine-recording-daemon
 DESC="RTP engine recording NFS share"
 
+# shellcheck disable=SC1091
 . /lib/lsb/init-functions
 
 # Load startup options if available
 if [ -f "$DEFAULTS" ]; then
+  # shellcheck source=debian/ngcp-rtpengine-recording-daemon.default
   . "$DEFAULTS" || true
 fi
 

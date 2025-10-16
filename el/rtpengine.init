@@ -17,12 +17,14 @@
 ### END INIT INFO
 
 # Source function library.
+# shellcheck disable=SC1091
 . /etc/rc.d/init.d/functions
 
 # defaults
 
 if [ -f /etc/sysconfig/rtpengine ]
 then
+        # shellcheck source=./rtpengine.sysconfig
         . /etc/sysconfig/rtpengine
 else
 	echo "Error: /etc/sysconfig/rtpengine not present" >&2
@@ -122,6 +124,7 @@ stop() {
 	RETVAL=$?
 	echo
 	if [ -f "$cachefile" ];then
+		# shellcheck disable=SC1090
 		. "$cachefile"
 		echo "Unloading module for in-kernel packet forwarding"
 		echo "del $TABLE" > /proc/rtpengine/control

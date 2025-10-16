@@ -17,10 +17,12 @@
 ### END INIT INFO
 
 # Source function library.
+# shellcheck disable=SC1091
 . /etc/rc.d/init.d/functions
 
 if [ -f /etc/sysconfig/rtpengine-recording ]
 then
+        # shellcheck source=./rtpengine-recording.sysconfig
         . /etc/sysconfig/rtpengine-recording
 else
 	echo "Error: /etc/sysconfig/rtpengine-recording not present" >&2

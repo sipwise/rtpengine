@@ -21,7 +21,7 @@ find debian -maxdepth 2 -type f -exec \
 
 ## remove same file on links
 while read -r file; do
-  file_new=$(echo "${file}" | sed -e 's/ngcp-//g')
+  file_new=${file//ngcp-/}
   while read -r line; do
     sed -i -e "s#${line}\$#HH#g" "${file}"
   done < <(awk '{print $1}' "${file}")
@@ -46,7 +46,7 @@ done < <(grep '^Package:' debian/control | grep -v ' rtpengine-daemon$')
 
 echo "- Rename files"
 while read -r file; do
-  file_new=$(echo "${file}" | sed -e 's/ngcp-//g')
+  file_new=${file//ngcp-/}
   mv "${file}" "${file_new}"
 done < <(find debian -maxdepth 1 -type f -name 'ngcp-rtpengine*')
 

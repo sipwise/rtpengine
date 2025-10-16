@@ -15,6 +15,7 @@ if [ "$VIRT" = "yes" ]; then
 	echo "Container environment detected. Skip kernel module check"
 else
 	if [ -f $default ]; then
+		# shellcheck source=debian/ngcp-rtpengine-daemon.default
 		. $default || true
 	fi
 
