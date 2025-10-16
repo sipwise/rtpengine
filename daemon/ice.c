@@ -408,7 +408,7 @@ void ice_agent_init(struct ice_agent **agp, struct call_media *media) {
 		*agp = ag = __ice_agent_new(media);
 }
 
-static int __copy_cand(call_t *call, struct ice_candidate *dst, const struct ice_candidate *src) {
+static unsigned int __copy_cand(call_t *call, struct ice_candidate *dst, const struct ice_candidate *src) {
 	int eq = (dst->priority == src->priority);
 	*dst = *src;
 	dst->foundation = call_str_cpy(&src->foundation);
@@ -450,11 +450,9 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset
 	struct ice_candidate *cand, *dup;
 	struct call_media *media;
 	call_t *call;
-	int recalc = 0;
 	unsigned int comps;
 	struct packet_stream *components[MAX_COMPONENTS], *ps;
 	candidate_q *candidates;
-	stream_fd *sfd;
 
 	if (!ag)
 		return;
@@ -512,11 +510,11 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset
 			comps = MAX(comps, cand->component_id);
 
 		dup = t_hash_table_lookup(ag->candidate_hash, cand);
-		if (!sp && dup) /* this isn't a real update, so only check pairings */
-			goto pair;
+		if (!sp && dup) /* this isn't a real update, so only check pairings */ // XXX
+			continue;
 
 		/* check for duplicates */
-		if (dup) {
+		if (dup) { // XXX
 			/* if this is peer reflexive, we've learned it through STUN.
 			 * otherwise it's simply one we've seen before. */
 			if (dup->type == ICT_PRFLX) {
@@ -545,7 +543,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset
 
 			/* priority and foundation may change */
 			t_hash_table_remove(ag->foundation_hash, dup);
-			recalc += __copy_cand(call, dup, cand);
+			ag->recalc_needed += __copy_cand(call, dup, cand);
 		}
 		else {
 			ilogs(ice, LOG_DEBUG, "Learning new ICE candidate " STR_FORMAT_M ":%lu",
@@ -558,18 +556,6 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset
 		}
 
 		t_hash_table_insert(ag->foundation_hash, dup, dup);
-
-pair:
-		if (!ps)
-			continue;
-
-		for (__auto_type k = ps->sfds.head; k; k = k->next) {
-			sfd = k->data;
-			/* skip duplicates here also */
-			if (__pair_lookup(ag, dup, sfd->local_intf))
-				continue;
-			__pair_candidate(sfd, ag, dup);
-		}
 	}
 
 	if (comps)
@@ -582,13 +568,48 @@ pair:
 		ag->active_components = comps;
 	}
 
+	log_info_pop();
+}
+
+static void __ice_pairings(struct ice_agent *ag) {
+	struct call_media *media = ag->media;
+
+	/* get our component streams */
+	struct packet_stream *components[MAX_COMPONENTS] = {0};
+	unsigned int comps = 0;
+
+	for (__auto_type l = media->streams.head; l && comps < MAX_COMPONENTS; l = l->next)
+		components[comps++] = l->data;
+	if (comps == 2 && (MEDIA_ISSET(media, RTCP_MUX) || !proto_is_rtp(media->protocol)))
+		components[1] = NULL;
+
+	for (__auto_type l = ag->remote_candidates.head; l; l = l->next) {
+		__auto_type cand = l->data;
+
+		/* skip invalid */
+		if (!cand->component_id || cand->component_id > G_N_ELEMENTS(components))
+			continue;
+
+		__auto_type ps = components[cand->component_id - 1];
+		if (!ps)
+			continue;
+
+		__auto_type dup = t_hash_table_lookup(ag->candidate_hash, cand);
+
+		for (__auto_type k = ps->sfds.head; k; k = k->next) {
+			__auto_type sfd = k->data;
+			/* skip duplicates here also */
+			if (__pair_lookup(ag, dup, sfd->local_intf))
+				continue;
+			__pair_candidate(sfd, ag, dup);
+		}
+	}
+
 	/* if we're here, we can start our ICE checks */
-	if (recalc)
+	if (ag->recalc_needed)
 		__recalc_pair_prios(ag);
 	else
 		__all_pairs_list(ag);
-
-	log_info_pop();
 }
 
 /* called with the call lock held in W, hence agent doesn't need to be locked */
@@ -597,6 +618,8 @@ void ice_start(struct ice_agent *ag) {
 		return;
 
 	log_info_ice_agent(ag);
+
+	__ice_pairings(ag);
 
 	if (ag->active_components)
 		__do_ice_checks(ag);
@@ -1091,6 +1114,8 @@ static void __recalc_pair_prios(struct ice_agent *ag) {
 	rtpe_g_tree_add_all(ag->valid_pairs, &valid, __tree_coll_callback);
 	rtpe_g_tree_add_all(ag->all_pairs, &all, __tree_coll_callback);
 	__all_pairs_list(ag);
+
+	ag->recalc_needed = 0;
 }
 
 /* agent must NOT be locked */

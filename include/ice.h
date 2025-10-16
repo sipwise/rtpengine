@@ -129,6 +129,7 @@ struct ice_agent {
 	GTree			*valid_pairs; /* succeeded and nominated */
 	unsigned int		active_components;
 	int64_t			start_nominating;
+	unsigned int		recalc_needed;
 
 	str			ufrag[2]; /* 0 = remote, 1 = local */
 	str			pwd[2]; /* ditto */
