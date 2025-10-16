@@ -390,7 +390,7 @@ struct stream_params {
 struct endpoint_map {
 	unsigned int		unique_id;
 	struct endpoint		endpoint;
-	unsigned int		num_ports;
+	unsigned int		num_ports; // per interface
 	struct logical_intf	*logical_intf;
 	sfd_intf_list_q		intf_sfds; /* list of struct sfd_intf_list - contains stream_fd list */
 	unsigned int		wildcard:1;
@@ -520,6 +520,7 @@ struct call_media {
 	unsigned int		media_rec_slot;
 
 	packet_stream_q		streams;			/* normally RTP + RTCP */
+	struct endpoint_map	*endpoint_map;
 	endpoint_map_q		endpoint_maps;
 	struct ssrc_hash	ssrc_hash_in;
 	struct ssrc_hash	ssrc_hash_out;

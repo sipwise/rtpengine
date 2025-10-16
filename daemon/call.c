@@ -767,16 +767,41 @@ static int __media_want_interfaces(struct call_media *media) {
 		want_interfaces = 1;
 	return want_interfaces;
 }
-static void __endpoint_map_truncate(struct endpoint_map *em, unsigned int num_intfs) {
+
+static bool __endpoint_map_truncate(struct endpoint_map *em, unsigned int num_intfs, unsigned int num_ports) {
+	if (num_ports > em->num_ports)
+		return false;
+
 	while (em->intf_sfds.length > num_intfs) {
 		struct sfd_intf_list *il = t_queue_pop_tail(&em->intf_sfds);
-		free_sfd_intf_list(il);
+		free_release_sfd_intf_list(il);
 	}
+
+	if (em->num_ports == num_ports)
+		return true;
+
+	for (__auto_type l = em->intf_sfds.head; l; l = l->next) {
+		__auto_type il = l->data;
+		while (il->list.length > num_ports) {
+			__auto_type p = t_queue_pop_tail(&il->list);
+			stream_fd_release(p);
+		}
+	}
+
+	return true;
 }
+
+// XXX turn this into a hash lookup
 static struct endpoint_map *__hunt_endpoint_map(struct call_media *media, unsigned int num_ports,
 		const struct endpoint *ep, const sdp_ng_flags *flags, bool always_reuse,
-		unsigned int want_interfaces)
+		unsigned int want_interfaces, bool port_latching)
 {
+	if (port_latching) {
+		struct endpoint_map *em = media->endpoint_map;
+		if (em && em->num_ports >= num_ports && em->intf_sfds.length == want_interfaces)
+			return em;
+	}
+
 	for (__auto_type l = media->endpoint_maps.tail; l; l = l->prev) {
 		struct endpoint_map *em = l->data;
 		if (em->logical_intf != media->logical_intf)
@@ -800,7 +825,6 @@ static struct endpoint_map *__hunt_endpoint_map(struct call_media *media, unsign
 				em->endpoint = *ep;
 				em->wildcard = 0;
 			}
-			__endpoint_map_truncate(em, want_interfaces);
 			return em;
 		}
 		if (!ep) /* creating wildcard map */
@@ -817,47 +841,22 @@ static struct endpoint_map *__hunt_endpoint_map(struct call_media *media, unsign
 		if (em->num_ports >= num_ports && em->intf_sfds.length >= want_interfaces) {
 			if (is_addr_unspecified(&em->endpoint.address))
 				em->endpoint.address = ep->address;
-			__endpoint_map_truncate(em, want_interfaces);
 			return em;
 		}
-		/* endpoint matches, but not enough ports. flush existing ports
-		 * and allocate a new set. */
-		__C_DBG("endpoint matches, doesn't have enough ports");
-		t_queue_clear_full(&em->intf_sfds, free_sfd_intf_list);
-		return em;
 	}
 
 	return NULL;
 }
-static struct endpoint_map *__latch_endpoint_map(struct call_media *media)
-{
-	// simply look for the endpoint map matching the current port
-	if (!media->streams.length)
-		return NULL;
-	struct packet_stream *first_ps = media->streams.head->data;
-	if (!first_ps->sfds.length)
-		return NULL;
-	stream_fd *matcher = first_ps->sfds.head->data;
 
-	for (__auto_type l = media->endpoint_maps.tail; l; l = l->prev) {
-		struct endpoint_map *em = l->data;
-		if (!em->intf_sfds.length)
-			continue;
-		struct sfd_intf_list *em_il = em->intf_sfds.head->data;
-		if (!em_il->list.length)
-			continue;
-		stream_fd *first = em_il->list.head->data;
-		if (first == matcher)
-			return em;
-	}
-	return NULL;
-}
 static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigned int num_ports,
 		const struct endpoint *ep, const sdp_ng_flags *flags, bool always_reuse)
 {
 	stream_fd *sfd;
 	socket_intf_list_q intf_sockets = TYPED_GQUEUE_INIT;
 	unsigned int want_interfaces = __media_want_interfaces(media);
+
+	if (num_ports > 16)
+		return NULL;
 
 	bool port_latching = false;
 	if (flags && flags->port_latching)
@@ -867,35 +866,31 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 	else if (!MEDIA_ISSET(media, RECV) && (!flags || !flags->no_port_latching))
 		port_latching = true;
 
-	struct endpoint_map *em = NULL;
-	if (port_latching)
-		em = __latch_endpoint_map(media);
-	if (!em)
-		em = __hunt_endpoint_map(media, num_ports, ep, flags, always_reuse, want_interfaces);
+	struct endpoint_map *em = __hunt_endpoint_map(media, num_ports, ep, flags, always_reuse,
+			want_interfaces, port_latching);
 
 	if (em) {
-		if (em->intf_sfds.length)
+		if (__endpoint_map_truncate(em, want_interfaces, num_ports)) {
+			media->endpoint_map = em;
 			return em;
-		// fall through
-	}
-	else {
-		__C_DBG("allocating new %sendpoint map", ep ? "" : "wildcard ");
-		em = uid_alloc(&media->call->endpoint_maps);
-		if (ep)
-			em->endpoint = *ep;
-		else
-			em->wildcard = 1;
-		em->logical_intf = media->logical_intf;
-		t_queue_init(&em->intf_sfds);
-		t_queue_push_tail(&media->endpoint_maps, em);
+		}
 	}
 
+	__C_DBG("allocating new %sendpoint map", ep ? "" : "wildcard ");
+	em = uid_alloc(&media->call->endpoint_maps);
+	if (ep)
+		em->endpoint = *ep;
+	else
+		em->wildcard = 1;
+	em->logical_intf = media->logical_intf;
+	t_queue_init(&em->intf_sfds);
+	t_queue_push_tail(&media->endpoint_maps, em);
 	em->num_ports = num_ports;
 
-	if (num_ports > 16)
-		return NULL;
 	if (!get_consecutive_ports(&intf_sockets, num_ports, want_interfaces, media))
 		return NULL;
+
+	media->endpoint_map = em;
 
 	__C_DBG("allocating stream_fds for %u ports", num_ports);
 	MEDIA_CLEAR(media, PUBLIC);
