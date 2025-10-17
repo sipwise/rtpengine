@@ -965,16 +965,16 @@ static void __assign_stream_fds(struct call_media *media, sfd_intf_list_q *intf_
 		ice_restart(media->ice_agent);
 }
 
-static int __wildcard_endpoint_map(struct call_media *media, unsigned int num_ports) {
+static bool __wildcard_endpoint_map(struct call_media *media, unsigned int num_ports) {
 	struct endpoint_map *em;
 
 	em = __get_endpoint_map(media, num_ports, NULL, NULL, false);
 	if (!em)
-		return -1;
+		return false;
 
 	__assign_stream_fds(media, &em->intf_sfds);
 
-	return 0;
+	return true;
 }
 
 static void __rtp_stats_free(struct rtp_stats *p) {
@@ -3950,7 +3950,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 			/* new streams created on OTHER side. normally only happens in
 			 * initial offer. create a wildcard endpoint_map to be filled in
 			 * when the answer comes. */
-			if (__wildcard_endpoint_map(sender_media, num_ports_other))
+			if (!__wildcard_endpoint_map(sender_media, num_ports_other))
 				goto error_ports;
 		}
 
