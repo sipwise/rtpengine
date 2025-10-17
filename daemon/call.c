@@ -2027,6 +2027,8 @@ del_next:
 static void __disable_streams(struct call_media *media, unsigned int num_ports) {
 	struct packet_stream *ps;
 
+	media->endpoint_map = NULL;
+
 	__num_media_streams(media, num_ports);
 
 	for (__auto_type l = media->streams.head; l; l = l->next) {
@@ -3427,7 +3429,7 @@ static void monologue_bundle_check_consistency(struct call_monologue *ml) {
 		}
 
 		// rejected/disabled stream?
-		if (!media->streams.head->data->selected_sfd) {
+		if (!media->endpoint_map) {
 			if (media->bundle == media)
 				ilog(LOG_WARN, "Bundle head has been rejected/disabled");
 			media->bundle = NULL;
@@ -3648,7 +3650,7 @@ static void monologue_bundle_offer(struct call_monologue *ml, sdp_ng_flags *flag
 		if (!media)
 			continue;
 
-		if (!media->streams.length || !media->streams.head->data->selected_sfd)
+		if (!media->endpoint_map)
 			continue; // disabled stream
 
 		// we should have a MID, but check anyway
@@ -5602,6 +5604,7 @@ void monologue_destroy(struct call_monologue *monologue) {
 			while ((sfd = t_queue_pop_head(&ps->sfds)))
 				stream_fd_release(sfd);
 		}
+		m->endpoint_map = NULL;
 	}
 
 	monologue->deleted_us = 0;
