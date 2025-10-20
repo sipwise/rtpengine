@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include "compat.h"
+#include "auxlib.h"
 
 
 
@@ -38,7 +39,7 @@ struct obj {
 	uint32_t		magic;
 	char			*type;
 #endif
-	volatile gint		ref;
+	unsigned int		ref;
 	void			(*free_func)(void *);
 	size_t			size;
 };
@@ -188,7 +189,7 @@ INLINE struct obj *__obj_hold(struct obj *o
 #if OBJ_DEBUG
 	assert(o->magic == OBJ_MAGIC);
 	write_log(LOG_DEBUG, "obj_hold(%p, \"%s\"), refcnt inc %u -> %u [%s:%s:%u]",
-		o, o->type, g_atomic_int_get(&o->ref), g_atomic_int_get(&o->ref) + 1, file, func, line);
+		o, o->type, atomic_get_na(&o->ref), atomic_get_na(&o->ref) + 1, file, func, line);
 #if OBJ_BACKTRACE
 	void *bt[4];
 	int addrs = backtrace(bt, 4);
@@ -200,7 +201,7 @@ INLINE struct obj *__obj_hold(struct obj *o
 	free(syms);
 #endif
 #endif
-	g_atomic_int_inc(&o->ref);
+	atomic_inc(&o->ref);
 	return o;
 }
 
@@ -224,7 +225,7 @@ INLINE void __obj_put(struct obj *o
 #if OBJ_DEBUG
 	assert(o->magic == OBJ_MAGIC);
 	write_log(LOG_DEBUG, "obj_put(%p, \"%s\"), refcnt dec %u -> %u [%s:%s:%u]",
-		o, o->type, g_atomic_int_get(&o->ref), g_atomic_int_get(&o->ref) - 1, file, func, line);
+		o, o->type, atomic_get_na(&o->ref), atomic_get_na(&o->ref) - 1, file, func, line);
 #if OBJ_BACKTRACE
 	void *bt[4];
 	int addrs = backtrace(bt, 4);
@@ -236,7 +237,7 @@ INLINE void __obj_put(struct obj *o
 	free(syms);
 #endif
 #endif
-	if (!g_atomic_int_dec_and_test(&o->ref))
+	if (atomic_dec(&o->ref) != 1)
 		return;
 	if (o->free_func)
 		o->free_func(o);
