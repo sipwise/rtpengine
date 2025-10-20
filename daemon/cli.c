@@ -1836,8 +1836,8 @@ static void cli_incoming_list_transcoders(str *instr, struct cli_writer *cw, con
 		char *chain;
 		struct codec_stats *stats_entry;
 		while (t_hash_table_iter_next(&iter, &chain, &stats_entry)) {
-			cw->cw_printf(cw, "%s: %i transcoders\n", chain, g_atomic_int_get(&stats_entry->num_transcoders));
-			if (g_atomic_int_get(&stats_entry->last_tv_sec[idx]) != last_tv_sec)
+			cw->cw_printf(cw, "%s: %i transcoders\n", chain, atomic_get_na(&stats_entry->num_transcoders));
+			if (atomic_get(&stats_entry->last_tv_sec[idx]) != last_tv_sec)
 				continue;
 			cw->cw_printf(cw, "     %" PRIu64 " packets/s\n", atomic64_get(&stats_entry->packets_input[idx]));
 			cw->cw_printf(cw, "     %" PRIu64 " bytes/s\n", atomic64_get(&stats_entry->bytes_input[idx]));

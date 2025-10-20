@@ -889,10 +889,10 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 	while (t_hash_table_iter_next(&iter, &chain, &stats_entry)) {
 		HEADER("{", "");
 		METRICsva("chain", "\"%s\"", chain);
-		METRICs("num", "%i", g_atomic_int_get(&stats_entry->num_transcoders));
+		METRICs("num", "%i", atomic_get_na(&stats_entry->num_transcoders));
 		PROM("transcoders", "gauge");
 		PROMLAB("chain=\"%s\"", chain);
-		if (g_atomic_int_get(&stats_entry->last_tv_sec[idx]) == last_tv_sec) {
+		if (atomic_get(&stats_entry->last_tv_sec[idx]) == last_tv_sec) {
 			METRICs("packetrate", "%" PRIu64, atomic64_get(&stats_entry->packets_input[idx]));
 			METRICs("byterate", "%" PRIu64, atomic64_get(&stats_entry->bytes_input[idx]));
 			METRICs("samplerate", "%" PRIu64, atomic64_get(&stats_entry->pcm_samples[idx]));

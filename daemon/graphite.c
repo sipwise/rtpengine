@@ -197,8 +197,8 @@ GString *print_graphite_data(void) {
 	struct codec_stats *stats_entry;
 	while (t_hash_table_iter_next(&iter, &chain, &stats_entry)) {
 		GPF("transcoder_%s %i", stats_entry->chain_brief,
-				g_atomic_int_get(&stats_entry->num_transcoders));
-		if (g_atomic_int_get(&stats_entry->last_tv_sec[idx]) != last_tv_sec)
+				atomic_get_na(&stats_entry->num_transcoders));
+		if (atomic_get(&stats_entry->last_tv_sec[idx]) != last_tv_sec)
 			continue;
 		GPF("transcoder_%s_packets %llu", stats_entry->chain_brief,
 				(unsigned long long) atomic64_get(&stats_entry->packets_input[idx]));

@@ -464,7 +464,7 @@ static void __handler_shutdown(struct codec_handler *handler) {
 	codec_handler_free(&handler->dtmf_injector);
 
 	if (handler->stats_entry) {
-		__atomic_fetch_add(&handler->stats_entry->num_transcoders, -1, __ATOMIC_RELAXED);
+		atomic_add_na(&handler->stats_entry->num_transcoders, -1);
 		handler->stats_entry = NULL;
 		g_free(handler->stats_chain);
 		handler->stats_chain = NULL;
@@ -556,7 +556,7 @@ static void __handler_stats_entry(struct codec_handler *handler) {
 	__auto_type stats_entry = handler->stats_entry;
 
 	if (stats_entry)
-		__atomic_fetch_add(&stats_entry->num_transcoders, -1, __ATOMIC_RELAXED);
+		atomic_add_na(&stats_entry->num_transcoders, -1);
 
 	{
 		LOCK(&rtpe_codec_stats_lock);
@@ -573,7 +573,7 @@ static void __handler_stats_entry(struct codec_handler *handler) {
 		handler->stats_entry = stats_entry;
 	}
 
-	__atomic_fetch_add(&stats_entry->num_transcoders, 1, __ATOMIC_RELAXED);
+	atomic_inc_na(&stats_entry->num_transcoders);
 }
 
 static int handler_func_blackhole(struct codec_handler *h, struct media_packet *mp) {
@@ -5072,8 +5072,8 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 		unsigned int idx = now_sec & 1;
 		int last_tv_sec = atomic_get_na(&h->stats_entry->last_tv_sec[idx]);
 		if (last_tv_sec != now_sec) {
-			if (g_atomic_int_compare_and_exchange(&h->stats_entry->last_tv_sec[idx],
-						last_tv_sec, now_sec))
+			if (atomic_compare_exchange(&h->stats_entry->last_tv_sec[idx],
+						&last_tv_sec, now_sec))
 			{
 				// new second - zero out stats. slight race condition here
 				atomic64_set(&h->stats_entry->packets_input[idx], 0);
