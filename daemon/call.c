@@ -793,7 +793,7 @@ static bool __endpoint_map_truncate(struct endpoint_map *em, unsigned int num_in
 		__auto_type il = l->data;
 		while (il->list.length > num_ports) {
 			__auto_type p = t_queue_pop_tail(&il->list);
-			stream_fd_release(p);
+			stream_fd_dec(p);
 		}
 	}
 
@@ -925,6 +925,7 @@ static void __assign_stream_fds(struct call_media *media, sfd_intf_list_q *intf_
 			}
 
 			sfd->stream = ps;
+			stream_fd_inc(sfd);
 			t_queue_push_tail(&ps->sfds, sfd);
 
 			if (ps->selected_sfd == sfd)
@@ -3729,6 +3730,7 @@ static bool media_open_ports(struct call_media *media) {
 			}
 			__auto_type sfd = stream_fd_new(spl, media->call, em_il->local_intf);
 			t_queue_push_tail(&em_il->list, sfd); // not referenced
+			stream_fd_inc(sfd);
 			g_free(spl); // XXX eliminate this
 		}
 	}
@@ -5631,7 +5633,7 @@ void monologue_destroy(struct call_monologue *monologue) {
 
 			stream_fd *sfd;
 			while ((sfd = t_queue_pop_head(&ps->sfds)))
-				stream_fd_release(sfd);
+				stream_fd_dec(sfd);
 		}
 		if (m->endpoint_map)
 			t_queue_clear_full(&m->endpoint_map->intf_sfds, free_release_sfd_intf_list);

@@ -242,9 +242,12 @@ struct stream_fd {
 	int				active_read_events;
 	struct poller			*poller;
 
+	unsigned int			users;
+
 	bool				kernelized:1,
 					confirmed:1;
 };
+
 
 struct sink_attrs {
 	// cannot be bit fields because G_STRUCT_OFFSET is used on them
@@ -398,6 +401,22 @@ void stream_fd_release(stream_fd *);
 
 enum thread_looper_action release_closed_sockets(void);
 void append_thread_lpr_to_glob_lpr(void);
+
+
+// needs upper level locking
+__attribute__((nonnull(1)))
+INLINE void stream_fd_inc(stream_fd *sfd) {
+	sfd->users++;
+}
+
+// needs upper level locking
+__attribute__((nonnull(1)))
+INLINE void stream_fd_dec(stream_fd *sfd) {
+	if (--sfd->users > 0)
+		return;
+	stream_fd_release(sfd);
+}
+
 
 void free_sfd_intf_list(struct sfd_intf_list *il);
 void free_release_sfd_intf_list(struct sfd_intf_list *il);

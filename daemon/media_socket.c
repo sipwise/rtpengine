@@ -1396,7 +1396,7 @@ void free_sfd_intf_list(struct sfd_intf_list *il) {
 	g_free(il);
 }
 void free_release_sfd_intf_list(struct sfd_intf_list *il) {
-	t_queue_clear_full(&il->list, stream_fd_release);
+	t_queue_clear_full(&il->list, stream_fd_dec);
 	g_free(il);
 }
 
