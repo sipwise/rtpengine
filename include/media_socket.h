@@ -392,7 +392,10 @@ bool get_consecutive_ports(socket_port_q *out, unsigned int num_ports, struct lo
 
 stream_fd *stream_fd_new(struct socket_port_link *, call_t *call, struct local_intf *lif);
 stream_fd *stream_fd_lookup(const endpoint_t *);
+
+__attribute__((nonnull(1)))
 void stream_fd_release(stream_fd *);
+
 enum thread_looper_action release_closed_sockets(void);
 void append_thread_lpr_to_glob_lpr(void);
 

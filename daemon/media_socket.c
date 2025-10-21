@@ -3991,8 +3991,6 @@ stream_fd *stream_fd_lookup(const endpoint_t *ep) {
 }
 
 void stream_fd_release(stream_fd *sfd) {
-	if (!sfd)
-		return;
 	if (sfd->socket.fd == -1)
 		return;
 
