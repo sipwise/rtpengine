@@ -7,10 +7,11 @@ use NGCP::Rtpclient::SRTP;
 use NGCP::Rtpengine::AutoTest;
 use Test::More;
 use POSIX;
+use JSON;
 
 
 autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
-			-n 2223 -c 12345 -f -L 7 -E -u 2222 --log-level-internals=7))
+			-n 2223 -f -L 7 -E --log-level-internals=7))
 		or die;
 
 
@@ -3670,6 +3671,19 @@ a=b-baz:quux blah
 a=sendonly
 a=rtcp:PORT
 SDP
+
+
+
+
+$resp = rtpe_req('cli', 'cli', { body => 'list jsonstats' } );
+$resp = decode_json($resp->{response});
+
+is($resp->{interfaces}[0]{name}, 'default', 'intf found');
+is($resp->{interfaces}[0]{address}, '203.0.113.1', 'address found');
+is($resp->{interfaces}[0]{ports}{used}, 184, 'port usage');
+is($resp->{interfaces}[1]{name}, 'default', 'intf found');
+is($resp->{interfaces}[1]{address}, '2001:db8:4321::1', 'address found');
+is($resp->{interfaces}[1]{ports}{used}, 2, 'port usage');
 
 
 
