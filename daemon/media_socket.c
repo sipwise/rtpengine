@@ -801,7 +801,8 @@ static void release_reserved_port(struct port_pool *pp, ports_q *list, unsigned 
 
 static void release_reserved_ports(socket_port_q *ports) {
 	while (ports->length) {
-		__auto_type p = t_queue_pop_head(ports);
+		__auto_type pl = t_queue_pop_head_link(ports);
+		__auto_type p = pl->data;
 		if (p->links.length)
 			release_reserved_port(p->pp, &p->links, GPOINTER_TO_UINT(p->links.head->data));
 		g_free(p);
@@ -1257,7 +1258,7 @@ static bool __get_consecutive_ports(socket_port_q *out, unsigned int num_ports,
 {
 	unsigned int allocation_attempts = 0, available_ports = 0, additional_port = 0, port = 0;
 
-	struct port_pool * pp = &spec->port_pool;	/* port pool for a given local interface */
+	struct port_pool *pp = &spec->port_pool;	/* port pool for a given local interface */
 	ports_q *free_ports_q;
 
 	if (num_ports == 0) {
@@ -1330,7 +1331,8 @@ new_cycle:
 
 		__auto_type splp = g_new(struct socket_port_link, 1);
 		*splp = spl;
-		t_queue_push_tail(out, splp);
+		splp->link.data = splp;
+		t_queue_push_tail_link(out, &splp->link);
 
 		/* find additional ports, usually it's only RTCP */
 		additional_port = port;
@@ -1352,7 +1354,8 @@ new_cycle:
 			/* track for which additional ports, we have to open sockets */
 			splp = g_new(struct socket_port_link, 1);
 			*splp = spl;
-			t_queue_push_tail(out, splp);
+			splp->link.data = splp;
+			t_queue_push_tail_link(out, &splp->link);
 		}
 
 		ilog(LOG_DEBUG, "Trying to bind the socket for RTP/RTCP ports (allocation attempt = '%d')",

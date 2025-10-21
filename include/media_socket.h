@@ -93,11 +93,13 @@ struct logical_intf {
 
 typedef void port_t;
 TYPED_GQUEUE(ports, port_t)
+TYPED_GQUEUE(socket_port, struct socket_port_link)
 
 struct socket_port_link {
-	socket_t			socket;
+	socket_t			socket; // must be first
 	ports_q				links;
 	struct port_pool		*pp;
+	socket_port_list		link;
 };
 
 TYPED_GQUEUE(port_pool, struct port_pool)
@@ -176,8 +178,6 @@ void interface_sampled_rate_stats_init(struct interface_sampled_rate_stats *);
 void interface_sampled_rate_stats_destroy(struct interface_sampled_rate_stats *);
 struct interface_stats_block *interface_sampled_rate_stats_get(struct interface_sampled_rate_stats *s,
 		struct local_intf *lif, int64_t *time_diff_us);
-
-TYPED_GQUEUE(socket_port, struct socket_port_link)
 
 struct local_intf {
 	struct intf_spec		*spec;
