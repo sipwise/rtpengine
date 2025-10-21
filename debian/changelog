@@ -1,3 +1,15 @@
+ngcp-rtpengine (12.5.1.48+0~mr12.5.1.48) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [bb4fed2] MT#62735 pull up SRTP decryption
+  * [8172180] MT#55283 fix test case
+  * [59a451c] MT#55283 more specific callback arg name
+  * [27a8a0d] MT#55283 switch callback argument
+  * [ee89078] MT#55283 add extra dtls_connection_cleanup
+  * [c250cee] MT#55283 store sfd in fsin in dtls_connection
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 21 Oct 2025 09:34:33 +0200
+
 ngcp-rtpengine (12.5.1.47+0~mr12.5.1.47) unstable; urgency=medium
 
   [ Richard Fuchs ]
