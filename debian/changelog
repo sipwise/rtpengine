@@ -1,3 +1,13 @@
+ngcp-rtpengine (13.3.1.16+0~mr13.3.1.16) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7079116] MT#55283 more specific callback arg name
+  * [de48496] MT#55283 switch callback argument
+  * [1dde348] MT#55283 add extra dtls_connection_cleanup
+  * [7379d99] MT#55283 store sfd in fsin in dtls_connection
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 21 Oct 2025 09:34:26 +0200
+
 ngcp-rtpengine (13.3.1.15+0~mr13.3.1.15) unstable; urgency=medium
 
   [ Richard Fuchs ]
