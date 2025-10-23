@@ -63,6 +63,8 @@ enum endpoint_learning {
 	X(num_threads) \
 	X(media_num_threads) \
 	X(codec_num_threads) \
+	X(kernel_num_threads) \
+	X(kernel_slots) \
 	X(nftables_family) \
 	X(load_limit) \
 	X(cpu_limit) \

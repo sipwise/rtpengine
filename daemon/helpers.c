@@ -16,6 +16,7 @@
 #include "media_socket.h"
 #include "uring.h"
 #include "poller.h"
+#include "kernel.h"
 
 #if 0
 #define BSDB(x...) fprintf(stderr, x)
@@ -252,6 +253,7 @@ static void *thread_detach_func(struct detach_thread *dt) {
 
 	media_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free);
 	uring_thread_init();
+	kernel_thread_init();
 
 	thread_cleanup_push(thread_detach_cleanup, dt);
 	dt->func(dt->data);

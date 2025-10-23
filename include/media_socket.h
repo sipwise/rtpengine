@@ -461,6 +461,9 @@ void sink_handler_set_generic(struct sink_handler *sh);
 __attribute__((nonnull(2, 3)))
 int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, struct media_packet *mp);
 
+void stream_fd_kernel_input(stream_fd *, char *, size_t,
+		const struct re_address *, const struct re_address *, int64_t);
+
 const struct transport_protocol *transport_protocol(const str *s);
 
 __attribute__((nonnull(1)))

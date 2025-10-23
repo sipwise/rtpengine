@@ -101,6 +101,7 @@ struct interface_stats_interval {
 };
 
 
+
 /* thread scope (local) queue for sockets to be released, only appending here */
 static __thread ports_release_q ports_to_release = TYPED_GQUEUE_INIT;
 /* global queue for sockets to be released, releasing by `sockets_releaser()` is done using that */
@@ -1608,6 +1609,11 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 	reti->rtp_stats = (rtpe_config.measure_rtp
 			|| MEDIA_ISSET(media, RTCP_GEN) || (mqtt_publish_scope() != MPS_NONE)) ? 1 : 0;
 
+	reti->raw_ring_buf.start_idx = kernel_poller_start_idx;
+	reti->raw_ring_buf.num = kernel_pollers_num;
+	reti->raw_ring_buf.opaque = sfd; // ref held after kernel_add_stream()
+	reti->raw_ring_buf.opaque_ref = &sfd->obj.ref;
+
 	// Grab the first stream handler for our decryption function.
 	// determine_sink_handler is in charge of only returning a NULL decrypter if it is
 	// in fact a pure passthrough for all sinks.
@@ -2005,7 +2011,9 @@ static void kernelize(struct packet_stream *stream) {
 				"lack of sinks");
 	}
 
-	kernel_add_stream(&s.reti);
+	if (kernel_add_stream(&s.reti))
+		obj_hold(stream->selected_sfd); // ref in reti.target.raw_ring_buf.opaque
+
 	struct rtpengine_command_destination *redi;
 	while ((redi = t_queue_pop_head(&s.outputs))) {
 		kernel_add_destination(redi);
@@ -2072,7 +2080,8 @@ void __unkernelize(struct packet_stream *p, const char *reason) {
 				reason);
 		struct rtpengine_command_del_target cmd = {0};
 		__re_address_translate_ep(&cmd.local, &sfd->socket.local);
-		kernel_del_stream(&cmd);
+		if (kernel_del_stream(&cmd))
+			obj_put(sfd); // raw_ring_buf ref
 	}
 
 	sfd->kernelized = false;
@@ -3896,8 +3905,10 @@ done:
 	log_info_pop();
 }
 
-static void stream_fd_recv(struct obj *obj, char *buf, size_t len, const struct sockaddr *sa, int64_t tv) {
-	struct stream_fd *sfd = (struct stream_fd *) obj;
+static void __stream_fd_recv(stream_fd *sfd, char *buf, size_t len,
+		const struct sockaddr *sa, const struct re_address *ra,
+		int64_t tv)
+{
 	call_t *ca = sfd->call;
 	if (!ca)
 		goto out;
@@ -3917,7 +3928,10 @@ static void stream_fd_recv(struct obj *obj, char *buf, size_t len, const struct 
 	ZERO(phc);
 	phc.mp.sfd = sfd;
 	phc.mp.tv = tv;
-	sfd->socket.family->sockaddr2endpoint(&phc.mp.fsin, sa);
+	if (sa)
+		sfd->socket.family->sockaddr2endpoint(&phc.mp.fsin, sa);
+	else if (ra)
+		kernel2endpoint(&phc.mp.fsin, ra);
 	phc.s = STR_LEN(buf, len);
 
 	__stream_fd_readable(&phc);
@@ -3928,6 +3942,24 @@ static void stream_fd_recv(struct obj *obj, char *buf, size_t len, const struct 
 out:
 	log_info_pop();
 	bufferpool_unref(buf);
+}
+
+static void stream_fd_recv(struct obj *obj, char *buf, size_t len, const struct sockaddr *sa, int64_t tv) {
+	__stream_fd_recv((stream_fd *) obj, buf, len, sa, NULL, tv);
+}
+
+
+void stream_fd_kernel_input(stream_fd *sfd, char *buf, size_t len,
+		const struct re_address *src, const struct re_address *dst, int64_t tv)
+{
+	// XXX obsolete this by using bufferpool memory directly?
+	char *bbuf = bufferpool_alloc(media_bufferpool, RTP_BUFFER_SIZE);
+
+	memcpy(bbuf + RTP_BUFFER_HEAD_ROOM, buf, len);
+
+	__stream_fd_recv(sfd, bbuf + RTP_BUFFER_HEAD_ROOM, len, NULL, src, tv);
+
+	obj_put(sfd);
 }
 
 

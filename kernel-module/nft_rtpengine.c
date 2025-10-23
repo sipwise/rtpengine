@@ -36,6 +36,7 @@
 #include <linux/kthread.h>
 #include <linux/wait.h>
 #include <linux/sort.h>
+#include <linux/eventfd.h>
 #ifdef CONFIG_BTREE
 #include <linux/btree.h>
 #define KERNEL_PLAYER
@@ -201,6 +202,7 @@ struct re_stream;
 struct rtpengine_table;
 struct crypto_aead;
 struct rtpengine_output;
+struct ring_buffer;
 
 
 
@@ -334,11 +336,19 @@ struct re_crypto_context {
 	const struct re_hmac		*hmac;
 };
 
+struct re_ring_buf_ctx {
+	struct re_ring_buffer_pair	**ring_buffers;
+	atomic_t			cur;
+	void				*opaque;
+	atomic_t			*opaque_ref;
+};
+
 struct rtpengine_output {
 	struct rtpengine_output_info	output;
 	struct re_crypto_context	encrypt_rtp;
 	struct re_crypto_context	encrypt_rtcp;
 };
+
 struct rtpengine_target {
 	atomic_t			refcnt;
 	uint32_t			table;
@@ -353,6 +363,8 @@ struct rtpengine_target {
 	rwlock_t			outputs_lock;
 	struct rtpengine_output		*outputs;
 	unsigned int			outputs_unfilled; // only ever decreases
+
+	struct re_ring_buf_ctx		raw_ring_buf;
 };
 
 struct re_bitfield {
@@ -439,6 +451,7 @@ struct re_shm {
  };
 
 #define RE_HASH_BITS 8 /* make configurable? */
+#define MAX_RING_BUFFERS 1024
 
 struct rtpengine_table {
 	atomic_t			refcnt;
@@ -476,6 +489,11 @@ struct rtpengine_table {
 	unsigned int			num_play_streams;
 	struct list_head		packet_streams;
 	unsigned int			num_packet_streams;
+
+	rwlock_t			ring_buffers_lock;
+	unsigned int			num_ring_buffers;
+	struct re_ring_buffer_pair	**ring_buffers;
+	atomic_t			ring_buf_loop;
 };
 
 struct re_cipher {
@@ -585,6 +603,32 @@ struct re_timer_thread {
 	bool tree_added;
 	struct re_play_stream *scheduled;
 	ktime_t scheduled_at;
+};
+
+struct re_ring_buffer {
+	void *head;
+	struct rtpengine_buf_slot *slots;
+	struct rtpengine_buf_metadata *metadata;
+	struct rtpengine_ring_buf_shm *shm;
+
+	// stats
+	atomic_t read_preempt;
+	atomic_t write_preempt;
+	atomic_t slots_full;
+	atomic_t buf_full;
+};
+
+struct re_ring_buffer_pair {
+	unsigned int num_steps;
+	size_t sizes[3];
+	unsigned int num_slots;
+	struct file *run_now_file;
+	struct eventfd_ctx *run_now_event;
+	struct eventfd_ctx *writers_done_event;
+	struct re_ring_buffer buf[2];
+	atomic_t *buf_idx;
+	atomic_t errors;
+	struct task_struct *sender;
 };
 
 
@@ -864,6 +908,7 @@ static struct rtpengine_table *new_table(void) {
 	INIT_LIST_HEAD(&t->play_streams);
 	t->id = -1;
 	spin_lock_init(&t->player_lock);
+	rwlock_init(&t->ring_buffers_lock);
 
 	for (i = 0; i < ARRAY_SIZE(t->calls_hash); i++) {
 		INIT_HLIST_HEAD(&t->calls_hash[i]);
@@ -1003,6 +1048,11 @@ static void free_crypto_context(struct re_crypto_context *c) {
 		crypto_free_aead(c->aead);
 }
 
+static void ring_buf_ctx_clear(struct re_ring_buf_ctx *c) {
+	if (c->ring_buffers)
+		kfree(c->ring_buffers);
+}
+
 static void target_put(struct rtpengine_target *t) {
 	unsigned int i;
 
@@ -1024,6 +1074,7 @@ static void target_put(struct rtpengine_target *t) {
 		}
 		kfree(t->outputs);
 	}
+	ring_buf_ctx_clear(&t->raw_ring_buf);
 	kfree(t);
 }
 
@@ -1130,6 +1181,16 @@ static void release_shm(struct re_shm *rmm) {
 	kvfree(rmm->pages);
 }
 
+static void re_ring_buf_pair_free(struct re_ring_buffer_pair *buf) {
+	if (buf->run_now_event)
+		eventfd_ctx_put(buf->run_now_event);
+	if (buf->run_now_file)
+		fput(buf->run_now_file);
+	if (buf->writers_done_event)
+		eventfd_ctx_put(buf->writers_done_event);
+	kfree(buf);
+}
+
 static void table_put(struct rtpengine_table *t) {
 	int i, j, k;
 	struct re_dest_addr *rda;
@@ -1168,6 +1229,16 @@ static void table_put(struct rtpengine_table *t) {
 		kfree(rda);
 		t->dest_addr_hash.addrs[k] = NULL;
 	}
+
+	for (i = 0; i < t->num_ring_buffers; i++) {
+		if (t->ring_buffers[i]->sender)
+			kthread_stop(t->ring_buffers[i]->sender);
+		else
+			re_ring_buf_pair_free(t->ring_buffers[i]);
+	}
+
+	if (t->ring_buffers)
+		kfree(t->ring_buffers);
 
 	for (i = 0; i < t->nshms; i++)
 		release_shm(&t->shms[i]);
@@ -1327,6 +1398,8 @@ static int proc_status_show(struct seq_file *m, void *v) {
 	unsigned long flags;
 	struct inode *inode = m->private;
 	uint32_t id = (uint32_t) (unsigned long) PDE_DATA(inode);
+	unsigned int i, j;
+
 	struct rtpengine_table *t = get_table(id);
 	if (!t)
 		return -ENOENT;
@@ -1342,6 +1415,45 @@ static int proc_status_show(struct seq_file *m, void *v) {
 	seq_printf(m, "PStreams:    %u\n", t->num_packet_streams);
 	seq_printf(m, "Memory pins: %u\n", t->nshms);
 	seq_printf(m, "Memory:      %lu\n",t->shm_total);
+
+	read_lock_irqsave(&t->ring_buffers_lock, flags);
+
+	seq_printf(m, "Ring bufs:   %u\n", t->num_ring_buffers);
+	for (i = 0; i < t->num_ring_buffers; i++) {
+		struct re_ring_buffer_pair *rp = t->ring_buffers[i];
+
+		seq_printf(m, "  [%u]\n", i);
+		if (rp->sender)
+			seq_printf(m, "       sender thread\n");
+		seq_printf(m, "       max slots:  %u\n",  rp->num_slots);
+		seq_printf(m, "       max bufs:   %zu, %zu, %zu\n", rp->sizes[0], rp->sizes[1], rp->sizes[2]);
+		seq_printf(m, "       errors:     %u\n",  atomic_read(&rp->errors));
+
+		seq_printf(m, "       active: [%d]\n", atomic_read(t->ring_buffers[i]->buf_idx));
+
+		for (j = 0; j < 2; j++) {
+			struct re_ring_buffer *r = &t->ring_buffers[i]->buf[j];
+
+			seq_printf(m, "       [%u]\n", j);
+			seq_printf(m, "            slots:           %u\n",
+					atomic_read(&r->shm->slots_filled));
+			seq_printf(m, "            filled:          %lu\n",
+				(long unsigned) atomic64_read(&r->shm->filled[0]));
+
+			if (!rp->sender) {
+				seq_printf(m, "            read preempted:  %u times\n",
+						atomic_read(&r->read_preempt));
+				seq_printf(m, "            write preempted: %u times\n",
+						atomic_read(&r->write_preempt));
+				seq_printf(m, "            slots full:      %u times\n",
+						atomic_read(&r->slots_full));
+				seq_printf(m, "            buf full:        %u times\n",
+						atomic_read(&r->buf_full));
+			}
+		}
+	}
+
+	read_unlock_irqrestore(&t->ring_buffers_lock, flags);
 
 	table_put(t);
 
@@ -1781,6 +1893,11 @@ static int proc_list_show(struct seq_file *f, void *v) {
 	if (g->target.extmap)
 		seq_printf(f, " extmap[%u]", g->target.extmap_mid);
 	seq_printf(f, "\n");
+
+	if (g->target.raw_ring_buf.num)
+		seq_printf(f, "    raw ring buf: %u > %u [%u]\n", g->target.raw_ring_buf.start_idx,
+				g->target.raw_ring_buf.num + g->target.raw_ring_buf.start_idx,
+				atomic_read(&g->raw_ring_buf.cur));
 
 	seq_printf(f, "    output groups:");
 	for (i = 0; i < RTPE_NUM_OUTPUT_MEDIA; i++) {
@@ -2456,6 +2573,58 @@ static void crypto_context_init(struct re_crypto_context *c, const struct rtpeng
 	c->hmac = &re_hmacs[s->hmac];
 }
 
+static int ring_buffer_group_resolve(struct re_ring_buf_ctx *ctx,
+		struct rtpengine_table *t,
+		const struct rtpengine_ring_buf_group *g)
+{
+	unsigned long flags;
+	int err;
+	unsigned int i;
+
+	if (g->num == 0)
+		return 0;
+
+	read_lock_irqsave(&t->ring_buffers_lock, flags);
+
+	err = -EINVAL;
+	if (g->start_idx >= t->num_ring_buffers)
+		goto err;
+	if (g->start_idx + g->num > t->num_ring_buffers)
+		goto err;
+
+	// values validated, unlock for malloc
+	read_unlock_irqrestore(&t->ring_buffers_lock, flags);
+
+	err = -ENOMEM;
+	ctx->ring_buffers = kmalloc_array(g->num, sizeof(*ctx->ring_buffers), GFP_KERNEL);
+	if (!ctx->ring_buffers)
+		goto err;
+
+	// relock to get pointers
+	read_lock_irqsave(&t->ring_buffers_lock, flags);
+
+	for (i = 0; i < g->num; i++)
+		ctx->ring_buffers[i] = t->ring_buffers[i + g->start_idx];
+
+	read_unlock_irqrestore(&t->ring_buffers_lock, flags);
+
+	ctx->opaque = g->opaque;
+	if (g->opaque_ref) {
+		ctx->opaque_ref = shm_map_resolve(t, g->opaque_ref, sizeof(*g->opaque_ref));
+		if (!ctx->opaque_ref)
+			return -EFAULT;
+	}
+
+	atomic_set(&ctx->cur, atomic_inc_return_relaxed(&t->ring_buf_loop));
+
+	return 0;
+
+err:
+	read_unlock_irqrestore(&t->ring_buffers_lock, flags);
+
+	return err;
+}
+
 static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_info *i) {
 	unsigned char hi, lo;
 	unsigned int rda_hash, rh_it;
@@ -2470,6 +2639,7 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	struct stream_stats *stats;
 	struct rtp_stats *pt_stats[RTPE_NUM_PAYLOAD_TYPES];
 	struct ssrc_stats *ssrc_stats[RTPE_NUM_SSRC_TRACKING];
+	struct re_ring_buf_ctx raw_ring_ctx = {0};
 
 	/* validation */
 
@@ -2532,6 +2702,10 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	DBG("Creating new target\n");
 
 	/* initializing */
+
+	err = ring_buffer_group_resolve(&raw_ring_ctx, t, &i->raw_ring_buf);
+	if (err)
+		return err;
 
 	err = -ENOMEM;
 	g = kzalloc(sizeof(*g), GFP_KERNEL);
@@ -2643,6 +2817,8 @@ got_bucket:
 	re_bitfield_set(&b->ports_lo_bf, lo);
 	t->num_targets++;
 
+	g->raw_ring_buf = raw_ring_ctx;
+
 	b->ports_lo[lo] = g;
 	g = NULL;
 	write_unlock_irqrestore(&t->target_lock, flags);
@@ -2659,6 +2835,7 @@ fail4:
 fail2:
 	kfree(g->outputs);
 	kfree(g);
+	ring_buf_ctx_clear(&raw_ring_ctx);
 fail1:
 	return err;
 }
@@ -3848,6 +4025,249 @@ static int cmd_pin_memory(struct rtpengine_table *t, struct rtpengine_pin_memory
 	return 0;
 }
 
+
+static inline void re_wait_event(struct file *f) {
+	uint64_t c;
+	loff_t pos = 0;
+	ssize_t ret = kernel_read(f, &c, sizeof(c), &pos);
+	(void)ret;
+}
+
+static bool re_ring_send(const void *payload, size_t length,
+		const struct re_address *src, const struct re_address *dst,
+		unsigned int tos)
+{
+	struct sk_buff *skb;
+	void *data;
+
+	skb = alloc_skb(length + MAX_HEADER + MAX_SKB_TAIL_ROOM, GFP_KERNEL);
+	if (!skb)
+		return false;
+
+	// reserve head room (L2/L3 header) and copy data in
+	skb_reserve(skb, MAX_HEADER);
+
+	// copy data
+	data = skb_put(skb, length);
+	memcpy(data, payload, length);
+
+	send_proxy_packet(skb, src, dst, tos, NULL);
+
+	return true;
+}
+
+static int re_ring_sender(void *p) {
+	struct re_ring_buffer_pair *pair = p;
+	unsigned int buf_idx = 0;
+
+	while (!kthread_should_stop()) {
+		struct re_ring_buffer *buf = &pair->buf[buf_idx];
+		struct rtpengine_buf_slot *slots = buf->slots;
+		struct rtpengine_ring_buf_shm *shm = buf->shm;
+		struct rtpengine_buf_metadata *metadata = buf->metadata;
+
+		unsigned int num_slots;
+		unsigned int s;
+
+		num_slots = atomic_read(&shm->slots_filled);
+		if (!num_slots)
+			re_wait_event(pair->run_now_file);
+
+		// register as reader
+		atomic_inc(&shm->readers);
+
+		// switch 0/1 buffer to alternate
+		buf_idx = buf_idx ^ 1;
+		atomic_set(pair->buf_idx, buf_idx);
+
+		// wait until there are no more writers
+		while (atomic_read(&shm->writers) && !kthread_should_stop())
+			re_wait_event(pair->run_now_file);
+
+		num_slots = atomic_read(&shm->slots_filled);
+
+		for (s = 0; s < num_slots; s++) {
+			struct rtpengine_buf_slot *slot = &slots[s];
+			struct rtpengine_buf_metadata *metaslot = &metadata[s];
+
+			if (! re_ring_send(slot->steps[0].offset + buf->head, slot->steps[0].length,
+					&metaslot->src, &metaslot->dst, metaslot->tos))
+				atomic_inc(&pair->errors);
+		}
+
+		// reset
+		atomic_set(&shm->slots_filled, 0);
+		atomic64_set(&shm->filled[0], 0);
+
+		atomic_dec(&shm->readers);
+	}
+
+	re_ring_buf_pair_free(pair);
+
+	return 0;
+}
+
+static int cmd_ring_buf(struct rtpengine_table *t, struct rtpengine_ring_buf_info *ri) {
+	unsigned long flags;
+	int ret;
+	void *head[2];
+	struct rtpengine_buf_slot *slots[2];
+	struct rtpengine_buf_metadata *metadata[2];
+	struct rtpengine_ring_buf_shm *shm[2];
+	struct file *run_now_file = NULL;
+	struct eventfd_ctx *run_now_event = NULL;
+	struct re_ring_buffer_pair *buf = NULL;
+	struct eventfd_ctx *writers_done_event = NULL;
+	struct re_ring_buffer_pair **bufs, **bufs_alloc = NULL;
+	unsigned int i;
+	atomic_t *buf_idx;
+
+	if (ri->idx > MAX_RING_BUFFERS)
+		return -EINVAL;
+
+	if (ri->num_steps < 1 || ri->num_steps > 3)
+		return -ERANGE;
+
+	// validate/resolve info
+
+	for (i = 0; i < 2; i++) {
+		head[i] = shm_map_resolve(t, ri->buf[i].head, ri->sizes[0]);
+		if (!head[i])
+			return -ENOBUFS;
+
+		slots[i] = shm_map_resolve(t, ri->buf[i].slots, ri->num_slots * sizeof(*slots[i]));
+		if (!slots[i])
+			return -ERANGE;
+
+		metadata[i] = shm_map_resolve(t, ri->buf[i].metadata, ri->num_slots * sizeof(*metadata[i]));
+		if (!metadata[i])
+			return -ERANGE;
+
+		shm[i] = shm_map_resolve(t, ri->buf[i].shm, sizeof(*shm[i]));
+		if (!shm[i])
+			return -ENXIO;
+	}
+
+	buf_idx = shm_map_resolve(t, ri->buf_idx, sizeof(*buf_idx));
+	if (!buf_idx)
+		return -E2BIG;
+
+	if (ri->run_now_event != -1) {
+		run_now_file = eventfd_fget(ri->run_now_event);
+		ret = PTR_ERR(run_now_file);
+		if (IS_ERR(run_now_file))
+			goto out2;
+
+		run_now_event = eventfd_ctx_fileget(run_now_file);
+		ret = PTR_ERR(run_now_event);
+		if (IS_ERR(run_now_event))
+			goto out2;
+	}
+
+	if (ri->writers_done_event != -1) {
+		writers_done_event = eventfd_ctx_fdget(ri->writers_done_event);
+		ret = PTR_ERR(writers_done_event);
+		if (IS_ERR(writers_done_event))
+			goto out2;
+	}
+
+	// ok, alloc object
+	buf = kzalloc(sizeof(*buf), GFP_KERNEL);
+	ret = -ENOMEM;
+	if (!buf)
+		goto out2;
+
+	for (i = 0; i < 2; i++) {
+		buf->buf[i].head = head[i];
+		buf->buf[i].slots = slots[i];
+		buf->buf[i].metadata = metadata[i];
+		buf->buf[i].shm = shm[i];
+	}
+
+	buf->num_steps = ri->num_steps;
+	buf->sizes[0] = ri->sizes[0];
+	buf->sizes[1] = ri->sizes[1];
+	buf->sizes[2] = ri->sizes[2];
+	buf->num_slots = ri->num_slots;
+	buf->buf_idx = buf_idx;
+	buf->run_now_event = run_now_event;
+	buf->run_now_file = run_now_file;
+	buf->writers_done_event = writers_done_event;
+
+	ret = -ENOMEM;
+	if (ri->idx == 0) {
+		// first one
+		bufs_alloc = kmalloc_array(1, sizeof(*bufs), GFP_KERNEL);
+		if (!bufs_alloc)
+			goto out2;
+	}
+	else if ((ri->idx & (ri->idx - 1)) == 0) {
+		// power of 2, must reallocate
+		bufs_alloc = kmalloc_array(ri->idx << 1, sizeof(*bufs), GFP_KERNEL);
+		if (!bufs_alloc)
+			goto out2;
+	}
+
+	if (ri->sender) {
+		int num_cpus = num_online_cpus();
+		int node = NUMA_NO_NODE;
+		if (num_cpus > 0)
+			node = cpu_to_node(ri->idx % num_cpus);
+		buf->sender = kthread_create_on_node(re_ring_sender, buf, node,
+				"rtp_sender_%u", ri->idx);
+		if (IS_ERR(buf->sender)) {
+			ret = PTR_ERR(buf->sender);
+			goto out2;
+		}
+		kthread_bind(buf->sender, node);
+		wake_up_process(buf->sender);
+	}
+
+	write_lock_irqsave(&t->ring_buffers_lock, flags);
+
+	// they must be created in sequence
+	ret = -ERANGE;
+	if (ri->idx != t->num_ring_buffers)
+		goto out;
+
+	if (bufs_alloc) {
+		// this is a realloc
+		memcpy(bufs_alloc, t->ring_buffers, ri->idx * sizeof(*bufs));
+		bufs = bufs_alloc;
+		bufs_alloc = t->ring_buffers; // old one to free
+	}
+	else
+		bufs = t->ring_buffers;
+
+	bufs[ri->idx] = buf;
+
+	t->num_ring_buffers++;
+	t->ring_buffers = bufs;
+
+	ret = 0;
+
+out:
+	write_unlock_irqrestore(&t->ring_buffers_lock, flags);
+
+out2:
+	if (ret) {
+		if (run_now_event)
+			eventfd_ctx_put(run_now_event);
+		if (run_now_file)
+			fput(run_now_file);
+		if (writers_done_event)
+			eventfd_ctx_put(writers_done_event);
+		if (buf) {
+			if (buf->sender)
+				kthread_stop(buf->sender);
+			kfree(buf);
+		}
+	}
+	kfree(bufs_alloc);
+
+	return ret;
+}
+
 #ifdef KERNEL_PLAYER
 
 static void shut_threads(struct re_timer_thread **thr, unsigned int nt) {
@@ -4733,6 +5153,7 @@ static const size_t min_req_sizes[__REMG_LAST] = {
 	[REMG_STOP_STREAM]	= sizeof(struct rtpengine_command_stop_stream),
 	[REMG_FREE_PACKET_STREAM]= sizeof(struct rtpengine_command_free_packet_stream),
 	[REMG_PIN_MEMORY]	= sizeof(struct rtpengine_command_pin_memory),
+	[REMG_RING_BUFFER]	= sizeof(struct rtpengine_command_ring_buf),
 
 };
 static const size_t max_req_sizes[__REMG_LAST] = {
@@ -4752,6 +5173,7 @@ static const size_t max_req_sizes[__REMG_LAST] = {
 	[REMG_STOP_STREAM]	= sizeof(struct rtpengine_command_stop_stream),
 	[REMG_FREE_PACKET_STREAM]= sizeof(struct rtpengine_command_free_packet_stream),
 	[REMG_PIN_MEMORY]	= sizeof(struct rtpengine_command_pin_memory),
+	[REMG_RING_BUFFER]	= sizeof(struct rtpengine_command_ring_buf),
 };
 
 static int rtpengine_init_table(struct rtpengine_table *t, struct rtpengine_init_info *init) {
@@ -4791,6 +5213,7 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 		struct rtpengine_command_del_stream *del_stream;
 		struct rtpengine_command_packet *packet;
 		struct rtpengine_command_pin_memory *pin_memory;
+		struct rtpengine_command_ring_buf *ring_buf;
 #ifdef KERNEL_PLAYER
 		struct rtpengine_command_init_play_streams *init_play_streams;
 		struct rtpengine_command_get_packet_stream *get_packet_stream;
@@ -4891,6 +5314,10 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 
 		case REMG_PIN_MEMORY:
 			err = cmd_pin_memory(t, &msg.pin_memory->pin_memory);
+			break;
+
+		case REMG_RING_BUFFER:
+			err = cmd_ring_buf(t, &msg.ring_buf->buf);
 			break;
 
 #ifdef KERNEL_PLAYER
@@ -6387,6 +6814,141 @@ static unsigned int rtp_mid_ext_media(const struct rtp_parsed *rtp,
 }
 
 
+static int ring_buffer_insert(int action, struct rtpengine_table *t, struct rtpengine_target *g,
+		struct re_ring_buf_ctx *rc, unsigned int num, const struct re_address *src,
+		const struct re_address *dst, const struct sk_buff *skb, int64_t tstamp)
+{
+	struct re_ring_buffer_pair *pair;
+	struct re_ring_buffer *ring = NULL;
+	int cur;
+	struct rtpengine_ring_buf_shm *shm;
+	unsigned int iter, i;
+	unsigned int slot_idx;
+	struct rtpengine_buf_slot *slot;
+	struct rtpengine_buf_metadata *metadata;
+	uint64_t fills[3];
+	int writers;
+	int readers;
+
+	if (action != XT_CONTINUE)
+		return action;
+	if (!t || !g || !skb)
+		return action;
+	if (!rc->ring_buffers)
+		return action;
+	if (num == 0)
+		return action;
+
+	// find an idle ring buffer and register as writer
+	cur = atomic_read(&rc->cur);
+
+	for (iter = 0; iter < num; iter++) {
+		struct re_ring_buffer *rr;
+
+		unsigned int idx = (iter + cur) % num;
+		pair = rc->ring_buffers[idx];
+		int buf_idx = atomic_read(pair->buf_idx);
+
+		if (buf_idx != 0 && buf_idx != 1) {
+			atomic_inc(&pair->errors);
+			return action;
+		}
+		rr = &pair->buf[buf_idx];
+		shm = rr->shm;
+		// locked from readers?
+		if (atomic_read(&shm->readers)) {
+			// readers active, ring not available
+			atomic_inc(&rr->read_preempt);
+			continue;
+		}
+		// register as writer, locks for readers. barrier here
+		atomic_inc_return(&shm->writers);
+		// did we lose a race against a reader?
+		if (atomic_read(&shm->readers)) {
+			atomic_inc(&rr->write_preempt);
+			atomic_dec(&shm->writers);
+			continue;
+		}
+		// good to go
+		ring = rr;
+		// remember ring for next time
+		atomic_set(&rc->cur, idx);
+		break;
+	}
+
+	if (!ring) {
+		// failed
+		atomic64_inc(&g->target.stats->errors);
+		return action;
+	}
+
+	// get our fill slot
+	slot_idx = atomic_inc_return(&shm->slots_filled) - 1;
+	if (slot_idx >= pair->num_slots) {
+		// buffer full XXX mark it as such?
+		atomic_inc(&ring->slots_full);
+		atomic_dec(&shm->slots_filled);
+		atomic_dec_return(&shm->writers);
+		return action;
+	}
+
+	slot = &ring->slots[slot_idx];
+	metadata = &ring->metadata[slot_idx];
+
+	// get fill positions
+	for (i = 0; i < pair->num_steps; i++) {
+		// XXX different sizes for non-0 buffers
+		fills[i] = atomic64_add_return(skb->len, &shm->filled[i]);
+		if (fills[i] >= pair->sizes[i]) {
+			// buffer full XXX mark it as such? XXX try next ring/buffer?
+			atomic_inc(&ring->buf_full);
+			atomic_dec(&shm->slots_filled);
+			atomic_dec_return(&shm->writers);
+			return action;
+		}
+
+		fills[i] -= skb->len;
+
+		// fill in slot step
+		slot->steps[i].offset = fills[i];
+		slot->steps[i].length = skb->len;
+	}
+
+	// copy data and fill in slot
+	metadata->src = *src;
+	metadata->dst = *dst;
+	if (rc->opaque_ref)
+		atomic_inc(rc->opaque_ref);
+	metadata->opaque = rc->opaque;
+	metadata->ts = tstamp;
+	memcpy(ring->head + fills[0], skb->data, skb->len);
+
+	// done now
+	writers = atomic_dec_return(&shm->writers);
+	readers = atomic_read(&shm->readers);
+
+	if (writers == 0) {
+		// Content can be processed when there are no writers left.
+		// If we want to be notified to run as soon as possible, do
+		// it now. Otherwise, notify if somebody is waiting to run.
+		if (pair->run_now_event)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,8,0)
+			eventfd_signal_mask(pair->run_now_event, EPOLLIN);
+#else
+			eventfd_signal(pair->run_now_event, 1);
+#endif
+		else if (readers != 0 && pair->writers_done_event)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,8,0)
+			eventfd_signal_mask(pair->writers_done_event, EPOLLIN);
+#else
+			eventfd_signal(pair->writers_done_event, 1);
+#endif
+	}
+
+	return NF_DROP;
+}
+
+
 static int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 		struct rtpengine_table *t, struct re_address *src,
 		struct re_address *dst, uint8_t in_tos, struct net *net)
@@ -6684,6 +7246,8 @@ out_error:
 	atomic64_inc(&g->target.iface_stats->in.errors);
 	atomic64_inc(&t->rtpe_stats->errors_kernel);
 out:
+	error_nf_action = ring_buffer_insert(error_nf_action, t, g, &g->raw_ring_buf,
+			g->target.raw_ring_buf.num, src, &g->target.local, skb, ktime_to_us(oskb->tstamp));
 	target_put(g);
 out_no_target:
 	kfree_skb(skb);

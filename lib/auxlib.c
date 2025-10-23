@@ -477,7 +477,7 @@ out:
 
 #ifdef HAVE_CODEC_CHAIN
 	if (rtpe_common_config_ptr->codec_chain_runners <= 0)
-		rtpe_common_config_ptr->codec_chain_runners = 4;
+		rtpe_common_config_ptr->codec_chain_runners = 2;
 
 	if (rtpe_common_config_ptr->codec_chain_concurrency <= 0)
 		rtpe_common_config_ptr->codec_chain_concurrency = 256;

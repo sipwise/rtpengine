@@ -127,6 +127,7 @@ struct rtpengine_config rtpe_config = {
 	.timer_accuracy = 500,
 	.ng_client_timeout = 50, // ms, will be scaled to us by *1000
 	.ng_client_retries = 5,
+	.kernel_num_threads = -1,
 };
 
 struct interface_config_callback_arg {
@@ -777,9 +778,11 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "xmlrpc-format",'x', 0, G_OPTION_ARG_INT,	&rtpe_config.fmt,	"XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only, 2: Kamailio",	"INT"	},
 		{ "num-threads",  0, 0, G_OPTION_ARG_INT,	&rtpe_config.num_threads,	"Number of worker threads to create",	"INT"	},
 		{ "media-num-threads",  0, 0, G_OPTION_ARG_INT,	&rtpe_config.media_num_threads,	"Number of worker threads for media playback",	"INT"	},
+		{ "kernel-num-threads", 0, 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_num_threads,"Number of worker threads for kernel RTP",	"INT"	},
 #ifdef WITH_TRANSCODING
 		{ "codec-num-threads",  0, 0, G_OPTION_ARG_INT,	&rtpe_config.codec_num_threads,	"Number of transcoding threads for asynchronous operation",	"INT"	},
 #endif
+		{ "kernel-slots", 0, 0,	G_OPTION_ARG_INT,	&rtpe_config.kernel_slots,	"Number of slots per kernel poller",	"INT"   },
 		{ "delete-delay",  'd', 0, G_OPTION_ARG_INT,    &delete_delay,  "Delay for deleting a session from memory.",    "INT"   },
 		{ "sip-source",  0,  0, G_OPTION_ARG_NONE,	&sip_source,	"Use SIP source address by default",	NULL	},
 		{ "dtls-passive", 0, 0, G_OPTION_ARG_NONE,	&dtls_passive_def,"Always prefer DTLS passive role",	NULL	},
@@ -1977,6 +1980,21 @@ int main(int argc, char **argv) {
 				idx < rtpe_config.num_threads ? "poller" : "cpoller");
 	}
 
+
+	if (kernel.is_open && rtpe_config.kernel_num_threads != 0 && rtpe_config.kernel_slots > 0) {
+		unsigned int num = rtpe_config.kernel_num_threads < 0
+			? rtpe_config.num_threads : rtpe_config.kernel_num_threads;
+
+		kernel_init_pollers(num);
+
+		for (unsigned int idx = 0; idx < num; ++idx)
+			thread_create_detach_prio(
+					kernel_poller_loop,
+					GUINT_TO_POINTER(idx),
+					rtpe_config.scheduling, rtpe_config.priority,
+					"kpoller");
+	}
+
 	media_player_launch();
 	send_timer_launch();
 	jitter_buffer_launch();
@@ -2028,6 +2046,7 @@ int main(int argc, char **argv) {
 	codecs_cleanup();
 	statistics_free();
 	codeclib_free();
+	kernel_cleanup_pollers();
 
 	redis_close(rtpe_redis);
 	if (rtpe_redis_write != rtpe_redis)

@@ -19,6 +19,7 @@ __thread struct bufferpool *media_bufferpool;
 void append_thread_lpr_to_glob_lpr(void) {}
 struct bufferpool *shm_bufferpool;
 struct bufferpool *static_bufferpool;
+void kernel_thread_init(void) {}
 
 static void most_cmp(struct payload_tracker *t, const char *cmp, const char *file, int line) {
 	char buf[1024] = "";

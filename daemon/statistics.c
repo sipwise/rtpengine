@@ -8,6 +8,7 @@
 #include "main.h"
 #include "control_ng.h"
 #include "bufferpool.h"
+#include "kernel.h"
 
 int64_t rtpe_started;
 
@@ -966,6 +967,38 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 	bpool_stats(ret, "static", static_bufferpool);
 
 	HEADER("}", NULL);
+
+	if (kernel.is_open) {
+		HEADER("kernel_pollers", NULL);
+		HEADER("[", NULL);
+		for (unsigned int i = 0; i < kernel_pollers_num; i++) {
+			struct poller_thread *pt = &kernel_poller_threads[i];
+			HEADER("{", "");
+			METRICs("index", "%u", i);
+			METRICs("pid", "%u", (unsigned int) pt->pid);
+			METRICs("wakeups", "%" PRIu64, atomic64_get_na(&pt->wakeups));
+			METRICs("items", "%" PRIu64, atomic64_get_na(&pt->items));
+			HEADER("}", "");
+		}
+		HEADER("]", NULL);
+
+		HEADER("kernel_senders", NULL);
+		HEADER("[", NULL);
+		for (unsigned int i = kernel_sender_start_idx;
+				i < kernel_sender_start_idx + kernel_senders_num; i++)
+		{
+			struct kernel_ring_buf *rb = &kernel_ring_bufs[i];
+			HEADER("{", "");
+			METRICs("index", "%u", i);
+			METRICs("errors", "%d", atomic_get_na(&rb->errors));
+			METRICs("read_preempt", "%d", atomic_get_na(&rb->read_preempt));
+			METRICs("write_preempt", "%d", atomic_get_na(&rb->write_preempt));
+			METRICs("slots_full", "%d", atomic_get_na(&rb->slots_full));
+			METRICs("buf_full", "%d", atomic_get_na(&rb->buf_full));
+			HEADER("}", "");
+		}
+		HEADER("]", NULL);
+	}
 
 	HEADER("}", NULL);
 

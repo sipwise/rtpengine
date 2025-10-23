@@ -7,6 +7,7 @@
 
 #include "containers.h"
 #include "auxlib.h"
+#include "socket.h"
 
 #include "nft_rtpengine.h"
 
@@ -16,6 +17,7 @@ struct rtpengine_target_info;
 struct rtpengine_destination_info;
 struct re_address;
 struct rtpengine_ssrc_stats;
+struct uring_req;
 
 struct kernel_interface {
 	unsigned int table;
@@ -26,6 +28,22 @@ struct kernel_interface {
 };
 extern struct kernel_interface kernel;
 
+
+struct kernel_ring_buf {
+	int eventfd;
+	void *buf[2];
+	struct rtpengine_buf_slot *slots[2];
+	struct rtpengine_buf_metadata *metadata[2];
+	struct rtpengine_ring_buf_shm *shm[2];
+	atomic_t *buf_idx;
+
+	// stats
+	atomic_t errors;
+	atomic_t read_preempt;
+	atomic_t write_preempt;
+	atomic_t slots_full;
+	atomic_t buf_full;
+};
 
 
 bool kernel_setup_table(unsigned int);
@@ -51,5 +69,24 @@ bool kernel_add_stream_packet(unsigned int, const char *, size_t, unsigned long 
 unsigned int kernel_start_stream_player(struct rtpengine_play_stream_info *);
 bool kernel_stop_stream_player(unsigned int idx);
 bool kernel_free_packet_stream(unsigned int);
+
+
+extern unsigned int kernel_poller_start_idx;
+extern unsigned int kernel_pollers_num;
+
+extern unsigned int kernel_sender_start_idx;
+extern unsigned int kernel_senders_num;
+extern unsigned int kernel_sender_cur_idx;
+
+extern struct kernel_ring_buf *kernel_ring_bufs;
+extern struct poller_thread *kernel_poller_threads;
+
+void kernel_init_pollers(unsigned int);
+void kernel_poller_loop(void *);
+void kernel_cleanup_pollers(void);
+
+void kernel_thread_init(void);
+ssize_t kernel_sendmsg(socket_t *s, struct msghdr *msg, const endpoint_t *dst,
+			struct sockaddr_storage *src, struct uring_req *req);
 
 #endif
