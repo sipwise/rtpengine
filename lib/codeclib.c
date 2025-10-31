@@ -2579,7 +2579,7 @@ static void opus_parse_format_cb(str *key, str *token, void *data) {
 		YNFLAG(CSH_LOOKUP("sprop-stereo"), stereo_send)
 		YNFLAG(CSH_LOOKUP("useinbandfec"), fec_recv)
 		YNFLAG(CSH_LOOKUP("cbr"), cbr)
-		YNFLAG(CSH_LOOKUP("usedtx"), fec_recv)
+		YNFLAG(CSH_LOOKUP("usedtx"), usedtx)
 #undef YNFLAG
 		case CSH_LOOKUP("maxplaybackrate"):
 			opts->opus.maxplaybackrate = str_to_i(token, 0);
