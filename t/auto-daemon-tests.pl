@@ -1891,7 +1891,7 @@ c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 96 0
 a=rtpmap:96 opus/48000/2
-a=fmtp:96 stereo=0; sprop-stereo=0; useinbandfec=0; cbr=0; maxplaybackrate=32000; maxaveragebitrate=40000; sprop-maxcapturerate=16000
+a=fmtp:96 stereo=0; sprop-stereo=0; useinbandfec=0; usedtx=0; cbr=0; maxplaybackrate=32000; maxaveragebitrate=40000; sprop-maxcapturerate=16000
 a=rtpmap:0 PCMU/8000
 a=sendrecv
 a=rtcp:PORT
