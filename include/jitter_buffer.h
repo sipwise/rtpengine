@@ -37,6 +37,11 @@ struct jitter_buffer {
 	int                     clock_drift_val;
 	call_t             *call;
 	int			disabled;
+	int                     dynamic_capacity;
+	double                  jitter_mean;
+	double                  jitter_variance;
+	double                  jitter_m2;
+	unsigned int            jitter_samples;
 };
 
 void jitter_buffer_init(void);
