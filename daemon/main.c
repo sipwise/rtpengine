@@ -796,6 +796,9 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "endpoint-learning",0,0,G_OPTION_ARG_STRING,	&endpoint_learning,	"RTP endpoint learning algorithm",	"delayed|immediate|off|heuristic"	},
 		{ "jitter-buffer",0, 0,	G_OPTION_ARG_INT,	&rtpe_config.jb_length,	"Size of jitter buffer",		"INT" },
 		{ "jb-clock-drift",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.jb_clock_drift,"Compensate for source clock drift",NULL },
+		{ "jb-adaptive",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.jb_adaptive,"Enable adaptive jitter buffer sizing",NULL },
+		{ "jb-adaptive-min",0,0,G_OPTION_ARG_INT,	&rtpe_config.jb_adaptive_min,"Minimum adaptive jitter buffer size (ms)","INT" },
+		{ "jb-adaptive-max",0,0,G_OPTION_ARG_INT,	&rtpe_config.jb_adaptive_max,"Maximum adaptive jitter buffer size (ms)","INT" },
 		{ "debug-srtp",0,0,	G_OPTION_ARG_NONE,	&debug_srtp,		"Log raw encryption details for SRTP",	NULL },
 		{ "reject-invalid-sdp",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.reject_invalid_sdp,"Refuse to process SDP bodies with broken syntax",	NULL },
 		{ "dtls-rsa-key-size",0, 0,	G_OPTION_ARG_INT,&rtpe_config.dtls_rsa_key_size,"Size of RSA key for DTLS",	"INT"		},
@@ -1268,6 +1271,26 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 
 	if (rtpe_config.jb_length < 0)
 		die("Invalid negative jitter buffer size");
+	
+	// Validate adaptive jitter buffer parameters
+	if (rtpe_config.jb_adaptive) {
+		if (rtpe_config.jb_adaptive_min < 0)
+			die("Invalid negative --jb-adaptive-min (%d)", rtpe_config.jb_adaptive_min);
+		if (rtpe_config.jb_adaptive_max < 0)
+			die("Invalid negative --jb-adaptive-max (%d)", rtpe_config.jb_adaptive_max);
+		if (rtpe_config.jb_adaptive_max > 1000)
+			die("--jb-adaptive-max too large (%d ms, maximum 1000 ms)", rtpe_config.jb_adaptive_max);
+		if (rtpe_config.jb_adaptive_min > rtpe_config.jb_adaptive_max)
+			die("--jb-adaptive-min (%d) must be <= --jb-adaptive-max (%d)", 
+			    rtpe_config.jb_adaptive_min, rtpe_config.jb_adaptive_max);
+		
+		// Set reasonable defaults if not specified
+		if (rtpe_config.jb_adaptive_max == 0)
+			rtpe_config.jb_adaptive_max = 300; // Default max: 300ms
+		
+		ilog(LOG_INFO, "Adaptive jitter buffer enabled: min=%dms, max=%dms", 
+		     rtpe_config.jb_adaptive_min, rtpe_config.jb_adaptive_max);
+	}
 
 	if (silence_detect > 0) {
 		rtpe_config.silence_detect_double = silence_detect / 100.0;

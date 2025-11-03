@@ -68,6 +68,8 @@ enum endpoint_learning {
 	X(mysql_port) \
 	X(dtmf_digit_delay) \
 	X(jb_length) \
+	X(jb_adaptive_min) \
+	X(jb_adaptive_max) \
 	X(dtls_rsa_key_size) \
 	X(dtls_mtu) \
 	X(http_threads) \
@@ -123,6 +125,7 @@ enum endpoint_learning {
 	X(dtmf_no_suppress) \
 	X(dtmf_no_log_injects) \
 	X(jb_clock_drift) \
+	X(jb_adaptive) \
 	X(player_cache) \
 	X(poller_per_thread) \
 	X(redis_resolve_on_reconnect) \
