@@ -89,6 +89,10 @@ struct rtpengine_config rtpe_config = {
 	.kernel_table = -1,
 	.max_sessions = -1,
 	.redis_subscribed_keyspaces = G_QUEUE_INIT,
+	// use aggressive default intervals if enabled for detecting redis service IP failover rapidly
+	// (normally those are internal connections with low jitter and low loss)
+	.redis_tcp_keepalive_intvl = 1,
+	.redis_tcp_keepalive_probes = 3,
 	.redis_expires_secs = 86400,
 	.interfaces = TYPED_GQUEUE_INIT,
 	.homer_protocol = SOCK_DGRAM,
@@ -737,6 +741,10 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "redis-connect-timeout", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_connect_timeout, "Sets a timeout in milliseconds for redis connections", "INT" },
 		{ "redis-format", 0, 0,	G_OPTION_ARG_STRING, &redis_format,		"Format for persistent storage in Redis/KeyDB", "native|bencode|JSON" },
 		{ "subscribe-keyspace", 'k', 0, G_OPTION_ARG_STRING_ARRAY,&ks_a,	"Subscription keyspace list",	"INT INT ..."},
+		{ "redis-tcp-keepalive-time",0,0,G_OPTION_ARG_INT,&rtpe_config.redis_tcp_keepalive_time,"Positive value sets tcp_keepalive_time for redis connections", "INT" },
+		{ "redis-tcp-keepalive-intvl",0,0,G_OPTION_ARG_INT,&rtpe_config.redis_tcp_keepalive_intvl,"Set tcp_keepalive_intvl for redis connections", "INT" },
+		{ "redis-tcp-keepalive-probes",0,0,G_OPTION_ARG_INT,&rtpe_config.redis_tcp_keepalive_probes,"Set tcp_keepalive_probes for redis connections", "INT" },
+
 #if 0
 		// temporarily disabled, see discussion on https://github.com/sipwise/rtpengine/commit/2ebf5a1526c1ce8093b3011a1e23c333b3f99400
 		// related to Change-Id: I83d9b9a844f4f494ad37b44f5d1312f272beff3f

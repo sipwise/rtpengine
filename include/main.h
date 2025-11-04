@@ -57,6 +57,9 @@ enum endpoint_learning {
 	X(redis_connect_timeout) \
 	X(redis_delete_async) \
 	X(redis_delete_async_interval) \
+	X(redis_tcp_keepalive_time) \
+	X(redis_tcp_keepalive_intvl) \
+	X(redis_tcp_keepalive_probes) \
 	X(num_threads) \
 	X(media_num_threads) \
 	X(codec_num_threads) \

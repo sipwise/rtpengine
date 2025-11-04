@@ -651,6 +651,19 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
 
     Both formats can be restored from, regardless of this setting.
 
+- __\-\-redis-tcp-keepalive-time=__*INT*
+- __\-\-redis-tcp-keepalive-intvl=__*INT*
+- __\-\-redis-tcp-keepalive-probes=__*INT*
+
+    Controls TCP keepalive behaviour on connections to Redis. The __time__
+    value defaults to zero and must be set to a non-zero positive value to
+    enable keepalives. It's the time in seconds that a socket must have been
+    idle before keepalives are started to be sent.
+
+    __intvl__ is the time in seconds between keepalives, and __probes__ is the
+    number of keepalive probes that are sent before the connection is deemed
+    dead. The defaults are 1 and 3 respectively.
+
 - __-b__, __\-\-b2b-url=__*STRING*
 
     Enables and sets the URI for an XMLRPC callback to be made when a call is

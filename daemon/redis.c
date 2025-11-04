@@ -266,6 +266,21 @@ static int redis_select_db(struct redis *r, int db) {
 	return 0;
 }
 
+void redis_set_keepalive(int fd) {
+	if (rtpe_config.redis_tcp_keepalive_time > 0) {
+		int keepalive_en = 1;
+		setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &keepalive_en, sizeof(keepalive_en));
+
+		setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &rtpe_config.redis_tcp_keepalive_time,
+				sizeof(rtpe_config.redis_tcp_keepalive_time));
+		setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &rtpe_config.redis_tcp_keepalive_intvl,
+				sizeof(rtpe_config.redis_tcp_keepalive_intvl));
+		setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &rtpe_config.redis_tcp_keepalive_probes,
+				sizeof(rtpe_config.redis_tcp_keepalive_probes));
+	}
+}
+
+
 /* called with r->lock held if necessary */
 static int redis_connect(struct redis *r, int wait, bool resolve) {
 	struct timeval tv;
@@ -301,6 +316,8 @@ static int redis_connect(struct redis *r, int wait, bool resolve) {
 		goto err;
 	if (r->ctx->err)
 		goto err2;
+
+	redis_set_keepalive(r->ctx->fd);
 
 	if (redis_set_timeout(r, cmd_timeout))
 		goto err2;
@@ -566,6 +583,8 @@ int redis_async_context_alloc(struct redis *r, void *connect_cb, void *disconnec
 		rlog(LOG_ERROR, "redis_async_context_alloc: can't create new error: %s", r->async_ctx->errstr);
 		return -1;
 	}
+
+	redis_set_keepalive(r->async_ctx->c.fd);
 
 	// callbacks async context
 	if (redisAsyncSetConnectCallback(r->async_ctx, connect_cb) != REDIS_OK) {
@@ -883,12 +902,14 @@ void redis_notify_loop(void *d) {
 		}
 	}
 
-	// unsubscribe notifications
-	redis_notify_subscribe_action(r, UNSUBSCRIBE_ALL, 0);
+	if (r->state == REDIS_STATE_CONNECTED) {
+		// unsubscribe notifications
+		redis_notify_subscribe_action(r, UNSUBSCRIBE_ALL, 0);
 
-	// free async context
-	redisAsyncDisconnect(r->async_ctx);
-	r->async_ctx = NULL;
+		// free async context
+		redisAsyncDisconnect(r->async_ctx);
+		r->async_ctx = NULL;
+	}
 }
 
 struct redis *redis_new(const endpoint_t *ep, int db, const char *hostname, const char *auth,
