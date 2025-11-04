@@ -126,9 +126,11 @@ void call_make_own_foreign(call_t *c, bool foreign) {
 /* called with hashlock held */
 static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 	int64_t check;
-	bool good = false;
+	bool recv_good = false;
+	bool silent_good = false;
 	bool do_update = false;
 	bool has_srtp = false;
+	bool recv_checked = false;
 	struct packet_stream *ps;
 	int tmp_t_reason = UNKNOWN;
 	enum call_stream_state css;
@@ -221,23 +223,30 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 			CALL_CLEAR(sfd->call, FOREIGN_MEDIA);
 
 no_sfd:
-		if (good)
+		if (recv_good)
 			continue;
 
+		bool *check_good = &recv_good;
 		check = atomic_get_na(&rtpe_config.timeout_us);
 		tmp_t_reason = TIMEOUT;
 		if (!MEDIA_ISSET(ps->media, RECV) || !sfd) {
 			check = atomic_get_na(&rtpe_config.silent_timeout_us);
 			tmp_t_reason = SILENT_TIMEOUT;
+			check_good = &silent_good;
 		}
 		else if (!PS_ISSET(ps, FILLED)) {
 			check = atomic_get_na(&rtpe_config.offer_timeout_us);
 			tmp_t_reason = OFFER_TIMEOUT;
 		}
+		else
+			recv_checked = true;
 
 		if (timestamp > rtpe_now || rtpe_now - timestamp < check)
-			good = true;
+			*check_good = true;
 	}
+
+	if (!recv_checked && !recv_good)
+		recv_good = silent_good;
 
 	for (__auto_type it = c->medias.head; it; it = it->next) {
 		struct call_media *media = it->data;
@@ -266,7 +275,7 @@ no_sfd:
 		}
 	}
 
-	if (good) {
+	if (recv_good) {
 		if (IS_FOREIGN_CALL(c))
 			goto out;
 
