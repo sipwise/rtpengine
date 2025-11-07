@@ -338,6 +338,9 @@ static void mqtt_stream_stats_dir(const struct stream_stats *s, JsonBuilder *jso
 
 
 static void mqtt_stream_stats(struct packet_stream *ps, JsonBuilder *json) {
+	if (!ps)
+		return;
+
 	LOCK(&ps->lock);
 
 	stream_fd *sfd = ps->selected_sfd;
@@ -362,18 +365,20 @@ static void mqtt_stream_stats(struct packet_stream *ps, JsonBuilder *json) {
 
 	json_builder_set_member_name(json, "transcoding");
 	json_builder_add_boolean_value(json, MEDIA_ISSET(ps->media, TRANSCODING) ? TRUE : FALSE);
+}
 
-	json_builder_set_member_name(json, "ingress");
-	json_builder_begin_object(json);
+
+static void mqtt_stream_stats_ingress(struct packet_stream *ps, JsonBuilder *json) {
+	if (!ps)
+		return;
 	mqtt_stream_stats_dir(ps->stats_in, json);
+}
 
-	json_builder_end_object(json);
 
-	json_builder_set_member_name(json, "egress");
-	json_builder_begin_object(json);
+static void mqtt_stream_stats_egress(struct packet_stream *ps, JsonBuilder *json) {
+	if (!ps)
+		return;
 	mqtt_stream_stats_dir(ps->stats_out, json);
-
-	json_builder_end_object(json);
 }
 
 
@@ -406,11 +411,15 @@ static void mqtt_media_stats(struct call_media *media, JsonBuilder *json) {
 			json_builder_add_string_value(json, "inactive");
 	}
 
+	struct packet_stream *ps = media->streams.head ? media->streams.head->data : NULL;
+
 
 	mutex_lock(&media->ssrc_hash_in.lock);
 
 	json_builder_set_member_name(json, "ingress");
 	json_builder_begin_object(json);
+
+	mqtt_stream_stats_ingress(ps, json);
 
 	json_builder_set_member_name(json, "SSRC");
 	json_builder_begin_array(json);
@@ -432,6 +441,8 @@ static void mqtt_media_stats(struct call_media *media, JsonBuilder *json) {
 	json_builder_set_member_name(json, "egress");
 	json_builder_begin_object(json);
 
+	mqtt_stream_stats_egress(ps, json);
+
 	json_builder_set_member_name(json, "SSRC");
 	json_builder_begin_array(json);
 	for (GList *l = media->ssrc_hash_out.nq.head; l; l = l->next) {
@@ -446,10 +457,7 @@ static void mqtt_media_stats(struct call_media *media, JsonBuilder *json) {
 
 	mutex_unlock(&media->ssrc_hash_out.lock);
 
-
-	struct packet_stream *ps = media->streams.head ? media->streams.head->data : NULL;
-	if (ps)
-		mqtt_stream_stats(ps, json);
+	mqtt_stream_stats(ps, json);
 }
 
 
