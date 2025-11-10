@@ -1,3 +1,12 @@
+ngcp-rtpengine (13.5.1.2+0~mr13.5.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [60e1c30] MT#55283 fix test case
+  * [6b34568] MT#55283 fix opus fmtp booboo
+  * [41f245b] MT#55283 fix missing MQTT SSRC stats
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 10 Nov 2025 12:55:31 +0100
+
 ngcp-rtpengine (13.5.1.1+0~mr13.5.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
