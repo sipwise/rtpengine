@@ -313,8 +313,7 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 			printf("no packet\n");
 			abort();
 		}
-		__auto_type link = t_queue_pop_head_link(&mp.packets_out);
-		__auto_type cp = link->data;
+		__auto_type cp = i_queue_pop_head(&mp.packets_out);
 		str cp_s = cp->s;
 		rtp = (void *) cp_s.s;
 		if (rtp->m_pt != (unsigned char) pt_out) {

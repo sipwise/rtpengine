@@ -3063,8 +3063,7 @@ int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, s
 
 	LOCK(&out->lock);
 
-	for (__auto_type l = mp->packets_out.head; l; l = l->next) {
-		struct codec_packet *p = l->data;
+	IQUEUE_FOREACH(&mp->packets_out, p) {
 		if (mp->call->recording && rtpe_config.rec_egress && CALL_ISSET(mp->call, RECORDING_ON)) {
 			p->plain = STR_LEN(bufferpool_alloc(media_bufferpool, p->s.len), p->s.len);
 			memcpy(p->plain.s, p->s.s, p->s.len);
@@ -3355,8 +3354,7 @@ static int do_rtcp_output(struct packet_handler_ctx *phc) {
 // only frees the output queue if no `sink` is given
 int media_socket_dequeue(struct media_packet *mp, struct packet_stream *sink) {
 	while (mp->packets_out.length) {
-		codec_packet_list *link = t_queue_pop_head_link(&mp->packets_out);
-		__auto_type p = link->data;
+		__auto_type p = i_queue_pop_head(&mp->packets_out);
 		if (sink && sink->send_timer)
 			send_timer_push(sink->send_timer, p);
 		else
@@ -3367,7 +3365,7 @@ int media_socket_dequeue(struct media_packet *mp, struct packet_stream *sink) {
 
 void media_packet_copy(struct media_packet *dst, const struct media_packet *src) {
 	*dst = *src;
-	t_queue_init(&dst->packets_out);
+	i_queue_init(&dst->packets_out);
 	if (dst->sfd)
 		obj_hold(dst->sfd);
 	if (dst->ssrc_in)
@@ -3393,8 +3391,7 @@ void media_packet_release(struct media_packet *mp) {
 
 
 static int media_packet_queue_dup(codec_packet_q *q) {
-	for (__auto_type l = q->head; l; l = l->next) {
-		struct codec_packet *p = l->data;
+	IQUEUE_FOREACH(q, p) {
 		if (p->free_func) // nothing to do, already private
 			continue;
 		if (!codec_packet_copy(p))
@@ -3645,7 +3642,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 			{
 				struct packet_handler_ctx mirror_phc = *phc;
 				mirror_phc.mp.ssrc_out = NULL;
-				t_queue_init(&mirror_phc.mp.packets_out);
+				i_queue_init(&mirror_phc.mp.packets_out);
 
 				struct sink_handler *mirror_sh = mirror_link->data;
 				struct packet_stream *mirror_sink = mirror_sh->sink;
@@ -3654,10 +3651,9 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 				media_packet_rtp_out(&mirror_phc, mirror_sh);
 				media_packet_set_encrypt(&mirror_phc, mirror_sh);
 
-				for (__auto_type pack = phc->mp.packets_out.head; pack; pack = pack->next) {
-					struct codec_packet *p = pack->data;
+				IQUEUE_FOREACH(&phc->mp.packets_out, p) {
 					__auto_type dup = codec_packet_dup(p);
-					t_queue_push_tail_link(&mirror_phc.mp.packets_out, &dup->link);
+					i_queue_push_tail(&mirror_phc.mp.packets_out, dup);
 				}
 
 				ret = __media_packet_encrypt(&mirror_phc, mirror_sh);

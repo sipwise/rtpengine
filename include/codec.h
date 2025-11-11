@@ -12,6 +12,7 @@
 #include "timerthread.h"
 #include "types.h"
 #include "ssrc.h"
+#include "iqueue.h"
 
 struct call_media;
 struct codec_handler;
@@ -89,7 +90,7 @@ struct codec_handler {
 
 struct codec_packet {
 	struct timerthread_queue_entry ttq_entry;
-	codec_packet_list link;
+	IQUEUE_LINK link;
 	str s;
 	str plain;
 	struct rtp_header *rtp;
@@ -99,6 +100,9 @@ struct codec_packet {
 	void (*free_func)(void *);
 	void (*plain_free_func)(void *);
 };
+
+typedef IQUEUE_TYPE(struct codec_packet, link) codec_packet_q;
+
 
 struct codec_scheduler {
 	unsigned long first_ts; // for output TS scaling

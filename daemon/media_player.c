@@ -1073,7 +1073,7 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 	// keep track of RTP timestamps and real clock. look at the last packet we received
 	// and update our sync TS.
 	if (packet.packets_out.head) {
-		struct codec_packet *p = packet.packets_out.head->data;
+		struct codec_packet *p = packet.packets_out.head;
 		if (p->rtp) {
 			mp->sync_ts = ntohl(p->rtp->timestamp);
 			mp->sync_ts_tv = p->ttq_entry.when;

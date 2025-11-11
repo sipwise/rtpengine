@@ -2143,12 +2143,11 @@ static void codec_add_raw_packet_common(struct media_packet *mp, unsigned int cl
 		if (!p->rtp)
 			p->rtp = mp->rtp;
 	}
-	t_queue_push_tail_link(&mp->packets_out, &p->link);
+	i_queue_push_tail(&mp->packets_out, p);
 }
 
 static void codec_add_raw_packet_dup(struct media_packet *mp, unsigned int clockrate) {
 	struct codec_packet *p = g_new0(__typeof(*p), 1);
-	p->link.data = p;
 	// don't just duplicate the string. need to ensure enough room
 	// if encryption is enabled on this stream
 	// or for RTP header extensions
@@ -2177,7 +2176,6 @@ void codec_add_raw_packet(struct media_packet *mp, unsigned int clockrate) {
 		return;
 	}
 	struct codec_packet *p = g_new0(__typeof(*p), 1);
-	p->link.data = p;
 	p->s = mp->raw;
 	p->free_func = NULL;
 	codec_add_raw_packet_common(mp, clockrate, p);
@@ -2483,7 +2481,6 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 
 	// add to output queue
 	struct codec_packet *p = g_new0(__typeof(*p), 1);
-	p->link.data = p;
 	p->s.s = buf;
 	p->s.len = payload_len + sizeof(struct rtp_header) + ext_len;
 	payload_tracker_add(&ssrc_out->tracker, handler->dest_pt.payload_type);
@@ -2563,7 +2560,7 @@ send:
 			p->ttq_entry.when / 1000000,
 			p->ttq_entry.when % 1000000);
 
-	t_queue_push_tail_link(&mp->packets_out, &p->link);
+	i_queue_push_tail(&mp->packets_out, p);
 }
 
 // returns new reference
@@ -2923,7 +2920,6 @@ bool codec_packet_copy(struct codec_packet *p) {
 struct codec_packet *codec_packet_dup(struct codec_packet *p) {
 	struct codec_packet *dup = g_new(__typeof(*p), 1);
 	*dup = *p;
-	dup->link.data = dup; // XXX obsolete this
 	codec_packet_copy(dup);
 	if (dup->ssrc_out)
 		ssrc_entry_hold(dup->ssrc_out);

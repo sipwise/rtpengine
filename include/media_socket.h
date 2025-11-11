@@ -12,7 +12,7 @@
 #include "crypto.h"
 #include "socket.h"
 #include "containers.h"
-#include "types.h"
+#include "codec.h"
 
 #include "xt_RTPENGINE.h"
 #include "common_stats.h"

@@ -56,6 +56,7 @@ typedef union {
 } parser_arg  __attribute__ ((__transparent_union__));
 
 #include "containers.h"
+#include "iqueue.h"
 
 struct sdp_session;
 TYPED_GQUEUE(sdp_sessions, struct sdp_session)
@@ -78,9 +79,6 @@ struct transcode_config;
 struct codec_pipeline_index;
 TYPED_GHASHTABLE_PROTO(transcode_config_ht, struct codec_pipeline_index, struct transcode_config)
 TYPED_GQUEUE(transcode_config, struct transcode_config)
-
-struct codec_packet;
-TYPED_GQUEUE(codec_packet, struct codec_packet)
 
 struct packet_stream;
 TYPED_GQUEUE(packet_stream, struct packet_stream)
