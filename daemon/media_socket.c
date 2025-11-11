@@ -801,8 +801,7 @@ static void release_reserved_port(struct port_pool *pp, ports_q *list, unsigned 
 
 static void release_reserved_ports(socket_port_q *ports) {
 	while (ports->length) {
-		__auto_type pl = t_queue_pop_head_link(ports);
-		__auto_type p = pl->data;
+		__auto_type p = i_queue_pop_head(ports);
 		if (p->links.length)
 			release_reserved_port(p->pp, &p->links, GPOINTER_TO_UINT(p->links.head->data));
 		g_free(p);
@@ -1206,8 +1205,7 @@ static struct socket_port_link get_any_port_link(struct intf_spec *spec) {
 }
 
 static bool open_port_link_sockets(socket_port_q *out, struct intf_spec *spec, const str *label) {
-	for (__auto_type l = out->head; l; l = l->next) {
-		__auto_type spl = l->data;
+	IQUEUE_FOREACH(out, spl) {
 		unsigned int port = GPOINTER_TO_UINT(spl->links.head->data);
 		ilog(LOG_DEBUG, "Trying to bind the socket for port = '%d'", port);
 
@@ -1331,8 +1329,7 @@ new_cycle:
 
 		__auto_type splp = g_new(struct socket_port_link, 1);
 		*splp = spl;
-		splp->link.data = splp;
-		t_queue_push_tail_link(out, &splp->link);
+		i_queue_push_tail(out, splp);
 
 		/* find additional ports, usually it's only RTCP */
 		additional_port = port;
@@ -1354,8 +1351,7 @@ new_cycle:
 			/* track for which additional ports, we have to open sockets */
 			splp = g_new(struct socket_port_link, 1);
 			*splp = spl;
-			splp->link.data = splp;
-			t_queue_push_tail_link(out, &splp->link);
+			i_queue_push_tail(out, splp);
 		}
 
 		ilog(LOG_DEBUG, "Trying to bind the socket for RTP/RTCP ports (allocation attempt = '%d')",
@@ -1371,7 +1367,7 @@ new_cycle:
 	/* success */
 	ilog(LOG_DEBUG, "Opened %u socket(s) from port '%u' (on interface '%s') for a media relay",
 		num_ports,
-		out->head->data->socket.local.port,
+		out->head->socket.local.port,
 		sockaddr_print_buf(&spec->local_address.addr));
 	return true;
 
@@ -1390,7 +1386,7 @@ bool get_consecutive_ports(socket_port_q *out, unsigned int num_ports, struct lo
 void free_socket_intf_list(struct socket_intf_list *il) {
 	struct socket_port_link *spl;
 
-	while ((spl = t_queue_pop_head(&il->list)))
+	while ((spl = i_queue_pop_head(&il->list)))
 		free_port(spl);
 	g_free(il);
 }

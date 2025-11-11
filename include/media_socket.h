@@ -93,14 +93,16 @@ struct logical_intf {
 
 typedef void port_t;
 TYPED_GQUEUE(ports, port_t)
-TYPED_GQUEUE(socket_port, struct socket_port_link)
 
 struct socket_port_link {
 	socket_t			socket; // must be first
 	ports_q				links;
 	struct port_pool		*pp;
-	socket_port_list		link;
+	IQUEUE_LINK link;
 };
+
+typedef IQUEUE_TYPE(struct socket_port_link, link) socket_port_q;
+
 
 TYPED_GQUEUE(port_pool, struct port_pool)
 struct port_pool {

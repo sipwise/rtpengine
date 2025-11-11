@@ -3716,13 +3716,12 @@ static bool media_open_ports(struct call_media *media) {
 		__C_DBG("allocating stream_fds for %u ports", em->num_ports);
 		MEDIA_CLEAR(media, PUBLIC);
 
-		socket_port_q q = TYPED_GQUEUE_INIT;
+		socket_port_q q = IQUEUE_INIT;
 		if (!get_consecutive_ports(&q, em->num_ports, em_il->local_intf, label))
 			return false;
 
-		socket_port_list *spll;
-		while ((spll = t_queue_pop_head_link(&q))) {
-			__auto_type spl = spll->data;
+		struct socket_port_link *spl;
+		while ((spl = i_queue_pop_head(&q))) {
 			set_tos(&spl->socket, media->call->tos);
 			if (media->call->cpu_affinity >= 0) {
 				if (socket_cpu_affinity(&spl->socket, media->call->cpu_affinity))
