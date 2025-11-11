@@ -285,7 +285,14 @@ struct sink_handler {
 extern const struct rtpext_printer rtpext_printer_copy; // also acts as a dummy printer
 
 
-TYPED_GQUEUE(extmap_data, struct rtp_extension_data);
+struct rtp_extension_data {
+	IQUEUE_LINK link;
+	struct rtp_extension *ext;
+	str content;
+};
+
+typedef IQUEUE_TYPE(struct rtp_extension_data, link) extmap_data_q;
+
 
 struct media_packet {
 	str raw;
@@ -344,11 +351,6 @@ struct rtp_extension {
 	bool synthetic:1;
 };
 
-struct rtp_extension_data {
-	extmap_data_list link;
-	struct rtp_extension *ext;
-	str content;
-};
 
 static inline void rtp_extension_free(struct rtp_extension *r) {
 	g_free(r);

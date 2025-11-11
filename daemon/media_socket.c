@@ -2194,9 +2194,7 @@ static size_t rtpext_printer_extmap_print(struct rtp_header *rh, void *dst, cons
 		dst += len;
 	}
 
-	for (auto_iter(l, mp->extmap.head); l; l = l->next) {
-		__auto_type ext = l->data;
-
+	IQUEUE_FOREACH(&mp->extmap, ext) {
 		if (!extmap_has_ext(mp, ext))
 			continue;
 		if (extmap_ext_override(mp, ext))
@@ -2339,9 +2337,7 @@ size_t extmap_length_short(const struct media_packet *mp) {
 
 	const extmap_data_q *q = &mp->extmap;
 
-	for (auto_iter(l, q->head); l; l = l->next) {
-		__auto_type ext = l->data;
-
+	IQUEUE_FOREACH(q, ext) {
 		if (!extmap_has_ext(mp, ext))
 			continue;
 		if (extmap_ext_override(mp, ext))
@@ -2421,9 +2417,7 @@ size_t extmap_length_long(const struct media_packet *mp) {
 
 	const extmap_data_q *q = &mp->extmap;
 
-	for (auto_iter(l, q->head); l; l = l->next) {
-		__auto_type ext = l->data;
-
+	IQUEUE_FOREACH(q, ext) {
 		if (!extmap_has_ext(mp, ext))
 			continue;
 		if (extmap_ext_override(mp, ext))
@@ -2902,10 +2896,9 @@ static void media_packet_rtp_extension(struct packet_handler_ctx *phc, unsigned 
 
 	__auto_type edata = g_new0(struct rtp_extension_data, 1);
 	edata->ext = ext;
-	edata->link.data = edata;
 	edata->content = *data;
 
-	t_queue_push_tail_link(&phc->mp.extmap, &edata->link);
+	i_queue_push_tail(&phc->mp.extmap, edata);
 
 	if (ext->handler.parse)
 		ext->handler.parse(phc, edata);
@@ -3373,7 +3366,7 @@ void media_packet_copy(struct media_packet *dst, const struct media_packet *src)
 	dst->payload = STR_NULL;
 	dst->raw = STR_NULL;
 	dst->extensions = STR_NULL;
-	t_queue_init(&dst->extmap);
+	i_queue_init(&dst->extmap);
 }
 void media_packet_release(struct media_packet *mp) {
 	obj_release(mp->sfd);
@@ -3769,8 +3762,8 @@ out:
 	ssrc_entry_release(phc->mp.ssrc_in);
 
 	while (phc->mp.extmap.length) {
-		__auto_type l = t_queue_pop_head_link(&phc->mp.extmap);
-		rtp_ext_data_free(l->data);
+		__auto_type ext = i_queue_pop_head(&phc->mp.extmap);
+		rtp_ext_data_free(ext);
 	}
 
 	rtcp_list_free(&phc->rtcp_list);
