@@ -781,6 +781,10 @@ void recording_finish(call_t *call, bool discard) {
 
 	g_slice_free1(sizeof(*(recording)), recording);
 	call->recording = NULL;
+
+	// clear the meta prefix to esure that pcaps for subsequent
+	// start recordings dont overwrite previous ones
+	call->recording_meta_prefix = STR_NULL;
 }
 
 
