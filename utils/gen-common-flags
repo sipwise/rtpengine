@@ -87,6 +87,8 @@ gen-pkgconf-flags OPENSSL             openssl
 gen-pkgconf-flags OPUS                opus
 gen-pkgconf-flags SPANDSP             spandsp
 gen-pkgconf-flags LIBJWT              libjwt
+gen-pkgconf-flags LIBMYSQL            mysqlclient
+gen-pkgconf-flags HIREDIS             hiredis
 
 echo "export CFLAGS_MYSQL := $(mysql_config --cflags)"
 echo "export LDLIBS_MYSQL := $(mysql_config --libs)"
