@@ -5,6 +5,11 @@ gen-pkgconf-flags()
   local var="$1"
   local pc="$2"
 
+  if ! pkg-config --exists "${pc}"; then
+    echo "Error: Required package '${pc}' not found" >&2
+    exit 1
+  fi
+
   echo "export CFLAGS_${var} LDLIBS_${var}"
   echo "CFLAGS_${var} := $(pkg-config --cflags "${pc}")"
   echo "LDLIBS_${var} := $(pkg-config --libs "${pc}")"
