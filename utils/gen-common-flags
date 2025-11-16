@@ -87,12 +87,9 @@ gen-pkgconf-flags OPENSSL             openssl
 gen-pkgconf-flags OPUS                opus
 gen-pkgconf-flags SPANDSP             spandsp
 gen-pkgconf-flags LIBJWT              libjwt
-
-echo "export CFLAGS_MYSQL := $(mysql_config --cflags)"
-echo "export LDLIBS_MYSQL := $(mysql_config --libs)"
-
-echo "export LDLIBS_LIBHIREDIS := -lhiredis"
-echo "export LDLIBS_LIBPCAP := -lpcap"
+gen-pkgconf-flags MYSQL               mysqlclient
+gen-pkgconf-flags LIBHIREDIS          hiredis
+gen-pkgconf-flags LIBPCAP             libpcap
 
 if pkg-config --exists libmosquitto; then
   gen-pkgconf-flags MQTT              libmosquitto
