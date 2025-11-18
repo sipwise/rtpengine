@@ -2059,7 +2059,7 @@ static void *shm_map_resolve(struct rtpengine_table *t, void *p, size_t size) {
 		goto out;
 
 	// start address is within range - check end address
-	if ((unsigned long) p + size >= rmm->uaddr + rmm->size)
+	if ((unsigned long) p + size > rmm->uaddr + rmm->size)
 		goto out;
 
 	ret = rmm->kaddr + ((unsigned long) p - rmm->uaddr);
