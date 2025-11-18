@@ -1874,7 +1874,7 @@ int main(int argc, char **argv) {
 	create_everything();
 	fill_initial_rtpe_cfg(&initial_rtpe_config);
 
-	ilog(LOG_INFO, "Startup complete, version %s", RTPENGINE_VERSION);
+	ilog(LOG_INFO, "Version %s initialising", RTPENGINE_VERSION);
 
 	thread_create_detach(sighandler, NULL, "signals");
 
@@ -1933,8 +1933,6 @@ int main(int argc, char **argv) {
 
 	websocket_start();
 
-	service_notify("READY=1\n");
-
 	for (unsigned int idx = 0; idx < num_poller_threads; ++idx)
 		thread_create_detach_prio(
 #ifdef HAVE_LIBURING
@@ -1949,6 +1947,9 @@ int main(int argc, char **argv) {
 	send_timer_launch();
 	jitter_buffer_launch();
 	codec_timers_launch();
+
+	ilog(LOG_INFO, "Startup complete, version %s", RTPENGINE_VERSION);
+	service_notify("READY=1\n");
 
 	// reap threads as they shut down during run time
 	threads_join_all(false);
