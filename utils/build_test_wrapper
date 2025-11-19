@@ -7,13 +7,24 @@ if test "$MAKE" = ""; then
 fi
 echo "Looking for usable alternative for $TARGET"
 rm -f "$ROOT"-test
+rm -f .stderr.$$
 for x in "$ROOT"*.h; do
 	echo "Trying build with $x"
 	rm -f "$TARGET"
 	(echo '/******** GENERATED FILE ********/'; cat "$x") > "$TARGET"
-	$MAKE "$ROOT"-test && break
+	$MAKE "$ROOT"-test 2>> .stderr.$$ && break
 	echo "Failed build with $x"
 	rm -f "$TARGET"
 done
 rm -f "$ROOT"-test
-test -f "$TARGET"
+if test -f "$TARGET"; then
+	rm -f .stderr.$$
+	exit 0
+fi
+echo "Failed to find usable build alternative for $TARGET"
+echo "Collected stderr:"
+echo "--------------------------"
+cat .stderr.$$
+rm -f .stderr.$$
+echo "--------------------------"
+exit 1
