@@ -71,6 +71,6 @@ t38.c ../daemon/t38.c:		../lib/spandsp_logging.h
 	../utils/const_str_hash "$<" $(CFLAGS) < "$<" > "$@"
 
 $(BUILD_TEST_ALTS):	$(wildcard $(subst .h,-*,$(BUILD_TEST_ALTS)))
-	../utils/build_test_wrapper "$@" 2> /dev/null
+	../utils/build_test_wrapper "$@"
 
 .PHONY: all debug clean install
