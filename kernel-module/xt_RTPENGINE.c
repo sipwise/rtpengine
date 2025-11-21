@@ -1341,6 +1341,8 @@ static int proc_status_show(struct seq_file *m, void *v) {
 }
 
 static int proc_status_open(struct inode *i, struct file *f) {
+	if (!try_module_get(THIS_MODULE))
+		return -ENOENT;
 	return single_open(f, proc_status_show, i);
 }
 
