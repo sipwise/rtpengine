@@ -8,6 +8,7 @@ on:
 
 jobs:
   test:
+    if: github.event_name != 'schedule' || github.repository == 'sipwise/rtpengine'
     runs-on: ubuntu-latest
 
     steps:

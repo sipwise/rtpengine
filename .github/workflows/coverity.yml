@@ -11,6 +11,7 @@ on:
 
 jobs:
   build:
+    if: github.repository == 'sipwise/rtpengine'
     runs-on: ubuntu-24.04
 
     env:

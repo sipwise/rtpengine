@@ -8,6 +8,7 @@ on:
 
 jobs:
   build-deb-bookworm:
+    if: github.event_name != 'schedule' || github.repository == 'sipwise/rtpengine'
     runs-on: ubuntu-latest
     name: Debian pipeline for bookworm
 
@@ -31,6 +32,7 @@ jobs:
         path: '*.buildinfo'
 
   build-deb-sid:
+    if: github.event_name != 'schedule' || github.repository == 'sipwise/rtpengine'
     runs-on: ubuntu-latest
     name: Debian pipeline for sid
 
