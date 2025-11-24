@@ -1,3 +1,229 @@
+ngcp-rtpengine (14.1.0.0+0~mr14.1.0.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [2ded91d] MT#63317 split out basic flags and echo setting
+  * [573adfa] MT#63317 split out siprec label setting
+  * [c829ddc] MT#63317 split out media type setting
+  * [5f3f0c5] MT#63317 split out protocol updates
+  * [25cf086] MT#63317 split out setting of media ID
+  * [4a1fca4] MT#63317 split out loop protect setting
+  * [3f964a3] MT#63317 split out flags and crypto setting
+  * [8ba6930] MT#63317 split out assignment of attributes
+  * [e6df082] MT#63317 split out update of format string
+  * [6930991] MT#63317 split out update of address family
+  * [64c6e51] MT#63317 split out update of rec slot
+  * [6c51c43] MT#63317 move setting of recrypt
+  * [fa54abf] MT#63317 split out ptime setting
+  * [65e591b] MT#63317 revamp SDP printing
+  * [878d7d8] MT#63317 update return types to bool
+  * [6a893b1] MT#63317 update return type to bool
+  * [3540a83] MT#63317 annotate rtp_payload
+  * [f4724b2] MT#63317 annotate rtp_padding
+  * [eddff91] MT#63317 annotate rtcp_payload
+  * [8795e92] MT#63317 refactor RTP parsing code
+  * [1f9cd2e] MT#63317 rename rtp_extension to rtp_exthdr
+  * [fc9cb21] MT#63317 store extmap entries in media object
+  * [35bcdd5] MT#63317 keep extmap in tables
+  * [4865e1f] MT#63317 support RTP extensions in tests
+  * [6c5190a] MT#63317 add tests for RTP extensions
+  * [2f52fb2] MT#63317 return RTP extensions from rtp_payload
+  * [c525cb9] MT#63317 remove duplicate header parsing
+  * [64d3c76] MT#63317 parse out RTP header extensions
+  * [d5c1fa4] MT#63317 keep rtpext names in table
+  * [f349cc7] MT#63317 use monologue-local extmap storage
+  * [acb0e47] MT#63317 rename determine_sink_handler
+  * [00e8c08] MT#63317 add handler lookup to test-transcode
+  * [82f5158] MT#63317 add sink_handler_set_generic
+  * [3de7902] MT#63317 add sink_handler to media_player
+  * [42f7e40] MT#63317 support extmap-strip for SDP
+  * [21d9f4f] MT#63317 add test for Iaa38fa3c
+  * [b2721c5] MT#63317 update payload lengths to size_t
+  * [b98e146] MT#63317 update marker flags to bool
+  * [d3d1a55] MT#63317 support extensions in codec_output_rtp
+  * [dba2386] MT#63317 support extmap-mask
+  * [c7aec50] MT#63317 tests for Ib8ca6d4a
+  * [1925ab9] MT#55283 use obj_release
+  * [c216b51] MT#63317 parse out extensions
+  * [d2cfc5e] MT#63317 move down sink setting
+  * [4fbef39] MT#63317 add rtpext printing abstraction
+  * [7e2bb7f] MT#63317 set DTMF payload string
+  * [8828b17] MT#63317 introduce extmap_ops abstraction
+  * [57bc6b1] MT#63317 abstract packet copy
+  * [5c03188] MT#63317 abstract extmap printing
+  * [e046eec] MT#63317 print extensions from list
+  * [9ef7c87] MT#63317 print exts for forwarded packets
+  * [f934f77] MT#63317 support long form extension printing
+  * [02097e6] MT#63317 tests for Ib1f1d51d
+  * [4577241] MT#63317 tests for ext too long
+  * [af4ca41] MT#63317 support filtering of extensions
+  * [a87889b] MT#63317 initial support for allow-mixed
+  * [ab8c7a8] MT#63317 support sending mixed rtpext
+  * [ced0b9f] MT#63317 tests for Ic504cfd9d
+  * [1713385] MT#63317 add test for full strip
+  * [1b05cb0] MT#63317 support ext filter in kernel
+  * [e021d77] MT#55283 fix old gcc error
+  * [29886ae] MT#55283 fix old gcc error p2
+  * [bce8793] MT#63317 fix seq print formatting
+  * [61103a2] MT#63317 remove unused struct member
+  * [de6e8e3] MT#55283 use embedded array
+  * [176a834] MT#55283 carry over PT flags with reuse
+  * [e9c03c9] MT#55283 test for I19a4ae523f
+  * [ff5abd4] MT#55283 fix possible tcp-mixed segfault
+  * [64efc53] MT#55283 update redis data after rec/fwd commands
+  * [e82c5da] MT#55283 fix redis metadata typo
+  * [09ed1d3] MT#55283 store RTCP payload in phc
+  * [de961d5] MT#55283 delegate shm refcount to table
+  * [c2d53cb] MT#55283 properly support extension SRTP in tester
+  * [106050c] MT#55283 extension tests with SRTP
+  * [df6ac13] MT#55283 compile fix for older glibc
+  * [6b2550c] MT#55283 fix perl warnings
+  * [2aed497] MT#55283 check for null return first
+  * [8b66f0a] MT#63317 avoid duplicate extmap
+  * [5853dcb] MT#63317 move confirmed/kernel flags to stream_fd
+  * [8c58130] MT#63317 add a=group tests
+  * [facedaf] MT#63317 allow use of void functions for typed HT
+  * [2794c88] MT#63317 add inline q_free
+  * [60a3637] MT#63317 type safety for free functions
+  * [99005e0] MT#63317 use length for empty test
+  * [16780ac] MT#63317 support multiple a=group attrs
+  * [1f91ce4] MT#63317 support bundle groups
+  * [2be254b] MT#55283 set mux-offer when require is set
+  * [bc779d0] MT#63317 PT tracking
+  * [255754d] MT#55283 support checking receive port in tests
+  * [e4f1717] MT#63317 set media/stream from PT
+  * [774834d] MT#63317 set media from RTP ext
+  * [3ef034a] MT#63317 track extensions by known ID
+  * [dbd09db] MT#63317 add bundle tests
+  * [871c4c0] MT#63317 support BUNDLE flags
+  * [be148a4] MT#63317 ignore bundle groups under force-relay
+  * [77776f1] MT#63317 support bundle-accept
+  * [e4478fc] MT#63317 print bundle groups for bundled media
+  * [455caf2] MT#63317 check if bundled PTs are unique
+  * [0cf57f2] MT#63317 check if bundle head is bundled
+  * [15dc584] MT#63317 check if streams are matching
+  * [12f69ab] MT#63317 share ports/sockets among bundle groups
+  * [667056b] MT#63317 skip PT check when MID is in use
+  * [56cf28d] MT#63317 tests for Ic9eaaada
+  * [78f9c01] MT#63317 generalise functions
+  * [4ea2867] MT#63317 support generating MID RTP extension
+  * [5a28701] MT#63317 rework RTCP printing code
+  * [7f9ed63] MT#63317 support MID RTCP printing
+  * [42ca057] MT#63317 fixes for test script
+  * [827b6af] MT#63317 kernel support for RTP MID
+  * [7ce6a95] MT#63317 tests for Ib3582649474
+  * [07a046a] MT#63317 push MID ext to kernel
+  * [8cf038e] MT#63317 rework kernel output grouping
+  * [7ce5b76] MT#63317 typedef for kernelize_state
+  * [c2aa974] MT#63317 separate out stream/media/sink setting
+  * [607866e] MT#63317 send bundle media to kernel
+  * [e3a9eee] MT#63317 select kernel output group from PT
+  * [3b04969] MT#63317 extmap parsing in kernel
+  * [bc185e6] MT#63317 rework endpoint matching a bit
+  * [ffd362c] MT#63317 allow alternative endpoints
+  * [72be12a] MT#63317 tests for Ic13a9a7fe
+  * [cc48a89] MT#63317 set correct output media w bundle
+  * [4c78949] MT#63317 associate SSRC with media
+  * [e9f9cc8] MT#63317 test for I0fba8f0a2
+  * [72ac8d8] MT#63317 remove rejected streams from bundle
+  * [2629687] MT#63317 tests for Ib596cf1
+  * [44deb79] MT#63317 remove unused hash table
+  * [d780643] MT#63317 add SSRC mapping to kernel
+  * [a76b0a7] MT#63317 optionally return previous HT to caller
+  * [429c7b5] MT#63317 support bundle offer
+  * [4aa3641] MT#63317 avoid mismatched extmap IDs
+  * [fec13cd] MT#63317 tests for Ibb271535c
+  * [3124ab0] MT#63317 support bundle-require
+  * [378779a] MT#63317 tests for I82ab66945
+  * [9baf027] MT#63317 print a=bundle-only
+  * [40d4582] MT#63317 use correct bundle sink for kernel
+  * [f0e5e27] MT#63317 ignore SDP address for bundled media
+  * [f55a7c8] MT#63317 reinvite tests
+  * [e1cfefc] MT#55283 disable kernel RTCP FW if filtering
+  * [b26252b] MT#55283 remove useless hash table
+  * [b018e64] MT#63317 fix typo
+  * [15a71f4] MT#63317 fix off by one
+  * [527e7b5] MT#55283 lock payload tracker
+  * [2340b41] MT#55283 check return values
+  * [dcae1a2] MT#55283 fix possible overflow
+  * [cf278b4] MT#55283 delete from Redis when call goes standby
+  * [847d004] MT#55283 revamp kernel shm strategy
+  * [8317cc7] MT#55283 reorder ICE candidate check
+  * [cceb8e2] MT#63317 fixes to DTLS test package
+  * [798ec58] MT#63317 preload: allow port-anonymous binds
+  * [0dc8a5d] MT#63317 preload: translate anon addr for connect
+  * [ca11a6c] MT#63317 add DTLS test
+  * [a3f5246] MT#63317 separate ICE init from ICE start
+  * [37cbac5] MT#63317 share ICE context when bundling
+  * [51b9dda] MT#63317 ice/bundle tests
+  * [6ce23df] MT#63317 delay start of DTLS
+  * [2138551] MT#63317 don't run DTLS on bundled media
+  * [2348888] MT#63317 bundle + DTLS test
+  * [9790ee9] MT#63317 add strict bundle mode
+  * [602316b] MT#63317 test for Ic207652
+  * [4dce0a6] MT#63317 bundle docs
+  * [fc291e8] MT#63317 DTLS bundle test
+  * [26385f3] MT#63317 fix missing filter length setting
+  * [dc5544e] MT#63317 fix incorrect bsearch syntax
+  * [ce951ab] MT#63317 fix AEAD encryption with header extension
+  * [ef552f3] MT#63317 test for I75ddb3f4b71
+  * [0eea0db] MT#63317 amend and fix some logging
+  * [ae603e7] MT#63317 fix incorrect sorting of PTs
+  * [fbb61c2] MT#63317 don't rekernelize when SSRC order changes
+  * [ec61501] MT#63317 amend WebRTC flag with BUNDLE option
+  * [99b5f1f] MT#55283 disable IPv6 test
+  * [0be3d10] MT#55283 close sockets on unsubscribe
+  * [0600d73] MT#55283 fix test case
+  * [9067861] MT#63317 add port usage test
+  * [0ebc75d] MT#63317 rework endpoint_map hunting
+  * [5b199f4] MT#63317 use endpoint map as test for disabled
+  * [e121a1e] MT#63317 eliminate sockets shut down test
+  * [2ba7bd1] MT#63317 fix possible booboo
+  * [0ea27e9] MT#63317 split apart ICE startup
+  * [78c2e1e] MT#55283 update return type
+  * [37813dd] MT#63317 rework port opening mechanics
+  * [388f634] MT#55283 fix opus fmtp booboo
+  * [ee65919] MT#55283 replace g_atomic with atomic_*
+  * [b0d2b82] MT#55283 replace g_atomic with atomic_*
+  * [a513a60] MT#55283 add port usage test
+  * [6b785e7] MT#55283 make arg non null
+  * [750f0a8] MT#55283 improve timeout handling
+  * [1fdf5cf] MT#55283 add TCP keepalives for Redis connections
+  * [23aa836] MT#55283 fix missing MQTT SSRC stats
+  * [4f5d013] MT#55283 introduce socket use counter
+  * [914f6df] MT#55283 use intrusive list
+  * [63aaee1] MT#55283 add intrusive queue container
+  * [ef8967d] MT#55283 convert packets_out to iqueue
+  * [f68e614] MT#55283 convert slp to iqueue
+  * [1568231] MT#55283 convert extmap to iqueue
+  * [5263fb0] MT#55283 pull down service ready notification
+  * [4071e42] MT#55283 fix off-by-one bug
+  * [99d30be] MT#55283 name spacing
+  * [d851706] MT#55283 improve build test error output
+  * [a5e5a27] MT#55283 use seq_printf for /status
+  * [df6f8f9] MT#55283 add `fragment` to docs
+  * [0e1ba80] MT#55283 fix module refcount
+  * [5f832a5] MT#55283 refactor mem pinning into function
+  * [0b94847] MT#55283 local var for shorter code
+
+  [ Tom Briden ]
+  * [0bb5f4e] MT#55283 recording: only update metafile offset after successfully parsing the change
+
+  [ Guillem Jover ]
+  * [d3457c1] MT#62763 Fix shellcheck issues
+
+  [ Harsh Daga ]
+  * [d45a29e] MT#55283 adaptive jitter buffer
+
+  [ Alex Brown ]
+  * [2639d9c] MT#55283 Fix Issue with pcap based recording getting overwritten
+
+  [ Orgad Shaneh ]
+  * [d9fda37] MT#55283 build: Get hiredis, pcap and mysql flags from pkg-config
+  * [aa28864] MT#55283 Abort make if required package is not found
+  * [7d71513] MT#55283 CI: Prevent scheduled actions from running in forks
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 24 Nov 2025 16:58:33 +0100
+
 ngcp-rtpengine (14.0.0.0+0~mr14.0.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
