@@ -1051,6 +1051,13 @@ Spaces in each string may be replaced by hyphens.
     processed, or when any audio to be played back has actually been received
     (either from another party to the call, or via the `play media` command).
 
+* `fragment`
+
+    Presence of this flag indicates that the SDP included in the `offer`
+    message is not a full SDP body (such as from a SIP INVITE), but rather a
+    trickle ICE SDP fragment containing updated ICE candidates. In a SIP
+    environment these are typically carried as SIP INFO messages.
+
 * `full rtcp attribute`
 
 	Include the full version of the `a=rtcp` line (complete with network address) instead of
