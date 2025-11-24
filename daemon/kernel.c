@@ -57,6 +57,22 @@ static bool kernel_delete_table(unsigned int id) {
 	return kernel_action_table("del", id);
 }
 
+static void kernel_pin_memory(void *b, size_t len) {
+	struct rtpengine_command_pin_memory pmc = {
+		.cmd = REMG_PIN_MEMORY,
+		.pin_memory = {
+			.addr = b,
+			.size = len,
+		},
+	};
+
+	ssize_t ret = write(kernel.fd, &pmc, sizeof(pmc));
+	if (ret != sizeof(pmc)) {
+		ilog(LOG_CRIT, "Failed to pin shared kernel memory: %s", strerror(errno));
+		abort();
+	}
+}
+
 static void *kernel_alloc(void) {
 	// Since we can't really request memory at a specific location that we know
 	// will be correctly aligned, request twice as much, which we know must be
@@ -83,19 +99,7 @@ static void *kernel_alloc(void) {
 	*back_ptr = b;
 
 	// register it with the kernel
-	struct rtpengine_command_pin_memory pmc = {
-		.cmd = REMG_PIN_MEMORY,
-		.pin_memory = {
-			.addr = aligned,
-			.size = BUFFERPOOL_SHARD_SIZE,
-		},
-	};
-
-	ssize_t ret = write(kernel.fd, &pmc, sizeof(pmc));
-	if (ret != sizeof(pmc)) {
-		ilog(LOG_CRIT, "Failed to pin shared kernel memory: %s", strerror(errno));
-		abort();
-	}
+	kernel_pin_memory(aligned, BUFFERPOOL_SHARD_SIZE);
 
 	return aligned;
 }
