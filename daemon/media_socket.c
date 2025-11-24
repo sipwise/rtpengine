@@ -1583,9 +1583,11 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 	if (s->blackhole)
 		s->non_forwarding = true;
 
+	stream_fd *sfd = stream->selected_sfd;
+
 	ilog(LOG_INFO, "Kernelizing media stream: remote %s%s%s -> local %s",
 			FMT_M(endpoint_print_buf(&stream->endpoint)),
-			endpoint_print_buf(&stream->selected_sfd->socket.local));
+			endpoint_print_buf(&sfd->socket.local));
 
 	// fill input
 	__auto_type reti = &s->reti;
@@ -1598,8 +1600,8 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 			reti->src_mismatch = MSM_PROPAGATE;
 	}
 
-	__re_address_translate_ep(&reti->local, &stream->selected_sfd->socket.local);
-	reti->iface_stats = stream->selected_sfd->local_intf->stats;
+	__re_address_translate_ep(&reti->local, &sfd->socket.local);
+	reti->iface_stats = sfd->local_intf->stats;
 	reti->stats = stream->stats_in;
 	reti->rtcp = PS_ISSET(stream, RTCP);
 	reti->dtls = MEDIA_ISSET(media, DTLS);
@@ -2045,21 +2047,23 @@ struct ssrc_entry_call *__hunt_ssrc_ctx(uint32_t ssrc, struct ssrc_entry_call *l
 
 /* must be called with ps->lock held or call->master_lock held in W */
 void __unkernelize(struct packet_stream *p, const char *reason) {
-	if (!p->selected_sfd)
+	stream_fd *sfd = p->selected_sfd;
+
+	if (!sfd)
 		return;
-	if (!p->selected_sfd->kernelized)
+	if (!sfd->kernelized)
 		return;
 
 	if (kernel.is_open && !PS_ISSET(p, NO_KERNEL_SUPPORT)) {
 		ilog(LOG_INFO, "Removing media stream from kernel: local %s (%s)",
-				endpoint_print_buf(&p->selected_sfd->socket.local),
+				endpoint_print_buf(&sfd->socket.local),
 				reason);
 		struct rtpengine_command_del_target cmd = {0};
-		__re_address_translate_ep(&cmd.local, &p->selected_sfd->socket.local);
+		__re_address_translate_ep(&cmd.local, &sfd->socket.local);
 		kernel_del_stream(&cmd);
 	}
 
-	p->selected_sfd->kernelized = false;
+	sfd->kernelized = false;
 	PS_CLEAR(p, NO_KERNEL_SUPPORT);
 }
 
