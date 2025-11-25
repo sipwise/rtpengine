@@ -1674,7 +1674,7 @@ static void create_everything(void) {
 		num_rtpe_pollers = num_media_pollers + 1;
 		num_poller_threads = num_rtpe_pollers;
 	}
-	rtpe_pollers = g_malloc(sizeof(*rtpe_pollers) * num_rtpe_pollers);
+	rtpe_pollers = g_new(__typeof(*rtpe_pollers), num_rtpe_pollers);
 	for (unsigned int i = 0; i < num_rtpe_pollers; i++) {
 		rtpe_pollers[i] = 
 #ifdef HAVE_LIBURING
