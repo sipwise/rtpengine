@@ -198,8 +198,6 @@ static int poller_poll(struct poller *p, int timeout, struct epoll_event *evs, i
 
 	if (errno == EINTR)
 		ret = 0;
-	if (ret == 0)
-		ret = 0;
 	if (ret <= 0)
 		goto out;
 
