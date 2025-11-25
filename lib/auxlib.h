@@ -192,7 +192,7 @@ INLINE int __cond_timedwait_tv(cond_t *c, mutex_t *m, int64_t tv) {
 #ifndef ASAN_BUILD
 #define thread_cancel_enable() pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL)
 #define thread_cancel_disable() pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL)
-#define thread_sleep_time 10000 /* ms */
+#define thread_sleep_time -1 // forever
 #define thread_cleanup_push pthread_cleanup_push
 #define thread_cleanup_pop pthread_cleanup_pop
 #else

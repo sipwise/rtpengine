@@ -135,7 +135,6 @@ struct interface_config_callback_arg {
 static void sighandler(gpointer x) {
 	sigset_t ss;
 	int ret;
-	struct timespec ts;
 
 	sigemptyset(&ss);
 	sigaddset(&ss, SIGINT);
@@ -144,12 +143,9 @@ static void sighandler(gpointer x) {
 	sigaddset(&ss, SIGUSR1);
 	sigaddset(&ss, SIGUSR2);
 
-	ts.tv_sec = thread_sleep_time / 1000;
-	ts.tv_nsec = (thread_sleep_time % 1000) * 1000 * 1000;
-
 	while (!rtpe_shutdown) {
 		thread_cancel_enable();
-		ret = sigtimedwait(&ss, NULL, &ts);
+		ret = sigwaitinfo(&ss, NULL);
 		thread_cancel_disable();
 
 		if (ret == -1) {
