@@ -9,6 +9,7 @@
 #include <glib.h>
 #include <stdbool.h>
 #include "compat.h"
+#include "auxlib.h"
 
 
 #define MAX_RTP_PACKET_SIZE	8192
@@ -35,6 +36,16 @@ struct poller_item {
 
 struct poller;
 
+struct poller_thread {
+	pid_t pid;
+
+	struct poller *poller;
+
+	// stats
+	atomic64 wakeups;
+	atomic64 items; // per wakeup
+};
+
 struct poller *poller_new(void);
 void poller_free(struct poller **);
 bool poller_add_item(struct poller *, struct poller_item *);
@@ -45,7 +56,7 @@ void poller_blocked(struct poller *, void *);
 bool poller_isblocked(struct poller *, void *);
 void poller_error(struct poller *, void *);
 
-void poller_loop(struct poller *);
+void poller_loop(struct poller_thread *);
 
 extern bool (*rtpe_poller_add_item)(struct poller *, struct poller_item *);
 extern bool (*rtpe_poller_del_item)(struct poller *, int);

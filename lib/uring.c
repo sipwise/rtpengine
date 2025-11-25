@@ -593,7 +593,7 @@ void uring_poller_add_waker(struct poller *p) {
 			});
 }
 
-void uring_poller_poll(struct poller *p) {
+unsigned int uring_poller_poll(struct poller *p) {
 	uring_poller_do_reqs(p);
 
 	unsigned int events = __uring_thread_loop();
@@ -604,6 +604,8 @@ void uring_poller_poll(struct poller *p) {
 		io_uring_wait_cqe(&rtpe_uring, &cqe); // maybe not a cancellation point
 		thread_cancel_disable();
 	}
+
+	return events;
 }
 
 void uring_poller_clear(struct poller *p) {

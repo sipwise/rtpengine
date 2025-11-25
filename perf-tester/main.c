@@ -325,7 +325,8 @@ static void *worker(struct worker *p) {
 		LOCK(&other_threads_lock);
 		g_hash_table_insert(worker_threads, GINT_TO_POINTER(worker_self->pid), NULL);
 	}
-	poller_loop(rtpe_poller);
+	struct poller_thread pt = { .poller = rtpe_poller };
+	poller_loop(&pt);
 	return NULL;
 }
 

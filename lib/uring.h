@@ -47,7 +47,7 @@ struct poller *uring_poller_new(void);
 void uring_poller_free(struct poller **pp);
 void uring_poller_add_waker(struct poller *p);
 void uring_poller_wake(struct poller *p);
-void uring_poller_poll(struct poller *);
+unsigned int uring_poller_poll(struct poller *);
 void uring_poller_clear(struct poller *);
 
 bool uring_poller_add_item(struct poller *p, struct poller_item *i);

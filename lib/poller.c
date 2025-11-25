@@ -325,7 +325,9 @@ out:
 	return ret;
 }
 
-void poller_loop(struct poller *p) {
+void poller_loop(struct poller_thread *pt) {
+	struct poller *p = pt->poller;
+	pt->pid = gettid();
 	int poller_size = rtpe_common_config_ptr->poller_size;
 	struct epoll_event *evs;
 
@@ -337,6 +339,10 @@ void poller_loop(struct poller *p) {
 		int ret = poller_poll(p, thread_sleep_time, evs, poller_size);
 		if (ret < 0)
 			usleep(20 * 1000);
+		else {
+			atomic64_inc_na(&pt->wakeups);
+			atomic64_add_na(&pt->items, ret);
+		}
 		uring_methods.thread_loop();
 	}
 

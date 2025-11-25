@@ -69,6 +69,7 @@ struct poller **rtpe_pollers;
 struct poller *rtpe_control_poller;
 static unsigned int num_rtpe_pollers;
 static unsigned int num_poller_threads;
+struct poller_thread *rtpe_poller_threads;
 unsigned int num_media_pollers;
 unsigned int rtpe_poller_rr_iter;
 
@@ -1682,6 +1683,8 @@ static void create_everything(void) {
 	}
 	rtpe_control_poller = rtpe_pollers[num_rtpe_pollers - 1];
 
+	rtpe_poller_threads = g_new0(struct poller_thread, num_poller_threads);
+
 	if (call_init())
 		abort();
 
@@ -1840,7 +1843,10 @@ static void uring_thread_waker(struct thread_waker *wk) {
 	struct poller *p = wk->arg;
 	uring_poller_wake(p);
 }
-static void uring_poller_loop(struct poller *p) {
+static void uring_poller_loop(struct poller_thread *pt) {
+	struct poller *p = pt->poller;
+	pt->pid = gettid();
+
 	uring_poller_add_waker(p);
 
 	struct thread_waker wk = {.func = uring_thread_waker, .arg = p};
@@ -1848,9 +1854,12 @@ static void uring_poller_loop(struct poller *p) {
 
 	while (!rtpe_shutdown) {
 		rtpe_now = now_us();
-		uring_poller_poll(p);
+		unsigned int events = uring_poller_poll(p);
 		append_thread_lpr_to_glob_lpr();
 		log_info_reset();
+
+		atomic64_inc_na(&pt->wakeups);
+		atomic64_add_na(&pt->items, events);
 	}
 	thread_waker_del(&wk);
 	uring_poller_clear(p);
@@ -1927,15 +1936,18 @@ int main(int argc, char **argv) {
 
 	websocket_start();
 
-	for (unsigned int idx = 0; idx < num_poller_threads; ++idx)
+	for (unsigned int idx = 0; idx < num_poller_threads; ++idx) {
+		rtpe_poller_threads[idx].poller = rtpe_pollers[idx % num_rtpe_pollers];
+
 		thread_create_detach_prio(
 #ifdef HAVE_LIBURING
 				rtpe_config.common.io_uring ? uring_poller_loop :
 #endif
 				poller_loop,
-				rtpe_pollers[idx % num_rtpe_pollers],
+				&rtpe_poller_threads[idx],
 				rtpe_config.scheduling, rtpe_config.priority,
 				idx < rtpe_config.num_threads ? "poller" : "cpoller");
+	}
 
 	media_player_launch();
 	send_timer_launch();
@@ -2011,6 +2023,7 @@ int main(int argc, char **argv) {
 #endif
 			poller_free(&rtpe_pollers[idx]);
 	g_free(rtpe_pollers);
+	g_free(rtpe_poller_threads);
 	release_closed_sockets();
 	interfaces_free();
 #ifndef WITHOUT_NFTABLES
