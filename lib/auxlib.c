@@ -73,7 +73,7 @@ void service_notify(const char *message) {
 }
 
 
-int thread_create(void *(*func)(void *), void *arg, bool joinable, pthread_t *handle, const char *name) {
+int __thread_create(void *(*func)(void *), void *arg, bool joinable, pthread_t *handle, const char *name) {
 	pthread_attr_t att;
 	pthread_t thr;
 	int ret;

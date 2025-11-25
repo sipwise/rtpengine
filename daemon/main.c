@@ -1844,9 +1844,7 @@ static void uring_thread_waker(struct thread_waker *wk) {
 	struct poller *p = wk->arg;
 	uring_poller_wake(p);
 }
-static void uring_poller_loop(void *ptr) {
-	struct poller *p = ptr;
-
+static void uring_poller_loop(struct poller *p) {
 	uring_poller_add_waker(p);
 
 	struct thread_waker wk = {.func = uring_thread_waker, .arg = p};

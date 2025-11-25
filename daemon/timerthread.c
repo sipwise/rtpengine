@@ -65,8 +65,7 @@ void timerthread_free(struct timerthread *tt) {
 	g_free(tt->threads);
 }
 
-static void timerthread_run(void *p) {
-	struct timerthread_thread *tt = p;
+static void timerthread_run(struct timerthread_thread *tt) {
 	struct timerthread *parent = tt->parent;
 
 	struct thread_waker waker = { .lock = &tt->lock, .cond = &tt->cond };

@@ -327,8 +327,7 @@ out:
 	return ret;
 }
 
-void poller_loop(void *d) {
-	struct poller *p = d;
+void poller_loop(struct poller *p) {
 	int poller_size = rtpe_common_config_ptr->poller_size;
 	struct epoll_event *evs;
 

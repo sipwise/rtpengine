@@ -205,8 +205,7 @@ static void thread_detach_cleanup(void *dtp) {
 	thread_join_me();
 }
 
-static void *thread_detach_func(void *d) {
-	struct detach_thread *dt = d;
+static void *thread_detach_func(struct detach_thread *dt) {
 	pthread_t *t;
 
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
@@ -267,7 +266,7 @@ static void *thread_detach_func(void *d) {
 	return NULL;
 }
 
-void thread_create_detach_prio(void (*f)(void *), void *d, const char *scheduler, int priority,
+void __thread_create_detach_prio(void (*f)(void *), void *d, const char *scheduler, int priority,
 		const char *name)
 {
 	struct detach_thread *dt;
@@ -282,9 +281,8 @@ void thread_create_detach_prio(void (*f)(void *), void *d, const char *scheduler
 		abort();
 }
 
-static void thread_looper_helper(void *fp) {
+static void thread_looper_helper(struct looper_thread *lhp) {
 	// move object to stack and free it, so we can be cancelled without having a leak
-	struct looper_thread *lhp = fp;
 	struct looper_thread lh = *lhp;
 	g_free(lhp);
 

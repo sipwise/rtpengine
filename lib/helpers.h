@@ -214,12 +214,15 @@ void thread_waker_add(struct thread_waker *);
 void thread_waker_add_generic(struct thread_waker *);
 void thread_waker_del(struct thread_waker *);
 void threads_join_all(bool cancel);
-void thread_create_detach_prio(void (*)(void *), void *, const char *, int, const char *);
+void __thread_create_detach_prio(void (*)(void *), void *, const char *, int, const char *);
+#define thread_create_detach_prio(func, arg, sched, prio, name) do { \
+		void (*__func)(__typeof(arg)) = (func); \
+		void *__arg = (arg); \
+		__thread_create_detach_prio((void (*)(void *)) __func, __arg, (sched), (prio), (name)); \
+	} while (0)
 void thread_create_looper(enum thread_looper_action (*f)(void), const char *scheduler, int priority,
 		const char *name, int64_t);
-INLINE void thread_create_detach(void (*f)(void *), void *a, const char *name) {
-	thread_create_detach_prio(f, a, NULL, 0, name);
-}
+#define thread_create_detach(func, arg, name) thread_create_detach_prio(func, arg, NULL, 0, name)
 
 
 

@@ -230,7 +230,7 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC(DIR, closedir)
 
 
 
-static pthread_t thread_new(const char *name, void *(*fn)(void *), void *p) {
+static pthread_t __thread_new(const char *name, void *(*fn)(void *), void *p) {
 	pthread_t ret;
 	int s = pthread_create(&ret, NULL, fn, p);
 	if (s != 0)
@@ -241,6 +241,13 @@ static pthread_t thread_new(const char *name, void *(*fn)(void *), void *p) {
 #endif
 	return ret;
 }
+
+#define thread_new(name, func, arg) ({ \
+		void *(*__func)(__typeof(arg)) = (func); \
+		void *__arg = (arg); \
+		pthread_t __thr = __thread_new((name), (void *(*)(void *)) __func, __arg); \
+		__thr; \
+	})
 
 
 static inline long long us_ticks_scale(long long val) {
@@ -310,7 +317,7 @@ static int got_frame(decoder_t *decoder, AVFrame *frame, void *p1, void *b) {
 }
 
 
-static void *worker(void *p) {
+static void *worker(struct worker *p) {
 	thread_cancel_disable();
 	worker_self = p;
 	worker_self->pid = gettid();
@@ -1771,9 +1778,7 @@ static void delay_measure_workers(uint milliseconds, struct stats *totals) {
 }
 
 
-static void *cpu_freq_monitor(void *p) {
-	struct thread_freq_stats *freq_stats = p;
-
+static void *cpu_freq_monitor(struct thread_freq_stats *freq_stats) {
 	while (true) {
 		struct freq_stats iter_stats = {0};
 

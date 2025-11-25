@@ -318,8 +318,7 @@ static size_t cb_curl_write(char *ptr, size_t size, size_t nmemb, void *userdata
 	return size * nmemb;
 }
 
-void xmlrpc_kill_calls(void *p) {
-	struct xmlrpc_helper *xh = p;
+void xmlrpc_kill_calls(struct xmlrpc_helper *xh) {
 	unsigned int tries = 0;
 
 	int els_per_ent = 2;

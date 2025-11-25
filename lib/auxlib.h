@@ -111,7 +111,13 @@ INLINE void config_load(int *argc, char ***argv, GOptionEntry *entries, const ch
 }
 
 char *get_thread_buf(void);
-int thread_create(void *(*func)(void *), void *arg, bool joinable, pthread_t *handle, const char *name);
+int __thread_create(void *(*func)(void *), void *arg, bool joinable, pthread_t *handle, const char *name);
+#define thread_create(func, arg, joinable, handle, name) ({ \
+		void *(*__func)(__typeof(arg)) = (func); \
+		void *__arg = (arg); \
+		int __ret = __thread_create((void *(*)(void *)) __func, __arg, (joinable), (handle), (name)); \
+		__ret; \
+	})
 
 unsigned int in6_addr_hash(const void *p);
 int in6_addr_eq(const void *a, const void *b);

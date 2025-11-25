@@ -45,7 +45,7 @@ void poller_blocked(struct poller *, void *);
 bool poller_isblocked(struct poller *, void *);
 void poller_error(struct poller *, void *);
 
-void poller_loop(void *);
+void poller_loop(struct poller *);
 
 extern bool (*rtpe_poller_add_item)(struct poller *, struct poller_item *);
 extern bool (*rtpe_poller_del_item)(struct poller *, int);

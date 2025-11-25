@@ -798,9 +798,7 @@ static void media_player_cache_packet(struct media_player_cache_entry *entry, ch
 	entry->coder.handler->handler_func(entry->coder.handler, &packet);
 }
 
-static void media_player_cache_entry_decoder_thread(void *p) {
-	struct media_player_cache_entry *entry = p;
-
+static void media_player_cache_entry_decoder_thread(struct media_player_cache_entry *entry) {
 	ilog(LOG_DEBUG, "Launching media decoder thread for %s", entry->info_str);
 
 	while (true) {
@@ -913,7 +911,7 @@ static bool media_player_cache_entry_init(struct media_player *mp, const rtp_pay
 	entry->coder.handler->packet_encoded = media_player_packet_cache;
 
 	// use low priority (10 nice)
-	thread_create_detach_prio(media_player_cache_entry_decoder_thread, obj_hold(entry), NULL, 10, "mp decoder");
+	thread_create_detach_prio(media_player_cache_entry_decoder_thread, obj_get(entry), NULL, 10, "mp decoder");
 
 	media_player_cached_reader_start(mp, codec_set);
 
