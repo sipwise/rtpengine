@@ -535,6 +535,10 @@ taint_func(srandom, "use rtpe_ssl_init() instead");
 typedef struct {
 	uint64_t a;
 } atomic64;
+typedef atomic64 atomic64_t;
+
+static_assert(sizeof(atomic64_t) == sizeof(int64_t), "atomic64_t != int64_t");
+
 
 INLINE uint64_t atomic64_get(const atomic64 *u) {
 	return __atomic_load_n(&u->a, __ATOMIC_SEQ_CST);
