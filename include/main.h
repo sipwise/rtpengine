@@ -316,6 +316,8 @@ extern struct poller **rtpe_pollers; // at least one poller, in an array
 extern struct poller *rtpe_control_poller; // poller for control sockets (maybe rtpe_pollers[0])
 extern unsigned int num_media_pollers; // for media sockets, >= 1
 extern unsigned int rtpe_poller_rr_iter; // round-robin assignment of pollers to each thread
+extern unsigned int num_poller_threads;
+extern struct poller_thread *rtpe_poller_threads;
 
 
 INLINE struct poller *rtpe_get_poller(void) {

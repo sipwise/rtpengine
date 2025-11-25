@@ -18,6 +18,8 @@ struct rtpengine_config rtpe_config = {
 };
 struct rtpengine_config initial_rtpe_config;
 struct poller **rtpe_pollers = (struct poller *[]) {NULL};
+unsigned int num_poller_threads;
+struct poller_thread *rtpe_poller_threads;
 struct poller *rtpe_control_poller;
 struct poller *uring_poller;
 unsigned int num_media_pollers = 1;
@@ -1265,6 +1267,9 @@ int main(void) {
 			"[\n"
 			"\n"
 			"]\n"
+			"poller_threads\n"
+			"[\n"
+			"]\n"
 			"}\n");
 
 	RTPE_STATS_INC(ng_commands[OP_OFFER]);
@@ -2451,6 +2456,9 @@ int main(void) {
 			"[\n"
 			"\n"
 			"]\n"
+			"poller_threads\n"
+			"[\n"
+			"]\n"
 			"}\n");
 
 	RTPE_STATS_INC(ng_commands[OP_ANSWER]);
@@ -3633,6 +3641,9 @@ int main(void) {
 			"\n"
 			"[\n"
 			"\n"
+			"]\n"
+			"poller_threads\n"
+			"[\n"
 			"]\n"
 			"}\n");
 
@@ -4836,6 +4847,9 @@ int main(void) {
 			"[\n"
 			"\n"
 			"]\n"
+			"poller_threads\n"
+			"[\n"
+			"]\n"
 			"}\n");
 
 	// test average call duration
@@ -6027,6 +6041,9 @@ int main(void) {
 			"[\n"
 			"\n"
 			"]\n"
+			"poller_threads\n"
+			"[\n"
+			"]\n"
 			"}\n");
 
 
@@ -7211,6 +7228,9 @@ int main(void) {
 			"\n"
 			"[\n"
 			"\n"
+			"]\n"
+			"poller_threads\n"
+			"[\n"
 			"]\n"
 			"}\n");
 
@@ -8399,6 +8419,9 @@ int main(void) {
 			"\n"
 			"[\n"
 			"\n"
+			"]\n"
+			"poller_threads\n"
+			"[\n"
 			"]\n"
 			"}\n");
 

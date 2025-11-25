@@ -68,7 +68,7 @@
 struct poller **rtpe_pollers;
 struct poller *rtpe_control_poller;
 static unsigned int num_rtpe_pollers;
-static unsigned int num_poller_threads;
+unsigned int num_poller_threads;
 struct poller_thread *rtpe_poller_threads;
 unsigned int num_media_pollers;
 unsigned int rtpe_poller_rr_iter;

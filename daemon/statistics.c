@@ -912,6 +912,19 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 	mutex_unlock(&rtpe_codec_stats_lock);
 	HEADER("]", "");
 
+	HEADER("poller_threads", NULL);
+	HEADER("[", NULL);
+	for (unsigned int i = 0; i < num_poller_threads; i++) {
+		struct poller_thread *pt = &rtpe_poller_threads[i];
+		HEADER("{", "");
+		METRICs("index", "%u", i);
+		METRICs("pid", "%u", (unsigned int) pt->pid);
+		METRICs("wakeups", "%" PRIu64, atomic64_get_na(&pt->wakeups));
+		METRICs("items", "%" PRIu64, atomic64_get_na(&pt->items));
+		HEADER("}", "");
+	}
+	HEADER("]", NULL);
+
 	HEADER("}", NULL);
 
 	return ret;

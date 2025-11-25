@@ -13,6 +13,8 @@ int _log_facility_dtmf;
 struct rtpengine_config rtpe_config;
 struct rtpengine_config initial_rtpe_config;
 struct poller **rtpe_pollers;
+unsigned int num_poller_threads;
+struct poller_thread *rtpe_poller_threads;
 struct poller *rtpe_control_poller;
 struct poller *uring_poller;
 unsigned int num_media_pollers;
