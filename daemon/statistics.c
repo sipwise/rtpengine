@@ -920,7 +920,11 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 		METRICs("index", "%u", i);
 		METRICs("pid", "%u", (unsigned int) pt->pid);
 		METRICs("wakeups", "%" PRIu64, atomic64_get_na(&pt->wakeups));
+		PROM("poller_wakeups", "counter");
+		PROMLAB("index=\"%u\",pid=\"%u\"", i, (unsigned int) pt->pid);
 		METRICs("items", "%" PRIu64, atomic64_get_na(&pt->items));
+		PROM("poller_items", "counter");
+		PROMLAB("index=\"%u\",pid=\"%u\"", i, (unsigned int) pt->pid);
 		HEADER("}", "");
 	}
 	HEADER("]", NULL);
