@@ -47,7 +47,7 @@ BuildRequires: gcc-toolset-13
 %endif
 Requires(pre):	shadow-utils
 %if 0%{?rhel} >= 8
-BuildRequires:	pkgconfig(libmnl) pkgconfig(libnftnl) pandoc ncurses-devel
+BuildRequires:	pandoc ncurses-devel
 %endif
 %if 0%{?rhel} >= 9
 BuildRequires:	pkgconfig(libiptc)

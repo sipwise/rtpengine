@@ -27,8 +27,6 @@ CFLAGS+=	$(CFLAGS_LIBPCRE)
 CFLAGS+=	$(CFLAGS_LIBCURL)
 CFLAGS+=	$(CFLAGS_JSON_GLIB)
 CFLAGS+=	$(CFLAGS_LIBWEBSOCKETS)
-CFLAGS+=	$(CFLAGS_LIBNFTNL)
-CFLAGS+=	$(CFLAGS_LIBMNL)
 ifeq ($(with_iptables_option),yes)
 CFLAGS+=	$(CFLAGS_LIBIPTC)
 CFLAGS+=	-DWITH_IPTABLES_OPTION
@@ -67,8 +65,6 @@ LDLIBS+=	$(LDLIBS_LIBPCAP)
 LDLIBS+=	$(LDLIBS_LIBHIREDIS)
 LDLIBS+=	$(LDLIBS_JSON_GLIB)
 LDLIBS+=	$(LDLIBS_LIBWEBSOCKETS)
-LDLIBS+=	$(LDLIBS_LIBNFTNL)
-LDLIBS+=	$(LDLIBS_LIBMNL)
 ifeq ($(with_iptables_option),yes)
 LDLIBS+=	$(LDLIBS_LIBIPTC)
 endif
@@ -104,7 +100,7 @@ ifneq ($(without_nftables),yes)
 SRCS+=		nftables.c
 endif
 LIBSRCS=	loglib.c auxlib.c rtplib.c str.c socket.c streambuf.c ssllib.c dtmflib.c mix_buffer.c poller.c \
-		bufferpool.c bencode.c
+		bufferpool.c bencode.c netfilter_api.c
 ifeq ($(with_transcoding),yes)
 LIBSRCS+=	codeclib.strhash.c resample.c
 LIBASM=		mvr2s_x64_avx2.S mvr2s_x64_avx512.S mix_in_x64_avx2.S mix_in_x64_avx512bw.S mix_in_x64_sse2.S

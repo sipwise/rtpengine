@@ -7,8 +7,8 @@ Standards-Version: 4.6.2
 Rules-Requires-Root: no
 Build-Depends:
  debhelper-compat (= 13),
- default-libmysqlclient-dev,
  dh-sequence-dkms,
+ default-libmysqlclient-dev,
  discount,
  gperf,
  libavcodec-dev (>= 6:10),
@@ -32,11 +32,9 @@ Build-Depends:
  libjson-glib-dev,
  libjson-perl,
  libjwt-dev,
- libmnl-dev,
  libmosquitto-dev,
  libncurses-dev,
  libnet-interface-perl,
- libnftnl-dev,
  libopus-dev,
  libpcap0.8-dev,
  libpcre2-dev,

@@ -80,8 +80,6 @@ gen-pkgconf-flags LIBCURL             libcurl
 gen-pkgconf-flags LIBCRYPTO           libcrypto
 gen-pkgconf-flags LIBEVENT            libevent_pthreads
 gen-pkgconf-flags LIBIPTC             libiptc
-gen-pkgconf-flags LIBMNL              libmnl
-gen-pkgconf-flags LIBNFTNL            libnftnl
 gen-pkgconf-flags LIBPCRE             libpcre2-8
 echo "CFLAGS_LIBPCRE += -DPCRE2_CODE_UNIT_WIDTH=8"
 gen-pkgconf-flags LIBSWRESAMPLE       libswresample

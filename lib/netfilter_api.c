@@ -140,15 +140,6 @@ void nfapi_add_attr(nfapi_buf *b, uint16_t type, const void *data, size_t len) {
 	memcpy(d, data, len);
 }
 
-void nfapi_add_str_attr(nfapi_buf *b, uint16_t type, const char *s) {
-	nfapi_add_attr(b, type, s, strlen(s) + 1);
-}
-void nfapi_add_u32_attr(nfapi_buf *b, uint16_t type, uint32_t u) {
-	nfapi_add_attr(b, type, &u, sizeof(u));
-}
-void nfapi_add_u64_attr(nfapi_buf *b, uint16_t type, uint64_t u) {
-	nfapi_add_attr(b, type, &u, sizeof(u));
-}
 
 void nfapi_nested_begin(nfapi_buf *b, uint16_t type) {
 	g_queue_push_tail(&b->nested, (void *) b->s->len);
@@ -369,10 +360,12 @@ const char *nfapi_rule_iter(const int8_t *buf, size_t l, const nfapi_callbacks *
 				//table = data;
 				//printf("table %s\n", data);
 				break;
+
 			case NFTA_RULE_CHAIN:
 				//chain = data;
 				//printf("chain %s\n", data);
 				break;
+
 			case NFTA_RULE_HANDLE:
 				if (data_len != sizeof(handle))
 					return "handle size incorrect";
@@ -380,6 +373,16 @@ const char *nfapi_rule_iter(const int8_t *buf, size_t l, const nfapi_callbacks *
 				if (c && c->handle)
 					c->handle(handle, userdata);
 				break;
+
+			case NFTA_RULE_USERDATA:;
+				const struct {
+					uint16_t len;
+					char comment[];
+				} *comment = (void *) data;
+				if (c && c->comment && data_len <= ntohs(comment->len) + 2)
+					c->comment(comment->comment, userdata);
+				break;
+
 			case NFTA_RULE_EXPRESSIONS:;
 				const char *err = expr_iter(data, data_len, c, userdata);
 				if (err)

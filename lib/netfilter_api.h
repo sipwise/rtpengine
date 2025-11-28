@@ -14,6 +14,7 @@ typedef struct {
 	const char *(*chain)(const int8_t *, size_t, void *userdata);
 	const char *(*expression)(const char *, const int8_t *, size_t, void *userdata);
 	void (*handle)(int64_t, void *userdata);
+	void (*comment)(const char *, void *userdata);
 } nfapi_callbacks;
 
 
@@ -27,9 +28,27 @@ void nfapi_buf_free(nfapi_buf *);
 void nfapi_add_msg(nfapi_buf *, uint16_t type, uint16_t family, uint16_t flags);
 
 void nfapi_add_attr(nfapi_buf *b, uint16_t type, const void *data, size_t len);
-void nfapi_add_str_attr(nfapi_buf *b, uint16_t type, const char *s);
-void nfapi_add_u32_attr(nfapi_buf *b, uint16_t type, uint32_t u);
-void nfapi_add_u64_attr(nfapi_buf *b, uint16_t type, uint64_t u);
+
+
+static inline void nfapi_add_str_attr(nfapi_buf *b, uint16_t type, const char *s) {
+	nfapi_add_attr(b, type, s, strlen(s) + 1);
+}
+static inline void nfapi_add_u32_attr(nfapi_buf *b, uint16_t type, uint32_t u) {
+	nfapi_add_attr(b, type, &u, sizeof(u));
+}
+static inline void nfapi_add_u64_attr(nfapi_buf *b, uint16_t type, uint64_t u) {
+	nfapi_add_attr(b, type, &u, sizeof(u));
+}
+
+#define nfapi_add_binary_str_attr(b, type, s) \
+	nfapi_add_attr(b, type, &(struct { \
+			uint16_t len; \
+			char buf[sizeof(s)]; \
+		}) { \
+			.len = htons(sizeof(s)), \
+			.buf = s, \
+		}, 2 + sizeof(s))
+
 
 void nfapi_nested_begin(nfapi_buf *, uint16_t type);
 void nfapi_nested_end(nfapi_buf *);

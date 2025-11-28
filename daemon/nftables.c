@@ -8,48 +8,48 @@
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 
+#include <linux/netlink.h>
 #include <linux/netfilter.h>
+#include <linux/netfilter/nfnetlink.h>
+#include <linux/netfilter/nf_tables_compat.h>
 #include <linux/netfilter/nf_tables.h>
 
-#include <libmnl/libmnl.h>
-#include <libnftnl/table.h>
-#include <libnftnl/chain.h>
-#include <libnftnl/rule.h>
-#include <libnftnl/expr.h>
-
+#include "netfilter_api.h"
 #include "helpers.h"
 
 #include "xt_RTPENGINE.h"
 
 struct iterate_callbacks {
 	// called for each expression
-	int (*parse_expr)(struct nftnl_expr *e, void *data);
+	const char *(*parse_expr)(const char *name, const int8_t *data, size_t len, void *userdata);
 
 	// called after all expressions have been parsed
-	void (*rule_final)(struct nftnl_rule *r, struct iterate_callbacks *);
+	void (*rule_final)(struct iterate_callbacks *);
 
 	// called after all rules have been iterated
-	const char *(*iterate_final)(struct mnl_socket *nl, int family, const char *chain,
-			uint32_t *seq, struct iterate_callbacks *);
+	const char *(*iterate_final)(nfapi_socket *nl, int family, const char *chain,
+			struct iterate_callbacks *);
 
 	// common arguments
 	const char *chain;
 	const char *base_chain;
 
 	// scratch area for rule callbacks, set to zero for every rule
-	union {
+	struct {
 		bool rule_matched;
+		bool have_handle;
+		int64_t handle;
 	} rule_scratch;
 
 	// scratch area for rule iterating
-	union {
+	struct {
 		GQueue handles;
 		bool rule_matched;
 	} iterate_scratch;
 };
 
 struct add_rule_callbacks {
-	const char *(*callback)(struct nftnl_rule *, int family, struct add_rule_callbacks *);
+	const char *(*rule_callback)(nfapi_buf *, int family, struct add_rule_callbacks *);
 	const char *chain;
 	const char *base_chain;
 	int table;
@@ -58,148 +58,98 @@ struct add_rule_callbacks {
 
 
 
-typedef struct nftnl_expr _nftnl_expr;
-typedef struct nftnl_rule _nftnl_rule;
-typedef struct nftnl_chain _nftnl_chain;
-typedef struct nftnl_table _nftnl_table;
-typedef struct mnl_socket _mnl_socket;
+static const char *match_immediate(const char *name, const int8_t *data, size_t len, void *userdata) {
+	struct iterate_callbacks *callbacks = userdata;
 
-G_DEFINE_AUTOPTR_CLEANUP_FUNC(_nftnl_expr, nftnl_expr_free);
-G_DEFINE_AUTOPTR_CLEANUP_FUNC(_nftnl_rule, nftnl_rule_free);
-G_DEFINE_AUTOPTR_CLEANUP_FUNC(_nftnl_chain, nftnl_chain_free);
-G_DEFINE_AUTOPTR_CLEANUP_FUNC(_nftnl_table, nftnl_table_free);
-G_DEFINE_AUTOPTR_CLEANUP_FUNC(_mnl_socket, mnl_socket_close);
-
-
-
-static int match_immediate(struct nftnl_expr *e, void *data) {
-	struct iterate_callbacks *callbacks = data;
-
-	uint32_t len;
-	const char *n = nftnl_expr_get(e, NFTNL_EXPR_NAME, &len);
 	// match jumps to our configured chain
-	if (!strcmp(n, "immediate")) {
-		n = nftnl_expr_get(e, NFTNL_EXPR_IMM_CHAIN, &len);
-		if (n && !strcmp(n, callbacks->chain))
+	if (!strcmp(name, "immediate")) {
+		const char *chain = nfapi_get_immediate_chain(data, len);
+		if (chain && !strcmp(chain, callbacks->chain))
 			callbacks->rule_scratch.rule_matched = true;
 	}
-	return 0;
+	return NULL;
 }
 
-static int match_rtpe(struct nftnl_expr *e, void *data) {
-	struct iterate_callbacks *callbacks = data;
+static const char *match_rtpe(const char *name, const int8_t *data, size_t len, void *userdata) {
+	struct iterate_callbacks *callbacks = userdata;
 
-	uint32_t len;
-	const char *n = nftnl_expr_get(e, NFTNL_EXPR_NAME, &len);
 	// match top-level targets
-	if (!strcmp(n, "target")) {
-		n = nftnl_expr_get(e, NFTNL_EXPR_TG_NAME, &len);
+	if (!strcmp(name, "target")) {
+		const char *n = nfapi_get_target(data, len, NULL, NULL);
 		if (n && !strcmp(n, "RTPENGINE"))
 			callbacks->rule_scratch.rule_matched = true;
 	}
-	return 0;
+	return NULL;
 }
 
-static int match_immediate_rtpe(struct nftnl_expr *e, void *data) {
-	match_immediate(e, data);
-	match_rtpe(e, data);
-	return 0;
+static const char *match_immediate_rtpe(const char *name, const int8_t *data, size_t len, void *userdata) {
+	const char *err = match_immediate(name, data, len, userdata);
+	if (err)
+		return err;
+	return match_rtpe(name, data, len, userdata);
 }
 
 
-static void check_matched_queue(struct nftnl_rule *r, struct iterate_callbacks *callbacks) {
+static void check_matched_queue(struct iterate_callbacks *callbacks) {
 	if (!callbacks->rule_scratch.rule_matched)
 		return;
 
-	uint64_t handle = nftnl_rule_get_u64(r, NFTNL_RULE_HANDLE);
+	uint64_t handle = callbacks->rule_scratch.handle;
 	g_queue_push_tail(&callbacks->iterate_scratch.handles, __g_memdup(&handle, sizeof(handle)));
 }
 
 
-static void check_matched_flag(struct nftnl_rule *r, struct iterate_callbacks *callbacks) {
+static void check_matched_flag(struct iterate_callbacks *callbacks) {
 	if (callbacks->rule_scratch.rule_matched)
 		callbacks->iterate_scratch.rule_matched = true;
 }
 
 
-static int nftables_do_rule(const struct nlmsghdr *nlh, void *data) {
+
+static void set_handle(int64_t handle, void *data) {
 	struct iterate_callbacks *callbacks = data;
+	callbacks->rule_scratch.handle = handle;
+	callbacks->rule_scratch.have_handle = true;
+}
 
-	g_autoptr(_nftnl_rule) r = nftnl_rule_alloc();
-	if (!r)
-		return MNL_CB_ERROR;
-
-	if (nftnl_rule_nlmsg_parse(nlh, r) < 0)
-		return MNL_CB_OK;
+static const char *nftables_do_rule(const int8_t *b, size_t l, void *data) {
+	struct iterate_callbacks *callbacks = data;
 
 	memset(&callbacks->rule_scratch, 0, sizeof(callbacks->rule_scratch));
 
-	if (nftnl_expr_foreach(r, callbacks->parse_expr, callbacks) < 0)
-		return MNL_CB_OK;
+	const char *err = nfapi_rule_iter(b, l, &(nfapi_callbacks) {
+			.expression = callbacks->parse_expr,
+			.handle = set_handle,
+		}, callbacks);
+	if (err)
+		return err;
 
 	if (callbacks->rule_final)
-		callbacks->rule_final(r, callbacks);
-
-	return MNL_CB_OK;
-}
-
-
-static const char *__read_response(struct mnl_socket *nl, uint32_t seq, mnl_cb_t cb_data, void *data,
-		const char *err1, const char *err2)
-{
-	uint32_t portid = mnl_socket_get_portid(nl);
-	char buf[MNL_SOCKET_BUFFER_SIZE];
-
-	while (true) {
-		int ret = mnl_socket_recvfrom(nl, buf, sizeof(buf));
-		if (ret < 0)
-			return err1;
-		if (ret == 0)
-			break;
-
-		ret = mnl_cb_run(buf, ret, 0, portid, cb_data, data);
-		if (ret < 0)
-			return err2;
-		if (ret == 0)
-			break;
-	}
+		callbacks->rule_final(callbacks);
 
 	return NULL;
 }
 
-// macro for customised error strings
-#define read_response(instance, ...) __read_response(__VA_ARGS__, \
-		"failed to receive from netlink socket for " instance, \
-	"error returned from netlink for " instance)
 
-
-static const char *iterate_rules(struct mnl_socket *nl, int family, const char *chain,
-		uint32_t *seq,
+static const char *iterate_rules(nfapi_socket *nl, int family, const char *chain,
 		struct iterate_callbacks *callbacks)
 {
-	g_autoptr(_nftnl_rule) r = nftnl_rule_alloc();
-	if (!r)
-		return "failed to allocate rule for iteration";
+	g_autoptr(nfapi_buf) b = nfapi_buf_new();
 
-	nftnl_rule_set_u32(r, NFTNL_RULE_FAMILY, family);
-	nftnl_rule_set_str(r, NFTNL_RULE_TABLE, "filter");
-	nftnl_rule_set_str(r, NFTNL_RULE_CHAIN, chain);
+	nfapi_add_msg(b, NFT_MSG_GETRULE, family, NLM_F_REQUEST | NLM_F_DUMP);
 
-	char buf[MNL_SOCKET_BUFFER_SIZE];
-	struct nlmsghdr *nlh = nftnl_nlmsg_build_hdr(buf, NFT_MSG_GETRULE, family,
-			NLM_F_DUMP, *seq);
+	nfapi_add_str_attr(b, NFTA_RULE_TABLE, "filter");
+	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, chain);
 
-	nftnl_rule_nlmsg_build_payload(nlh, r);
-
-	if (mnl_socket_sendto(nl, nlh, nlh->nlmsg_len) < 0)
+	if (!nfapi_send_buf(nl, b))
 		return "failed to write to netlink socket for iteration";
 
-	const char *err = read_response("iterate rules", nl, *seq, nftables_do_rule, callbacks);
+	const char *err = nfapi_recv_iter(nl, &(nfapi_callbacks) { .rule = nftables_do_rule }, callbacks);
 	if (err)
 		return err;
 
 	if (callbacks->iterate_final)
-		err = callbacks->iterate_final(nl, family, chain, seq, callbacks);
+		err = callbacks->iterate_final(nl, family, chain, callbacks);
 	if (err)
 		return err;
 
@@ -207,87 +157,54 @@ static const char *iterate_rules(struct mnl_socket *nl, int family, const char *
 }
 
 
-static bool set_rule_handle(struct nftnl_rule *r, void *data) {
+static bool set_rule_handle(nfapi_buf *b, void *data) {
 	uint64_t *handle = data;
-	nftnl_rule_set_u64(r, NFTNL_RULE_HANDLE, *handle);
+	nfapi_add_u64_attr(b, NFTA_RULE_HANDLE, *handle);
 	return true;
 }
 
 
-static const char *__batch_request(struct mnl_socket *nl, int family, uint32_t *seq,
-		uint16_t type, uint16_t flags,
-		union {
-			void (*table_fn)(struct nlmsghdr *, const struct nftnl_table *);
-			void (*rule_fn)(struct nlmsghdr *, struct nftnl_rule *);
-			void (*chain_fn)(struct nlmsghdr *, const struct nftnl_chain *);
-			void (*generic_fn)(struct nlmsghdr *, void *);
-		}  __attribute__ ((__transparent_union__)) build_payload,
-		void *ptr,
-		const char *err1, const char *err2, const char *err3)
+
+static const char *delete_rules(nfapi_socket *nl, int family, const char *chain,
+		bool (*callback)(nfapi_buf *b, void *data), void *data)
 {
-	char buf[MNL_SOCKET_BUFFER_SIZE];
-	struct mnl_nlmsg_batch *batch = mnl_nlmsg_batch_start(buf, sizeof(buf));
-	nftnl_batch_begin(mnl_nlmsg_batch_current(batch), (*seq)++);
-	mnl_nlmsg_batch_next(batch);
+	g_autoptr(nfapi_buf) b = nfapi_buf_new();
 
-	uint32_t req_seq = *seq;
-	struct nlmsghdr *nlh = nftnl_nlmsg_build_hdr(mnl_nlmsg_batch_current(batch),
-			type, family,
-			flags | NLM_F_ACK, (*seq)++);
-	build_payload.generic_fn(nlh, ptr);
-	mnl_nlmsg_batch_next(batch);
+	nfapi_batch_begin(b);
 
-	nftnl_batch_end(mnl_nlmsg_batch_current(batch), (*seq)++);
-	mnl_nlmsg_batch_next(batch);
-
-	if (mnl_socket_sendto(nl, mnl_nlmsg_batch_head(batch), mnl_nlmsg_batch_size(batch)) < 0)
-		return err1;
-
-	mnl_nlmsg_batch_stop(batch);
-
-	return __read_response(nl, req_seq, NULL, NULL, err2, err3);
-}
-
-// macro for customised error strings
-#define batch_request(instance, ...) __batch_request(__VA_ARGS__, \
-		"failed to write to netlink socket for " instance, \
-		"failed to receive from netlink socket for " instance, \
-		"error returned from netlink for " instance)
-
-
-static const char *delete_rules(struct mnl_socket *nl, int family, const char *chain, uint32_t *seq,
-		bool (*callback)(struct nftnl_rule *r, void *data), void *data)
-{
-	g_autoptr(_nftnl_rule) r = nftnl_rule_alloc();
-	if (!r)
-		return "failed to allocate rule for deletion";
-
-	nftnl_rule_set_u32(r, NFTNL_RULE_FAMILY, family);
-	nftnl_rule_set_str(r, NFTNL_RULE_TABLE, "filter");
-	nftnl_rule_set_str(r, NFTNL_RULE_CHAIN, chain);
+	nfapi_add_msg(b, NFT_MSG_DELRULE, family, NLM_F_REQUEST | NLM_F_ACK);
+	nfapi_add_str_attr(b, NFTA_RULE_TABLE, "filter");
+	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, chain);
 
 	if (callback) {
-		if (!callback(r, data))
-			return NULL;
+		if (!callback(b, data))
+			return "delete rule callback returned error";
 	}
 
-	return batch_request("delete rule", nl, family, seq, NFT_MSG_DELRULE, 0,
-			nftnl_rule_nlmsg_build_payload, r);
+	nfapi_batch_end(b);
+
+	if (!nfapi_send_buf(nl, b))
+		return "failed to write to netlink socket for delete rule";
+
+	const char *err = nfapi_recv_iter(nl, NULL, NULL);
+	if (err)
+		return err;
+
+	return NULL;
 }
 
 
 
-static const char *iterate_delete_rules(struct mnl_socket *nl, int family, const char *chain, uint32_t *seq,
+static const char *iterate_delete_rules(nfapi_socket *nl, int family, const char *chain,
 		struct iterate_callbacks *callbacks)
 {
-
 	while (callbacks->iterate_scratch.handles.length) {
 		uint64_t *handle = g_queue_pop_head(&callbacks->iterate_scratch.handles);
 		// transfer to stack and free
 		uint64_t h = *handle;
 		g_free(handle);
 
-		const char *err = delete_rules(nl, family, chain, seq, set_rule_handle, &h);
+		const char *err = delete_rules(nl, family, chain, set_rule_handle, &h);
 		if (err)
 			return err;
 	}
@@ -295,47 +212,37 @@ static const char *iterate_delete_rules(struct mnl_socket *nl, int family, const
 }
 
 
-static const char *local_input_chain(struct nftnl_chain *c) {
-	nftnl_chain_set_u32(c, NFTNL_CHAIN_HOOKNUM, NF_INET_LOCAL_IN);
-	nftnl_chain_set_u32(c, NFTNL_CHAIN_PRIO, 0);
-	nftnl_chain_set_u32(c, NFTNL_CHAIN_POLICY, NF_ACCEPT);
+static const char *local_input_chain(nfapi_buf *b) {
+	nfapi_nested_begin(b, NFTA_CHAIN_HOOK);
+	nfapi_add_u32_attr(b, NFTA_HOOK_HOOKNUM, htonl(NF_INET_LOCAL_IN));
+	nfapi_add_u32_attr(b, NFTA_HOOK_PRIORITY, htonl(0));
+	nfapi_nested_end(b);
+
+	nfapi_add_u32_attr(b, NFTA_CHAIN_POLICY, htonl(NF_ACCEPT));
+
 	return NULL;
 }
 
 
-static int nftables_do_chain(const struct nlmsghdr *nlh, void *data) {
-	bool *exists = data;
-
-	g_autoptr(_nftnl_chain) c = nftnl_chain_alloc();
-	if (!c)
-		return MNL_CB_ERROR;
-
-	if (nftnl_chain_nlmsg_parse(nlh, c) < 0)
-		return MNL_CB_OK;
-
+static const char *nftables_do_chain(const int8_t *b, size_t l, void *userdata) {
+	bool *exists = userdata;
 	*exists = true;
-
-	return MNL_CB_OK;
+	return NULL;
 }
 
 
-static const char *chain_exists(struct mnl_socket *nl, int family, const char *chain, uint32_t *seq) {
-	g_autoptr(_nftnl_chain) c = nftnl_chain_alloc();
+static const char *chain_exists(nfapi_socket *nl, int family, const char *chain) {
+	g_autoptr(nfapi_buf) b = nfapi_buf_new();
 
-	nftnl_chain_set_str(c, NFTNL_CHAIN_TABLE, "filter");
-	nftnl_chain_set_str(c, NFTNL_CHAIN_NAME, chain);
+	nfapi_add_msg(b, NFT_MSG_GETCHAIN, family, NLM_F_REQUEST | NLM_F_ACK);
+	nfapi_add_str_attr(b, NFTA_CHAIN_TABLE, "filter");
+	nfapi_add_str_attr(b, NFTA_CHAIN_NAME, chain);
 
-	char buf[MNL_SOCKET_BUFFER_SIZE];
-	struct nlmsghdr *nlh = nftnl_nlmsg_build_hdr(buf, NFT_MSG_GETCHAIN, family,
-			NLM_F_ACK, *seq);
-
-	nftnl_chain_nlmsg_build_payload(nlh, c);
-
-	if (mnl_socket_sendto(nl, nlh, nlh->nlmsg_len) < 0)
+	if (!nfapi_send_buf(nl, b))
 		return "failed to write to netlink socket for chain exists";
 
 	bool exists = false;
-	const char *err = read_response("get chain", nl, *seq, nftables_do_chain, &exists);
+	const char *err = nfapi_recv_iter(nl, &(nfapi_callbacks) { .chain = nftables_do_chain }, &exists);
 	if (err)
 		return err;
 
@@ -343,192 +250,264 @@ static const char *chain_exists(struct mnl_socket *nl, int family, const char *c
 }
 
 
-static const char *add_chain(struct mnl_socket *nl, int family, const char *chain, uint32_t *seq,
-		const char *(*callback)(struct nftnl_chain *))
+static const char *add_chain(nfapi_socket *nl, int family, const char *chain,
+		const char *(*callback)(nfapi_buf *))
 {
-	if (chain_exists(nl, family, chain, seq) == NULL)
+	if (chain_exists(nl, family, chain) == NULL)
 		return NULL;
 
-	g_autoptr(_nftnl_chain) c = nftnl_chain_alloc();
-	if (!c)
-		return "failed to allocate chain for adding";
+	g_autoptr(nfapi_buf) b = nfapi_buf_new();
 
-	nftnl_chain_set_u32(c, NFTNL_CHAIN_FAMILY, family);
-	nftnl_chain_set_str(c, NFTNL_CHAIN_TABLE, "filter");
-	nftnl_chain_set_str(c, NFTNL_CHAIN_NAME, chain);
+	nfapi_batch_begin(b);
+
+	nfapi_add_msg(b, NFT_MSG_NEWCHAIN, family, NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK);
+	nfapi_add_str_attr(b, NFTA_CHAIN_TABLE, "filter");
+	nfapi_add_str_attr(b, NFTA_CHAIN_NAME, chain);
 
 	if (callback) {
-		const char *err = callback(c);
+		const char *err = callback(b);
 		if (err)
 			return err;
 	}
 
-	return batch_request("add chain", nl, family, seq, NFT_MSG_NEWCHAIN, NLM_F_CREATE,
-			nftnl_chain_nlmsg_build_payload, c);
-}
+	nfapi_batch_end(b);
 
+	if (!nfapi_send_buf(nl, b))
+		return "failed to write to netlink socket for add chain";
 
-static const char *add_rule(struct mnl_socket *nl, int family, uint32_t *seq,
-		struct add_rule_callbacks callbacks)
-{
-	g_autoptr(_nftnl_rule) r = nftnl_rule_alloc();
-	if (!r)
-		return "failed to allocate rule for adding";
-
-	nftnl_rule_set_u32(r, NFTNL_RULE_FAMILY, family);
-	nftnl_rule_set_str(r, NFTNL_RULE_TABLE, "filter");
-
-	const char *err = callbacks.callback(r, family, &callbacks);
+	const char *err = nfapi_recv_iter(nl, NULL, NULL);
 	if (err)
 		return err;
 
-	return batch_request("add rule", nl, family, seq, NFT_MSG_NEWRULE,
-			(callbacks.append ? NLM_F_APPEND : 0) | NLM_F_CREATE,
-			nftnl_rule_nlmsg_build_payload, r);
+	return NULL;
 }
 
 
-static const char *udp_filter(struct nftnl_rule *r, int family) {
-	g_autoptr(_nftnl_expr) e = NULL;
+static const char *add_rule(nfapi_socket *nl, int family,
+		struct add_rule_callbacks callbacks)
+{
+	g_autoptr(nfapi_buf) b = nfapi_buf_new();
+
+	nfapi_batch_begin(b);
+
+	nfapi_add_msg(b, NFT_MSG_NEWRULE, family,
+			NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK | (callbacks.append ? NLM_F_APPEND : 0));
+	nfapi_add_str_attr(b, NFTA_RULE_TABLE, "filter");
+
+	const char *err = callbacks.rule_callback(b, family, &callbacks);
+	if (err)
+		return err;
+
+	nfapi_batch_end(b);
+
+	if (!nfapi_send_buf(nl, b))
+		return "failed to write to netlink socket for add rule";
+
+	err = nfapi_recv_iter(nl, NULL, NULL);
+	if (err)
+		return err;
+
+	return NULL;
+}
+
+
+static void counter(nfapi_buf *b) {
+	// buffer is in the nested expressions
+
+	nfapi_nested_begin(b, NFTA_LIST_ELEM);
+
+		nfapi_add_str_attr(b, NFTA_EXPR_NAME, "counter");
+
+		nfapi_nested_begin(b, NFTA_EXPR_DATA);
+
+		nfapi_nested_end(b);
+
+	nfapi_nested_end(b);
+}
+
+
+static const char *udp_filter(nfapi_buf *b, int family) {
+	// buffer is in the nested expressions
 
 	static const uint8_t proto = IPPROTO_UDP;
 
-	e = nftnl_expr_alloc("payload");
-	if (!e)
-		return "failed to allocate payload expr for UDP filter";
+	nfapi_nested_begin(b, NFTA_LIST_ELEM);
 
-	nftnl_expr_set_u32(e, NFTNL_EXPR_PAYLOAD_BASE, NFT_PAYLOAD_NETWORK_HEADER);
-	nftnl_expr_set_u32(e, NFTNL_EXPR_PAYLOAD_DREG, NFT_REG_1);
-	if (family == NFPROTO_IPV4)
-		nftnl_expr_set_u32(e, NFTNL_EXPR_PAYLOAD_OFFSET, offsetof(struct iphdr, protocol));
-	else if (family == NFPROTO_IPV6)
-		nftnl_expr_set_u32(e, NFTNL_EXPR_PAYLOAD_OFFSET, offsetof(struct ip6_hdr, ip6_nxt));
-	else
-		return "unsupported address family for UDP filter";
-	nftnl_expr_set_u32(e, NFTNL_EXPR_PAYLOAD_LEN, sizeof(proto));
+		nfapi_add_str_attr(b, NFTA_EXPR_NAME, "payload");
 
-	nftnl_rule_add_expr(r, e);
-	e = NULL;
+		nfapi_nested_begin(b, NFTA_EXPR_DATA);
 
-	e = nftnl_expr_alloc("cmp");
-	if (!e)
-		return "failed to allocate cmp expr for UDP filter";
+			nfapi_add_u32_attr(b, NFTA_PAYLOAD_DREG, htonl(NFT_REG_1));
+			nfapi_add_u32_attr(b, NFTA_PAYLOAD_BASE, htonl(NFT_PAYLOAD_NETWORK_HEADER));
 
-	nftnl_expr_set_u32(e, NFTNL_EXPR_CMP_SREG, NFT_REG_1);
-	nftnl_expr_set_u32(e, NFTNL_EXPR_CMP_OP, NFT_CMP_EQ);
-	nftnl_expr_set(e, NFTNL_EXPR_CMP_DATA, &proto, sizeof(proto));
+			if (family == NFPROTO_IPV4)
+				nfapi_add_u32_attr(b, NFTA_PAYLOAD_OFFSET,
+						htonl(offsetof(struct iphdr, protocol)));
+			else if (family == NFPROTO_IPV6)
+				nfapi_add_u32_attr(b, NFTA_PAYLOAD_OFFSET,
+						htonl(offsetof(struct ip6_hdr, ip6_nxt)));
+			else
+				return "unsupported address family for UDP filter";
 
-	nftnl_rule_add_expr(r, e);
-	e = NULL;
+			nfapi_add_u32_attr(b, NFTA_PAYLOAD_LEN, htonl(sizeof(proto)));
 
-	e = nftnl_expr_alloc("counter");
-	if (!e)
-		return "failed to allocate counter expr for UDP filter";
-	nftnl_rule_add_expr(r, e);
-	e = NULL;
+		nfapi_nested_end(b);
+
+	nfapi_nested_end(b);
+
+	nfapi_nested_begin(b, NFTA_LIST_ELEM);
+
+		nfapi_add_str_attr(b, NFTA_EXPR_NAME, "cmp");
+
+		nfapi_nested_begin(b, NFTA_EXPR_DATA);
+
+			nfapi_add_u32_attr(b, NFTA_CMP_SREG, htonl(NFT_REG_1));
+			nfapi_add_u32_attr(b, NFTA_CMP_OP, htonl(NFT_CMP_EQ));
+
+			nfapi_nested_begin(b, NFTA_CMP_DATA);
+
+				nfapi_add_attr(b, NFTA_DATA_VALUE, &proto, sizeof(proto));
+
+			nfapi_nested_end(b);
+
+		nfapi_nested_end(b);
+
+	nfapi_nested_end(b);
+
+	counter(b);
 
 	return NULL;
 }
 
 
-static const char *input_immediate(struct nftnl_rule *r, int family, struct add_rule_callbacks *callbacks) {
-	nftnl_rule_set_str(r, NFTNL_RULE_CHAIN, callbacks->base_chain);
+static const char *input_immediate(nfapi_buf *b, int family, struct add_rule_callbacks *callbacks) {
+	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, callbacks->base_chain);
 
-	const char *err = udp_filter(r, family);
+	nfapi_nested_begin(b, NFTA_RULE_EXPRESSIONS);
+
+		const char *err = udp_filter(b, family);
+		if (err)
+			return err;
+
+		nfapi_nested_begin(b, NFTA_LIST_ELEM);
+
+			nfapi_add_str_attr(b, NFTA_EXPR_NAME, "immediate");
+
+			nfapi_nested_begin(b, NFTA_EXPR_DATA);
+
+				nfapi_add_u32_attr(b, NFTA_IMMEDIATE_DREG, 0);
+
+				nfapi_nested_begin(b, NFTA_IMMEDIATE_DATA);
+
+					nfapi_nested_begin(b, NFTA_DATA_VERDICT);
+
+						nfapi_add_u32_attr(b, NFTA_VERDICT_CODE, htonl(NFT_JUMP));
+						nfapi_add_str_attr(b, NFTA_VERDICT_CHAIN, callbacks->chain);
+
+					nfapi_nested_end(b);
+
+				nfapi_nested_end(b);
+
+			nfapi_nested_end(b);
+
+		nfapi_nested_end(b);
+
+	nfapi_nested_end(b);
+
+	return NULL;
+}
+
+
+static const char *rtpe_target_base(nfapi_buf *b, struct add_rule_callbacks *callbacks) {
+	// buffer is in the nested expressions
+
+	struct xt_rtpengine_info info = { .id = callbacks->table };
+
+	nfapi_nested_begin(b, NFTA_LIST_ELEM);
+
+		nfapi_add_str_attr(b, NFTA_EXPR_NAME, "target");
+
+		nfapi_nested_begin(b, NFTA_EXPR_DATA);
+
+			nfapi_add_str_attr(b, NFTA_TARGET_NAME, "RTPENGINE");
+			nfapi_add_u32_attr(b, NFTA_TARGET_REV, htonl(0));
+			nfapi_add_attr(b, NFTA_TARGET_INFO, &info, sizeof(info));
+
+		nfapi_nested_end(b);
+
+	nfapi_nested_end(b);
+
+	return NULL;
+}
+
+
+static const char *rtpe_target(nfapi_buf *b, int family, struct add_rule_callbacks *callbacks) {
+	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, callbacks->chain);
+
+	nfapi_nested_begin(b, NFTA_RULE_EXPRESSIONS);
+
+		const char *err = rtpe_target_base(b, callbacks);
+		if (err)
+			return err;
+
+		counter(b);
+
+	nfapi_nested_end(b);
+
+	return NULL;
+}
+
+
+static const char *rtpe_target_filter(nfapi_buf *b, int family, struct add_rule_callbacks *callbacks) {
+	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, callbacks->chain);
+
+	nfapi_nested_begin(b, NFTA_RULE_EXPRESSIONS);
+
+		const char *err = rtpe_target_base(b, callbacks);
+		if (err)
+			return err;
+
+		err = udp_filter(b, family);
+		if (err)
+			return err;
+
+	nfapi_nested_end(b);
+
+	return NULL;
+}
+
+
+static const char *delete_chain(nfapi_socket *nl, int family, const char *chain) {
+	g_autoptr(nfapi_buf) b = nfapi_buf_new();
+
+	nfapi_batch_begin(b);
+
+	nfapi_add_msg(b, NFT_MSG_DELCHAIN, family, NLM_F_REQUEST | NLM_F_ACK);
+
+	nfapi_add_str_attr(b, NFTA_CHAIN_TABLE, "filter");
+	nfapi_add_str_attr(b, NFTA_CHAIN_NAME, chain);
+
+	nfapi_batch_end(b);
+
+	if (!nfapi_send_buf(nl, b))
+		return "failed to write to netlink socket for delete chain";
+
+	const char *err = nfapi_recv_iter(nl, NULL, NULL);
 	if (err)
 		return err;
 
-	g_autoptr(_nftnl_expr) e = nftnl_expr_alloc("immediate");
-	if (!e)
-		return "failed to allocate immediate expr";
-
-	nftnl_expr_set_u32(e, NFTNL_EXPR_IMM_DREG, 0);
-	nftnl_expr_set_u32(e, NFTNL_EXPR_IMM_VERDICT, NFT_JUMP);
-	nftnl_expr_set_str(e, NFTNL_EXPR_IMM_CHAIN, callbacks->chain);
-
-	nftnl_rule_add_expr(r, e);
-	e = NULL;
-
 	return NULL;
 }
 
 
-static const char *rtpe_target_base(struct nftnl_rule *r, struct add_rule_callbacks *callbacks) {
-	g_autoptr(_nftnl_expr) e = nftnl_expr_alloc("target");
-	if (!e)
-		return "failed to allocate target expr for RTPENGINE";
-
-	nftnl_expr_set_str(e, NFTNL_EXPR_TG_NAME, "RTPENGINE");
-	nftnl_expr_set_u32(e, NFTNL_EXPR_TG_REV, 0);
-
-	struct xt_rtpengine_info *info = malloc(sizeof(*info));
-	if (!info)
-		return "failed to allocate target info for RTPENGINE";
-	*info = (__typeof__(*info)) { .id = callbacks->table };
-
-	nftnl_expr_set(e, NFTNL_EXPR_TG_INFO, info, sizeof(*info));
-
-	nftnl_rule_add_expr(r, e);
-	e = NULL;
-
-	return NULL;
-}
-
-
-static const char *rtpe_target(struct nftnl_rule *r, int family, struct add_rule_callbacks *callbacks) {
-	nftnl_rule_set_str(r, NFTNL_RULE_CHAIN, callbacks->chain);
-
-	const char *err = rtpe_target_base(r, callbacks);
-	if (err)
-		return err;
-
-	g_autoptr(_nftnl_expr) e = nftnl_expr_alloc("counter");
-	if (!e)
-		return "failed to allocate counter expr for RTPENGINE";
-	nftnl_rule_add_expr(r, e);
-	e = NULL;
-
-	return NULL;
-}
-
-
-static const char *rtpe_target_filter(struct nftnl_rule *r, int family, struct add_rule_callbacks *callbacks) {
-	nftnl_rule_set_str(r, NFTNL_RULE_CHAIN, callbacks->chain);
-
-	const char *err = rtpe_target_base(r, callbacks);
-	if (err)
-		return err;
-
-	err = udp_filter(r, family);
-	if (err)
-		return err;
-
-	return NULL;
-}
-
-
-static const char *delete_chain(struct mnl_socket *nl, int family, uint32_t *seq, const char *chain) {
-	g_autoptr(_nftnl_chain) c = nftnl_chain_alloc();
-	if (!c)
-		return "failed to allocate chain for deletion";
-
-	nftnl_chain_set_u32(c, NFTNL_RULE_FAMILY, family);
-	nftnl_chain_set_str(c, NFTNL_CHAIN_TABLE, "filter");
-	nftnl_chain_set_str(c, NFTNL_CHAIN_NAME, chain);
-
-	return batch_request("delete chain", nl, family, seq, NFT_MSG_DELCHAIN, 0,
-			nftnl_chain_nlmsg_build_payload, c);
-}
-
-
-static const char *nftables_shutdown_family(struct mnl_socket *nl, int family, uint32_t *seq,
+static const char *nftables_shutdown_family(nfapi_socket *nl, int family,
 		const char *chain, const char *base_chain, nftables_args *dummy)
 {
 	const char *err;
 
 	if (!base_chain || strcmp(base_chain, "none")) {
 		// clean up rules in legacy `INPUT` chain
-		err = iterate_rules(nl, family, "INPUT", seq,
+		err = iterate_rules(nl, family, "INPUT",
 				&(struct iterate_callbacks) {
 					.parse_expr = match_immediate_rtpe,
 					.chain = chain,
@@ -539,7 +518,7 @@ static const char *nftables_shutdown_family(struct mnl_socket *nl, int family, u
 			return err;
 
 		// clean up rules in `input` chain
-		err = iterate_rules(nl, family, "input", seq,
+		err = iterate_rules(nl, family, "input",
 				&(struct iterate_callbacks) {
 					.parse_expr = match_immediate_rtpe,
 					.chain = chain,
@@ -552,7 +531,7 @@ static const char *nftables_shutdown_family(struct mnl_socket *nl, int family, u
 
 	if (base_chain && strcmp(base_chain, "none")) {
 		// clean up rules in other base chain chain if any
-		err = iterate_rules(nl, family, base_chain, seq,
+		err = iterate_rules(nl, family, base_chain,
 				&(struct iterate_callbacks) {
 					.parse_expr = match_immediate_rtpe,
 					.chain = chain,
@@ -564,13 +543,13 @@ static const char *nftables_shutdown_family(struct mnl_socket *nl, int family, u
 	}
 
 	// clear out custom chain if it already exists
-	err = delete_rules(nl, family, chain, seq, NULL, NULL);
+	err = delete_rules(nl, family, chain, NULL, NULL);
 	if (err) {
 		if (errno != ENOENT) // ignore trying to delete stuff that doesn't exist
 			return err;
 	}
 
-	err = delete_chain(nl, family, seq, chain);
+	err = delete_chain(nl, family, chain);
 	if (err) {
 		if (errno != ENOENT && errno != EBUSY) // ignore trying to delete stuff that doesn't exist
 			return err;
@@ -580,46 +559,54 @@ static const char *nftables_shutdown_family(struct mnl_socket *nl, int family, u
 }
 
 
-static const char *add_table(struct mnl_socket *nl, int family, uint32_t *seq) {
-	g_autoptr(_nftnl_table) t = nftnl_table_alloc();
-	if (!t)
-		return "failed to allocate table";
+static const char *add_table(nfapi_socket *nl, int family) {
+	g_autoptr(nfapi_buf) b = nfapi_buf_new();
 
-	nftnl_table_set_u32(t, NFTNL_TABLE_FAMILY, family);
-	nftnl_table_set_str(t, NFTNL_TABLE_NAME, "filter");
+	nfapi_batch_begin(b);
 
-	return batch_request("add table", nl, family, seq, NFT_MSG_NEWTABLE, NLM_F_CREATE,
-			nftnl_table_nlmsg_build_payload, t);
+	nfapi_add_msg(b, NFT_MSG_NEWTABLE, family, NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK);
+	nfapi_add_str_attr(b, NFTA_TABLE_NAME, "filter");
+
+	nfapi_batch_end(b);
+
+	if (!nfapi_send_buf(nl, b))
+		return "failed to write to netlink socket for add table";
+
+	const char *err = nfapi_recv_iter(nl, NULL, NULL);
+	if (err)
+		return err;
+
+	return NULL;
 }
 
 
-static const char *nftables_setup_family(struct mnl_socket *nl, int family, uint32_t *seq,
+static const char *nftables_setup_family(nfapi_socket *nl, int family,
 		const char *chain, const char *base_chain, nftables_args *args)
 {
-	const char *err = nftables_shutdown_family(nl, family, seq, chain, base_chain, NULL);
+	const char *err = nftables_shutdown_family(nl, family, chain, base_chain, NULL);
 	if (err)
 		return err;
 
 	// create the table in case it doesn't exist
-	err = add_table(nl, family, seq);
+	err = add_table(nl, family);
 	if (err)
 		return err;
 
 	if (base_chain) {
 		// add custom chain
-		err = add_chain(nl, family, chain, seq, NULL);
+		err = add_chain(nl, family, chain, NULL);
 		if (err)
 			return err;
 
 		if (strcmp(base_chain, "none")) {
 			// make sure we have a local input base chain
-			err = add_chain(nl, family, base_chain, seq, local_input_chain);
+			err = add_chain(nl, family, base_chain, local_input_chain);
 			if (err)
 				return err;
 
 			// add jump rule from input base chain to custom chain
-			err = add_rule(nl, family, seq, (struct add_rule_callbacks) {
-					.callback = input_immediate,
+			err = add_rule(nl, family, (struct add_rule_callbacks) {
+					.rule_callback = input_immediate,
 					.chain = chain,
 					.base_chain = base_chain,
 					.append = args->append,
@@ -629,21 +616,21 @@ static const char *nftables_setup_family(struct mnl_socket *nl, int family, uint
 		}
 
 		// add rule for kernel forwarding
-		return add_rule(nl, family, seq, (struct add_rule_callbacks) {
-				.callback = rtpe_target,
+		return add_rule(nl, family, (struct add_rule_callbacks) {
+				.rule_callback = rtpe_target,
 				.chain = chain,
 				.table = args->table,
 			});
 	}
 	else {
 		// create custom base chain
-		err = add_chain(nl, family, chain, seq, local_input_chain);
+		err = add_chain(nl, family, chain, local_input_chain);
 		if (err)
 			return err;
 
 		// add rule for kernel forwarding
-		return add_rule(nl, family, seq, (struct add_rule_callbacks) {
-				.callback = rtpe_target_filter,
+		return add_rule(nl, family, (struct add_rule_callbacks) {
+				.rule_callback = rtpe_target_filter,
 				.chain = chain,
 				.table = args->table,
 			});
@@ -652,7 +639,7 @@ static const char *nftables_setup_family(struct mnl_socket *nl, int family, uint
 
 
 static const char *nftables_do(const char *chain, const char *base_chain,
-		const char *(*do_func)(struct mnl_socket *nl, int family, uint32_t *seq,
+		const char *(*do_func)(nfapi_socket *nl, int family,
 			const char *chain, const char *base_chain, nftables_args *args),
 		nftables_args *args)
 {
@@ -661,24 +648,19 @@ static const char *nftables_do(const char *chain, const char *base_chain,
 	if (!base_chain[0])
 		base_chain = NULL;
 
-	g_autoptr(_mnl_socket) nl = mnl_socket_open(NETLINK_NETFILTER);
+	g_autoptr(nfapi_socket) nl = nfapi_socket_open();
 	if (!nl)
 		return "failed to open netlink socket";
-
-	if (mnl_socket_bind(nl, 0, MNL_SOCKET_AUTOPID) < 0)
-		return "failed to bind netlink socket";
-
-	uint32_t seq = time(NULL);
 
 	const char *err = NULL;
 
 	if (args->family == 0 || args->family == NFPROTO_IPV4)
-		err = do_func(nl, NFPROTO_IPV4, &seq, chain, base_chain, args);
+		err = do_func(nl, NFPROTO_IPV4, chain, base_chain, args);
 	if (err)
 		return err;
 
 	if (args->family == 0 || args->family == NFPROTO_IPV6)
-		err = do_func(nl, NFPROTO_IPV6, &seq, chain, base_chain, args);
+		err = do_func(nl, NFPROTO_IPV6, chain, base_chain, args);
 	if (err)
 		return err;
 
@@ -686,7 +668,7 @@ static const char *nftables_do(const char *chain, const char *base_chain,
 }
 
 
-static const char *nftables_check_family(struct mnl_socket *nl, int family, uint32_t *seq,
+static const char *nftables_check_family(nfapi_socket *nl, int family,
 		const char *chain, const char *base_chain, nftables_args *dummy)
 {
 	// look for our custom module rule in the specified chain
@@ -696,7 +678,7 @@ static const char *nftables_check_family(struct mnl_socket *nl, int family, uint
 		.rule_final = check_matched_flag,
 	};
 
-	iterate_rules(nl, family, chain, seq, &callbacks);
+	iterate_rules(nl, family, chain, &callbacks);
 
 	if (!callbacks.iterate_scratch.rule_matched)
 		return "RTPENGINE rule not found";
@@ -709,11 +691,11 @@ static const char *nftables_check_family(struct mnl_socket *nl, int family, uint
 		.rule_final = check_matched_flag,
 	};
 
-	iterate_rules(nl, family, "INPUT", seq, &callbacks);
-	iterate_rules(nl, family, "input", seq, &callbacks);
+	iterate_rules(nl, family, "INPUT", &callbacks);
+	iterate_rules(nl, family, "input", &callbacks);
 
 	if (base_chain && strcmp(base_chain, "none"))
-		iterate_rules(nl, family, base_chain, seq, &callbacks);
+		iterate_rules(nl, family, base_chain, &callbacks);
 
 	if (!callbacks.iterate_scratch.rule_matched)
 		return "immediate-goto rule not found";
