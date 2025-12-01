@@ -5,8 +5,9 @@
 
 typedef struct {
 	int table;
-	bool append;
 	int family;
+	bool append;
+	bool xtables;
 } nftables_args;
 
 const char *nftables_setup(const char *chain, const char *base_chain, nftables_args);

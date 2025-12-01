@@ -699,6 +699,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "nftables-base-chain",0,0, G_OPTION_ARG_STRING,&rtpe_config.nftables_base_chain,"Name of nftables base chain to use", "STR" },
 		{ "nftables-append",0,0, G_OPTION_ARG_NONE,	&rtpe_config.nftables_append,	"Append instead of prepend created rules", NULL },
 		{ "nftables-family",0,0, G_OPTION_ARG_STRING,	&nftables_family,		"Address family/ies to manage via nftables", "ip|ip6|ip,ip6" },
+		{ "xtables",	0,0, G_OPTION_ARG_NONE,		&rtpe_config.xtables,		"Use legacy xtables interface instead of nftables", NULL },
 		{ "nftables-start",0,0, G_OPTION_ARG_NONE,	&nftables_start,		"Just add nftables rules and exit", NULL },
 		{ "nftables-stop",0, 0, G_OPTION_ARG_NONE,	&nftables_stop,			"Just remove nftables rules and exit", NULL },
 		{ "nftables-status",0, 0, G_OPTION_ARG_NONE,	&nftables_status,		"Check nftables rules, print result and exit", NULL },
@@ -997,6 +998,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 						.table = rtpe_config.kernel_table,
 						.append = rtpe_config.nftables_append,
 						.family = rtpe_config.nftables_family,
+						.xtables = rtpe_config.xtables,
 					});
 		else // nftables_stop
 			err = nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
@@ -1583,6 +1585,7 @@ static void kernel_setup(void) {
 	const char *err = nftables_setup(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
 			(nftables_args) {.table = rtpe_config.kernel_table,
 			.append = rtpe_config.nftables_append,
+			.xtables = rtpe_config.xtables,
 			.family = rtpe_config.nftables_family});
 	if (err) {
 		if (rtpe_config.no_fallback)

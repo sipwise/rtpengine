@@ -60,6 +60,7 @@ struct add_rule_callbacks {
 	const char *base_chain;
 	int table;
 	bool append;
+	bool xtables;
 };
 
 
@@ -87,6 +88,9 @@ static const char *match_rtpe(const char *name, const int8_t *data, size_t len, 
 		if (n && !strcmp(n, "RTPENGINE") && info_len >= sizeof(info) && info.id == callbacks->table)
 			callbacks->rule_scratch.rtpengine_matched = true;
 	}
+	else if (!strcmp(name, "rtpengine"))
+		callbacks->rule_scratch.rtpengine_matched = true;
+
 	return NULL;
 }
 
@@ -445,7 +449,26 @@ static const char *input_immediate(nfapi_buf *b, int family, struct add_rule_cal
 }
 
 
-static const char *rtpe_target_base(nfapi_buf *b, struct add_rule_callbacks *callbacks) {
+static const char *target_base_nft_expr(nfapi_buf *b, struct add_rule_callbacks *callbacks) {
+	// buffer is in the nested expressions
+
+	nfapi_nested_begin(b, NFTA_LIST_ELEM);
+
+		nfapi_add_str_attr(b, NFTA_EXPR_NAME, "rtpengine");
+
+		nfapi_nested_begin(b, NFTA_EXPR_DATA);
+
+			nfapi_add_u32_attr(b, RTPEA_RTPENGINE_TABLE, callbacks->table);
+
+		nfapi_nested_end(b);
+
+	nfapi_nested_end(b);
+
+	return NULL;
+}
+
+
+static const char *target_base_xt(nfapi_buf *b, struct add_rule_callbacks *callbacks) {
 	// buffer is in the nested expressions
 
 	struct xt_rtpengine_info info = { .id = callbacks->table };
@@ -499,6 +522,14 @@ static const char *comment(nfapi_buf *b, int family, struct add_rule_callbacks *
 	nfapi_nested_end(b);
 
 	return NULL;
+}
+
+
+static const char *rtpe_target_base(nfapi_buf *b, struct add_rule_callbacks *callbacks) {
+	if (callbacks->xtables)
+		return target_base_xt(b, callbacks);
+	else
+		return target_base_nft_expr(b, callbacks);
 }
 
 
@@ -685,6 +716,7 @@ static const char *nftables_setup_family(nfapi_socket *nl, int family,
 				.chain = chain,
 				.table = args->table,
 				.append = args->append,
+				.xtables = args->xtables,
 			});
 		if (err)
 			return err;
@@ -709,6 +741,7 @@ static const char *nftables_setup_family(nfapi_socket *nl, int family,
 				.chain = chain,
 				.table = args->table,
 				.append = args->append,
+				.xtables = args->xtables,
 			});
 		if (err)
 			return err;

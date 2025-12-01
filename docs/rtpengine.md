@@ -128,6 +128,12 @@ at the command line. See the __\-\-config-file__ option below for details.
     Configure for which netfilter address family to manage tables, chains, and
     rules. The default is to manage both IPv4 and IPv6 address families.
 
+- __\-\-xtables__
+
+    Manage a netfilter rule pointing to the legacy x-tables target
+    (`xt_RTPENGINE`) instead of the more modern nftables `rtpengine`
+    expression.
+
 - __\-\-nftables-start__
 - __\-\-nftables-stop__
 
