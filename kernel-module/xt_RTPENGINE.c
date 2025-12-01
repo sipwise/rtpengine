@@ -6354,7 +6354,7 @@ static unsigned int rtp_mid_ext_media(const struct rtp_parsed *rtp,
 }
 
 
-static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
+static int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 		struct rtpengine_table *t, struct re_address *src,
 		struct re_address *dst, uint8_t in_tos, struct net *net)
 {
@@ -6362,7 +6362,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 	struct rtpengine_target *g;
 	struct sk_buff *skb2;
 	int err;
-	int error_nf_action = XT_CONTINUE;
+	int error_nf_action = NFT_CONTINUE;
 	int nf_action = NF_DROP;
 	int rtp_pt_idx = -2;
 	int ssrc_idx = -1;
@@ -6539,7 +6539,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 		if (is_rtcp == RTCP_FORWARD) {
 			// mark packet as "handled" with negative timestamp
 			oskb->tstamp = (ktime_t) {-ktime_to_ns(oskb->tstamp)};
-			nf_action = XT_CONTINUE;
+			nf_action = NFT_CONTINUE;
 		}
 	}
 
@@ -6663,14 +6663,13 @@ out_no_target:
 
 
 
-static unsigned int rtpengine4(struct sk_buff *oskb, const struct xt_action_param *par) {
-	const struct xt_rtpengine_info *pinfo = par->targinfo;
+static int rtpengine4(struct sk_buff *oskb, struct net *net, uint32_t table_id) {
 	struct sk_buff *skb;
 	struct iphdr *ih;
 	struct rtpengine_table *t;
 	struct re_address src, dst;
 
-	t = get_table(pinfo->id);
+	t = get_table(table_id);
 	if (!t)
 		goto skip;
 
@@ -6692,27 +6691,31 @@ static unsigned int rtpengine4(struct sk_buff *oskb, const struct xt_action_para
 	dst.family = AF_INET;
 	dst.u.ipv4 = ih->daddr;
 
-	return rtpengine46(skb, oskb, t, &src, &dst, (uint8_t)ih->tos, PAR_STATE_NET(par));
+	return rtpengine46(skb, oskb, t, &src, &dst, (uint8_t)ih->tos, net);
 
 skip2:
 	kfree_skb(skb);
 skip3:
 	table_put(t);
 skip:
-	return XT_CONTINUE;
+	return NFT_CONTINUE;
+}
+
+static unsigned int rtpe_xt_rtpengine4(struct sk_buff *oskb, const struct xt_action_param *par) {
+	const struct xt_rtpengine_info *pinfo = par->targinfo;
+	return rtpengine4(oskb, PAR_STATE_NET(par), pinfo->id);
 }
 
 
 
 
-static unsigned int rtpengine6(struct sk_buff *oskb, const struct xt_action_param *par) {
-	const struct xt_rtpengine_info *pinfo = par->targinfo;
+static int rtpengine6(struct sk_buff *oskb, struct net *net, uint32_t table_id) {
 	struct sk_buff *skb;
 	struct ipv6hdr *ih;
 	struct rtpengine_table *t;
 	struct re_address src, dst;
 
-	t = get_table(pinfo->id);
+	t = get_table(table_id);
 	if (!t)
 		goto skip;
 
@@ -6735,15 +6738,21 @@ static unsigned int rtpengine6(struct sk_buff *oskb, const struct xt_action_para
 	dst.family = AF_INET6;
 	memcpy(&dst.u.ipv6, &ih->daddr, sizeof(dst.u.ipv6));
 
-	return rtpengine46(skb, oskb, t, &src, &dst, ipv6_get_dsfield(ih), PAR_STATE_NET(par));
+	return rtpengine46(skb, oskb, t, &src, &dst, ipv6_get_dsfield(ih), net);
 
 skip2:
 	kfree_skb(skb);
 skip3:
 	table_put(t);
 skip:
-	return XT_CONTINUE;
+	return NFT_CONTINUE;
 }
+
+static unsigned int rtpe_xt_rtpengine6(struct sk_buff *oskb, const struct xt_action_param *par) {
+	const struct xt_rtpengine_info *pinfo = par->targinfo;
+	return rtpengine6(oskb, PAR_STATE_NET(par), pinfo->id);
+}
+
 
 
 static int check(const struct xt_tgchk_param *par) {
@@ -6768,7 +6777,7 @@ static struct xt_target xt_rtpengine_regs[] = {
 	{
 		.name		= "RTPENGINE",
 		.family		= NFPROTO_IPV4,
-		.target		= rtpengine4,
+		.target		= rtpe_xt_rtpengine4,
 		.targetsize	= sizeof(struct xt_rtpengine_info),
 		.table		= "filter",
 		.hooks		= (1 << NF_INET_LOCAL_IN),
@@ -6778,7 +6787,7 @@ static struct xt_target xt_rtpengine_regs[] = {
 	{
 		.name		= "RTPENGINE",
 		.family		= NFPROTO_IPV6,
-		.target		= rtpengine6,
+		.target		= rtpe_xt_rtpengine6,
 		.targetsize	= sizeof(struct xt_rtpengine_info),
 		.table		= "filter",
 		.hooks		= (1 << NF_INET_LOCAL_IN),
