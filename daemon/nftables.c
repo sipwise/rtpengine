@@ -19,6 +19,8 @@
 
 #include "xt_RTPENGINE.h"
 
+#define HANDLER_COMMENT "rtpengine UDP handler"
+
 struct iterate_callbacks {
 	// called for each expression
 	const char *(*parse_expr)(const char *name, const int8_t *data, size_t len, void *userdata);
@@ -41,6 +43,7 @@ struct iterate_callbacks {
 		bool rtpengine_matched;
 		bool have_handle;
 		int64_t handle;
+		const char *comment;
 	} rule_scratch;
 
 	// scratch area for rule iterating
@@ -103,8 +106,11 @@ static void check_matched_queue(struct iterate_callbacks *callbacks) {
 	// delete rules which:
 	//    jump to our handler chain
 	//    use the rtpengine statement directly
-	if (!callbacks->rule_scratch.imm_jump_matched && !callbacks->rule_scratch.rtpengine_matched)
-		return;
+	//    are the dummy comment rule
+	if (!callbacks->rule_scratch.imm_jump_matched && !callbacks->rule_scratch.rtpengine_matched) {
+		if (!callbacks->rule_scratch.comment || strcmp(callbacks->rule_scratch.comment, HANDLER_COMMENT))
+			return;
+	}
 
 	uint64_t handle = callbacks->rule_scratch.handle;
 	g_queue_push_tail(&callbacks->iterate_scratch.handles, __g_memdup(&handle, sizeof(handle)));
@@ -126,6 +132,12 @@ static void set_handle(int64_t handle, void *data) {
 	callbacks->rule_scratch.have_handle = true;
 }
 
+static void set_comment(const char *comment, void *data) {
+	struct iterate_callbacks *callbacks = data;
+	callbacks->rule_scratch.comment = comment;
+}
+
+
 static const char *nftables_do_rule(const int8_t *b, size_t l, void *data) {
 	struct iterate_callbacks *callbacks = data;
 
@@ -134,6 +146,7 @@ static const char *nftables_do_rule(const int8_t *b, size_t l, void *data) {
 	const char *err = nfapi_rule_iter(b, l, &(nfapi_callbacks) {
 			.expression = callbacks->parse_expr,
 			.handle = set_handle,
+			.comment = set_comment,
 		}, callbacks);
 	if (err)
 		return err;
@@ -455,6 +468,40 @@ static const char *rtpe_target_base(nfapi_buf *b, struct add_rule_callbacks *cal
 }
 
 
+static const char *comment(nfapi_buf *b, int family, struct add_rule_callbacks *callbacks) {
+	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, callbacks->chain);
+	nfapi_add_binary_str_attr(b, NFTA_RULE_USERDATA, HANDLER_COMMENT);
+
+	nfapi_nested_begin(b, NFTA_RULE_EXPRESSIONS);
+
+		nfapi_nested_begin(b, NFTA_LIST_ELEM);
+
+			nfapi_add_str_attr(b, NFTA_EXPR_NAME, "immediate");
+
+			nfapi_nested_begin(b, NFTA_EXPR_DATA);
+
+				nfapi_add_u32_attr(b, NFTA_IMMEDIATE_DREG, 0);
+
+				nfapi_nested_begin(b, NFTA_IMMEDIATE_DATA);
+
+					nfapi_nested_begin(b, NFTA_DATA_VERDICT);
+
+						nfapi_add_u32_attr(b, NFTA_VERDICT_CODE, htonl(NFT_CONTINUE));
+
+					nfapi_nested_end(b);
+
+				nfapi_nested_end(b);
+
+			nfapi_nested_end(b);
+
+		nfapi_nested_end(b);
+
+	nfapi_nested_end(b);
+
+	return NULL;
+}
+
+
 static const char *rtpe_target(nfapi_buf *b, int family, struct add_rule_callbacks *callbacks) {
 	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, callbacks->chain);
 
@@ -633,10 +680,21 @@ static const char *nftables_setup_family(nfapi_socket *nl, int family,
 		}
 
 		// add rule for kernel forwarding
-		return add_rule(nl, family, (struct add_rule_callbacks) {
+		err = add_rule(nl, family, (struct add_rule_callbacks) {
 				.rule_callback = rtpe_target,
 				.chain = chain,
 				.table = args->table,
+				.append = args->append,
+			});
+		if (err)
+			return err;
+
+		// add dummy comment rule to indicate success
+		return add_rule(nl, family, (struct add_rule_callbacks) {
+				.rule_callback = comment,
+				.chain = chain,
+				.table = args->table,
+				.append = args->append,
 			});
 	}
 	else {
@@ -646,10 +704,21 @@ static const char *nftables_setup_family(nfapi_socket *nl, int family,
 			return err;
 
 		// add rule for kernel forwarding
-		return add_rule(nl, family, (struct add_rule_callbacks) {
+		err = add_rule(nl, family, (struct add_rule_callbacks) {
 				.rule_callback = rtpe_target_filter,
 				.chain = chain,
 				.table = args->table,
+				.append = args->append,
+			});
+		if (err)
+			return err;
+
+		// add dummy comment rule to indicate success
+		return add_rule(nl, family, (struct add_rule_callbacks) {
+				.rule_callback = comment,
+				.chain = chain,
+				.table = args->table,
+				.append = args->append,
 			});
 	}
 }
