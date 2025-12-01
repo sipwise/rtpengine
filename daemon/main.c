@@ -698,7 +698,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "nftables-chain",0,0, G_OPTION_ARG_STRING,	&rtpe_config.nftables_chain,	"Name of nftables chain to manage", "STR" },
 		{ "nftables-base-chain",0,0, G_OPTION_ARG_STRING,&rtpe_config.nftables_base_chain,"Name of nftables base chain to use", "STR" },
 		{ "nftables-append",0,0, G_OPTION_ARG_NONE,	&rtpe_config.nftables_append,	"Append instead of prepend created rules", NULL },
-		{ "nftables-family",0,0, G_OPTION_ARG_STRING,	&nftables_family,		"Address family/ies to manage via nftables", "ip|ip6|ip,ip6" },
+		{ "nftables-family",0,0, G_OPTION_ARG_STRING,	&nftables_family,		"Address family/ies to manage via nftables", "ip|ip6|ip,ip6|inet" },
 		{ "xtables",	0,0, G_OPTION_ARG_NONE,		&rtpe_config.xtables,		"Use legacy xtables interface instead of nftables", NULL },
 		{ "nftables-start",0,0, G_OPTION_ARG_NONE,	&nftables_start,		"Just add nftables rules and exit", NULL },
 		{ "nftables-stop",0, 0, G_OPTION_ARG_NONE,	&nftables_stop,			"Just remove nftables rules and exit", NULL },
@@ -965,6 +965,11 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		rtpe_config.nftables_family = NFPROTO_IPV4;
 	else if (!strcmp(nftables_family, "ip6"))
 		rtpe_config.nftables_family = NFPROTO_IPV6;
+	else if (!strcmp(nftables_family, "inet")) {
+		if (rtpe_config.xtables)
+			die("'inet' nftables address family not valid with legacy xtables");
+		rtpe_config.nftables_family = NFPROTO_INET;
+	}
 	else
 		die("Invalid value for 'nftables-family' ('%s')", nftables_family);
 #endif

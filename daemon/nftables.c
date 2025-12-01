@@ -364,25 +364,38 @@ static const char *udp_filter(nfapi_buf *b, int family) {
 
 	nfapi_nested_begin(b, NFTA_LIST_ELEM);
 
-		nfapi_add_str_attr(b, NFTA_EXPR_NAME, "payload");
+		if (family == NFPROTO_INET) {
 
-		nfapi_nested_begin(b, NFTA_EXPR_DATA);
+			nfapi_add_str_attr(b, NFTA_EXPR_NAME, "meta");
 
-			nfapi_add_u32_attr(b, NFTA_PAYLOAD_DREG, htonl(NFT_REG_1));
-			nfapi_add_u32_attr(b, NFTA_PAYLOAD_BASE, htonl(NFT_PAYLOAD_NETWORK_HEADER));
+			nfapi_nested_begin(b, NFTA_EXPR_DATA);
 
-			if (family == NFPROTO_IPV4)
-				nfapi_add_u32_attr(b, NFTA_PAYLOAD_OFFSET,
-						htonl(offsetof(struct iphdr, protocol)));
-			else if (family == NFPROTO_IPV6)
-				nfapi_add_u32_attr(b, NFTA_PAYLOAD_OFFSET,
-						htonl(offsetof(struct ip6_hdr, ip6_nxt)));
-			else
-				return "unsupported address family for UDP filter";
+				nfapi_add_u32_attr(b, NFTA_META_KEY, htonl(NFT_META_L4PROTO));
+				nfapi_add_u32_attr(b, NFTA_META_DREG, htonl(NFT_REG_1));
 
-			nfapi_add_u32_attr(b, NFTA_PAYLOAD_LEN, htonl(sizeof(proto)));
+			nfapi_nested_end(b);
+		}
+		else {
+			nfapi_add_str_attr(b, NFTA_EXPR_NAME, "payload");
 
-		nfapi_nested_end(b);
+			nfapi_nested_begin(b, NFTA_EXPR_DATA);
+
+				nfapi_add_u32_attr(b, NFTA_PAYLOAD_DREG, htonl(NFT_REG_1));
+				nfapi_add_u32_attr(b, NFTA_PAYLOAD_BASE, htonl(NFT_PAYLOAD_NETWORK_HEADER));
+
+				if (family == NFPROTO_IPV4)
+					nfapi_add_u32_attr(b, NFTA_PAYLOAD_OFFSET,
+							htonl(offsetof(struct iphdr, protocol)));
+				else if (family == NFPROTO_IPV6)
+					nfapi_add_u32_attr(b, NFTA_PAYLOAD_OFFSET,
+							htonl(offsetof(struct ip6_hdr, ip6_nxt)));
+				else
+					return "unsupported address family for UDP filter";
+
+				nfapi_add_u32_attr(b, NFTA_PAYLOAD_LEN, htonl(sizeof(proto)));
+
+			nfapi_nested_end(b);
+		}
 
 	nfapi_nested_end(b);
 
@@ -780,6 +793,11 @@ static const char *nftables_do(const char *chain, const char *base_chain,
 
 	if (args->family == 0 || args->family == NFPROTO_IPV6)
 		err = do_func(nl, NFPROTO_IPV6, chain, base_chain, args);
+	if (err)
+		return err;
+
+	if (args->family == NFPROTO_INET)
+		err = do_func(nl, NFPROTO_INET, chain, base_chain, args);
 	if (err)
 		return err;
 

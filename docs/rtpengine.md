@@ -123,7 +123,7 @@ at the command line. See the __\-\-config-file__ option below for details.
     appended to the list of existing rules. The default is to prepend it
     (insert it at the beginning).
 
-- __\-\-nftables-family=ip__|__ip6__|__ip,ip6__
+- __\-\-nftables-family=ip__|__ip6__|__ip,ip6__|__inet__
 
     Configure for which netfilter address family to manage tables, chains, and
     rules. The default is to manage both IPv4 and IPv6 address families.
