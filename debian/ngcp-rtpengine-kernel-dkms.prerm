@@ -14,7 +14,7 @@ else
 	# make sure it's not running
 	if [ -x /etc/init.d/ngcp-rtpengine-daemon ] ; then
 		invoke-rc.d ngcp-rtpengine-daemon stop || true
-		rmmod "xt_RTPENGINE" 2>/dev/null || true
+		rmmod "nft_rtpengine" 2>/dev/null || true
 	fi
 fi
 

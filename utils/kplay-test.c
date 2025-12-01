@@ -11,7 +11,7 @@
 #include <stdbool.h>
 
 #define atomic64 uint64_t
-#include "../kernel-module/xt_RTPENGINE.h"
+#include "../kernel-module/nft_rtpengine.h"
 
 int main() {
 	int fd = open("/proc/rtpengine/control", O_WRONLY);

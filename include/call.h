@@ -21,7 +21,7 @@
 #include "t38.h"
 #include "types.h"
 
-#include "xt_RTPENGINE.h"
+#include "nft_rtpengine.h"
 
 #define UNDEFINED ((unsigned int) -1)
 

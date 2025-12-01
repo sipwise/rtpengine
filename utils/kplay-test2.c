@@ -12,7 +12,7 @@
 #include <sys/mman.h>
 
 #define atomic64 uint64_t
-#include "../kernel-module/xt_RTPENGINE.h"
+#include "../kernel-module/nft_rtpengine.h"
 
 #define PAGE_SIZE 4096
 

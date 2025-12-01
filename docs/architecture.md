@@ -220,7 +220,7 @@ This allows packet handling on multiple ports and streams belonging to the same 
 Kernel forwarding
 -----------------
 
-The kernel forwarding of RTP/RTCP packets is handled in the `xt_RTPENGINE.c` / `xt_RTPENGINE.h`.
+The kernel forwarding of RTP/RTCP packets is handled in the `nft_rtpengine.c` / `nft_rtpengine.h`.
 
 The linkage between user-space and kernel module is in the `kernelize_one()` (`media_socket.c`),\
 which populates the struct that is passed to the kernel module. 

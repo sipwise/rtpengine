@@ -43,7 +43,7 @@
 #warning "Kernel without CONFIG_BTREE - kernel media player unavailable"
 #endif
 
-#include "xt_RTPENGINE.h"
+#include "nft_rtpengine.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Sipwise GmbH <support@sipwise.com>");
@@ -53,6 +53,7 @@ MODULE_IMPORT_NS("CRYPTO_INTERNAL");
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(5,12,0)
 MODULE_IMPORT_NS(CRYPTO_INTERNAL);
 #endif
+MODULE_ALIAS("xt_RTPENGINE");
 MODULE_ALIAS("ipt_RTPENGINE");
 MODULE_ALIAS("ip6t_RTPENGINE");
 MODULE_ALIAS("nft-expr-rtpengine");
@@ -962,7 +963,7 @@ static struct rtpengine_table *new_table_link(uint32_t id) {
 
 	t = new_table();
 	if (!t) {
-		printk(KERN_WARNING "xt_RTPENGINE out of memory\n");
+		printk(KERN_WARNING "nft_rtpengine out of memory\n");
 		return NULL;
 	}
 
@@ -970,7 +971,7 @@ static struct rtpengine_table *new_table_link(uint32_t id) {
 	if (rtpe_table[id]) {
 		write_unlock_irqrestore(&table_lock, flags);
 		table_put(t);
-		printk(KERN_WARNING "xt_RTPENGINE duplicate ID %u\n", id);
+		printk(KERN_WARNING "nft_rtpengine duplicate ID %u\n", id);
 		return NULL;
 	}
 
@@ -980,7 +981,7 @@ static struct rtpengine_table *new_table_link(uint32_t id) {
 	write_unlock_irqrestore(&table_lock, flags);
 
 	if (table_create_proc(t, id))
-		printk(KERN_WARNING "xt_RTPENGINE failed to create /proc entry for ID %u\n", id);
+		printk(KERN_WARNING "nft_rtpengine failed to create /proc entry for ID %u\n", id);
 
 
 	return t;
@@ -4813,7 +4814,7 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 
 	// verify request
 	if (cmd < 1 || cmd >= __REMG_LAST) {
-		printk(KERN_WARNING "xt_RTPENGINE unimplemented op %u\n", cmd);
+		printk(KERN_WARNING "nft_rtpengine unimplemented op %u\n", cmd);
 		return -EINVAL;
 	}
 
@@ -4928,7 +4929,7 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 #endif
 
 		default:
-			printk(KERN_WARNING "xt_RTPENGINE unimplemented op %u\n", cmd);
+			printk(KERN_WARNING "nft_rtpengine unimplemented op %u\n", cmd);
 			err = -EINVAL;
 			break;
 	}
@@ -6767,11 +6768,11 @@ static int check(const struct xt_tgchk_param *par) {
 	const struct xt_rtpengine_info *pinfo = par->targinfo;
 
 	if (!my_proc_root) {
-		printk(KERN_WARNING "xt_RTPENGINE check() without proc_root\n");
+		printk(KERN_WARNING "nft_rtpengine check() without proc_root\n");
 		return -EINVAL;
 	}
 	if (pinfo->id >= MAX_ID) {
-		printk(KERN_WARNING "xt_RTPENGINE ID too high (%u >= %u)\n", pinfo->id, MAX_ID);
+		printk(KERN_WARNING "nft_rtpengine ID too high (%u >= %u)\n", pinfo->id, MAX_ID);
 		return -EINVAL;
 	}
 
@@ -6954,7 +6955,7 @@ static int __init init(void) {
 	if (stream_packets_list_limit <= 0)
 		goto fail;
 
-	printk(KERN_NOTICE "Registering xt_RTPENGINE module - version %s\n", RTPENGINE_VERSION);
+	printk(KERN_NOTICE "Registering nft_rtpengine module - version %s\n", RTPENGINE_VERSION);
 	DBG("using uid %u, gid %d\n", proc_uid, proc_gid);
 	proc_kuid = KUIDT_INIT(proc_uid);
 	proc_kgid = KGIDT_INIT(proc_gid);
@@ -7015,13 +7016,13 @@ fail:
 	clear_proc(&proc_list);
 	clear_proc(&my_proc_root);
 
-	printk(KERN_ERR "Failed to load xt_RTPENGINE module: %s\n", err);
+	printk(KERN_ERR "Failed to load nft_rtpengine module: %s\n", err);
 
 	return ret;
 }
 
 static void __exit fini(void) {
-	printk(KERN_NOTICE "Unregistering xt_RTPENGINE module\n");
+	printk(KERN_NOTICE "Unregistering nft_rtpengine module\n");
 
 	nft_unregister_expr(&rtpengine_inet_expr);
 	nft_unregister_expr(&rtpengine_ipv4_expr);

@@ -8,7 +8,7 @@ include $(M)/rtpengine-kmod.mk
 
 ccflags-y    += -DRTPENGINE_VERSION="\"$(RTPENGINE_VERSION)\""
 
-obj-m        += xt_RTPENGINE.o
+obj-m        += nft_rtpengine.o
 
 .PHONY:		modules clean install
 
@@ -20,7 +20,7 @@ clean:
 		rm -f rtpengine-kmod.mk
 
 install:
-	install -D xt_RTPENGINE.ko $(DESTDIR)/lib/modules/$(shell uname -r)/updates/xt_RTPENGINE.ko
+	install -D nft_rtpengine.ko $(DESTDIR)/lib/modules/$(shell uname -r)/updates/nft_rtpengine.ko
 	depmod -a
 
 $(M)/rtpengine-kmod.mk:

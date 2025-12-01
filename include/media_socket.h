@@ -14,7 +14,7 @@
 #include "containers.h"
 #include "codec.h"
 
-#include "xt_RTPENGINE.h"
+#include "nft_rtpengine.h"
 #include "common_stats.h"
 
 struct media_packet;

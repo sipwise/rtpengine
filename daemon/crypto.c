@@ -16,7 +16,7 @@
 #include "ssllib.h"
 #include "types.h"
 
-#include "xt_RTPENGINE.h"
+#include "nft_rtpengine.h"
 
 static int aes_cm_encrypt_rtp(struct crypto_context *, const struct rtp_header *, str *, uint32_t);
 static int aes_cm_encrypt_rtcp(struct crypto_context *, const struct rtcp_packet *, str *, uint32_t);

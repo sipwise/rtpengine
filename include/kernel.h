@@ -8,7 +8,7 @@
 #include "containers.h"
 #include "auxlib.h"
 
-#include "xt_RTPENGINE.h"
+#include "nft_rtpengine.h"
 
 #define UNINIT_IDX ((unsigned int) -1)
 

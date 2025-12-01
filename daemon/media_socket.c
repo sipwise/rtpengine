@@ -33,7 +33,7 @@
 #include "janus.h"
 #include "bufferpool.h"
 
-#include "xt_RTPENGINE.h"
+#include "nft_rtpengine.h"
 
 #ifndef PORT_RANDOM_MIN
 #define PORT_RANDOM_MIN 6

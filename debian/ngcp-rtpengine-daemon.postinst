@@ -3,7 +3,7 @@
 set -e
 
 default=/etc/default/ngcp-rtpengine-daemon
-modname=xt_RTPENGINE
+modname=nft_rtpengine
 
 if [ -x "$(which ngcp-virt-identify)" ]; then
 	if ngcp-virt-identify --type container; then
@@ -52,7 +52,7 @@ if [ "$1" = configure ]; then
 
 	# set up modprobe.d fragment for auto-load usage
 	if ! [ -f /etc/modprobe.d/rtpengine.conf ] || grep -q DPKG-GENERATED /etc/modprobe.d/rtpengine.conf; then
-		OPTIONS="options xt_RTPENGINE proc_mask=0x7"
+		OPTIONS="options nft_rtpengine proc_mask=0x7"
 
 		PUID=$(id -u rtpengine 2> /dev/null)
 		test -z "$PUID" || OPTIONS="$OPTIONS proc_uid=$PUID"

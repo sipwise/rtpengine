@@ -200,10 +200,10 @@ install -D -p -m644 kernel-module/Makefile \
 	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/Makefile
 install -D -p -m755 kernel-module/gen-rtpengine-kmod-flags \
 	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/gen-rtpengine-kmod-flags
-install -D -p -m644 kernel-module/xt_RTPENGINE.c \
-	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/xt_RTPENGINE.c
-install -D -p -m644 kernel-module/xt_RTPENGINE.h \
-	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/xt_RTPENGINE.h
+install -D -p -m644 kernel-module/nft_rtpengine.c \
+	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/nft_rtpengine.c
+install -D -p -m644 kernel-module/nft_rtpengine.h \
+	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/nft_rtpengine.h
 install -D -p -m644 kernel-module/common_stats.h \
 	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/common_stats.h
 install -D -p -m644 kernel-module/*.inc \

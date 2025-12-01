@@ -110,11 +110,11 @@ test suite.
 	must be present in `/lib/modules/4.19-1-amd64/build/`. The last component of this path (`build`)
 	is usually a symlink somewhere into `/usr/src/`, which is fine.
 
-	Successful compilation of the module will produce the file `xt_RTPENGINE.ko`. The module can be inserted
-	into the running kernel manually through `insmod xt_RTPENGINE.ko` (which will result in an error if
+	Successful compilation of the module will produce the file `nft_rtpengine.ko`. The module can be inserted
+	into the running kernel manually through `insmod nft_rtpengine.ko` (which will result in an error if
 	depending modules aren't loaded, for example the `x_tables` module), but it's recommended to copy the
 	module into `/lib/modules/$VERSION/updates/`, followed by running `depmod -a`.  This copying is performed
-	on `make install`. After this, the module can be loaded by issuing `modprobe xt_RTPENGINE`.
+	on `make install`. After this, the module can be loaded by issuing `modprobe nft_rtpengine`.
 
 * `recording-daemon`
 

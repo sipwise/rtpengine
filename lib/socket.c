@@ -9,7 +9,7 @@
 #include <sys/socket.h>
 #include "str.h"
 #include "auxlib.h"
-#include "xt_RTPENGINE.h"
+#include "nft_rtpengine.h"
 #include "log.h"
 
 static bool __ip4_addr_parse(sockaddr_t *dst, const char *src);

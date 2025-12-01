@@ -1,6 +1,6 @@
 #include <assert.h>
 #include "kernel.h"
-#include "../kernel-module/xt_RTPENGINE.h"
+#include "../kernel-module/nft_rtpengine.h"
 
 int main(void) {
 	int ret;

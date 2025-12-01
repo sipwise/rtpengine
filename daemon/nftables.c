@@ -17,7 +17,7 @@
 #include "netfilter_api.h"
 #include "helpers.h"
 
-#include "xt_RTPENGINE.h"
+#include "nft_rtpengine.h"
 
 #define HANDLER_COMMENT "rtpengine UDP handler"
 

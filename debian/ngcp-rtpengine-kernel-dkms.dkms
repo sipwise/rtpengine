@@ -6,5 +6,5 @@ BUILD_EXCLUSIVE_KERNEL_MIN="4.4"
 MAKE[0]="make -C ${kernel_source_dir} M=${dkms_tree}/${PACKAGE_NAME}/${PACKAGE_VERSION}/build RTPENGINE_VERSION=\"${PACKAGE_VERSION}\""
 CLEAN="make -C ${kernel_source_dir} M=${dkms_tree}/${PACKAGE_NAME}/${PACKAGE_VERSION}/build clean"
 AUTOINSTALL=yes
-BUILT_MODULE_NAME[0]="xt_RTPENGINE"
+BUILT_MODULE_NAME[0]="nft_rtpengine"
 DEST_MODULE_LOCATION[0]=/extra

@@ -23,7 +23,7 @@
 #include "call_interfaces.h"
 #include "media_player.h"
 
-#include "xt_RTPENGINE.h"
+#include "nft_rtpengine.h"
 
 struct rec_pcap_format {
 	int linktype;

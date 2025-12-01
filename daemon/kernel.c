@@ -16,7 +16,7 @@
 #include "main.h"
 #include "statistics.h"
 
-#include "xt_RTPENGINE.h"
+#include "nft_rtpengine.h"
 
 #define PREFIX "/proc/rtpengine"
 

@@ -4,7 +4,7 @@ set -e
 
 package=rtpengine-kernel-dkms
 name=rtpengine
-modname=xt_RTPENGINE
+modname=nft_rtpengine
 
 version=$(dpkg-query -W -f="\${Version}" "$package" \
         |rev|cut -d- -f2-|rev|cut -d':' -f2|tr -d "\n")

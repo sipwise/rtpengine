@@ -27,14 +27,14 @@ eliminated, CPU usage greatly reduced and the number of concurrent calls possibl
 In-kernel packet forwarding is implemented as an *nftables* module
 (or more precisely, an *x\_tables* module). As such, it requires two parts
 for proper operation. One part is the actual kernel module called
-`xt_RTPENGINE`. The second part is a rule in the local *nftables* chains that
+`nft_rtpengine`. The second part is a rule in the local *nftables* chains that
 gets hit by UDP packets so that they can be processed by the kernel module.
 
 ### Overview ###
 
 In short, the prerequisites for in-kernel packet forwarding are:
 
-1. The `xt_RTPENGINE` kernel module must be loaded. The module supports
+1. The `nft_rtpengine` kernel module must be loaded. The module supports
    auto-loading when correctly installed.
 2. A rule added to an *nftables* chain that gets called by an *input* hook in
    the *filter* table, which sends packets
@@ -76,14 +76,14 @@ Each forwarding table can be thought of a separate proxy instance. Each running 
 running instance of the daemon at any given time. In the most common setup, there will be only a single
 instance of the daemon running and there will be only a single forwarding table in use, with ID zero.
 
-The kernel module can be loaded with the command `modprobe xt_RTPENGINE`. It
+The kernel module can be loaded with the command `modprobe nft_rtpengine`. It
 isn't normally necessary to do this explicitly or manually as the module is
 automatically loaded when the appropriate *nftables* rule is created (see
-below). The module supports a few options (see `modinfo -p xt_RTPENGINE`) which
+below). The module supports a few options (see `modinfo -p nft_rtpengine`) which
 can either be set at the `modprobe` command line, and/or through an entry in
 `/etc/modprobe.d/` (by default `/etc/modprobe.d/rtpengine.conf`) for options to
 be set when auto-loading the module. Options can be inspected during runtime
-via `/sys/module/xt_RTPENGINE/parameters/`.
+via `/sys/module/nft_rtpengine/parameters/`.
 
 With the module loaded, a new
 directory will appear in `/proc/`, namely `/proc/rtpengine/`. After loading, the directory will contain
@@ -116,7 +116,7 @@ Manual creation of forwarding tables is normally not required as the daemon will
 deletion of tables may be required after shutdown of the daemon or before a restart to ensure that the
 daemon can create the table it wants to use.
 
-The kernel module can be unloaded through `rmmod xt_RTPENGINE`, however this only works if no forwarding
+The kernel module can be unloaded through `rmmod nft_rtpengine`, however this only works if no forwarding
 table currently exists and no *nftables* rule currently exists.
 
 ### The *nftables* Rule ###
@@ -167,11 +167,11 @@ A cheat sheet with various related commands is below:
 
     # Load module: this only needs to be done once after system
     # (re-) boot, but can be omitted if auto-load is working correctly
-    modprobe xt_RTPENGINE
+    modprobe nft_rtpengine
 
     # Load module with some options set
     # (usually handled via /etc/modprobe.d/rtpengine.conf)
-    modprobe xt_RTPENGINE proc_uid=1234 proc_gid=5678
+    modprobe nft_rtpengine proc_uid=1234 proc_gid=5678
 
     # Create nftables rules: This normally happens automatically during
     # startup. Kernel table ID and nftables chain names are taken from

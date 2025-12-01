@@ -62,16 +62,16 @@ start() {
 	build_opts
 	if [[ $MODULE == 1 ]];then
 		echo "Loading module for in-kernel packet forwarding"
-		rmmod xt_RTPENGINE 2> /dev/null
+		rmmod nft_rtpengine 2> /dev/null
 		if [[ -n "$SET_USER" ]];then
 			if [[ -n "$SET_GROUP" ]];then
 				proc_gid="$(grep "^$SET_GROUP:" /etc/group | cut -f3 -d:)"
 			else
 				proc_gid="$(id "$SET_USER" -g)"
 			fi
-			modprobe xt_RTPENGINE proc_uid="$(id "$SET_USER" -u)" proc_gid="$proc_gid"
+			modprobe nft_rtpengine proc_uid="$(id "$SET_USER" -u)" proc_gid="$proc_gid"
 		else
-			modprobe xt_RTPENGINE
+			modprobe nft_rtpengine
 		fi
 		if firewall-cmd --state 2>/dev/null ; then
 			# Using firewalld
@@ -141,7 +141,7 @@ stop() {
 				$fw -X rtpengine
 			done
 		fi
-		rmmod xt_RTPENGINE
+		rmmod nft_rtpengine
 		rm -f "$cachefile"
 	fi
  
