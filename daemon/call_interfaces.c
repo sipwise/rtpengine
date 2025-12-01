@@ -1619,6 +1619,17 @@ static void call_ng_flags_freqs(const ng_parser_t *parser, parser_arg value, sdp
 	}
 }
 
+static void call_ng_flags_peer_address(const str *peer_ip, str *direction, const char *direction_text) {
+	const str *resolved = resolve_interface_from_peer_ip(peer_ip);
+	if (resolved) {
+		*direction = *resolved;
+		ilog(LOG_DEBUG, "%s peer " STR_FORMAT " resolved to interface " STR_FORMAT,
+			direction_text, STR_FMT(peer_ip), STR_FMT(resolved));
+	}
+	else
+		ilog(LOG_WARN, "Failed to resolve %s peer address " STR_FORMAT, direction_text, STR_FMT(peer_ip));
+}
+
 static void call_ng_received_from_string(sdp_ng_flags *flags, str *s) {
 	flags->received_from_family = STR_NULL;
 	flags->received_from_address = *s;
@@ -1964,6 +1975,9 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 		case CSH_LOOKUP("from-interface"):
 			out->direction[0] = s;
 			break;
+		case CSH_LOOKUP("inbound-peer"):
+			call_ng_flags_peer_address(&s, &out->direction[0], "Inbound");
+			break;
 		case CSH_LOOKUP("from-label"):
 		case CSH_LOOKUP("label"):
 			out->label = s;
@@ -2046,6 +2060,9 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			break;
 		case CSH_LOOKUP("interface"):
 			out->interface = s;
+			break;
+		case CSH_LOOKUP("peer"):
+			call_ng_flags_peer_address(&s, &out->interface, "Interface");
 			break;
 		case CSH_LOOKUP("instance"):
 			out->instance = s;
@@ -2311,6 +2328,9 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			break;
 		case CSH_LOOKUP("to-interface"):
 			out->direction[1] = s;
+			break;
+		case CSH_LOOKUP("outbound-peer"):
+			call_ng_flags_peer_address(&s, &out->direction[1], "Outbound");
 			break;
 		case CSH_LOOKUP("to-label"):
 			out->to_label = s;
