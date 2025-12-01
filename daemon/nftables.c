@@ -37,7 +37,8 @@ struct iterate_callbacks {
 
 	// scratch area for rule callbacks, set to zero for every rule
 	struct {
-		bool rule_matched;
+		bool imm_jump_matched;
+		bool rtpengine_matched;
 		bool have_handle;
 		int64_t handle;
 	} rule_scratch;
@@ -45,7 +46,8 @@ struct iterate_callbacks {
 	// scratch area for rule iterating
 	struct {
 		GQueue handles;
-		bool rule_matched;
+		bool have_rtpengine_rule;
+		bool have_imm_jump_rule;
 	} iterate_scratch;
 };
 
@@ -66,7 +68,7 @@ static const char *match_immediate(const char *name, const int8_t *data, size_t 
 	if (!strcmp(name, "immediate")) {
 		const char *chain = nfapi_get_immediate_chain(data, len);
 		if (chain && !strcmp(chain, callbacks->chain))
-			callbacks->rule_scratch.rule_matched = true;
+			callbacks->rule_scratch.imm_jump_matched = true;
 	}
 	return NULL;
 }
@@ -80,7 +82,7 @@ static const char *match_rtpe(const char *name, const int8_t *data, size_t len, 
 		size_t info_len = sizeof(info);
 		const char *n = nfapi_get_target(data, len, &info, &info_len);
 		if (n && !strcmp(n, "RTPENGINE") && info_len >= sizeof(info) && info.id == callbacks->table)
-			callbacks->rule_scratch.rule_matched = true;
+			callbacks->rule_scratch.rtpengine_matched = true;
 	}
 	return NULL;
 }
@@ -94,7 +96,14 @@ static const char *match_immediate_rtpe(const char *name, const int8_t *data, si
 
 
 static void check_matched_queue(struct iterate_callbacks *callbacks) {
-	if (!callbacks->rule_scratch.rule_matched)
+	// handle must be known
+	if (!callbacks->rule_scratch.have_handle)
+		return;
+
+	// delete rules which:
+	//    jump to our handler chain
+	//    use the rtpengine statement directly
+	if (!callbacks->rule_scratch.imm_jump_matched && !callbacks->rule_scratch.rtpengine_matched)
 		return;
 
 	uint64_t handle = callbacks->rule_scratch.handle;
@@ -103,8 +112,10 @@ static void check_matched_queue(struct iterate_callbacks *callbacks) {
 
 
 static void check_matched_flag(struct iterate_callbacks *callbacks) {
-	if (callbacks->rule_scratch.rule_matched)
-		callbacks->iterate_scratch.rule_matched = true;
+	if (callbacks->rule_scratch.imm_jump_matched)
+		callbacks->iterate_scratch.have_imm_jump_rule = true;
+	if (callbacks->rule_scratch.rtpengine_matched)
+		callbacks->iterate_scratch.have_rtpengine_rule = true;
 }
 
 
@@ -687,7 +698,7 @@ static const char *nftables_check_family(nfapi_socket *nl, int family,
 
 	iterate_rules(nl, family, chain, &callbacks);
 
-	if (!callbacks.iterate_scratch.rule_matched)
+	if (!callbacks.iterate_scratch.have_rtpengine_rule)
 		return "RTPENGINE rule not found";
 
 	// look for a rule to jump from a base chain to our custom chain
@@ -705,7 +716,7 @@ static const char *nftables_check_family(nfapi_socket *nl, int family,
 	if (base_chain && strcmp(base_chain, "none"))
 		iterate_rules(nl, family, base_chain, &callbacks);
 
-	if (!callbacks.iterate_scratch.rule_matched)
+	if (!callbacks.iterate_scratch.have_imm_jump_rule)
 		return "immediate-goto rule not found";
 
 	return NULL;
