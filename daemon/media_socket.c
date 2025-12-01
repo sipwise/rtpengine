@@ -45,7 +45,6 @@
 #define MAX_RECV_LOOP_STRIKES 5
 #endif
 
-
 TYPED_GQUEUE(logical_intf, struct logical_intf)
 
 struct intf_key {
@@ -4114,4 +4113,52 @@ struct interface_stats_block *interface_sampled_rate_stats_get(struct interface_
 		*time_diff_us = 0;
 	ret->last_run = rtpe_now;
 	return &ret->stats;
+}
+
+/* Resolve peer IP address to interface name via routing lookup.
+ * Returns pointer to interface name (valid for lifetime of interface config) or NULL on error.
+ */
+const str *resolve_interface_from_peer_ip(const str *peer_ip) {
+	if (!peer_ip || !peer_ip->s || !peer_ip->len) {
+		ilog(LOG_ERR, "Empty peer IP address");
+		return NULL;
+	}
+
+	sockaddr_t target;
+	if (!sockaddr_parse_any_str(&target, peer_ip)) {
+		ilog(LOG_ERR, "Invalid peer IP address: " STR_FORMAT ": %s",
+			STR_FMT(peer_ip), strerror(errno));
+		return NULL;
+	}
+
+	/* create probe socket and connect to target.
+	 * port 9 (discard) is used as dummy - actual port doesn't affect routing */
+	socket_t sock;
+	ZERO(sock);
+	endpoint_t ep = { .address = target, .port = 9 };
+	if (!connect_socket(&sock, SOCK_DGRAM, &ep)) {
+		ilog(LOG_ERR, "Failed to create probe socket for peer IP: %s",
+			strerror(errno));
+		return NULL;
+	}
+
+	/* get local address assigned by kernel routing */
+	if (!socket_getsockname(&sock)) {
+		close_socket(&sock);
+		ilog(LOG_ERR, "getsockname failed for peer IP: %s", strerror(errno));
+		return NULL;
+	}
+	sockaddr_t local_addr = sock.local.address;
+	close_socket(&sock);
+
+	/* find first matching interface (loop preserves config ordering) */
+	for (__auto_type l = all_local_interfaces.head; l; l = l->next) {
+		struct local_intf *lif = l->data;
+		if (sockaddr_eq(&local_addr, &lif->spec->local_address.addr))
+			return &lif->logical->name;
+	}
+
+	ilog(LOG_ERR, "No configured interface found for peer-resolved address %s",
+		sockaddr_print_buf(&local_addr));
+	return NULL;
 }

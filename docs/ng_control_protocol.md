@@ -381,6 +381,14 @@ Optionally included keys are:
     "received from" direction of this message. Identical to setting the first
     `direction=` value.
 
+* `inbound-peer`
+
+    Contains an IP address (IPv4 or IPv6) of the peer from which media will be
+    received. RTPengine performs a routing table lookup to determine which local
+    interface would be used to reach this peer, and uses that interface for the
+    inbound direction. Equivalent to setting `from-interface` with the resolved
+    interface name.
+
 * `frequency` or `frequencies`
 
     Sets the tone frequency or frequencies for `DTMF-security=tone` in Hertz.
@@ -456,6 +464,13 @@ Optionally included keys are:
 	Contains a single string naming one of the configured interfaces, just like `direction` does. The
 	`interface` option is used instead of `direction` where only one interface is required (e.g. outside
 	of an offer/answer scenario), for example in the `publish` or `subscribe request` commands.
+
+* `peer`
+
+    Contains an IP address (IPv4 or IPv6) of a peer. RTPengine performs a routing
+    table lookup to determine which local interface would be used to reach this peer,
+    and uses that interface for the call. Equivalent to setting `interface` with the
+    resolved interface name.
 
 * `label` or `from-label`
 
@@ -796,6 +811,14 @@ Optionally included keys are:
     Contains a string identifying the network interface pertaining to the
     "going to" direction of this message. Identical to setting the second
     `direction=` value.
+
+* `outbound-peer`
+
+    Contains an IP address (IPv4 or IPv6) of the peer to which media will be
+    sent. RTPengine performs a routing table lookup to determine which local
+    interface would be used to reach this peer, and uses that interface for the
+    outbound direction. Equivalent to setting `to-interface` with the resolved
+    interface name.
 
 * `to-label`
 
