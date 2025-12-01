@@ -19,6 +19,13 @@ struct xt_rtpengine_info {
 	unsigned int			id;
 };
 
+enum rtpengine_nft_attributes {
+	RTPEA_RTPENGINE_UNSPEC,
+	RTPEA_RTPENGINE_TABLE,
+	__RTPEA_RTPENGINE_MAX
+};
+#define RTPEA_RTPENGINE_MAX		(__RTPEA_RTPENGINE_MAX - 1)
+
 struct re_address {
 	int				family;
 	union {

@@ -26,6 +26,7 @@
 #include <linux/spinlock.h>
 #include <linux/bsearch.h>
 #include <asm/atomic.h>
+#include <net/netfilter/nf_tables.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter_ipv6.h>
@@ -54,6 +55,7 @@ MODULE_IMPORT_NS(CRYPTO_INTERNAL);
 #endif
 MODULE_ALIAS("ipt_RTPENGINE");
 MODULE_ALIAS("ip6t_RTPENGINE");
+MODULE_ALIAS("nft-expr-rtpengine");
 
 // fix for older compilers
 #ifndef RHEL_RELEASE_VERSION
@@ -100,6 +102,12 @@ MODULE_ALIAS("ip6t_RTPENGINE");
 #define PAR_STATE_NET(p) (p)->state->net
 #else /* minimum 4.4.x */
 #define PAR_STATE_NET(p) (p)->net
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,14,0)
+#define PKTINFO_NET(p) (p)->state->net
+#else
+#define PKTINFO_NET(p) (p)->xt.state->net
 #endif
 
 #if 0
@@ -6772,6 +6780,147 @@ static int check(const struct xt_tgchk_param *par) {
 
 
 
+static void rtpengine_ipv4_expr_eval(const struct nft_expr *expr, struct nft_regs *regs,
+		const struct nft_pktinfo *pkt)
+{
+	struct xt_rtpengine_info *info = (struct xt_rtpengine_info *) expr->data;
+	int verdict = rtpengine4(pkt->skb, PKTINFO_NET(pkt), info->id);
+	regs->verdict.code = verdict;
+}
+
+static void rtpengine_ipv6_expr_eval(const struct nft_expr *expr, struct nft_regs *regs,
+		const struct nft_pktinfo *pkt)
+{
+	struct xt_rtpengine_info *info = (struct xt_rtpengine_info *) expr->data;
+	int verdict = rtpengine6(pkt->skb, PKTINFO_NET(pkt), info->id);
+	regs->verdict.code = verdict;
+}
+
+static void rtpengine_inet_expr_eval(const struct nft_expr *expr, struct nft_regs *regs,
+		const struct nft_pktinfo *pkt)
+{
+	switch (nft_pf(pkt)) {
+		case NFPROTO_IPV4:
+			return rtpengine_ipv4_expr_eval(expr, regs, pkt);
+		case NFPROTO_IPV6:
+			return rtpengine_ipv6_expr_eval(expr, regs, pkt);
+	}
+}
+
+
+
+static int rtpengine_expr_init(const struct nft_ctx *ctx, const struct nft_expr *expr,
+		const struct nlattr * const tb[])
+{
+	uint32_t table;
+	struct xt_rtpengine_info *info = (struct xt_rtpengine_info *) expr->data;
+
+	if (!tb[RTPEA_RTPENGINE_TABLE])
+		return -EINVAL;
+
+	table = nla_get_u32(tb[RTPEA_RTPENGINE_TABLE]);
+
+	if (table >= MAX_ID)
+		return -ERANGE;
+
+	info->id = table;
+
+	return 0;
+}
+
+static int rtpengine_expr_dump(struct sk_buff *skb, const struct nft_expr *expr
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,2,0)
+		, bool reset
+#endif
+)
+{
+	struct xt_rtpengine_info *info = (struct xt_rtpengine_info *) expr->data;
+
+	nla_put_u32(skb, RTPEA_RTPENGINE_TABLE, info->id);
+
+	return 0;
+}
+
+static int rtpengine_expr_validate(const struct nft_ctx *ctx, const struct nft_expr *expr
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,12,0)
+		, const struct nft_data **data
+#endif
+)
+{
+	return nft_chain_validate_hooks(ctx->chain, (1 << NF_INET_LOCAL_IN));
+}
+
+
+static struct nft_expr_type rtpengine_inet_expr;
+static struct nft_expr_type rtpengine_ipv4_expr;
+static struct nft_expr_type rtpengine_ipv6_expr;
+
+static const struct nft_expr_ops rtpengine_inet_ops = {
+	.type			= &rtpengine_inet_expr,
+	.size			= NFT_EXPR_SIZE(sizeof(struct xt_rtpengine_info)),
+	.eval			= rtpengine_inet_expr_eval,
+	.init			= rtpengine_expr_init,
+	.dump			= rtpengine_expr_dump,
+	.validate		= rtpengine_expr_validate,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0)
+	.reduce			= NFT_REDUCE_READONLY,
+#endif
+};
+
+static const struct nft_expr_ops rtpengine_ipv4_ops = {
+	.type			= &rtpengine_ipv4_expr,
+	.size			= NFT_EXPR_SIZE(sizeof(struct xt_rtpengine_info)),
+	.eval			= rtpengine_ipv4_expr_eval,
+	.init			= rtpengine_expr_init,
+	.dump			= rtpengine_expr_dump,
+	.validate		= rtpengine_expr_validate,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0)
+	.reduce			= NFT_REDUCE_READONLY,
+#endif
+};
+
+static const struct nft_expr_ops rtpengine_ipv6_ops = {
+	.type			= &rtpengine_ipv6_expr,
+	.size			= NFT_EXPR_SIZE(sizeof(struct xt_rtpengine_info)),
+	.eval			= rtpengine_ipv6_expr_eval,
+	.init			= rtpengine_expr_init,
+	.dump			= rtpengine_expr_dump,
+	.validate		= rtpengine_expr_validate,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0)
+	.reduce			= NFT_REDUCE_READONLY,
+#endif
+};
+
+static const struct nla_policy rtpengine_policy[RTPEA_RTPENGINE_MAX + 1] = {
+	[RTPEA_RTPENGINE_TABLE]		= { .type = NLA_U32 },
+};
+
+static struct nft_expr_type rtpengine_inet_expr __read_mostly = {
+	.name			= "rtpengine",
+	.family			= NFPROTO_INET,
+	.ops			= &rtpengine_inet_ops,
+	.policy			= rtpengine_policy,
+	.maxattr		= RTPEA_RTPENGINE_MAX,
+	.owner			= THIS_MODULE,
+};
+
+static struct nft_expr_type rtpengine_ipv4_expr __read_mostly = {
+	.name			= "rtpengine",
+	.family			= NFPROTO_IPV4,
+	.ops			= &rtpengine_ipv4_ops,
+	.policy			= rtpengine_policy,
+	.maxattr		= RTPEA_RTPENGINE_MAX,
+	.owner			= THIS_MODULE,
+};
+
+static struct nft_expr_type rtpengine_ipv6_expr __read_mostly = {
+	.name			= "rtpengine",
+	.family			= NFPROTO_IPV6,
+	.ops			= &rtpengine_ipv6_ops,
+	.policy			= rtpengine_policy,
+	.maxattr		= RTPEA_RTPENGINE_MAX,
+	.owner			= THIS_MODULE,
+};
 
 static struct xt_target xt_rtpengine_regs[] = {
 	{
@@ -6834,6 +6983,18 @@ static int __init init(void) {
 	if (ret)
 		goto fail;
 
+	ret = nft_register_expr(&rtpengine_inet_expr);
+	if (ret)
+		goto fail;
+
+	ret = nft_register_expr(&rtpengine_ipv4_expr);
+	if (ret)
+		goto fail;
+
+	ret = nft_register_expr(&rtpengine_ipv6_expr);
+	if (ret)
+		goto fail;
+
 #ifdef KERNEL_PLAYER
 	rwlock_init(&media_player_lock);
 #endif
@@ -6841,6 +7002,12 @@ static int __init init(void) {
 	return 0;
 
 fail:
+	nft_unregister_expr(&rtpengine_ipv4_expr);
+	nft_unregister_expr(&rtpengine_ipv6_expr);
+	nft_unregister_expr(&rtpengine_inet_expr);
+
+	xt_unregister_targets(xt_rtpengine_regs, ARRAY_SIZE(xt_rtpengine_regs));
+
 #ifdef KERNEL_PLAYER
 	shut_all_threads();
 #endif
@@ -6855,6 +7022,11 @@ fail:
 
 static void __exit fini(void) {
 	printk(KERN_NOTICE "Unregistering xt_RTPENGINE module\n");
+
+	nft_unregister_expr(&rtpengine_inet_expr);
+	nft_unregister_expr(&rtpengine_ipv4_expr);
+	nft_unregister_expr(&rtpengine_ipv6_expr);
+
 	xt_unregister_targets(xt_rtpengine_regs, ARRAY_SIZE(xt_rtpengine_regs));
 
 #ifdef KERNEL_PLAYER
