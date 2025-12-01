@@ -286,9 +286,9 @@ static int srtcp_decrypt_aes_gcm(struct re_crypto_context *, struct rtpengine_sr
 static int send_proxy_packet_output(struct sk_buff *skb, struct rtpengine_target *g,
 		int rtp_pt_idx,
 		struct rtpengine_output *o, struct rtp_parsed *rtp, int ssrc_idx,
-		const struct xt_action_param *par);
+		struct net *);
 static int send_proxy_packet(struct sk_buff *skb, struct re_address *src, struct re_address *dst,
-		unsigned char tos, const struct xt_action_param *par);
+		unsigned char tos, struct net *);
 static uint32_t proxy_packet_srtp_encrypt(struct sk_buff *skb, struct re_crypto_context *ctx,
 		struct rtpengine_srtp *srtp,
 		struct rtp_parsed *rtp, int ssrc_idx,
@@ -4960,19 +4960,14 @@ static ssize_t proc_control_read(struct file *file, char __user *ubuf, size_t bu
 
 
 
-// par can be NULL
 static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struct re_address *dst,
-		unsigned char tos, const struct xt_action_param *par)
+		unsigned char tos, struct net *net)
 {
 	struct iphdr *ih;
 	struct udphdr *uh;
 	unsigned int datalen;
-	struct net *net;
 	struct rtable *rt;
 
-	net = NULL;
-	if (par)
-		net = PAR_STATE_NET(par);
 	if (!net && current && current->nsproxy)
 		net = current->nsproxy->net_ns;
 	if (!net)
@@ -5051,20 +5046,15 @@ drop:
 
 
 
-// par can be NULL
 static int send_proxy_packet6(struct sk_buff *skb, struct re_address *src, struct re_address *dst,
-		unsigned char tos, const struct xt_action_param *par)
+		unsigned char tos, struct net *net)
 {
 	struct ipv6hdr *ih;
 	struct udphdr *uh;
 	unsigned int datalen;
-	struct net *net;
 	struct dst_entry *dst_entry;
 	struct flowi6 fl6;
 
-	net = NULL;
-	if (par)
-		net = PAR_STATE_NET(par);
 	if (!net && current && current->nsproxy)
 		net = current->nsproxy->net_ns;
 	if (!net)
@@ -5143,7 +5133,7 @@ drop:
 
 
 static int send_proxy_packet(struct sk_buff *skb, struct re_address *src, struct re_address *dst,
-		unsigned char tos, const struct xt_action_param *par)
+		unsigned char tos, struct net *net)
 {
 	if (src->family != dst->family) {
 		log_err("address family mismatch");
@@ -5152,11 +5142,11 @@ static int send_proxy_packet(struct sk_buff *skb, struct re_address *src, struct
 
 	switch (src->family) {
 		case AF_INET:
-			return send_proxy_packet4(skb, src, dst, tos, par);
+			return send_proxy_packet4(skb, src, dst, tos, net);
 			break;
 
 		case AF_INET6:
-			return send_proxy_packet6(skb, src, dst, tos, par);
+			return send_proxy_packet6(skb, src, dst, tos, net);
 			break;
 
 		default:
@@ -6178,14 +6168,14 @@ static bool proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_outpu
 static int send_proxy_packet_output(struct sk_buff *skb, struct rtpengine_target *g,
 		int rtp_pt_idx,
 		struct rtpengine_output *o, struct rtp_parsed *rtp, int ssrc_idx,
-		const struct xt_action_param *par)
+		struct net *net)
 {
 	bool send_or_not = proxy_packet_output_rtXp(skb, o, rtp_pt_idx, rtp, ssrc_idx);
 	if (!send_or_not) {
 		kfree_skb(skb);
 		return 0;
 	}
-	return send_proxy_packet(skb, &o->output.src_addr, &o->output.dst_addr, o->output.tos, par);
+	return send_proxy_packet(skb, &o->output.src_addr, &o->output.dst_addr, o->output.tos, net);
 }
 
 
@@ -6366,7 +6356,7 @@ static unsigned int rtp_mid_ext_media(const struct rtp_parsed *rtp,
 
 static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 		struct rtpengine_table *t, struct re_address *src,
-		struct re_address *dst, uint8_t in_tos, const struct xt_action_param *par)
+		struct re_address *dst, uint8_t in_tos, struct net *net)
 {
 	struct udphdr *uh;
 	struct rtpengine_target *g;
@@ -6610,7 +6600,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 
 		datalen_out = skb2->len;
 
-		err = send_proxy_packet_output(skb2, g, rtp_pt_idx, o, &rtp2, ssrc_idx, par);
+		err = send_proxy_packet_output(skb2, g, rtp_pt_idx, o, &rtp2, ssrc_idx, net);
 		if (err) {
 			atomic64_inc(&g->target.stats->errors);
 			atomic64_inc(&g->target.iface_stats->in.errors);
@@ -6702,7 +6692,7 @@ static unsigned int rtpengine4(struct sk_buff *oskb, const struct xt_action_para
 	dst.family = AF_INET;
 	dst.u.ipv4 = ih->daddr;
 
-	return rtpengine46(skb, oskb, t, &src, &dst, (uint8_t)ih->tos, par);
+	return rtpengine46(skb, oskb, t, &src, &dst, (uint8_t)ih->tos, PAR_STATE_NET(par));
 
 skip2:
 	kfree_skb(skb);
@@ -6745,7 +6735,7 @@ static unsigned int rtpengine6(struct sk_buff *oskb, const struct xt_action_para
 	dst.family = AF_INET6;
 	memcpy(&dst.u.ipv6, &ih->daddr, sizeof(dst.u.ipv6));
 
-	return rtpengine46(skb, oskb, t, &src, &dst, ipv6_get_dsfield(ih), par);
+	return rtpengine46(skb, oskb, t, &src, &dst, ipv6_get_dsfield(ih), PAR_STATE_NET(par));
 
 skip2:
 	kfree_skb(skb);
