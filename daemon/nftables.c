@@ -33,6 +33,7 @@ struct iterate_callbacks {
 	// common arguments
 	const char *chain;
 	const char *base_chain;
+	int table;
 
 	// scratch area for rule callbacks, set to zero for every rule
 	struct {
@@ -75,8 +76,10 @@ static const char *match_rtpe(const char *name, const int8_t *data, size_t len, 
 
 	// match top-level targets
 	if (!strcmp(name, "target")) {
-		const char *n = nfapi_get_target(data, len, NULL, NULL);
-		if (n && !strcmp(n, "RTPENGINE"))
+		struct xt_rtpengine_info info;
+		size_t info_len = sizeof(info);
+		const char *n = nfapi_get_target(data, len, &info, &info_len);
+		if (n && !strcmp(n, "RTPENGINE") && info_len >= sizeof(info) && info.id == callbacks->table)
 			callbacks->rule_scratch.rule_matched = true;
 	}
 	return NULL;
@@ -501,7 +504,7 @@ static const char *delete_chain(nfapi_socket *nl, int family, const char *chain)
 
 
 static const char *nftables_shutdown_family(nfapi_socket *nl, int family,
-		const char *chain, const char *base_chain, nftables_args *dummy)
+		const char *chain, const char *base_chain, nftables_args *args)
 {
 	const char *err;
 
@@ -513,6 +516,7 @@ static const char *nftables_shutdown_family(nfapi_socket *nl, int family,
 					.chain = chain,
 					.rule_final = check_matched_queue,
 					.iterate_final = iterate_delete_rules,
+					.table = args->table,
 				});
 		if (err)
 			return err;
@@ -524,6 +528,7 @@ static const char *nftables_shutdown_family(nfapi_socket *nl, int family,
 					.chain = chain,
 					.rule_final = check_matched_queue,
 					.iterate_final = iterate_delete_rules,
+					.table = args->table,
 				});
 		if (err)
 			return err;
@@ -537,6 +542,7 @@ static const char *nftables_shutdown_family(nfapi_socket *nl, int family,
 					.chain = chain,
 					.rule_final = check_matched_queue,
 					.iterate_final = iterate_delete_rules,
+					.table = args->table,
 				});
 		if (err)
 			return err;
@@ -583,7 +589,7 @@ static const char *add_table(nfapi_socket *nl, int family) {
 static const char *nftables_setup_family(nfapi_socket *nl, int family,
 		const char *chain, const char *base_chain, nftables_args *args)
 {
-	const char *err = nftables_shutdown_family(nl, family, chain, base_chain, NULL);
+	const char *err = nftables_shutdown_family(nl, family, chain, base_chain, args);
 	if (err)
 		return err;
 
@@ -669,13 +675,14 @@ static const char *nftables_do(const char *chain, const char *base_chain,
 
 
 static const char *nftables_check_family(nfapi_socket *nl, int family,
-		const char *chain, const char *base_chain, nftables_args *dummy)
+		const char *chain, const char *base_chain, nftables_args *args)
 {
 	// look for our custom module rule in the specified chain
 
 	struct iterate_callbacks callbacks = {
 		.parse_expr = match_rtpe,
 		.rule_final = check_matched_flag,
+		.table = args->table,
 	};
 
 	iterate_rules(nl, family, chain, &callbacks);
@@ -689,6 +696,7 @@ static const char *nftables_check_family(nfapi_socket *nl, int family,
 		.parse_expr = match_immediate,
 		.chain = chain,
 		.rule_final = check_matched_flag,
+		.table = args->table,
 	};
 
 	iterate_rules(nl, family, "INPUT", &callbacks);

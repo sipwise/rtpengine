@@ -985,17 +985,25 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		const char *err;
 		if (nftables_status) {
 			int xv = nftables_check(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
-					(nftables_args){.family = rtpe_config.nftables_family});
+					(nftables_args) {
+						.table = rtpe_config.kernel_table,
+						.family = rtpe_config.nftables_family,
+					});
 			exit(xv);
 		}
 		if (nftables_start)
 			err = nftables_setup(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
-					(nftables_args) {.table = rtpe_config.kernel_table,
-					.append = rtpe_config.nftables_append,
-					.family = rtpe_config.nftables_family});
+					(nftables_args) {
+						.table = rtpe_config.kernel_table,
+						.append = rtpe_config.nftables_append,
+						.family = rtpe_config.nftables_family,
+					});
 		else // nftables_stop
 			err = nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
-					(nftables_args){.family = rtpe_config.nftables_family});
+					(nftables_args) {
+						.table = rtpe_config.kernel_table,
+						.family = rtpe_config.nftables_family,
+					});
 		if (err)
 			die("Failed to perform nftables action: %s (%s)", err, strerror(errno));
 		printf("Success\n");

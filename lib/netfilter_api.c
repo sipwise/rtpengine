@@ -431,6 +431,7 @@ const char *nfapi_get_target(const int8_t *buf, size_t l, void *info, size_t *in
 					break;
 				buf_len = MIN(buf_len, data_len);
 				memcpy(info, data, buf_len);
+				*info_len = buf_len;
 				break;
 		}
 	}
