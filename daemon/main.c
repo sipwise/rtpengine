@@ -951,7 +951,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 
 #ifndef WITHOUT_NFTABLES
 	if (rtpe_config.nftables_chain == NULL)
-		rtpe_config.nftables_chain = g_strdup("rtpengine");
+		rtpe_config.nftables_chain = g_strdup_printf("rtpengine_%d", rtpe_config.kernel_table);
 
 	if (rtpe_config.nftables_base_chain == NULL)
 		rtpe_config.nftables_base_chain = g_strdup("INPUT");
