@@ -1161,7 +1161,7 @@ static void table_put(struct rtpengine_table *t) {
 		t->dest_addr_hash.addrs[k] = NULL;
 	}
 
-	for (unsigned int i = 0; i < t->nshms; i++)
+	for (i = 0; i < t->nshms; i++)
 		release_shm(&t->shms[i]);
 
 	clear_table_proc_files(t);
@@ -1315,13 +1315,12 @@ static struct rtpengine_table *get_table(unsigned int id) {
 
 
 static int proc_status_show(struct seq_file *m, void *v) {
+	unsigned long flags;
 	struct inode *inode = m->private;
 	uint32_t id = (uint32_t) (unsigned long) PDE_DATA(inode);
 	struct rtpengine_table *t = get_table(id);
 	if (!t)
 		return -ENOENT;
-
-	unsigned long flags;
 
 	read_lock_irqsave(&t->target_lock, flags);
 	seq_printf(m, "Refcount:    %u\n", atomic_read(&t->refcnt) - 1);
@@ -2041,11 +2040,12 @@ static int search_shm(const void *p, const void *m) {
 }
 
 static void *shm_map_resolve(struct rtpengine_table *t, void *p, size_t size) {
+	struct re_shm *rmm;
+	void *ret = NULL;
+
 	spin_lock(&t->shm_lock);
 
-	struct re_shm *rmm = bsearch(p, &t->shms, t->nshms, sizeof(t->shms[0]), search_shm);
-
-	void *ret = NULL;
+	rmm = bsearch(p, &t->shms, t->nshms, sizeof(t->shms[0]), search_shm);
 
 	if (!rmm)
 		goto out;
@@ -3758,6 +3758,11 @@ static int cmp_shm(const void *a, const void *b) {
 }
 
 static int cmd_pin_memory(struct rtpengine_table *t, struct rtpengine_pin_memory_info *mi) {
+	unsigned long addr;
+	int npages;
+	struct re_shm rmm = {0};
+	int ret;
+
 	// verify size
 	if (mi->size == 0)
 		return -EINVAL;
@@ -3767,17 +3772,14 @@ static int cmd_pin_memory(struct rtpengine_table *t, struct rtpengine_pin_memory
 		return -EIO;
 
 	// address is page-aligned?
-	unsigned long addr = (unsigned long) mi->addr;
+	addr = (unsigned long) mi->addr;
 	if ((addr & (PAGE_SIZE - 1)) != 0)
 		return -ENXIO;
 
 	// full pages?
-	int npages = mi->size / PAGE_SIZE;
+	npages = mi->size / PAGE_SIZE;
 	if (npages <= 0)
 		return -EMSGSIZE;
-
-	// primary object
-	struct re_shm rmm = {0};
 
 	// fill in basics
 	rmm.uaddr = addr;
@@ -3791,7 +3793,7 @@ static int cmd_pin_memory(struct rtpengine_table *t, struct rtpengine_pin_memory
 	}
 
 	// pin pages
-	int ret = pin_user_pages_fast(addr, npages, WRITE, rmm.pages);
+	ret = pin_user_pages_fast(addr, npages, WRITE, rmm.pages);
 
 	// successful?
 	if (ret != npages) {
@@ -6292,11 +6294,13 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 static unsigned int rtp_mid_ext_media_find(const char *mid, size_t len,
 		const struct rtpengine_target_info *tg)
 {
+	unsigned int i;
+
 	if (len == 0)
 		return -1u;
 
 	// XXX not an efficient search
-	for (unsigned int i = 0; i < RTPE_NUM_OUTPUT_MEDIA; i++) {
+	for (i = 0; i < RTPE_NUM_OUTPUT_MEDIA; i++) {
 		if (len != tg->mid_output[i].len)
 			continue;
 		if (!memcmp(tg->mid_output[i].mid, mid, len))
@@ -6312,14 +6316,17 @@ static unsigned int rtp_mid_ext_media_short(const struct rtp_parsed *rtp,
 	unsigned char *r = rtp->extension;
 	// XXX duplicates filter code somewhat
 	while (left >= 1) {
+		uint8_t id;
+		uint8_t len;
+
 		if (*r == 0) {
 			r++;
 			left--;
 			continue;
 		}
 
-		uint8_t id = *r >> 4;
-		uint8_t len = (*r & 0xf) + 1;
+		id = *r >> 4;
+		len = (*r & 0xf) + 1;
 		r++;
 		left--;
 		if (len > left)

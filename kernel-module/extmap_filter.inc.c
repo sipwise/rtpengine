@@ -90,13 +90,17 @@ static void add_extmap_exts_long(unsigned char **w, unsigned int *count,
 static void apply_extmap_filter_finish(unsigned char *r, unsigned char *w, unsigned int count,
 		struct rtpengine_output *o, struct sk_buff *skb, struct rtp_parsed *rtp)
 {
+	size_t size;
+	size_t padded;
+
 	if (r == w)
 		return; // everything left as it was
 
 	if (count == 0) {
+		size_t pull;
 		// no extensions, remove header and trim packet
 		rtp->rtp_header->v_p_x_cc &= ~0x10;
-		size_t pull = rtp->payload - (unsigned char *) rtp->ext_hdr;
+		pull = rtp->payload - (unsigned char *) rtp->ext_hdr;
 		memmove(rtp->ext_hdr, rtp->payload, rtp->payload_len);
 		rtp->payload = (unsigned char *) rtp->ext_hdr;
 		rtp->ext_hdr = NULL;
@@ -107,14 +111,15 @@ static void apply_extmap_filter_finish(unsigned char *r, unsigned char *w, unsig
 
 	// shift payload and adjust packet length
 	rtp->rtp_header->v_p_x_cc |= 0x90;
-	size_t size = w - rtp->extension;
-	size_t padded = (size + 3L) & ~3L;
+	size = w - rtp->extension;
+	padded = (size + 3L) & ~3L;
 	rtp->ext_hdr->length = htons(padded / 4);
 
 	if (rtp->extension_len >= padded) {
+		size_t pull;
 		// shift up payload and trim packet
 		memset(w, 0, padded - size);
-		size_t pull = rtp->extension_len - padded;
+		pull = rtp->extension_len - padded;
 		rtp->extension_len = padded;
 		memmove(rtp->payload - pull, rtp->payload, rtp->payload_len);
 		rtp->payload -= pull;
@@ -137,6 +142,9 @@ static void apply_extmap_filter_short(struct sk_buff *skb, struct rtpengine_outp
 
 	// XXX partly shared code
 	while (r < end) {
+		uint8_t id;
+		uint8_t len;
+
 		uint8_t id_len = r[0];
 		if (id_len == '\0') {
 			// padding
@@ -144,8 +152,8 @@ static void apply_extmap_filter_short(struct sk_buff *skb, struct rtpengine_outp
 			continue;
 		}
 
-		uint8_t id = id_len >> 4;
-		uint8_t len = (id_len & 0xf) + 1;
+		id = id_len >> 4;
+		len = (id_len & 0xf) + 1;
 
 		if (!apply_extmap_filter_ext(id, len, 1, &r, &w, end, &count, o))
 			break;
@@ -164,6 +172,8 @@ static void apply_extmap_filter_long(struct sk_buff *skb, struct rtpengine_outpu
 
 	// XXX partly shared code
 	while (r < end) {
+		uint8_t len;
+
 		uint8_t id = r[0];
 		if (id == '\0') {
 			// padding
@@ -171,7 +181,7 @@ static void apply_extmap_filter_long(struct sk_buff *skb, struct rtpengine_outpu
 			continue;
 		}
 
-		uint8_t len = r[1];
+		len = r[1];
 
 		if (!apply_extmap_filter_ext(id, len, 2, &r, &w, end, &count, o))
 			break;
@@ -183,6 +193,7 @@ static void apply_extmap_filter_long(struct sk_buff *skb, struct rtpengine_outpu
 }
 
 static void add_extmap_hdr_long(struct sk_buff *skb, struct rtpengine_output *o, struct rtp_parsed *rtp) {
+	unsigned char *r;
 	unsigned char *w = rtp->payload; // header goes here
 	unsigned int count = 0;
 
@@ -196,7 +207,7 @@ static void add_extmap_hdr_long(struct sk_buff *skb, struct rtpengine_output *o,
 	rtp->extension = (void *) hdr;
 	rtp->extension_len = 0;
 
-	unsigned char *r = w;
+	r = w;
 
 	add_extmap_exts_long(&w, &count, o, rtp, skb);
 
@@ -204,6 +215,7 @@ static void add_extmap_hdr_long(struct sk_buff *skb, struct rtpengine_output *o,
 }
 
 static void add_extmap_hdr_short(struct sk_buff *skb, struct rtpengine_output *o, struct rtp_parsed *rtp) {
+	unsigned char *r;
 	unsigned char *w = rtp->payload; // header goes here
 	unsigned int count = 0;
 
@@ -217,7 +229,7 @@ static void add_extmap_hdr_short(struct sk_buff *skb, struct rtpengine_output *o
 	rtp->extension = (void *) hdr;
 	rtp->extension_len = 0;
 
-	unsigned char *r = w;
+	r = w;
 
 	add_extmap_exts_short(&w, &count, o, rtp, skb);
 
