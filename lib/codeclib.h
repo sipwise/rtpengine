@@ -398,7 +398,7 @@ void codeclib_free(void);
 bool rtpe_has_cpu_flag(enum rtpe_cpu_flag flag);
 
 codec_def_t *codec_find(const str *name, enum media_type);
-codec_def_t *codec_find_by_av(enum AVCodecID);
+codec_def_t *codec_get_pcm16(void);
 
 bool codec_parse_fmtp(codec_def_t *def, struct rtp_codec_format *fmtp, const str *fmtp_string,
 		union codec_format_options *copy);

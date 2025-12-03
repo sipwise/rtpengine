@@ -116,7 +116,7 @@ bool audio_player_setup(struct call_media *m, const rtp_payload_type *dst_pt,
 
 	// set everything up
 
-	src_pt.codec_def = codec_find_by_av(AV_CODEC_ID_PCM_S16LE), // XXX shortcut this?
+	src_pt.codec_def = codec_get_pcm16();
 
 	mp->run_func = audio_player_run;
 

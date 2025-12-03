@@ -881,6 +881,7 @@ static struct codec_def_s __codec_defs[] = {
 static GQueue __supplemental_codecs = G_QUEUE_INIT;
 const GQueue * const codec_supplemental_codecs = &__supplemental_codecs;
 static codec_def_t *codec_def_cn;
+static codec_def_t *codec_def_pcm16;
 
 void (*codeclib_thread_init)(void);
 void (*codeclib_thread_cleanup)(void);
@@ -888,11 +889,9 @@ void (*codeclib_thread_loop)(void);
 
 
 TYPED_GHASHTABLE(codecs_by_name, str, struct codec_def_s, str_case_hash, str_case_equal, NULL, NULL)
-TYPED_GHASHTABLE(codecs_by_id, void, struct codec_def_s, g_direct_hash, g_direct_equal, NULL, NULL)
 TYPED_GHASHTABLE(codecs_by_id_alloc, void, struct codec_def_s, g_direct_hash, g_direct_equal, NULL, g_free)
 
 static codecs_by_name codecs_ht;
-static codecs_by_id codecs_ht_by_av;
 
 static rwlock_t generic_ffmpeg_codecs_lock = RWLOCK_STATIC_INIT;
 static codecs_by_id_alloc generic_ffmpeg_codecs;
@@ -908,8 +907,8 @@ codec_def_t *codec_find(const str *name, enum media_type type) {
 	return ret;
 }
 
-codec_def_t *codec_find_by_av(enum AVCodecID id) {
-	return t_hash_table_lookup(codecs_ht_by_av, GINT_TO_POINTER(id));
+codec_def_t *codec_get_pcm16(void) {
+	return codec_def_pcm16;
 }
 
 
@@ -1368,7 +1367,6 @@ static void cc_cleanup(void);
 
 void codeclib_free(void) {
 	t_hash_table_destroy(codecs_ht);
-	t_hash_table_destroy(codecs_ht_by_av);
 	t_hash_table_destroy(generic_ffmpeg_codecs);
 	avformat_network_deinit();
 	cc_cleanup();
@@ -1584,7 +1582,6 @@ void codeclib_init(int print) {
 	av_log_set_callback(avlog_ilog);
 
 	codecs_ht = codecs_by_name_new();
-	codecs_ht_by_av = codecs_by_id_new();
 	generic_ffmpeg_codecs = codecs_by_id_alloc_new();
 
 	cc_init();
@@ -1595,11 +1592,6 @@ void codeclib_init(int print) {
 		def->rtpname_str = STR(def->rtpname);
 		assert(t_hash_table_lookup(codecs_ht, &def->rtpname_str) == NULL);
 		t_hash_table_insert(codecs_ht, &def->rtpname_str, def);
-
-		if (def->avcodec_id >= 0) {
-			if (t_hash_table_lookup(codecs_ht_by_av, GINT_TO_POINTER(def->avcodec_id)) == NULL)
-				t_hash_table_insert(codecs_ht_by_av, GINT_TO_POINTER(def->avcodec_id), def);
-		}
 
 		// init undefined member vars
 		if (!def->default_clockrate_fact.mult)
@@ -1630,6 +1622,8 @@ void codeclib_init(int print) {
 
 		if (!strcmp(def->rtpname, "CN"))
 			codec_def_cn = def;
+		if (def->avcodec_id == AV_CODEC_ID_PCM_S16LE)
+			codec_def_pcm16 = def;
 
 		if (print) {
 			if (def->support_encoding && def->support_decoding) {
