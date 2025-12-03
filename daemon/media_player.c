@@ -1095,7 +1095,7 @@ static int media_player_find_file_begin(struct media_player *mp) {
 	int64_t ret64 = avio_seek(mp->coder.fmtctx->pb, 0, SEEK_SET);
 	if (ret64 != 0)
 		ilog(LOG_ERR, "Failed to seek to beginning of media file");
-	ret = av_seek_frame(mp->coder.fmtctx, -1, 0, 0);
+	ret = av_seek_frame(mp->coder.fmtctx, -1, 0, AVSEEK_FLAG_ANY | AVSEEK_FLAG_BACKWARD);
 	if (ret < 0)
 		ilog(LOG_ERR, "Failed to seek to beginning of media file");
 	ret = av_read_frame(mp->coder.fmtctx, mp->coder.pkt);
@@ -1242,10 +1242,10 @@ static bool media_player_play_start(struct media_player *mp, const rtp_payload_t
 	// if start_pos is positive, try to seek to that position
 	if (mp->opts.start_pos > 0) {
 		ilog(LOG_DEBUG, "Seeking to position %lli", mp->opts.start_pos);
-		av_seek_frame(mp->coder.fmtctx, 0, mp->opts.start_pos, 0);
+		av_seek_frame(mp->coder.fmtctx, 0, mp->opts.start_pos, AVSEEK_FLAG_ANY | AVSEEK_FLAG_BACKWARD);
 	}
 	else // in case this is a repeated start
-		av_seek_frame(mp->coder.fmtctx, 0, 0, 0);
+		av_seek_frame(mp->coder.fmtctx, 0, 0, AVSEEK_FLAG_ANY | AVSEEK_FLAG_BACKWARD);
 
 	media_player_read_packet(mp);
 
