@@ -887,13 +887,16 @@ void (*codeclib_thread_cleanup)(void);
 void (*codeclib_thread_loop)(void);
 
 
-static GHashTable *codecs_ht;
-static GHashTable *codecs_ht_by_av;
+TYPED_GHASHTABLE(codecs_by_name, str, struct codec_def_s, str_case_hash, str_case_equal, NULL, NULL)
+TYPED_GHASHTABLE(codecs_by_id, void, struct codec_def_s, g_direct_hash, g_direct_equal, NULL, NULL)
+
+static codecs_by_name codecs_ht;
+static codecs_by_id codecs_ht_by_av;
 
 
 
 codec_def_t *codec_find(const str *name, enum media_type type) {
-	codec_def_t *ret = g_hash_table_lookup(codecs_ht, name);
+	codec_def_t *ret = t_hash_table_lookup(codecs_ht, name);
 	if (!ret)
 		return NULL;
 	if (type && type != ret->media_type)
@@ -902,7 +905,7 @@ codec_def_t *codec_find(const str *name, enum media_type type) {
 }
 
 codec_def_t *codec_find_by_av(enum AVCodecID id) {
-	return g_hash_table_lookup(codecs_ht_by_av, GINT_TO_POINTER(id));
+	return t_hash_table_lookup(codecs_ht_by_av, GINT_TO_POINTER(id));
 }
 
 
@@ -1360,8 +1363,8 @@ static void avc_def_init(struct codec_def_s *def) {
 static void cc_cleanup(void);
 
 void codeclib_free(void) {
-	g_hash_table_destroy(codecs_ht);
-	g_hash_table_destroy(codecs_ht_by_av);
+	t_hash_table_destroy(codecs_ht);
+	t_hash_table_destroy(codecs_ht_by_av);
 	avformat_network_deinit();
 	cc_cleanup();
 	if (evs_lib_handle)
@@ -1575,8 +1578,8 @@ void codeclib_init(int print) {
 	avformat_network_init();
 	av_log_set_callback(avlog_ilog);
 
-	codecs_ht = g_hash_table_new((GHashFunc) str_case_hash, (GEqualFunc) str_case_equal);
-	codecs_ht_by_av = g_hash_table_new(g_direct_hash, g_direct_equal);
+	codecs_ht = codecs_by_name_new();
+	codecs_ht_by_av = codecs_by_id_new();
 
 	cc_init();
 
@@ -1584,12 +1587,12 @@ void codeclib_init(int print) {
 		// add to hash table
 		struct codec_def_s *def = &__codec_defs[i];
 		def->rtpname_str = STR(def->rtpname);
-		assert(g_hash_table_lookup(codecs_ht, &def->rtpname_str) == NULL);
-		g_hash_table_insert(codecs_ht, &def->rtpname_str, def);
+		assert(t_hash_table_lookup(codecs_ht, &def->rtpname_str) == NULL);
+		t_hash_table_insert(codecs_ht, &def->rtpname_str, def);
 
 		if (def->avcodec_id >= 0) {
-			if (g_hash_table_lookup(codecs_ht_by_av, GINT_TO_POINTER(def->avcodec_id)) == NULL)
-				g_hash_table_insert(codecs_ht_by_av, GINT_TO_POINTER(def->avcodec_id), def);
+			if (t_hash_table_lookup(codecs_ht_by_av, GINT_TO_POINTER(def->avcodec_id)) == NULL)
+				t_hash_table_insert(codecs_ht_by_av, GINT_TO_POINTER(def->avcodec_id), def);
 		}
 
 		// init undefined member vars
