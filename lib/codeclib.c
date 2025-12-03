@@ -889,9 +889,13 @@ void (*codeclib_thread_loop)(void);
 
 TYPED_GHASHTABLE(codecs_by_name, str, struct codec_def_s, str_case_hash, str_case_equal, NULL, NULL)
 TYPED_GHASHTABLE(codecs_by_id, void, struct codec_def_s, g_direct_hash, g_direct_equal, NULL, NULL)
+TYPED_GHASHTABLE(codecs_by_id_alloc, void, struct codec_def_s, g_direct_hash, g_direct_equal, NULL, g_free)
 
 static codecs_by_name codecs_ht;
 static codecs_by_id codecs_ht_by_av;
+
+static rwlock_t generic_ffmpeg_codecs_lock = RWLOCK_STATIC_INIT;
+static codecs_by_id_alloc generic_ffmpeg_codecs;
 
 
 
@@ -1365,6 +1369,7 @@ static void cc_cleanup(void);
 void codeclib_free(void) {
 	t_hash_table_destroy(codecs_ht);
 	t_hash_table_destroy(codecs_ht_by_av);
+	t_hash_table_destroy(generic_ffmpeg_codecs);
 	avformat_network_deinit();
 	cc_cleanup();
 	if (evs_lib_handle)
@@ -1580,6 +1585,7 @@ void codeclib_init(int print) {
 
 	codecs_ht = codecs_by_name_new();
 	codecs_ht_by_av = codecs_by_id_new();
+	generic_ffmpeg_codecs = codecs_by_id_alloc_new();
 
 	cc_init();
 
@@ -5321,4 +5327,45 @@ AVPacket *codec_cc_input_data(codec_cc_t *c, const str *data, unsigned long ts, 
 #else
 	return NULL;
 #endif
+}
+
+
+
+codec_def_t *codec_def_make_generic_av(enum AVCodecID id) {
+	{
+		RWLOCK_R(&generic_ffmpeg_codecs_lock);
+
+		struct codec_def_s *ret = t_hash_table_lookup(generic_ffmpeg_codecs, GINT_TO_POINTER(id));
+		if (ret)
+			return ret;
+	}
+
+	{
+		RWLOCK_W(&generic_ffmpeg_codecs_lock);
+
+		struct codec_def_s *ret = t_hash_table_lookup(generic_ffmpeg_codecs, GINT_TO_POINTER(id));
+		if (ret)
+			return ret;
+
+		const AVCodec *codec = avcodec_find_decoder(id);
+		if (!codec)
+			return NULL;
+
+		ret = g_new(__typeof(*ret), 1);
+		*ret = (__typeof(*ret)) {
+			.rtpname = "generic ffmpeg codec",
+			.rtpname_str = STR_CONST("generic ffmpeg codec"),
+			.avcodec_id = id,
+			.default_clockrate_fact = {1,1},
+			.media_type = MT_AUDIO,
+			.codec_type = &codec_type_avcodec,
+			.decoder = codec,
+			.support_decoding = 1,
+			.support_encoding = 1, // just pretend
+		};
+
+		t_hash_table_insert(generic_ffmpeg_codecs, GINT_TO_POINTER(id), ret);
+
+		return ret;
+	}
 }

@@ -239,6 +239,9 @@ struct codec_def_s {
 	const AVCodec *decoder;
 };
 
+codec_def_t *codec_def_make_generic_av(enum AVCodecID);
+
+
 struct format_s {
 	int clockrate;
 	int channels;

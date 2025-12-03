@@ -1019,7 +1019,7 @@ static int __ensure_codec_handler(struct media_player *mp, const rtp_payload_typ
 
 	// synthesise rtp payload type
 	rtp_payload_type src_pt = { .payload_type = -1 };
-	src_pt.codec_def = codec_find_by_av(mp->coder.avstream->CODECPAR->codec_id);
+	src_pt.codec_def = codec_def_make_generic_av(mp->coder.avstream->CODECPAR->codec_id);
 	if (!src_pt.codec_def || !src_pt.codec_def->support_decoding) {
 		ilog(LOG_ERR, "Attempting to play media from an unsupported file format/codec");
 		return -1;
