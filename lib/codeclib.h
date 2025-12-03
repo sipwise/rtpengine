@@ -184,27 +184,27 @@ INLINE long fraction_divl(long a, const struct fraction *f) {
 }
 
 struct codec_def_s {
-	const char * const rtpname;
+	const char *rtpname;
 	struct fraction default_clockrate_fact;
-	const int avcodec_id;
-	const char * const avcodec_name_enc;
-	const char * const avcodec_name_dec;
+	enum AVCodecID avcodec_id;
+	const char *avcodec_name_enc;
+	const char *avcodec_name_dec;
 	int default_clockrate;
 	int default_channels;
-	const int default_bitrate;
+	int default_bitrate;
 	int default_ptime;
 	int minimum_ptime;
 	const char *default_fmtp;
-	format_parse_f * const format_parse;
-	format_cmp_f * const format_cmp;
-	format_print_f * const format_print;
-	format_answer_f * const format_answer;
-	packetizer_f * const packetizer;
-	select_encoder_format_f * const select_encoder_format;
-	select_decoder_format_f * const select_decoder_format;
-	const int bits_per_sample;
-	const enum media_type media_type;
-	const str silence_pattern;
+	format_parse_f *format_parse;
+	format_cmp_f *format_cmp;
+	format_print_f *format_print;
+	format_answer_f *format_answer;
+	packetizer_f *packetizer;
+	select_encoder_format_f *select_encoder_format;
+	select_decoder_format_f *select_decoder_format;
+	int bits_per_sample;
+	enum media_type media_type;
+	str silence_pattern;
 	enum {
 		MOS_NB = 0, // default
 		MOS_FB,
@@ -217,7 +217,7 @@ struct codec_def_s {
 	format_init_f *init;
 	set_enc_options_f *set_enc_options;
 	set_dec_options_f *set_dec_options;
-	const dtx_method_t * const dtx_methods[NUM_DTX_METHODS];
+	const dtx_method_t *dtx_methods[NUM_DTX_METHODS];
 
 	// filled in by codeclib_init()
 	str rtpname_str;
