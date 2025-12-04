@@ -11,6 +11,8 @@
 #include <glib.h>
 #include <assert.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <errno.h>
 
 
 struct nfapi_socket {
