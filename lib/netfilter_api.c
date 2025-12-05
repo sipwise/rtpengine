@@ -36,14 +36,18 @@ nfapi_socket *nfapi_socket_open(void) {
 		return NULL;
 
 	int ret = bind(fd, (struct sockaddr *) &zero_nl_sockaddr, sizeof(zero_nl_sockaddr));
-	if (ret != 0)
+	if (ret != 0) {
+		close(fd);
 		return NULL;
+	}
 
 	struct sockaddr_nl saddr;
 	socklen_t slen = sizeof(saddr);
 	ret = getsockname(fd, (struct sockaddr *) &saddr, &slen);
-	if (slen < sizeof(saddr))
+	if (slen < sizeof(saddr)) {
+		close(fd);
 		return NULL;
+	}
 
 	nfapi_socket *s = g_new0(__typeof(*s), 1);
 	s->fd = fd;
