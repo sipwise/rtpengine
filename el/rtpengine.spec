@@ -37,6 +37,8 @@ BuildRequires:	glib2-devel libcurl-devel openssl-devel
 BuildRequires: pcre2-devel
 BuildRequires:	zlib-devel hiredis-devel
 BuildRequires:  systemd-devel
+BuildRequires:	systemd-rpm-macros
+BuildRequires:	libnftnl-devel
 BuildRequires:	libpcap-devel libevent-devel json-glib-devel
 BuildRequires:	mosquitto-devel
 BuildRequires:	gperf perl-IPC-Cmd
@@ -168,9 +170,15 @@ RTPENGINE_VERSION="\"%{version}-%{release}\"" make DESTDIR=%{buildroot} with_tra
 %endif
 
 ## Install the init.d script and configuration file
+install -D -p -m644 el/%{binname}.sysusers \
+	%{buildroot}%{_sysusersdir}/%{binname}.conf
+install -D -p -m644 el/%{binname}.tmpfiles \
+	%{buildroot}%{_tmpfilesdir}/%{binname}.conf
 install -D -p -m644 el/%{binname}.service \
 	%{buildroot}%{_unitdir}/%{binname}.service
 %if 0%{?with_transcoding} > 0
+install -D -p -m644 el/%{binname}-recording.tmpfiles \
+	%{buildroot}%{_tmpfilesdir}/%{binname}-recording.conf
 install -D -p -m644 el/%{binname}-recording.service \
 	%{buildroot}%{_unitdir}/%{binname}-recording.service
 %endif
@@ -215,16 +223,18 @@ install -m444 fixtures/* %{buildroot}%{_datarootdir}/%{binname}-perftest
 %endif
 
 %pre
-getent group %{name} >/dev/null || /usr/sbin/groupadd -r %{name}
-getent passwd %{name} >/dev/null || /usr/sbin/useradd -r -g %{name} \
-	-s /sbin/nologin -c "%{name} daemon" -d %{_sharedstatedir}/%{name} %{name}
+%sysusers_create_package %{binname} el/%{binname}.sysusers
 
 
 %post
-if [ $1 -eq 1 ]; then
-  systemctl daemon-reload
-fi
+%tmpfiles_create %{binname}.conf
+%systemd_post %{binname}.service
 
+%if 0%{?with_transcoding}
+%post recording
+%tmpfiles_create %{binname}-recording.conf
+%systemd_post %{binname}-recording.service
+%endif
 
 %post dkms
 # Add to DKMS registry, build, and install module
@@ -258,16 +268,25 @@ true
 
 
 %preun
-if [ $1 = 0 ] ; then
-  systemctl stop %{binname}.service
-  systemctl disable %{binname}.service
-fi
+%systemd_preun %{binname}.service
+
+%if 0%{?with_transcoding}
+%preun recording
+%systemd_preun %{binname}-recording.service
+%endif
 
 %preun dkms
 # Remove from DKMS registry
 dkms remove -m %{name} -v %{version}-%{release} --rpm_safe_upgrade --all
 true
 
+%postun
+%systemd_postun %{binname}.service
+
+%if 0%{?with_transcoding}
+%postun recording
+%systemd_postun %{binname}-recording.service
+%endif
 
 %files
 # Userspace daemon
@@ -275,6 +294,10 @@ true
 # CLI (command line interface)
 %{_bindir}/%{binname}-ctl
 # CLI table helper
+%{_sysusersdir}/%{binname}.conf
+# sysusers file for user creation
+%{_tmpfilesdir}/%{binname}.conf
+# tmpfiles
 # init.d script and configuration file
 %{_unitdir}/%{binname}.service
 %config(noreplace) %{_sysconfdir}/sysconfig/%{binname}
@@ -307,6 +330,8 @@ true
 %files recording
 # Recording daemon
 %{_bindir}/%{binname}-recording
+# tmpfiles
+%{_tmpfilesdir}/%{binname}-recording.conf
 # Init script
 %{_unitdir}/%{binname}-recording.service
 # Sysconfig

@@ -1,0 +1,2 @@
+x /run/rtpengine/rtpengine.pid
+d /run/rtpengine 0700 ngcp-rtpengine ngcp-rtpengine 7d

@@ -1,0 +1,2 @@
+x /run/rtpengine-recording/rtpengine-recording.pid
+d /run/rtpengine-recording 0700 ngcp-rtpengine ngcp-rtpengine 7d
