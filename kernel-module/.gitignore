@@ -9,3 +9,4 @@ rtpengine.mk
 xt_RTPENGINE.mod
 nft_rtpengine.mod
 rtpengine-kmod.mk
+*.d
