@@ -92,7 +92,6 @@ gen-pkgconf-flags OPENSSL             openssl
 gen-pkgconf-flags OPUS                opus
 gen-pkgconf-flags SPANDSP             spandsp
 gen-pkgconf-flags LIBJWT              libjwt
-gen-pkgconf-flags MYSQL               mysqlclient
 gen-pkgconf-flags LIBHIREDIS          hiredis
 gen-pkgconf-flags LIBPCAP             libpcap
 
@@ -111,4 +110,11 @@ fi
 if pkg-config --atleast-version=2.3 liburing; then
   gen-pkgconf-flags LIBURING liburing
   echo "CFLAGS_LIBURING += -DHAVE_LIBURING"
+fi
+
+# alternative MySQL/MariaDB
+if pkg-config --exists libmariadb; then
+  gen-pkgconf-flags MYSQL libmariadb
+else
+  gen-pkgconf-flags MYSQL mysqlclient
 fi
