@@ -6830,8 +6830,10 @@ static int rtpengine_expr_init(const struct nft_ctx *ctx, const struct nft_expr 
 }
 
 static int rtpengine_expr_dump(struct sk_buff *skb, const struct nft_expr *expr
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,2,0)
-		, bool reset
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,2,0) || \
+    (LINUX_VERSION_CODE >= KERNEL_VERSION(5,14,0) && \
+     defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9,0))
+                , bool reset
 #endif
 )
 {
