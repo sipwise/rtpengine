@@ -28,7 +28,7 @@ Conflicts:	%{name}-kernel < %{version}-%{release}
 %endif
 
 %if 0%{?rhel} >= 8
-%define mysql_devel_pkg mariadb-devel
+%define mysql_devel_pkg mariadb-connector-c-devel
 %else
 %define mysql_devel_pkg mysql-devel
 %endif
