@@ -27,6 +27,12 @@ Conflicts:	%{name}-kernel < %{version}-%{release}
 %define redhat_rpm_config redhat-rpm-config
 %endif
 
+%if 0%{?rhel} >= 8
+%define mysql_devel_pkg mariadb-devel
+%else
+%define mysql_devel_pkg mysql-devel
+%endif
+
 BuildRequires: gcc make pkgconfig %{redhat_rpm_config}
 BuildRequires:	glib2-devel libcurl-devel openssl-devel pcre-devel
 BuildRequires:	zlib-devel hiredis-devel
@@ -38,6 +44,7 @@ BuildRequires:	mosquitto-devel
 BuildRequires:	gperf perl-IPC-Cmd
 BuildRequires:	perl-podlators
 BuildRequires:	libatomic
+BuildRequires:	%{mysql_devel_pkg}
 BuildRequires:	pkgconfig(libwebsockets)
 BuildRequires:	pkgconfig(spandsp)
 BuildRequires:	pkgconfig(opus)
@@ -101,12 +108,6 @@ Requires:	perl-interpreter
 
 %description utils
 %{summary}.
-
-%if 0%{?rhel} >= 8
-%define mysql_devel_pkg mariadb-devel
-%else
-%define mysql_devel_pkg mysql-devel
-%endif
 
 %if 0%{?with_transcoding} > 0
 %package recording
