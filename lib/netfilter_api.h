@@ -25,32 +25,36 @@ void nfapi_socket_close(nfapi_socket *);
 nfapi_buf *nfapi_buf_new(void);
 void nfapi_buf_free(nfapi_buf *);
 
-void nfapi_add_msg(nfapi_buf *, uint16_t type, uint16_t family, uint16_t flags);
+__attribute__ ((format(printf, 5, 6)))
+void nfapi_add_msg(nfapi_buf *, uint16_t type, uint16_t family, uint16_t flags, const char *fmt, ...);
 
-void nfapi_add_attr(nfapi_buf *b, uint16_t type, const void *data, size_t len);
+__attribute__ ((format(printf, 5, 6)))
+void nfapi_add_attr(nfapi_buf *b, uint16_t type, const void *data, size_t len, const char *fmt, ...);
 
 
-static inline void nfapi_add_str_attr(nfapi_buf *b, uint16_t type, const char *s) {
-	nfapi_add_attr(b, type, s, strlen(s) + 1);
-}
-static inline void nfapi_add_u32_attr(nfapi_buf *b, uint16_t type, uint32_t u) {
-	nfapi_add_attr(b, type, &u, sizeof(u));
-}
-static inline void nfapi_add_u64_attr(nfapi_buf *b, uint16_t type, uint64_t u) {
-	nfapi_add_attr(b, type, &u, sizeof(u));
-}
+#define nfapi_add_str_attr(b, t, s, f, ...) \
+	nfapi_add_attr(b, t, s, strlen(s) + 1, f, ##__VA_ARGS__)
+#define nfapi_add_u32_attr(b, t, u, f, ...) do { \
+	uint32_t __u = (u); \
+	nfapi_add_attr(b, t, &__u, sizeof(__u), f, ##__VA_ARGS__); \
+} while (0)
+#define nfapi_add_u64_attr(b, t, u, f, ...) do { \
+	uint64_t __u = (u); \
+	nfapi_add_attr(b, t, &__u, sizeof(__u), f, ##__VA_ARGS__); \
+} while (0)
 
-#define nfapi_add_binary_str_attr(b, type, s) \
+#define nfapi_add_binary_str_attr(b, type, s, fmt, ...) \
 	nfapi_add_attr(b, type, &(struct { \
 			uint16_t len; \
 			char buf[sizeof(s)]; \
 		}) { \
 			.len = htons(sizeof(s)), \
 			.buf = s, \
-		}, 2 + sizeof(s))
+		}, 2 + sizeof(s), \
+		fmt, ##__VA_ARGS__)
 
 
-void nfapi_nested_begin(nfapi_buf *, uint16_t type);
+void nfapi_nested_begin(nfapi_buf *, uint16_t type, const char *name);
 void nfapi_nested_end(nfapi_buf *);
 
 void nfapi_batch_begin(nfapi_buf *);

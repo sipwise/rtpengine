@@ -167,10 +167,10 @@ static const char *iterate_rules(nfapi_socket *nl, int family, const char *chain
 {
 	g_autoptr(nfapi_buf) b = nfapi_buf_new();
 
-	nfapi_add_msg(b, NFT_MSG_GETRULE, family, NLM_F_REQUEST | NLM_F_DUMP);
+	nfapi_add_msg(b, NFT_MSG_GETRULE, family, NLM_F_REQUEST | NLM_F_DUMP, "get all rules [%d]", family);
 
-	nfapi_add_str_attr(b, NFTA_RULE_TABLE, "filter");
-	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, chain);
+	nfapi_add_str_attr(b, NFTA_RULE_TABLE, "filter", "table 'filter'");
+	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, chain, "chain '%s'", chain);
 
 	if (!nfapi_send_buf(nl, b))
 		return "failed to write to netlink socket for iteration";
@@ -190,7 +190,7 @@ static const char *iterate_rules(nfapi_socket *nl, int family, const char *chain
 
 static bool set_rule_handle(nfapi_buf *b, void *data) {
 	uint64_t *handle = data;
-	nfapi_add_u64_attr(b, NFTA_RULE_HANDLE, *handle);
+	nfapi_add_u64_attr(b, NFTA_RULE_HANDLE, *handle, "handle %" PRIu64, *handle);
 	return true;
 }
 
@@ -203,9 +203,9 @@ static const char *delete_rules(nfapi_socket *nl, int family, const char *chain,
 
 	nfapi_batch_begin(b);
 
-	nfapi_add_msg(b, NFT_MSG_DELRULE, family, NLM_F_REQUEST | NLM_F_ACK);
-	nfapi_add_str_attr(b, NFTA_RULE_TABLE, "filter");
-	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, chain);
+	nfapi_add_msg(b, NFT_MSG_DELRULE, family, NLM_F_REQUEST | NLM_F_ACK, "delete rule(s) [%d]", family);
+	nfapi_add_str_attr(b, NFTA_RULE_TABLE, "filter", "table 'filter'");
+	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, chain, "chain '%s'", chain);
 
 	if (callback) {
 		if (!callback(b, data))
@@ -244,12 +244,12 @@ static const char *iterate_delete_rules(nfapi_socket *nl, int family, const char
 
 
 static const char *local_input_chain(nfapi_buf *b) {
-	nfapi_nested_begin(b, NFTA_CHAIN_HOOK);
-	nfapi_add_u32_attr(b, NFTA_HOOK_HOOKNUM, htonl(NF_INET_LOCAL_IN));
-	nfapi_add_u32_attr(b, NFTA_HOOK_PRIORITY, htonl(0));
+	nfapi_nested_begin(b, NFTA_CHAIN_HOOK, "hook");
+	nfapi_add_u32_attr(b, NFTA_HOOK_HOOKNUM, htonl(NF_INET_LOCAL_IN), "hook local-in");
+	nfapi_add_u32_attr(b, NFTA_HOOK_PRIORITY, htonl(0), "prio 0");
 	nfapi_nested_end(b);
 
-	nfapi_add_u32_attr(b, NFTA_CHAIN_POLICY, htonl(NF_ACCEPT));
+	nfapi_add_u32_attr(b, NFTA_CHAIN_POLICY, htonl(NF_ACCEPT), "policy accept");
 
 	return NULL;
 }
@@ -265,9 +265,9 @@ static const char *nftables_do_chain(const int8_t *b, size_t l, void *userdata) 
 static const char *chain_exists(nfapi_socket *nl, int family, const char *chain) {
 	g_autoptr(nfapi_buf) b = nfapi_buf_new();
 
-	nfapi_add_msg(b, NFT_MSG_GETCHAIN, family, NLM_F_REQUEST | NLM_F_ACK);
-	nfapi_add_str_attr(b, NFTA_CHAIN_TABLE, "filter");
-	nfapi_add_str_attr(b, NFTA_CHAIN_NAME, chain);
+	nfapi_add_msg(b, NFT_MSG_GETCHAIN, family, NLM_F_REQUEST | NLM_F_ACK, "get chain [%d]", family);
+	nfapi_add_str_attr(b, NFTA_CHAIN_TABLE, "filter", "table 'filter'");
+	nfapi_add_str_attr(b, NFTA_CHAIN_NAME, chain, "chain '%s'", chain);
 
 	if (!nfapi_send_buf(nl, b))
 		return "failed to write to netlink socket for chain exists";
@@ -291,9 +291,10 @@ static const char *add_chain(nfapi_socket *nl, int family, const char *chain,
 
 	nfapi_batch_begin(b);
 
-	nfapi_add_msg(b, NFT_MSG_NEWCHAIN, family, NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK);
-	nfapi_add_str_attr(b, NFTA_CHAIN_TABLE, "filter");
-	nfapi_add_str_attr(b, NFTA_CHAIN_NAME, chain);
+	nfapi_add_msg(b, NFT_MSG_NEWCHAIN, family, NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK,
+			"create chain [%d]", family);
+	nfapi_add_str_attr(b, NFTA_CHAIN_TABLE, "filter", "table 'filter'");
+	nfapi_add_str_attr(b, NFTA_CHAIN_NAME, chain, "chain '%s'", chain);
 
 	if (callback) {
 		const char *err = callback(b);
@@ -322,8 +323,9 @@ static const char *add_rule(nfapi_socket *nl, int family,
 	nfapi_batch_begin(b);
 
 	nfapi_add_msg(b, NFT_MSG_NEWRULE, family,
-			NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK | (callbacks.append ? NLM_F_APPEND : 0));
-	nfapi_add_str_attr(b, NFTA_RULE_TABLE, "filter");
+			NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK | (callbacks.append ? NLM_F_APPEND : 0),
+			"%s new rule [%d]", callbacks.append ? "append" : "insert", family);
+	nfapi_add_str_attr(b, NFTA_RULE_TABLE, "filter", "table 'filter'");
 
 	const char *err = callbacks.rule_callback(b, family, &callbacks);
 	if (err)
@@ -345,11 +347,11 @@ static const char *add_rule(nfapi_socket *nl, int family,
 static void counter(nfapi_buf *b) {
 	// buffer is in the nested expressions
 
-	nfapi_nested_begin(b, NFTA_LIST_ELEM);
+	nfapi_nested_begin(b, NFTA_LIST_ELEM, "element");
 
-		nfapi_add_str_attr(b, NFTA_EXPR_NAME, "counter");
+		nfapi_add_str_attr(b, NFTA_EXPR_NAME, "counter", "counter");
 
-		nfapi_nested_begin(b, NFTA_EXPR_DATA);
+		nfapi_nested_begin(b, NFTA_EXPR_DATA, "data");
 
 		nfapi_nested_end(b);
 
@@ -362,55 +364,59 @@ static const char *udp_filter(nfapi_buf *b, int family) {
 
 	static const uint8_t proto = IPPROTO_UDP;
 
-	nfapi_nested_begin(b, NFTA_LIST_ELEM);
+	nfapi_nested_begin(b, NFTA_LIST_ELEM, "element");
 
 		if (family == NFPROTO_INET) {
 
-			nfapi_add_str_attr(b, NFTA_EXPR_NAME, "meta");
+			nfapi_add_str_attr(b, NFTA_EXPR_NAME, "meta", "meta");
 
-			nfapi_nested_begin(b, NFTA_EXPR_DATA);
+			nfapi_nested_begin(b, NFTA_EXPR_DATA, "data");
 
-				nfapi_add_u32_attr(b, NFTA_META_KEY, htonl(NFT_META_L4PROTO));
-				nfapi_add_u32_attr(b, NFTA_META_DREG, htonl(NFT_REG_1));
+				nfapi_add_u32_attr(b, NFTA_META_KEY, htonl(NFT_META_L4PROTO), "l4proto");
+				nfapi_add_u32_attr(b, NFTA_META_DREG, htonl(NFT_REG_1), "reg 1");
 
 			nfapi_nested_end(b);
 		}
 		else {
-			nfapi_add_str_attr(b, NFTA_EXPR_NAME, "payload");
+			nfapi_add_str_attr(b, NFTA_EXPR_NAME, "payload", "meta");
 
-			nfapi_nested_begin(b, NFTA_EXPR_DATA);
+			nfapi_nested_begin(b, NFTA_EXPR_DATA, "data");
 
-				nfapi_add_u32_attr(b, NFTA_PAYLOAD_DREG, htonl(NFT_REG_1));
-				nfapi_add_u32_attr(b, NFTA_PAYLOAD_BASE, htonl(NFT_PAYLOAD_NETWORK_HEADER));
+				nfapi_add_u32_attr(b, NFTA_PAYLOAD_DREG, htonl(NFT_REG_1), "reg 1");
+				nfapi_add_u32_attr(b, NFTA_PAYLOAD_BASE, htonl(NFT_PAYLOAD_NETWORK_HEADER),
+						"network header");
 
 				if (family == NFPROTO_IPV4)
 					nfapi_add_u32_attr(b, NFTA_PAYLOAD_OFFSET,
-							htonl(offsetof(struct iphdr, protocol)));
+							htonl(offsetof(struct iphdr, protocol)),
+							"offset %zu", offsetof(struct iphdr, protocol));
 				else if (family == NFPROTO_IPV6)
 					nfapi_add_u32_attr(b, NFTA_PAYLOAD_OFFSET,
-							htonl(offsetof(struct ip6_hdr, ip6_nxt)));
+							htonl(offsetof(struct ip6_hdr, ip6_nxt)),
+							"offset %zu", offsetof(struct ip6_hdr, ip6_nxt));
 				else
 					return "unsupported address family for UDP filter";
 
-				nfapi_add_u32_attr(b, NFTA_PAYLOAD_LEN, htonl(sizeof(proto)));
+				nfapi_add_u32_attr(b, NFTA_PAYLOAD_LEN, htonl(sizeof(proto)),
+						"len %zu", sizeof(proto));
 
 			nfapi_nested_end(b);
 		}
 
 	nfapi_nested_end(b);
 
-	nfapi_nested_begin(b, NFTA_LIST_ELEM);
+	nfapi_nested_begin(b, NFTA_LIST_ELEM, "element");
 
-		nfapi_add_str_attr(b, NFTA_EXPR_NAME, "cmp");
+		nfapi_add_str_attr(b, NFTA_EXPR_NAME, "cmp", "cmp");
 
-		nfapi_nested_begin(b, NFTA_EXPR_DATA);
+		nfapi_nested_begin(b, NFTA_EXPR_DATA, "data");
 
-			nfapi_add_u32_attr(b, NFTA_CMP_SREG, htonl(NFT_REG_1));
-			nfapi_add_u32_attr(b, NFTA_CMP_OP, htonl(NFT_CMP_EQ));
+			nfapi_add_u32_attr(b, NFTA_CMP_SREG, htonl(NFT_REG_1), "reg 1");
+			nfapi_add_u32_attr(b, NFTA_CMP_OP, htonl(NFT_CMP_EQ), "eq");
 
-			nfapi_nested_begin(b, NFTA_CMP_DATA);
+			nfapi_nested_begin(b, NFTA_CMP_DATA, "data");
 
-				nfapi_add_attr(b, NFTA_DATA_VALUE, &proto, sizeof(proto));
+				nfapi_add_attr(b, NFTA_DATA_VALUE, &proto, sizeof(proto), "%u", proto);
 
 			nfapi_nested_end(b);
 
@@ -425,28 +431,29 @@ static const char *udp_filter(nfapi_buf *b, int family) {
 
 
 static const char *input_immediate(nfapi_buf *b, int family, struct add_rule_callbacks *callbacks) {
-	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, callbacks->base_chain);
+	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, callbacks->base_chain, "chain '%s'", callbacks->base_chain);
 
-	nfapi_nested_begin(b, NFTA_RULE_EXPRESSIONS);
+	nfapi_nested_begin(b, NFTA_RULE_EXPRESSIONS, "expr");
 
 		const char *err = udp_filter(b, family);
 		if (err)
 			return err;
 
-		nfapi_nested_begin(b, NFTA_LIST_ELEM);
+		nfapi_nested_begin(b, NFTA_LIST_ELEM, "element");
 
-			nfapi_add_str_attr(b, NFTA_EXPR_NAME, "immediate");
+			nfapi_add_str_attr(b, NFTA_EXPR_NAME, "immediate", "immediate");
 
-			nfapi_nested_begin(b, NFTA_EXPR_DATA);
+			nfapi_nested_begin(b, NFTA_EXPR_DATA, "data");
 
-				nfapi_add_u32_attr(b, NFTA_IMMEDIATE_DREG, 0);
+				nfapi_add_u32_attr(b, NFTA_IMMEDIATE_DREG, 0, "reg 0");
 
-				nfapi_nested_begin(b, NFTA_IMMEDIATE_DATA);
+				nfapi_nested_begin(b, NFTA_IMMEDIATE_DATA, "data");
 
-					nfapi_nested_begin(b, NFTA_DATA_VERDICT);
+					nfapi_nested_begin(b, NFTA_DATA_VERDICT, "verdict");
 
-						nfapi_add_u32_attr(b, NFTA_VERDICT_CODE, htonl(NFT_JUMP));
-						nfapi_add_str_attr(b, NFTA_VERDICT_CHAIN, callbacks->chain);
+						nfapi_add_u32_attr(b, NFTA_VERDICT_CODE, htonl(NFT_JUMP), "jump");
+						nfapi_add_str_attr(b, NFTA_VERDICT_CHAIN, callbacks->chain,
+								"chain '%s'", callbacks->chain);
 
 					nfapi_nested_end(b);
 
@@ -465,13 +472,14 @@ static const char *input_immediate(nfapi_buf *b, int family, struct add_rule_cal
 static const char *target_base_nft_expr(nfapi_buf *b, struct add_rule_callbacks *callbacks) {
 	// buffer is in the nested expressions
 
-	nfapi_nested_begin(b, NFTA_LIST_ELEM);
+	nfapi_nested_begin(b, NFTA_LIST_ELEM, "element");
 
-		nfapi_add_str_attr(b, NFTA_EXPR_NAME, "rtpengine");
+		nfapi_add_str_attr(b, NFTA_EXPR_NAME, "rtpengine", "rtpengine");
 
-		nfapi_nested_begin(b, NFTA_EXPR_DATA);
+		nfapi_nested_begin(b, NFTA_EXPR_DATA, "data");
 
-			nfapi_add_u32_attr(b, RTPEA_RTPENGINE_TABLE, callbacks->table);
+			nfapi_add_u32_attr(b, RTPEA_RTPENGINE_TABLE, callbacks->table,
+					"table %u", callbacks->table);
 
 		nfapi_nested_end(b);
 
@@ -486,15 +494,16 @@ static const char *target_base_xt(nfapi_buf *b, struct add_rule_callbacks *callb
 
 	struct xt_rtpengine_info info = { .id = callbacks->table };
 
-	nfapi_nested_begin(b, NFTA_LIST_ELEM);
+	nfapi_nested_begin(b, NFTA_LIST_ELEM, "element");
 
-		nfapi_add_str_attr(b, NFTA_EXPR_NAME, "target");
+		nfapi_add_str_attr(b, NFTA_EXPR_NAME, "target", "target");
 
-		nfapi_nested_begin(b, NFTA_EXPR_DATA);
+		nfapi_nested_begin(b, NFTA_EXPR_DATA, "data");
 
-			nfapi_add_str_attr(b, NFTA_TARGET_NAME, "RTPENGINE");
-			nfapi_add_u32_attr(b, NFTA_TARGET_REV, htonl(0));
-			nfapi_add_attr(b, NFTA_TARGET_INFO, &info, sizeof(info));
+			nfapi_add_str_attr(b, NFTA_TARGET_NAME, "RTPENGINE", "RTPENGINE");
+			nfapi_add_u32_attr(b, NFTA_TARGET_REV, htonl(0), "rev 0");
+			nfapi_add_attr(b, NFTA_TARGET_INFO, &info, sizeof(info),
+					"info table %u", callbacks->table);
 
 		nfapi_nested_end(b);
 
@@ -505,24 +514,25 @@ static const char *target_base_xt(nfapi_buf *b, struct add_rule_callbacks *callb
 
 
 static const char *comment(nfapi_buf *b, int family, struct add_rule_callbacks *callbacks) {
-	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, callbacks->chain);
-	nfapi_add_binary_str_attr(b, NFTA_RULE_USERDATA, HANDLER_COMMENT);
+	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, callbacks->chain, "chain '%s'", callbacks->chain);
+	nfapi_add_binary_str_attr(b, NFTA_RULE_USERDATA, HANDLER_COMMENT, "comment '%s'", HANDLER_COMMENT);
 
-	nfapi_nested_begin(b, NFTA_RULE_EXPRESSIONS);
+	nfapi_nested_begin(b, NFTA_RULE_EXPRESSIONS, "expr");
 
-		nfapi_nested_begin(b, NFTA_LIST_ELEM);
+		nfapi_nested_begin(b, NFTA_LIST_ELEM, "element");
 
-			nfapi_add_str_attr(b, NFTA_EXPR_NAME, "immediate");
+			nfapi_add_str_attr(b, NFTA_EXPR_NAME, "immediate", "immediate");
 
-			nfapi_nested_begin(b, NFTA_EXPR_DATA);
+			nfapi_nested_begin(b, NFTA_EXPR_DATA, "data");
 
-				nfapi_add_u32_attr(b, NFTA_IMMEDIATE_DREG, 0);
+				nfapi_add_u32_attr(b, NFTA_IMMEDIATE_DREG, 0, "reg 0");
 
-				nfapi_nested_begin(b, NFTA_IMMEDIATE_DATA);
+				nfapi_nested_begin(b, NFTA_IMMEDIATE_DATA, "data");
 
-					nfapi_nested_begin(b, NFTA_DATA_VERDICT);
+					nfapi_nested_begin(b, NFTA_DATA_VERDICT, "verdict");
 
-						nfapi_add_u32_attr(b, NFTA_VERDICT_CODE, htonl(NFT_CONTINUE));
+						nfapi_add_u32_attr(b, NFTA_VERDICT_CODE, htonl(NFT_CONTINUE),
+								"continue");
 
 					nfapi_nested_end(b);
 
@@ -547,9 +557,9 @@ static const char *rtpe_target_base(nfapi_buf *b, struct add_rule_callbacks *cal
 
 
 static const char *rtpe_target(nfapi_buf *b, int family, struct add_rule_callbacks *callbacks) {
-	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, callbacks->chain);
+	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, callbacks->chain, "chain '%s'", callbacks->chain);
 
-	nfapi_nested_begin(b, NFTA_RULE_EXPRESSIONS);
+	nfapi_nested_begin(b, NFTA_RULE_EXPRESSIONS, "expr");
 
 		const char *err = rtpe_target_base(b, callbacks);
 		if (err)
@@ -564,9 +574,9 @@ static const char *rtpe_target(nfapi_buf *b, int family, struct add_rule_callbac
 
 
 static const char *rtpe_target_filter(nfapi_buf *b, int family, struct add_rule_callbacks *callbacks) {
-	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, callbacks->chain);
+	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, callbacks->chain, "chain '%s'", callbacks->chain);
 
-	nfapi_nested_begin(b, NFTA_RULE_EXPRESSIONS);
+	nfapi_nested_begin(b, NFTA_RULE_EXPRESSIONS, "expr");
 
 		const char *err = rtpe_target_base(b, callbacks);
 		if (err)
@@ -587,10 +597,10 @@ static const char *delete_chain(nfapi_socket *nl, int family, const char *chain)
 
 	nfapi_batch_begin(b);
 
-	nfapi_add_msg(b, NFT_MSG_DELCHAIN, family, NLM_F_REQUEST | NLM_F_ACK);
+	nfapi_add_msg(b, NFT_MSG_DELCHAIN, family, NLM_F_REQUEST | NLM_F_ACK, "delete chain [%d]", family);
 
-	nfapi_add_str_attr(b, NFTA_CHAIN_TABLE, "filter");
-	nfapi_add_str_attr(b, NFTA_CHAIN_NAME, chain);
+	nfapi_add_str_attr(b, NFTA_CHAIN_TABLE, "filter", "table 'filter'");
+	nfapi_add_str_attr(b, NFTA_CHAIN_NAME, chain, "chain '%s'", chain);
 
 	nfapi_batch_end(b);
 
@@ -672,8 +682,9 @@ static const char *add_table(nfapi_socket *nl, int family) {
 
 	nfapi_batch_begin(b);
 
-	nfapi_add_msg(b, NFT_MSG_NEWTABLE, family, NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK);
-	nfapi_add_str_attr(b, NFTA_TABLE_NAME, "filter");
+	nfapi_add_msg(b, NFT_MSG_NEWTABLE, family, NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK,
+			"create table [%d]", family);
+	nfapi_add_str_attr(b, NFTA_TABLE_NAME, "filter", "table 'filter'");
 
 	nfapi_batch_end(b);
 

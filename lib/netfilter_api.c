@@ -24,6 +24,7 @@ struct nfapi_buf {
 	GString *s; // buffer
 	ssize_t last_hdr;
 	GQueue nested;
+	GString *readable;
 };
 
 
@@ -67,14 +68,28 @@ nfapi_buf *nfapi_buf_new(void) {
 	nfapi_buf *b = g_new0(__typeof(*b), 1);
 	b->s = g_string_new("");
 	b->last_hdr = -1;
+	b->readable = g_string_new("");
 	return b;
 }
 
 void nfapi_buf_free(nfapi_buf *b) {
 	g_string_free(b->s, TRUE);
+	g_string_free(b->readable, TRUE);
 	g_free(b);
 }
 
+
+static void readable_vadd(GString *r, const char *fmt, va_list va) {
+	if (r->len > 0)
+		g_string_append_c(r, ' ');
+	g_string_append_vprintf(r, fmt, va);
+}
+static void readable_add(GString *r, const char *fmt, ...) {
+	va_list va;
+	va_start(va, fmt);
+	readable_vadd(r, fmt, va);
+	va_end(va);
+}
 
 static void *buf_add_store(GString *b, size_t s, ssize_t *store) {
 	size_t cur = b->len;
@@ -122,7 +137,12 @@ static void add_msg(nfapi_buf *b, uint16_t type, uint16_t family, uint16_t flags
 	};
 }
 
-void nfapi_add_msg(nfapi_buf *b, uint16_t type, uint16_t family, uint16_t flags) {
+void nfapi_add_msg(nfapi_buf *b, uint16_t type, uint16_t family, uint16_t flags, const char *fmt, ...) {
+	va_list va;
+	va_start(va, fmt);
+	readable_vadd(b->readable, fmt, va);
+	va_end(va);
+
 	return add_msg(b, (NFNL_SUBSYS_NFTABLES << 8) | type, family, flags, 0, 0);
 }
 
@@ -135,7 +155,12 @@ void nfapi_batch_end(nfapi_buf *b) {
 
 
 
-void nfapi_add_attr(nfapi_buf *b, uint16_t type, const void *data, size_t len) {
+void nfapi_add_attr(nfapi_buf *b, uint16_t type, const void *data, size_t len, const char *fmt, ...) {
+	va_list va;
+	va_start(va, fmt);
+	readable_vadd(b->readable, fmt, va);
+	va_end(va);
+
 	struct nlattr *attr = item_add(b, sizeof(*attr));
 	*attr = (__typeof(*attr)) {
 		.nla_type = type,
@@ -147,12 +172,13 @@ void nfapi_add_attr(nfapi_buf *b, uint16_t type, const void *data, size_t len) {
 }
 
 
-void nfapi_nested_begin(nfapi_buf *b, uint16_t type) {
+void nfapi_nested_begin(nfapi_buf *b, uint16_t type, const char *name) {
 	g_queue_push_tail(&b->nested, (void *) b->s->len);
-	nfapi_add_attr(b, type | NLA_F_NESTED, NULL, 0);
+	nfapi_add_attr(b, type | NLA_F_NESTED, NULL, 0, "%s: [", name);
 }
 
 void nfapi_nested_end(nfapi_buf *b) {
+	readable_add(b->readable, "]");
 	assert(b->nested.length != 0);
 	g_queue_pop_tail(&b->nested);
 }
