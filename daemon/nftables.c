@@ -29,7 +29,7 @@ struct iterate_callbacks {
 	void (*rule_final)(struct iterate_callbacks *);
 
 	// called after all rules have been iterated
-	const char *(*iterate_final)(nfapi_socket *nl, int family, const char *chain,
+	char *(*iterate_final)(nfapi_socket *nl, int family, const char *chain,
 			struct iterate_callbacks *);
 
 	// common arguments
@@ -162,7 +162,7 @@ static const char *nftables_do_rule(const int8_t *b, size_t l, void *data) {
 }
 
 
-static const char *iterate_rules(nfapi_socket *nl, int family, const char *chain,
+static char *iterate_rules(nfapi_socket *nl, int family, const char *chain,
 		struct iterate_callbacks *callbacks)
 {
 	g_autoptr(nfapi_buf) b = nfapi_buf_new();
@@ -173,31 +173,33 @@ static const char *iterate_rules(nfapi_socket *nl, int family, const char *chain
 	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, chain, "chain '%s'", chain);
 
 	if (!nfapi_send_buf(nl, b))
-		return "failed to write to netlink socket for iteration";
+		return g_strdup_printf("failed to write to netlink socket trying to read rules (%s)",
+				strerror(errno));
 
 	const char *err = nfapi_recv_iter(nl, &(nfapi_callbacks) { .rule = nftables_do_rule }, callbacks);
 	if (err)
-		return err;
+		return g_strdup_printf("error received from netlink socket reading rules (%s): %s",
+				strerror(errno), err);
 
-	if (callbacks->iterate_final)
-		err = callbacks->iterate_final(nl, family, chain, callbacks);
-	if (err)
-		return err;
+	if (callbacks->iterate_final) {
+		char *e = callbacks->iterate_final(nl, family, chain, callbacks);
+		if (e)
+			return e;
+	}
 
 	return NULL;
 }
 
 
-static bool set_rule_handle(nfapi_buf *b, void *data) {
+static void set_rule_handle(nfapi_buf *b, void *data) {
 	uint64_t *handle = data;
 	nfapi_add_u64_attr(b, NFTA_RULE_HANDLE, *handle, "handle %" PRIu64, *handle);
-	return true;
 }
 
 
 
-static const char *delete_rules(nfapi_socket *nl, int family, const char *chain,
-		bool (*callback)(nfapi_buf *b, void *data), void *data)
+static char *delete_rules(nfapi_socket *nl, int family, const char *chain,
+		void (*callback)(nfapi_buf *b, void *data), void *data)
 {
 	g_autoptr(nfapi_buf) b = nfapi_buf_new();
 
@@ -207,26 +209,26 @@ static const char *delete_rules(nfapi_socket *nl, int family, const char *chain,
 	nfapi_add_str_attr(b, NFTA_RULE_TABLE, "filter", "table 'filter'");
 	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, chain, "chain '%s'", chain);
 
-	if (callback) {
-		if (!callback(b, data))
-			return "delete rule callback returned error";
-	}
+	if (callback)
+		callback(b, data);
 
 	nfapi_batch_end(b);
 
 	if (!nfapi_send_buf(nl, b))
-		return "failed to write to netlink socket for delete rule";
+		return g_strdup_printf("failed to write to netlink socket trying to delete rule (%s)",
+				strerror(errno));
 
 	const char *err = nfapi_recv_iter(nl, NULL, NULL);
 	if (err)
-		return err;
+		return g_strdup_printf("error received from netlink socket trying to delete rule (%s): %s",
+				strerror(errno), err);
 
 	return NULL;
 }
 
 
 
-static const char *iterate_delete_rules(nfapi_socket *nl, int family, const char *chain,
+static char *iterate_delete_rules(nfapi_socket *nl, int family, const char *chain,
 		struct iterate_callbacks *callbacks)
 {
 	while (callbacks->iterate_scratch.handles.length) {
@@ -235,7 +237,7 @@ static const char *iterate_delete_rules(nfapi_socket *nl, int family, const char
 		uint64_t h = *handle;
 		g_free(handle);
 
-		const char *err = delete_rules(nl, family, chain, set_rule_handle, &h);
+		char *err = delete_rules(nl, family, chain, set_rule_handle, &h);
 		if (err)
 			return err;
 	}
@@ -281,7 +283,7 @@ static const char *chain_exists(nfapi_socket *nl, int family, const char *chain)
 }
 
 
-static const char *add_chain(nfapi_socket *nl, int family, const char *chain,
+static char *add_chain(nfapi_socket *nl, int family, const char *chain,
 		const char *(*callback)(nfapi_buf *))
 {
 	if (chain_exists(nl, family, chain) == NULL)
@@ -299,23 +301,26 @@ static const char *add_chain(nfapi_socket *nl, int family, const char *chain,
 	if (callback) {
 		const char *err = callback(b);
 		if (err)
-			return err;
+			return g_strdup_printf("error returned from callback trying to add chain: %s",
+					err);
 	}
 
 	nfapi_batch_end(b);
 
 	if (!nfapi_send_buf(nl, b))
-		return "failed to write to netlink socket for add chain";
+		return g_strdup_printf("failed to write to netlink socket trying to add chain (%s)",
+				strerror(errno));
 
 	const char *err = nfapi_recv_iter(nl, NULL, NULL);
 	if (err)
-		return err;
+		return g_strdup_printf("error received from netlink socket trying to add chain (%s): %s",
+				strerror(errno), err);
 
 	return NULL;
 }
 
 
-static const char *add_rule(nfapi_socket *nl, int family,
+static char *add_rule(nfapi_socket *nl, int family,
 		struct add_rule_callbacks callbacks)
 {
 	g_autoptr(nfapi_buf) b = nfapi_buf_new();
@@ -329,16 +334,19 @@ static const char *add_rule(nfapi_socket *nl, int family,
 
 	const char *err = callbacks.rule_callback(b, family, &callbacks);
 	if (err)
-		return err;
+		return g_strdup_printf("error returned from callback trying to add table: %s",
+				err);
 
 	nfapi_batch_end(b);
 
 	if (!nfapi_send_buf(nl, b))
-		return "failed to write to netlink socket for add rule";
+		return g_strdup_printf("failed to write to netlink socket trying to add rule (%s)",
+				strerror(errno));
 
 	err = nfapi_recv_iter(nl, NULL, NULL);
 	if (err)
-		return err;
+		return g_strdup_printf("error received from netlink socket trying to add rule (%s): %s",
+				strerror(errno), err);
 
 	return NULL;
 }
@@ -592,7 +600,7 @@ static const char *rtpe_target_filter(nfapi_buf *b, int family, struct add_rule_
 }
 
 
-static const char *delete_chain(nfapi_socket *nl, int family, const char *chain) {
+static char *delete_chain(nfapi_socket *nl, int family, const char *chain) {
 	g_autoptr(nfapi_buf) b = nfapi_buf_new();
 
 	nfapi_batch_begin(b);
@@ -605,20 +613,22 @@ static const char *delete_chain(nfapi_socket *nl, int family, const char *chain)
 	nfapi_batch_end(b);
 
 	if (!nfapi_send_buf(nl, b))
-		return "failed to write to netlink socket for delete chain";
+		return g_strdup_printf("failed to write to netlink socket trying to delete chain (%s)",
+				strerror(errno));
 
 	const char *err = nfapi_recv_iter(nl, NULL, NULL);
 	if (err)
-		return err;
+		return g_strdup_printf("error received from netlink socket trying to delete chain (%s): %s",
+				strerror(errno), err);
 
 	return NULL;
 }
 
 
-static const char *nftables_shutdown_family(nfapi_socket *nl, int family,
+static char *nftables_shutdown_family(nfapi_socket *nl, int family,
 		const char *chain, const char *base_chain, nftables_args *args)
 {
-	const char *err;
+	char *err;
 
 	if (!base_chain || strcmp(base_chain, "none")) {
 		// clean up rules in legacy `INPUT` chain
@@ -665,19 +675,21 @@ static const char *nftables_shutdown_family(nfapi_socket *nl, int family,
 	if (err) {
 		if (errno != ENOENT) // ignore trying to delete stuff that doesn't exist
 			return err;
+		g_free(err);
 	}
 
 	err = delete_chain(nl, family, chain);
 	if (err) {
 		if (errno != ENOENT && errno != EBUSY) // ignore trying to delete stuff that doesn't exist
 			return err;
+		g_free(err);
 	}
 
 	return NULL;
 }
 
 
-static const char *add_table(nfapi_socket *nl, int family) {
+static char *add_table(nfapi_socket *nl, int family) {
 	g_autoptr(nfapi_buf) b = nfapi_buf_new();
 
 	nfapi_batch_begin(b);
@@ -689,20 +701,22 @@ static const char *add_table(nfapi_socket *nl, int family) {
 	nfapi_batch_end(b);
 
 	if (!nfapi_send_buf(nl, b))
-		return "failed to write to netlink socket for add table";
+		return g_strdup_printf("failed to write to netlink socket trying to add table (%s)",
+				strerror(errno));
 
 	const char *err = nfapi_recv_iter(nl, NULL, NULL);
 	if (err)
-		return err;
+		return g_strdup_printf("error received from netlink socket trying to add table (%s): %s",
+				strerror(errno), err);
 
 	return NULL;
 }
 
 
-static const char *nftables_setup_family(nfapi_socket *nl, int family,
+static char *nftables_setup_family(nfapi_socket *nl, int family,
 		const char *chain, const char *base_chain, nftables_args *args)
 {
-	const char *err = nftables_shutdown_family(nl, family, chain, base_chain, args);
+	char *err = nftables_shutdown_family(nl, family, chain, base_chain, args);
 	if (err)
 		return err;
 
@@ -781,8 +795,8 @@ static const char *nftables_setup_family(nfapi_socket *nl, int family,
 }
 
 
-static const char *nftables_do(const char *chain, const char *base_chain,
-		const char *(*do_func)(nfapi_socket *nl, int family,
+static char *nftables_do(const char *chain, const char *base_chain,
+		char *(*do_func)(nfapi_socket *nl, int family,
 			const char *chain, const char *base_chain, nftables_args *args),
 		nftables_args *args)
 {
@@ -793,9 +807,9 @@ static const char *nftables_do(const char *chain, const char *base_chain,
 
 	g_autoptr(nfapi_socket) nl = nfapi_socket_open();
 	if (!nl)
-		return "failed to open netlink socket";
+		return g_strdup_printf("failed to open netlink socket (%s)", strerror(errno));
 
-	const char *err = NULL;
+	char *err = NULL;
 
 	if (args->family == 0 || args->family == NFPROTO_IPV4)
 		err = do_func(nl, NFPROTO_IPV4, chain, base_chain, args);
@@ -816,7 +830,7 @@ static const char *nftables_do(const char *chain, const char *base_chain,
 }
 
 
-static const char *nftables_check_family(nfapi_socket *nl, int family,
+static char *nftables_check_family(nfapi_socket *nl, int family,
 		const char *chain, const char *base_chain, nftables_args *args)
 {
 	// look for our custom module rule in the specified chain
@@ -827,10 +841,10 @@ static const char *nftables_check_family(nfapi_socket *nl, int family,
 		.table = args->table,
 	};
 
-	iterate_rules(nl, family, chain, &callbacks);
+	g_free( iterate_rules(nl, family, chain, &callbacks) );
 
 	if (!callbacks.iterate_scratch.have_rtpengine_rule)
-		return "RTPENGINE rule not found";
+		return g_strdup("rtpengine handler rule not found");
 
 	// look for a rule to jump from a base chain to our custom chain
 
@@ -841,31 +855,37 @@ static const char *nftables_check_family(nfapi_socket *nl, int family,
 		.table = args->table,
 	};
 
-	iterate_rules(nl, family, "INPUT", &callbacks);
-	iterate_rules(nl, family, "input", &callbacks);
+	g_free( iterate_rules(nl, family, "INPUT", &callbacks) );
+	g_free( iterate_rules(nl, family, "input", &callbacks) );
 
 	if (base_chain && strcmp(base_chain, "none"))
-		iterate_rules(nl, family, base_chain, &callbacks);
+		g_free( iterate_rules(nl, family, base_chain, &callbacks) );
 
-	if (!callbacks.iterate_scratch.have_imm_jump_rule)
-		return "immediate-goto rule not found";
+	if (!callbacks.iterate_scratch.have_imm_jump_rule) {
+		if (base_chain && strcmp(base_chain, "none"))
+			return g_strdup_printf("immediate-goto rule not found in 'INPUT' or 'input' or '%s'",
+					base_chain);
+		else
+			return g_strdup("immediate-goto rule not found in 'INPUT' or 'input'");
+	}
 
 	return NULL;
 }
 
 
-const char *nftables_setup(const char *chain, const char *base_chain, nftables_args args) {
+char *nftables_setup(const char *chain, const char *base_chain, nftables_args args) {
 	return nftables_do(chain, base_chain, nftables_setup_family, &args);
 }
 
-const char *nftables_shutdown(const char *chain, const char *base_chain, nftables_args args) {
+char *nftables_shutdown(const char *chain, const char *base_chain, nftables_args args) {
 	return nftables_do(chain, base_chain, nftables_shutdown_family, &args);
 }
 
 int nftables_check(const char *chain, const char *base_chain, nftables_args args) {
-	const char *err = nftables_do(chain, base_chain, nftables_check_family, &args);
+	char *err = nftables_do(chain, base_chain, nftables_check_family, &args);
 	if (err) {
 		printf("Netfilter rules check NOT successful: %s\n", err);
+		g_free(err);
 		return 1;
 	}
 

@@ -988,7 +988,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 			die("Cannot do nftables setup without configured kernel table number");
 		if (nftables_actions > 1)
 			die("Cannot do more than one of --nftables-start, --nftables-stop or --nftables-status");
-		const char *err;
+		g_autoptr(char) err = NULL;
 		if (nftables_status) {
 			int xv = nftables_check(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
 					(nftables_args) {
@@ -1012,7 +1012,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 						.family = rtpe_config.nftables_family,
 					});
 		if (err)
-			die("Failed to perform nftables action: %s (%s)", err, strerror(errno));
+			die("Failed to perform nftables action: %s", err);
 		printf("Success\n");
 		exit(0);
 	}
@@ -1584,19 +1584,20 @@ static void clib_loop(void) {
 #endif
 
 static void kernel_setup(void) {
+	g_autoptr(char) err = NULL;
 	if (rtpe_config.kernel_table < 0)
 		goto fallback;
 #ifndef WITHOUT_NFTABLES
-	const char *err = nftables_setup(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
+	err = nftables_setup(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
 			(nftables_args) {.table = rtpe_config.kernel_table,
 			.append = rtpe_config.nftables_append,
 			.xtables = rtpe_config.xtables,
 			.family = rtpe_config.nftables_family});
 	if (err) {
 		if (rtpe_config.no_fallback)
-			die("Failed to create nftables chains or rules: %s (%s)", err, strerror(errno));
+			die("Failed to create nftables chains or rules: %s", err);
 		ilog(LOG_ERR, "FAILED TO CREATE NFTABLES CHAINS OR RULES, KERNEL FORWARDING POSSIBLY WON'T WORK: "
-				"%s (%s)", err, strerror(errno));
+				"%s", err);
 	}
 #endif
 	if (!kernel_setup_table(rtpe_config.kernel_table)) {
@@ -2043,8 +2044,8 @@ int main(int argc, char **argv) {
 	release_closed_sockets();
 	interfaces_free();
 #ifndef WITHOUT_NFTABLES
-	nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
-			(nftables_args){.family = rtpe_config.nftables_family});
+	g_free( nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
+			(nftables_args){.family = rtpe_config.nftables_family}) );
 #endif
 	ng_client_cleanup();
 	bufferpool_destroy(shm_bufferpool);
