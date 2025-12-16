@@ -78,6 +78,10 @@ void nfapi_buf_free(nfapi_buf *b) {
 	g_free(b);
 }
 
+const char *nfapi_buf_msg(nfapi_buf *b) {
+	return b->readable->str;
+}
+
 
 static void readable_vadd(GString *r, const char *fmt, va_list va) {
 	if (r->len > 0)
