@@ -22,7 +22,7 @@ nfapi_socket *nfapi_socket_open(void);
 void nfapi_socket_close(nfapi_socket *);
 
 
-nfapi_buf *nfapi_buf_new(void);
+nfapi_buf *nfapi_buf_new(nfapi_socket *);
 void nfapi_buf_free(nfapi_buf *);
 const char *nfapi_buf_msg(nfapi_buf *);
 

@@ -18,6 +18,7 @@
 struct nfapi_socket {
 	int fd;
 	struct sockaddr_nl addr; // local
+	uint16_t seq;
 };
 
 struct nfapi_buf {
@@ -25,6 +26,7 @@ struct nfapi_buf {
 	ssize_t last_hdr;
 	GQueue nested;
 	GString *readable;
+	uint16_t seq;
 };
 
 
@@ -64,11 +66,12 @@ void nfapi_socket_close(nfapi_socket *s) {
 }
 
 
-nfapi_buf *nfapi_buf_new(void) {
+nfapi_buf *nfapi_buf_new(nfapi_socket *s) {
 	nfapi_buf *b = g_new0(__typeof(*b), 1);
 	b->s = g_string_new("");
 	b->last_hdr = -1;
 	b->readable = g_string_new("");
+	b->seq = ++s->seq;
 	return b;
 }
 
@@ -147,7 +150,7 @@ void nfapi_add_msg(nfapi_buf *b, uint16_t type, uint16_t family, uint16_t flags,
 	readable_vadd(b->readable, fmt, va);
 	va_end(va);
 
-	return add_msg(b, (NFNL_SUBSYS_NFTABLES << 8) | type, family, flags, 0, 0);
+	return add_msg(b, (NFNL_SUBSYS_NFTABLES << 8) | type, family, flags, b->seq, 0);
 }
 
 void nfapi_batch_begin(nfapi_buf *b) {

@@ -165,7 +165,7 @@ static const char *nftables_do_rule(const int8_t *b, size_t l, void *data) {
 static char *iterate_rules(nfapi_socket *nl, int family, const char *chain,
 		struct iterate_callbacks *callbacks)
 {
-	g_autoptr(nfapi_buf) b = nfapi_buf_new();
+	g_autoptr(nfapi_buf) b = nfapi_buf_new(nl);
 
 	nfapi_add_msg(b, NFT_MSG_GETRULE, family, NLM_F_REQUEST | NLM_F_DUMP, "get all rules [%d]", family);
 
@@ -203,7 +203,7 @@ static void set_rule_handle(nfapi_buf *b, void *data) {
 static char *delete_rules(nfapi_socket *nl, int family, const char *chain,
 		void (*callback)(nfapi_buf *b, void *data), void *data)
 {
-	g_autoptr(nfapi_buf) b = nfapi_buf_new();
+	g_autoptr(nfapi_buf) b = nfapi_buf_new(nl);
 
 	nfapi_batch_begin(b);
 
@@ -269,7 +269,7 @@ static const char *nftables_do_chain(const int8_t *b, size_t l, void *userdata) 
 
 
 static bool chain_exists(nfapi_socket *nl, int family, const char *chain) {
-	g_autoptr(nfapi_buf) b = nfapi_buf_new();
+	g_autoptr(nfapi_buf) b = nfapi_buf_new(nl);
 
 	nfapi_add_msg(b, NFT_MSG_GETCHAIN, family, NLM_F_REQUEST | NLM_F_ACK, "get chain [%d]", family);
 	nfapi_add_str_attr(b, NFTA_CHAIN_TABLE, "filter", "table 'filter'");
@@ -293,7 +293,7 @@ static char *add_chain(nfapi_socket *nl, int family, const char *chain,
 	if (chain_exists(nl, family, chain))
 		return NULL;
 
-	g_autoptr(nfapi_buf) b = nfapi_buf_new();
+	g_autoptr(nfapi_buf) b = nfapi_buf_new(nl);
 
 	nfapi_batch_begin(b);
 
@@ -330,7 +330,7 @@ static char *add_chain(nfapi_socket *nl, int family, const char *chain,
 static char *add_rule(nfapi_socket *nl, int family,
 		struct add_rule_callbacks callbacks)
 {
-	g_autoptr(nfapi_buf) b = nfapi_buf_new();
+	g_autoptr(nfapi_buf) b = nfapi_buf_new(nl);
 
 	nfapi_batch_begin(b);
 
@@ -611,7 +611,7 @@ static const char *rtpe_target_filter(nfapi_buf *b, int family, struct add_rule_
 
 
 static char *delete_chain(nfapi_socket *nl, int family, const char *chain) {
-	g_autoptr(nfapi_buf) b = nfapi_buf_new();
+	g_autoptr(nfapi_buf) b = nfapi_buf_new(nl);
 
 	nfapi_batch_begin(b);
 
@@ -702,7 +702,7 @@ static char *nftables_shutdown_family(nfapi_socket *nl, int family,
 
 
 static char *add_table(nfapi_socket *nl, int family) {
-	g_autoptr(nfapi_buf) b = nfapi_buf_new();
+	g_autoptr(nfapi_buf) b = nfapi_buf_new(nl);
 
 	nfapi_batch_begin(b);
 
