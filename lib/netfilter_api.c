@@ -19,6 +19,8 @@ struct nfapi_socket {
 	int fd;
 	struct sockaddr_nl addr; // local
 	uint16_t seq;
+	GHashTable *msgs;
+	uint16_t err_seq;
 };
 
 struct nfapi_buf {
@@ -55,6 +57,7 @@ nfapi_socket *nfapi_socket_open(void) {
 	nfapi_socket *s = g_new0(__typeof(*s), 1);
 	s->fd = fd;
 	s->addr = saddr;
+	s->msgs = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_free);
 
 	return s;
 }
@@ -62,7 +65,13 @@ nfapi_socket *nfapi_socket_open(void) {
 void nfapi_socket_close(nfapi_socket *s) {
 	if (s->fd != -1)
 		close(s->fd);
+	g_hash_table_destroy(s->msgs);
 	g_free(s);
+}
+
+const char *nfapi_err_msg(nfapi_socket *s) {
+	const char *m = g_hash_table_lookup(s->msgs, GUINT_TO_POINTER(s->err_seq));
+	return m ?: "?";
 }
 
 
@@ -79,10 +88,6 @@ void nfapi_buf_free(nfapi_buf *b) {
 	g_string_free(b->s, TRUE);
 	g_string_free(b->readable, TRUE);
 	g_free(b);
-}
-
-const char *nfapi_buf_msg(nfapi_buf *b) {
-	return b->readable->str;
 }
 
 
@@ -193,6 +198,10 @@ void nfapi_nested_end(nfapi_buf *b) {
 
 
 bool nfapi_send_buf(nfapi_socket *s, nfapi_buf *b) {
+	char *msg = g_string_free(b->readable, FALSE);
+	g_hash_table_replace(s->msgs, GUINT_TO_POINTER(b->seq), msg);
+	b->readable = g_string_new("");
+
 	ssize_t ret = sendto(s->fd, b->s->str, b->s->len, 0, (struct sockaddr *) &zero_nl_sockaddr,
 			sizeof(zero_nl_sockaddr));
 	if (ret != b->s->len)
@@ -285,6 +294,7 @@ const char *nfapi_recv_iter(nfapi_socket *s, const nfapi_callbacks *c, void *use
 						return NULL;
 
 					errno = -err->error;
+					s->err_seq = hdr->nlmsg_seq;
 					return "error returned from netlink, see errno";
 				}
 				else

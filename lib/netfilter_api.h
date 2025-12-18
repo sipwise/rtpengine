@@ -20,11 +20,11 @@ typedef struct {
 
 nfapi_socket *nfapi_socket_open(void);
 void nfapi_socket_close(nfapi_socket *);
+const char *nfapi_err_msg(nfapi_socket *);
 
 
 nfapi_buf *nfapi_buf_new(nfapi_socket *);
 void nfapi_buf_free(nfapi_buf *);
-const char *nfapi_buf_msg(nfapi_buf *);
 
 __attribute__ ((format(printf, 5, 6)))
 void nfapi_add_msg(nfapi_buf *, uint16_t type, uint16_t family, uint16_t flags, const char *fmt, ...);

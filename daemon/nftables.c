@@ -175,13 +175,13 @@ static char *iterate_rules(nfapi_socket *nl, int family, const char *chain,
 	if (!nfapi_send_buf(nl, b))
 		return g_strdup_printf("failed to write to netlink socket trying to read rules (%s) "
 				"(attempted: \"%s\")",
-				strerror(errno), nfapi_buf_msg(b));
+				strerror(errno), nfapi_err_msg(nl));
 
 	const char *err = nfapi_recv_iter(nl, &(nfapi_callbacks) { .rule = nftables_do_rule }, callbacks);
 	if (err)
 		return g_strdup_printf("error received from netlink socket reading rules (%s): %s "
 				"(attempted: \"%s\")",
-				strerror(errno), err, nfapi_buf_msg(b));
+				strerror(errno), err, nfapi_err_msg(nl));
 
 	if (callbacks->iterate_final) {
 		char *e = callbacks->iterate_final(nl, family, chain, callbacks);
@@ -219,13 +219,13 @@ static char *delete_rules(nfapi_socket *nl, int family, const char *chain,
 	if (!nfapi_send_buf(nl, b))
 		return g_strdup_printf("failed to write to netlink socket trying to delete rule (%s) "
 				"(attempted: \"%s\")",
-				strerror(errno), nfapi_buf_msg(b));
+				strerror(errno), nfapi_err_msg(nl));
 
 	const char *err = nfapi_recv_iter(nl, NULL, NULL);
 	if (err)
 		return g_strdup_printf("error received from netlink socket trying to delete rule (%s): %s "
 				"(attempted: \"%s\")",
-				strerror(errno), err, nfapi_buf_msg(b));
+				strerror(errno), err, nfapi_err_msg(nl));
 
 	return NULL;
 }
@@ -307,7 +307,7 @@ static char *add_chain(nfapi_socket *nl, int family, const char *chain,
 		if (err)
 			return g_strdup_printf("error returned from callback trying to add chain: %s "
 					"(attempted: \"%s\")",
-					err, nfapi_buf_msg(b));
+					err, nfapi_err_msg(nl));
 	}
 
 	nfapi_batch_end(b);
@@ -315,13 +315,13 @@ static char *add_chain(nfapi_socket *nl, int family, const char *chain,
 	if (!nfapi_send_buf(nl, b))
 		return g_strdup_printf("failed to write to netlink socket trying to add chain (%s) "
 				"(attempted: \"%s\")",
-				strerror(errno), nfapi_buf_msg(b));
+				strerror(errno), nfapi_err_msg(nl));
 
 	const char *err = nfapi_recv_iter(nl, NULL, NULL);
 	if (err)
 		return g_strdup_printf("error received from netlink socket trying to add chain (%s): %s "
 				"(attempted: \"%s\")",
-				strerror(errno), err, nfapi_buf_msg(b));
+				strerror(errno), err, nfapi_err_msg(nl));
 
 	return NULL;
 }
@@ -343,20 +343,20 @@ static char *add_rule(nfapi_socket *nl, int family,
 	if (err)
 		return g_strdup_printf("error returned from callback trying to add table: %s "
 				"(attempted: \"%s\")",
-				err, nfapi_buf_msg(b));
+				err, nfapi_err_msg(nl));
 
 	nfapi_batch_end(b);
 
 	if (!nfapi_send_buf(nl, b))
 		return g_strdup_printf("failed to write to netlink socket trying to add rule (%s) "
 				"(attempted: \"%s\")",
-				strerror(errno), nfapi_buf_msg(b));
+				strerror(errno), nfapi_err_msg(nl));
 
 	err = nfapi_recv_iter(nl, NULL, NULL);
 	if (err)
 		return g_strdup_printf("error received from netlink socket trying to add rule (%s): %s "
 				"(attempted: \"%s\")",
-				strerror(errno), err, nfapi_buf_msg(b));
+				strerror(errno), err, nfapi_err_msg(nl));
 
 	return NULL;
 }
@@ -625,13 +625,13 @@ static char *delete_chain(nfapi_socket *nl, int family, const char *chain) {
 	if (!nfapi_send_buf(nl, b))
 		return g_strdup_printf("failed to write to netlink socket trying to delete chain (%s) "
 				"(attempted: \"%s\")",
-				strerror(errno), nfapi_buf_msg(b));
+				strerror(errno), nfapi_err_msg(nl));
 
 	const char *err = nfapi_recv_iter(nl, NULL, NULL);
 	if (err)
 		return g_strdup_printf("error received from netlink socket trying to delete chain (%s): %s "
 				"(attempted: \"%s\")",
-				strerror(errno), err, nfapi_buf_msg(b));
+				strerror(errno), err, nfapi_err_msg(nl));
 
 	return NULL;
 }
@@ -715,13 +715,13 @@ static char *add_table(nfapi_socket *nl, int family) {
 	if (!nfapi_send_buf(nl, b))
 		return g_strdup_printf("failed to write to netlink socket trying to add table (%s) "
 				"(attempted: \"%s\")",
-				strerror(errno), nfapi_buf_msg(b));
+				strerror(errno), nfapi_err_msg(nl));
 
 	const char *err = nfapi_recv_iter(nl, NULL, NULL);
 	if (err)
 		return g_strdup_printf("error received from netlink socket trying to add table (%s): %s "
 				"(attempted: \"%s\")",
-				strerror(errno), err, nfapi_buf_msg(b));
+				strerror(errno), err, nfapi_err_msg(nl));
 
 	return NULL;
 }
