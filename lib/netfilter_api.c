@@ -20,6 +20,7 @@ struct nfapi_socket {
 	struct sockaddr_nl addr; // local
 	uint16_t seq;
 	GHashTable *msgs;
+	uint16_t last_seq;
 	uint16_t err_seq;
 };
 
@@ -202,6 +203,8 @@ bool nfapi_send_buf(nfapi_socket *s, nfapi_buf *b) {
 	g_hash_table_replace(s->msgs, GUINT_TO_POINTER(b->seq), msg);
 	b->readable = g_string_new("");
 
+	s->last_seq = b->seq;
+
 	ssize_t ret = sendto(s->fd, b->s->str, b->s->len, 0, (struct sockaddr *) &zero_nl_sockaddr,
 			sizeof(zero_nl_sockaddr));
 	if (ret != b->s->len)
@@ -279,8 +282,11 @@ const char *nfapi_recv_iter(nfapi_socket *s, const nfapi_callbacks *c, void *use
 				};
 			}
 			else {
-				if (type == NLMSG_DONE)
+				if (type == NLMSG_DONE) {
+					if (hdr->nlmsg_seq != s->last_seq)
+						continue;
 					return NULL;
+				}
 
 				if (type == NLMSG_ERROR) {
 					struct nlmsgerr *err;
@@ -290,8 +296,11 @@ const char *nfapi_recv_iter(nfapi_socket *s, const nfapi_callbacks *c, void *use
 
 					err = (struct nlmsgerr *) (buf + next);
 
-					if (err->error == 0)
+					if (err->error == 0) {
+						if (hdr->nlmsg_seq != s->last_seq)
+							continue;
 						return NULL;
+					}
 
 					errno = -err->error;
 					s->err_seq = hdr->nlmsg_seq;
