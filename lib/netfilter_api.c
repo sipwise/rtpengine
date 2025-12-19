@@ -222,7 +222,10 @@ const char *nfapi_recv_iter(nfapi_socket *s, const nfapi_callbacks *c, void *use
 		} ss;
 		socklen_t ssl = sizeof(ss);
 		errno = 0;
-		ssize_t r = recvfrom(s->fd, buf, sizeof(buf), 0, (struct sockaddr *) &ss.sst, &ssl);
+		ssize_t r = recvfrom(s->fd, buf, sizeof(buf), MSG_DONTWAIT, (struct sockaddr *) &ss.sst, &ssl);
+
+		if (r < 0 && errno == EAGAIN)
+			return NULL;
 
 		if (r < 0 || r > sizeof(buf)
 				|| ssl < sizeof(ss.ssn)
@@ -282,11 +285,8 @@ const char *nfapi_recv_iter(nfapi_socket *s, const nfapi_callbacks *c, void *use
 				};
 			}
 			else {
-				if (type == NLMSG_DONE) {
-					if (hdr->nlmsg_seq != s->last_seq)
-						continue;
-					return NULL;
-				}
+				if (type == NLMSG_DONE)
+					continue;
 
 				if (type == NLMSG_ERROR) {
 					struct nlmsgerr *err;
@@ -296,11 +296,8 @@ const char *nfapi_recv_iter(nfapi_socket *s, const nfapi_callbacks *c, void *use
 
 					err = (struct nlmsgerr *) (buf + next);
 
-					if (err->error == 0) {
-						if (hdr->nlmsg_seq != s->last_seq)
-							continue;
-						return NULL;
-					}
+					if (err->error == 0)
+						continue;
 
 					errno = -err->error;
 					s->err_seq = hdr->nlmsg_seq;
