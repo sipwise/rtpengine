@@ -1,3 +1,17 @@
+ngcp-rtpengine (13.5.1.3+0~mr13.5.1.3) unstable; urgency=medium
+
+  [ Alex Brown ]
+  * [83685a0] MT#55283 Fix Issue with pcap based recording getting overwritten
+
+  [ Richard Fuchs ]
+  * [c29fee3] MT#55283 improve build test error output
+
+  [ Orgad Shaneh ]
+  * [a4794bc] MT#55283 build: Get hiredis, pcap and mysql flags from pkg-config
+  * [876b260] MT#55283 Abort make if required package is not found
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 19 Dec 2025 09:48:43 +0100
+
 ngcp-rtpengine (13.5.1.2+0~mr13.5.1.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
