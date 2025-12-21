@@ -45,10 +45,17 @@
 
 #include "nft_rtpengine.h"
 
+// fix for older compilers
+#ifndef RHEL_RELEASE_VERSION
+#define RHEL_RELEASE_VERSION(x,y) 0
+#endif
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Sipwise GmbH <support@sipwise.com>");
 MODULE_DESCRIPTION("rtpengine packet forwarding acceleration");
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,13,0)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6,13,0)) || \
+		(defined(RHEL_RELEASE_CODE) && LINUX_VERSION_CODE >= KERNEL_VERSION(6,12,0) && \
+			RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(10,1))
 MODULE_IMPORT_NS("CRYPTO_INTERNAL");
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(5,12,0)
 MODULE_IMPORT_NS(CRYPTO_INTERNAL);
@@ -57,11 +64,6 @@ MODULE_ALIAS("xt_RTPENGINE");
 MODULE_ALIAS("ipt_RTPENGINE");
 MODULE_ALIAS("ip6t_RTPENGINE");
 MODULE_ALIAS("nft-expr-rtpengine");
-
-// fix for older compilers
-#ifndef RHEL_RELEASE_VERSION
-#define RHEL_RELEASE_VERSION(x,y) 0
-#endif
 
 
 
