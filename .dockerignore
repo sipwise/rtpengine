@@ -1,0 +1,17 @@
+Dockerfile
+config.mk
+daemon/rtpengine
+docs/
+lib/dtmf_rx_fillin.h
+lib/fix_frame_channel_layout.h
+lib/spandsp_logging.h
+perf-tester/
+recording-daemon/rtpengine-recording
+t/
+tests/
+**/*.strhash.c
+**/.*
+**/*.8
+**/*.o
+**/core
+**/core.*
