@@ -57,7 +57,7 @@ at the command line. See the __\-\-config-file__ option below for details.
     the command-line value overrides the value from the config file.
     Options that can be specified multiple times on the command line must be
     given only once in the config file, with the multiple values separated by
-    semicolons (see section [INTERFACES](https://metacpan.org/pod/INTERFACES) below for an example).
+    semicolons (see section [INTERFACES](#interfaces) below for an example).
 
     As a special value, __none__ can be passed here to suppress loading of the
     default config file `/etc/rtpengine/rtpengine.conf`.
@@ -167,7 +167,7 @@ at the command line. See the __\-\-config-file__ option below for details.
     named signalling template, which can then be used by referencing it via the
     __template=...__ key in a signalling message to *rtpengine*.
 
-    See section *SIGNALLING TEMPLATES* below.
+    See section [SIGNALLING TEMPLATES](#signalling-templates) below.
 
 - __-S__, __\-\-save-interface-ports__
 
@@ -181,7 +181,7 @@ at the command line. See the __\-\-config-file__ option below for details.
 
     Specifies a local network interface for RTP.
     At least one must be given, but multiple can be specified.
-    See the section [INTERFACES](https://metacpan.org/pod/INTERFACES) just below for details.
+    See the section [INTERFACES](#interfaces) just below for details.
 
 - __-l__, __\-\-listen-tcp=__\[*IP*:\]*PORT*
 - __-u__, __\-\-listen-udp=__\[*IP46*:\]*PORT*
@@ -1596,7 +1596,7 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
 - __\-\-transcode-config=__*STR*
 
     Sets the prefix for sections in the config file to use for transcode
-    configurations. See section *TRANSCODE CONFIG* below.
+    configurations. See section [TRANSCODE CONFIG](#transcode-config) below.
 
 ## INTERFACES
 
