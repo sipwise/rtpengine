@@ -108,8 +108,8 @@ Depends:
  ${misc:Depends},
 Description: NGCP RTP/media proxy - meta package
  This is a meta package for easy installation of all four parts of the NGCP
- media proxy. It will install the user-space daemon, the kernel-space IPtables
- module, the IPtables extension module and utility scripts.
+ media proxy. It will install the user-space daemon, the kernel-space nftables
+ module, the nftables extension module and utility scripts.
 
 Package: ngcp-rtpengine-kernel-dkms
 Architecture: all
@@ -119,7 +119,7 @@ Depends:
  ${misc:Depends},
 Suggests:
  ngcp-system-tools,
-Description: IPtables kernel module for the NGCP media proxy - DKMS
+Description: nftables kernel module for the NGCP media proxy - DKMS
  Provides the kernel-space part of the NGCP media proxy for high-
  performance packet forwarding.
  This package contains the source to be built with dkms.
