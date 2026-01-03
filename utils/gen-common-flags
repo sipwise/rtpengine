@@ -63,7 +63,7 @@ if command -v dpkg-buildflags >/dev/null; then
   LDFLAGS_DEFAULT=$(dpkg-buildflags --get LDFLAGS)
 fi
 CFLAGS_DEFAULT+=" -O3 -flto=auto -ffat-lto-objects"
-LDFLAGS_DEFAULT+=" -flto=auto"
+LDFLAGS_DEFAULT+=" -flto=auto -fuse-linker-plugin"
 
 echo "export CFLAGS_DEFAULT := ${CFLAGS_DEFAULT}"
 echo "export CPPFLAGS_DEFAULT := ${CPPFLAGS_DEFAULT}"
