@@ -79,7 +79,6 @@ gen-pkgconf-flags LIBAVUTIL           libavutil
 gen-pkgconf-flags LIBCURL             libcurl
 gen-pkgconf-flags LIBCRYPTO           libcrypto
 gen-pkgconf-flags LIBEVENT            libevent_pthreads
-gen-pkgconf-flags LIBIPTC             libiptc
 gen-pkgconf-flags LIBPCRE             libpcre2-8
 echo "CFLAGS_LIBPCRE += -DPCRE2_CODE_UNIT_WIDTH=8"
 gen-pkgconf-flags LIBSWRESAMPLE       libswresample
@@ -108,6 +107,12 @@ fi
 if pkg-config --atleast-version=2.3 liburing; then
   gen-pkgconf-flags LIBURING liburing
   echo "CFLAGS_LIBURING += -DHAVE_LIBURING"
+fi
+
+# look for libiptc
+if pkg-config libiptc; then
+  gen-pkgconf-flags LIBIPTC libiptc
+  echo "CFLAGS_LIBIPTC += -DHAVE_LIBIPTC"
 fi
 
 # alternative MySQL/MariaDB

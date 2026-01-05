@@ -89,15 +89,11 @@ test suite.
 	The `Makefile` contains a few Debian-specific flags, which may have to removed for compilation to
 	be successful. This will not affect operation in any way.
 
-	If you do not wish to (or cannot) compile the optional iptables management feature, the
-	`Makefile` also contains a switch to disable it. See the `--iptables-chain` option for
-	a description. The name of the `make` switch and its default value is `with_iptables_option=yes`.
-
-	Similarly, the transcoding feature can be excluded via a switch in the `Makefile`, making it
+	The transcoding feature can be excluded via a switch in the `Makefile`, making it
 	unnecessary to have the *ffmpeg* libraries installed. The name of the `make` switch and
 	its default value is `with_transcoding=yes`.
 
-	Both `Makefile` switches can be provided to the `make` system via environment variables, for
+	`Makefile` switches can be provided to the `make` system via environment variables, for
 	example by building with the shell command `with_transcoding=no make`.
 
 * `kernel-module`
