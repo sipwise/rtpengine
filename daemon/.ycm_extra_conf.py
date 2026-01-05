@@ -43,7 +43,7 @@ flags = [
     '-DPCRE2_CODE_UNIT_WIDTH=8',
     '-DRTPENGINE_VERSION="dummy"',
     '-DRE_PLUGIN_DIR="/usr/lib/rtpengine"',
-    '-DWITH_IPTABLES_OPTION',
+    '-DHAVE_LIBIPTC',
     '-DWITH_TRANSCODING',
     '-DHAVE_BCG729',
     '-DHAVE_MQTT',
