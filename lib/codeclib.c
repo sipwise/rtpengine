@@ -5079,12 +5079,12 @@ codec_cc_state cc_run_async(codec_cc_t *c, const str *data, unsigned long ts, vo
 	return cc_X_run_async(c, data, ts, async_cb_obj, __cc_run_async);
 }
 
-static void cc_X_pkt_callback(codec_cc_t *c, int size, __typeof__(__cc_run_async) run_async) {
+static void cc_X_pkt_callback(codec_cc_t *c, ssize_t size, __typeof__(__cc_run_async) run_async) {
 	AVPacket *pkt = c->avpkt_async;
 	void *async_cb_obj = c->async_cb_obj;
 	c->async_cb_obj = NULL;
 
-	c->async_callback(pkt, async_cb_obj);
+	c->async_callback(size >= 0 ? pkt : NULL, async_cb_obj);
 
 	pkt->size = 0;
 
@@ -5124,13 +5124,13 @@ static void cc_X_pkt_callback(codec_cc_t *c, int size, __typeof__(__cc_run_async
 static void cc_run_callback(void *p, ssize_t size) {
 	codec_cc_t *c = p;
 
-	assert(size > 0); // XXX handle errors XXX handle input frame sizes != 160
-
 	AVPacket *pkt = c->avpkt_async;
 
-	pkt->size = size;
-	pkt->duration = c->data_len * 6L; // XXX
-	pkt->pts = c->ts * 6L; // XXX
+	if (size >= 0) {
+		pkt->size = size;
+		pkt->duration = c->data_len * 6L; // XXX
+		pkt->pts = c->ts * 6L; // XXX
+	}
 
 	cc_X_pkt_callback(c, size, __cc_run_async);
 }

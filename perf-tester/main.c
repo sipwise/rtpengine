@@ -463,7 +463,7 @@ static void *async_init(void *x, void *y, void *z) {
 }
 static void async_finish(AVPacket *pkt, void *async_cb_obj) {
 	struct stream *s = async_cb_obj;
-	{
+	if (pkt) {
 		LOCK(&s->lock);
 		got_packet_pkt(s, pkt);
 	}
