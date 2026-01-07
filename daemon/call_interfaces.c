@@ -2701,10 +2701,13 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char* addr)
 			goto out;
 
 		/* if all fine, prepare an outer sdp and save it */
-		if ((ret = sdp_create(&sdp_out, to_ml, &flags)) == 0) {
+		if (sdp_create(&sdp_out, to_ml, &flags)) {
 			/* TODO: should we save sdp_out? */
 			save_last_sdp(from_ml, &sdp, &parsed, &streams);
+			ret = 0;
 		}
+		else
+			ret = -1;
 
 		/* place return output SDP */
 		if (sdp_out.len) {
@@ -4140,15 +4143,14 @@ const char *call_publish_ng(ng_command_ctx_t *ctx, const char *addr) {
 	if (ret)
 		ilog(LOG_ERR, "Publish error"); // XXX close call? handle errors?
 
-	ret = sdp_create(&sdp_out, ml, &flags);
-	if (!ret) {
+	bool ok = sdp_create(&sdp_out, ml, &flags);
+	if (ok) {
 		save_last_sdp(ml, &sdp_in, &parsed, &streams);
 		ctx->ngbuf->sdp_out = sdp_out.s;
 		parser->dict_add_str(ctx->resp, "sdp", &sdp_out);
 		sdp_out = STR_NULL; // ownership passed to output
 	}
-
-	if (ret)
+	else
 		return "Failed to create SDP";
 
 	dequeue_sdp_fragments(ml);
@@ -4201,8 +4203,8 @@ const char *call_subscribe_request_ng(ng_command_ctx_t *ctx) {
 		return "Failed to request subscription";
 
 	/* create new SDP */
-	ret = sdp_create(&sdp_out, dest_ml, &flags);
-	if (ret)
+	bool ok = sdp_create(&sdp_out, dest_ml, &flags);
+	if (!ok)
 		return "Failed to create SDP";
 
 	/* place return output SDP */

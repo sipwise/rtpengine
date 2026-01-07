@@ -3406,7 +3406,7 @@ static struct call_media *sdp_out_set_source_media_address(struct call_media *me
  * given monologue is a monologue which is being processed.
  */
 __attribute__((nonnull(1, 2, 3)))
-int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
+bool sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 {
 	const char *err = NULL;
 	GString *s = NULL;
@@ -3536,30 +3536,30 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 
 	out->len = s->len;
 	out->s = g_string_free(s, FALSE);
-	return 0;
+	return true;
 err:
 	if (s)
 		g_string_free(s, TRUE);
 	ilog(LOG_ERR, "Failed to create SDP: %s", err);
-	return -1;
+	return false;
 }
 
-int sdp_is_duplicate(sdp_sessions_q *sessions) {
+bool sdp_is_duplicate(sdp_sessions_q *sessions) {
 	for (__auto_type l = sessions->head; l; l = l->next) {
 		struct sdp_session *s = l->data;
 		attributes_q *attr_list = attr_list_get_by_id(&s->attributes, ATTR_RTPENGINE);
 		if (!attr_list)
-			return 0;
+			return false;
 		for (__auto_type ql = attr_list->head; ql; ql = ql->next) {
 			struct sdp_attribute *attr = ql->data;
 			if (!str_cmp_str(&attr->strs.value, &rtpe_instance_id))
 				goto next;
 		}
-		return 0;
+		return false;
 next:
 		;
 	}
-	return 1;
+	return true;
 }
 
 void sdp_init(void) {

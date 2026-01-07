@@ -642,14 +642,14 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 			return "Subscribe error";
 
 		/* create SDP */
-		ret = sdp_create(jsep_sdp_out, dest_ml, &flags);
+		bool ok = sdp_create(jsep_sdp_out, dest_ml, &flags);
 
 		if (!dest_ml->janus_session)
 			dest_ml->janus_session = obj_get(session);
 
 		dequeue_sdp_fragments(dest_ml);
 
-		if (ret)
+		if (!ok)
 			return "Error generating SDP";
 
 		*jsep_type_out = "offer";
@@ -873,8 +873,8 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 		// XXX check there's only one audio and one video stream?
 
 		g_auto(str) sdp_out = STR_NULL;
-		ret = sdp_create(&sdp_out, ml, &flags);
-		if (ret)
+		bool ok = sdp_create(&sdp_out, ml, &flags);
+		if (!ok)
 			return "Publish error";
 
 		if (!ml->janus_session)
