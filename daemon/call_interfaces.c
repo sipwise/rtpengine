@@ -2710,14 +2710,12 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char* addr)
 			ret = -1;
 
 		/* place return output SDP */
-		if (sdp_out.len) {
-			ctx->ngbuf->sdp_out = sdp_out.s;
-			ctx->parser_ctx.parser->dict_add_str(output, "sdp", &sdp_out);
+		ctx->ngbuf->sdp_out = sdp_out.s;
+		ctx->parser_ctx.parser->dict_add_str(output, "sdp", &sdp_out);
 
-			meta_write_sdp_after(recording, &sdp_out, from_ml, flags.opmode);
+		meta_write_sdp_after(recording, &sdp_out, from_ml, flags.opmode);
 
-			sdp_out = STR_NULL; /* ownership passed to output */
-		}
+		sdp_out = STR_NULL; /* ownership passed to output */
 	}
 
 	recording_response(recording, ctx->parser_ctx.parser, output);
@@ -4208,11 +4206,9 @@ const char *call_subscribe_request_ng(ng_command_ctx_t *ctx) {
 		return "Failed to create SDP";
 
 	/* place return output SDP */
-	if (sdp_out.len) {
-		ctx->ngbuf->sdp_out = sdp_out.s;
-		parser->dict_add_str(output, "sdp", &sdp_out);
-		sdp_out = STR_NULL; /* ownership passed to output */
-	}
+	ctx->ngbuf->sdp_out = sdp_out.s;
+	parser->dict_add_str(output, "sdp", &sdp_out);
+	sdp_out = STR_NULL; /* ownership passed to output */
 
 	/* add single response ml tag if there's just one, but always add a list
 	 * TODO: deprecate it, since initially added for monologue subscriptions.
