@@ -4115,6 +4115,7 @@ const char *call_publish_ng(ng_command_ctx_t *ctx, const char *addr) {
 	g_autoptr(call_t) call = NULL;
 	int ret;
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
+	struct recording *recording = NULL;
 
 	call_ng_process_flags(&flags, ctx);
 
@@ -4141,15 +4142,24 @@ const char *call_publish_ng(ng_command_ctx_t *ctx, const char *addr) {
 	if (ret)
 		ilog(LOG_ERR, "Publish error"); // XXX close call? handle errors?
 
+	update_metadata_monologue(ml, &flags);
+	detect_setup_recording(ml->call, &flags);
+
+	recording = call->recording;
+
+	meta_write_sdp_before(recording, &sdp_in, ml, flags.opmode);
 	bool ok = sdp_create(&sdp_out, ml, &flags);
-	if (ok) {
-		save_last_sdp(ml, &sdp_in, &parsed, &streams);
-		ctx->ngbuf->sdp_out = sdp_out.s;
-		parser->dict_add_str(ctx->resp, "sdp", &sdp_out);
-		sdp_out = STR_NULL; // ownership passed to output
-	}
-	else
+	if (!ok)
 		return "Failed to create SDP";
+
+	save_last_sdp(ml, &sdp_in, &parsed, &streams);
+	ctx->ngbuf->sdp_out = sdp_out.s;
+	parser->dict_add_str(ctx->resp, "sdp", &sdp_out);
+
+	meta_write_sdp_after(recording, &sdp_out, ml, flags.opmode);
+	sdp_out = STR_NULL; // ownership passed to output
+
+	recording_response(recording, parser, ctx->resp);
 
 	dequeue_sdp_fragments(ml);
 
