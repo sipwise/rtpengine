@@ -1927,11 +1927,11 @@ static void kernelize(struct packet_stream *stream) {
 
 	LOCK(&stream->lock);
 
-	if (stream->selected_sfd) {
-		if (stream->selected_sfd->kernelized)
-			return;
-		stream->selected_sfd->kernelized = true;
-	}
+	if (!stream->selected_sfd)
+		goto no_kernel;
+
+	if (stream->selected_sfd->kernelized)
+		return;
 
 	if (call->recording != NULL && !selected_recording_method->kernel_support)
 		goto no_kernel;
@@ -1940,8 +1940,6 @@ static void kernelize(struct packet_stream *stream) {
 	if (!kernel.is_open)
 		goto no_kernel_warn;
 	if (MEDIA_ISSET(media, GENERATOR))
-		goto no_kernel;
-	if (!stream->selected_sfd)
 		goto no_kernel;
 	if (ML_ISSET(media->monologue, BLOCK_MEDIA) || CALL_ISSET(call, BLOCK_MEDIA))
 		goto no_kernel;
@@ -1967,14 +1965,14 @@ static void kernelize(struct packet_stream *stream) {
 				continue;
 			bool ok = kernelize_one_sink_handler(&s, stream, sh, false);
 			if (!ok)
-				continue; // retry
+				goto retry;
 		}
 		// RTP egress mirrors
 		for (__auto_type l = s.rtp_mirrors[mi]->head; l; l = l->next) {
 			struct sink_handler *sh = l->data;
 			bool ok = kernelize_one_sink_handler(&s, stream, sh, false);
 			if (!ok)
-				continue; // retry
+				goto retry;
 		}
 		// RTP -> RTCP sinks
 		// record number of RTP destinations up to now
@@ -1986,7 +1984,7 @@ static void kernelize(struct packet_stream *stream) {
 			struct sink_handler *sh = l->data;
 			bool ok = kernelize_one_sink_handler(&s, stream, sh, true);
 			if (!ok)
-				continue; // retry
+				goto retry;
 		}
 		// mark the end of RTCP outputs
 		s.reti.media_output_idxs[mi].rtcp_end_idx = s.reti.num_destinations;
@@ -2006,6 +2004,8 @@ static void kernelize(struct packet_stream *stream) {
 	}
 
 	stream->kernel_time_us = rtpe_now;
+	stream->selected_sfd->kernelized = true;
+
 	return;
 
 no_kernel_warn:
@@ -2016,6 +2016,7 @@ no_kernel:
 	PS_SET(stream, NO_KERNEL_SUPPORT);
 	return;
 
+retry:;
 	}
 }
 
