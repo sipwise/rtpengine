@@ -877,7 +877,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 
 	mutex_lock(&rtpe_codec_stats_lock);
 	HEADER("transcoders", NULL);
-	HEADER("[", "");
+	HEADER("[", NULL);
 
 	int last_tv_sec = rtpe_now / 1000000 - 1;
 	unsigned int idx = last_tv_sec & 1;
@@ -887,7 +887,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 	char *chain;
 	struct codec_stats *stats_entry;
 	while (t_hash_table_iter_next(&iter, &chain, &stats_entry)) {
-		HEADER("{", "");
+		HEADER("{", NULL);
 		METRICsva("chain", "\"%s\"", chain);
 		METRICs("num", "%i", atomic_get_na(&stats_entry->num_transcoders));
 		PROM("transcoders", "gauge");
@@ -906,17 +906,17 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 		METRICs("samples", "%" PRIu64, atomic64_get(&stats_entry->pcm_samples[2]));
 		PROM("transcode_samples_total", "counter");
 		PROMLAB("chain=\"%s\"", chain);
-		HEADER("}", "");
+		HEADER("}", NULL);
 	}
 
 	mutex_unlock(&rtpe_codec_stats_lock);
-	HEADER("]", "");
+	HEADER("]", NULL);
 
 	HEADER("poller_threads", NULL);
 	HEADER("[", NULL);
 	for (unsigned int i = 0; i < num_poller_threads; i++) {
 		struct poller_thread *pt = &rtpe_poller_threads[i];
-		HEADER("{", "");
+		HEADER("{", NULL);
 		METRICs("index", "%u", i);
 		METRICs("pid", "%u", (unsigned int) pt->pid);
 		METRICs("wakeups", "%" PRIu64, atomic64_get_na(&pt->wakeups));
@@ -925,7 +925,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 		METRICs("items", "%" PRIu64, atomic64_get_na(&pt->items));
 		PROM("poller_items", "counter");
 		PROMLAB("index=\"%u\",pid=\"%u\"", i, (unsigned int) pt->pid);
-		HEADER("}", "");
+		HEADER("}", NULL);
 	}
 	HEADER("]", NULL);
 
