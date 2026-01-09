@@ -1929,6 +1929,10 @@ static void kernelize(struct packet_stream *stream) {
 	if (!stream->selected_sfd)
 		goto no_kernel;
 
+	{
+
+	LOCK(&stream->selected_sfd->lock);
+
 	if (stream->selected_sfd->kernelized)
 		return;
 
@@ -2004,6 +2008,8 @@ static void kernelize(struct packet_stream *stream) {
 
 	stream->kernel_time_us = rtpe_now;
 	stream->selected_sfd->kernelized = true;
+
+	}
 
 	return;
 
@@ -3935,6 +3941,7 @@ static void stream_fd_free(stream_fd *f) {
 	release_port(&f->spl);
 	crypto_cleanup(&f->crypto);
 	dtls_connection_cleanup(&f->dtls);
+	mutex_destroy(&f->lock);
 
 	obj_put(f->call);
 }
@@ -3944,6 +3951,7 @@ stream_fd *stream_fd_new(struct socket_port_link *spl, call_t *call, struct loca
 	struct poller_item pi;
 
 	sfd = obj_alloc0(stream_fd, stream_fd_free);
+	mutex_init(&sfd->lock);
 	sfd->unique_id = t_queue_get_length(&call->stream_fds);
 	sfd->call = obj_get(call);
 	sfd->local_intf = lif;
