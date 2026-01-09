@@ -1904,14 +1904,14 @@ static void kernelize(struct packet_stream *stream) {
 			continue;
 		bool ok = kernelize_one_sink_handler(&s, stream, sh);
 		if (!ok)
-			continue; // retry
+			goto retry;
 	}
 	// RTP egress mirrors
 	for (__auto_type l = stream->rtp_mirrors.head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
 		bool ok = kernelize_one_sink_handler(&s, stream, sh);
 		if (!ok)
-			continue; // retry
+			goto retry;
 	}
 	// RTP -> RTCP sinks
 	// record number of RTP destinations up to now
@@ -1922,7 +1922,7 @@ static void kernelize(struct packet_stream *stream) {
 		struct sink_handler *sh = l->data;
 		bool ok = kernelize_one_sink_handler(&s, stream, sh);
 		if (!ok)
-			continue; // retry
+			goto retry;
 	}
 	// mark the start of RTCP outputs
 	s.reti.num_rtcp_destinations = s.reti.num_destinations - num_rtp_dests;
@@ -1954,6 +1954,7 @@ no_kernel:
 	PS_SET(stream, NO_KERNEL_SUPPORT);
 	return;
 
+retry:;
 	}
 }
 
