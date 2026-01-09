@@ -221,6 +221,7 @@ struct stream_fd {
 	 * (plus some other wrapper functions).
 	 */
 	struct obj			obj;
+	mutex_t				lock; // for kernelized flag, nested under stream->lock
 
 	unsigned int			unique_id;	/* RO */
 	union {
