@@ -32,6 +32,9 @@ bool kernel_setup_table(unsigned int);
 bool kernel_init_table(void);
 void kernel_shutdown_table(void);
 
+void *kernel_shm_alloc(size_t s);
+void *kernel_shm_alloc0(size_t s);
+
 bool kernel_add_stream(struct rtpengine_command_add_target *);
 void kernel_add_destination(struct rtpengine_command_destination *);
 

@@ -194,6 +194,13 @@ bool kernel_setup_table(unsigned int id) {
 	return true;
 }
 
+void *kernel_shm_alloc(size_t s) {
+	return bufferpool_alloc(shm_bufferpool, s);
+}
+void *kernel_shm_alloc0(size_t s) {
+	return bufferpool_alloc0(shm_bufferpool, s);
+}
+
 void kernel_shutdown_table(void) {
 	if (!kernel.is_open)
 		return;

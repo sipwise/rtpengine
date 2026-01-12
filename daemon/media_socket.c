@@ -3939,13 +3939,15 @@ static void stream_fd_free(stream_fd *f) {
 	mutex_destroy(&f->lock);
 
 	obj_put(f->call);
+
+	bufferpool_unref(f);
 }
 
 stream_fd *stream_fd_new(struct socket_port_link *spl, call_t *call, struct local_intf *lif) {
 	stream_fd *sfd;
 	struct poller_item pi;
 
-	sfd = obj_alloc0(stream_fd, stream_fd_free);
+	sfd = obj_alloc_full(stream_fd, NULL, kernel_shm_alloc0, stream_fd_free);
 	mutex_init(&sfd->lock);
 	sfd->unique_id = t_queue_get_length(&call->stream_fds);
 	sfd->call = obj_get(call);
