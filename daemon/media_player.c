@@ -109,12 +109,12 @@ static gboolean media_player_cache_entry_eq(const struct media_player_cache_inde
 static void __media_player_cache_entry_free(struct media_player_cache_entry *p);
 TYPED_GHASHTABLE(media_player_cache_ht, struct media_player_cache_index, struct media_player_cache_entry,
 			media_player_cache_entry_hash, media_player_cache_entry_eq,
-			NULL, (void(*)(struct media_player_cache_entry *)) __obj_put)
+			NULL, (void(*)(struct media_player_cache_entry *)) obj_put_gen)
 TYPED_GQUEUE(media_player_cache_entry, struct media_player_cache_entry)
 static media_player_cache_ht media_player_cache; // keys and values only ever freed at shutdown
 
 TYPED_GHASHTABLE(media_player_media_files_ht, str, struct media_player_media_file, str_hash, str_equal,
-		NULL, (void(*)(struct media_player_media_file *)) __obj_put);
+		NULL, (void(*)(struct media_player_media_file *)) obj_put_gen);
 static mutex_t media_player_media_files_lock = MUTEX_STATIC_INIT;
 static media_player_media_files_ht media_player_media_files;
 static rwlock_t media_player_media_files_names_lock = RWLOCK_STATIC_INIT;
@@ -122,7 +122,7 @@ static str_q media_player_media_files_names = TYPED_GQUEUE_INIT;
 // lock order: media_player_media_files_names_lock first, media_player_media_files_lock second
 
 TYPED_GHASHTABLE(media_player_db_media_ht, void, struct media_player_media_file, g_direct_hash, g_direct_equal,
-		NULL, (void(*)(struct media_player_media_file *)) __obj_put);
+		NULL, (void(*)(struct media_player_media_file *)) obj_put_gen);
 static mutex_t media_player_db_media_lock = MUTEX_STATIC_INIT;
 static media_player_db_media_ht media_player_db_media;
 static rwlock_t media_player_db_media_ids_lock = RWLOCK_STATIC_INIT;

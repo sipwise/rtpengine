@@ -93,6 +93,9 @@ static void __start(const char *file, int line) {
 	ssrc_A = 1234;
 	ssrc_B = 2345;
 	ZERO(call);
+#if OBJ_DEBUG
+	call.obj.magic = OBJ_MAGIC;
+#endif
 	obj_hold(&call);
 	call.tags = tags_ht_new();
 	call.callid = STR("test-call");

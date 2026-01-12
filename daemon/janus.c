@@ -29,7 +29,7 @@ struct janus_session { // "login" session
 };
 
 TYPED_GHASHTABLE(janus_sessions_ht, uint64_t, struct janus_session, int64_hash, int64_eq, NULL,
-		(void (*)(struct janus_session *)) __obj_put)
+		(void (*)(struct janus_session *)) obj_put_gen)
 
 
 struct janus_handle { // corresponds to a conference participant
