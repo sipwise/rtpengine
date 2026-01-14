@@ -202,37 +202,31 @@ void kernel_shutdown_table(void) {
 }
 
 
-void kernel_add_stream(struct rtpengine_target_info *mti) {
+void kernel_add_stream(struct rtpengine_command_add_target *cmd) {
 	ssize_t ret;
 
 	if (!kernel.is_open)
 		return;
 
-	struct rtpengine_command_add_target cmd = {
-		.cmd = REMG_ADD_TARGET,
-		.target = *mti,
-	};
+	cmd->cmd = REMG_ADD_TARGET;
 
-	ret = write(kernel.fd, &cmd, sizeof(cmd));
-	if (ret == sizeof(cmd))
+	ret = write(kernel.fd, cmd, sizeof(*cmd));
+	if (ret == sizeof(*cmd))
 		return;
 
 	ilog(LOG_ERROR, "Failed to push relay stream to kernel: %s", strerror(errno));
 }
 
-void kernel_add_destination(struct rtpengine_destination_info *mdi) {
+void kernel_add_destination(struct rtpengine_command_destination *cmd) {
 	ssize_t ret;
 
 	if (!kernel.is_open)
 		return;
 
-	struct rtpengine_command_destination cmd = {
-		.cmd = REMG_ADD_DESTINATION,
-		.destination = *mdi,
-	};
+	cmd->cmd = REMG_ADD_DESTINATION;
 
-	ret = write(kernel.fd, &cmd, sizeof(cmd));
-	if (ret == sizeof(cmd))
+	ret = write(kernel.fd, cmd, sizeof(*cmd));
+	if (ret == sizeof(*cmd))
 		return;
 
 	ilog(LOG_ERROR, "Failed to push relay stream destination to kernel: %s", strerror(errno));

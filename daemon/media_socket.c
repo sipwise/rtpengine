@@ -1507,10 +1507,10 @@ static int __rtp_stats_pt_sort(const void *A, const void *B) {
 }
 
 
-TYPED_GQUEUE(kernel_output, struct rtpengine_destination_info)
+TYPED_GQUEUE(kernel_output, struct rtpengine_command_destination)
 
 struct kernelize_state {
-	struct rtpengine_target_info reti;
+	struct rtpengine_command_add_target reti;
 	struct ssrc_entry_call *ssrc[RTPE_NUM_SSRC_TRACKING];
 	kernel_output_q outputs;
 	sink_handler_q *rtp_sinks[RTPE_NUM_OUTPUT_MEDIA];
@@ -1526,7 +1526,7 @@ struct kernelize_state {
 
 static void kernelize_state_clear(kernelize_state *s) {
 	t_queue_clear_full(&s->outputs,
-			(void (*)(struct rtpengine_destination_info *)) g_free);
+			(void (*)(struct rtpengine_command_destination *)) g_free);
 }
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(kernelize_state, kernelize_state_clear)
@@ -1589,7 +1589,7 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 			endpoint_print_buf(&sfd->socket.local));
 
 	// fill input
-	__auto_type reti = &s->reti;
+	__auto_type reti = &s->reti.target;
 
 	if (PS_ISSET2(stream, STRICT_SOURCE, MEDIA_HANDOVER)) {
 		__re_address_translate_ep(&reti->expected_src, MEDIA_ISSET(media, ASYMMETRIC) ? &stream->learned_endpoint : &stream->endpoint);
@@ -1793,7 +1793,7 @@ static const char *kernelize_one(kernelize_state *s,
 	if (!handler->out->kernel)
 		return "protocol not supported by kernel module";
 
-	__auto_type reti = &s->reti;
+	__auto_type reti = &s->reti.target;
 
 	// any output at all?
 	if (s->non_forwarding || !sink->selected_sfd)
@@ -1802,7 +1802,9 @@ static const char *kernelize_one(kernelize_state *s,
 		return NULL;
 
 	// fill output struct
-	__auto_type redi = g_new0(struct rtpengine_destination_info, 1);
+	__auto_type credi = g_new0(struct rtpengine_command_destination, 1);
+	__auto_type redi = &credi->destination;
+
 	redi->local = reti->local;
 	redi->output.tos = call->tos;
 	redi->output.rtcp = rtcp;
@@ -1841,7 +1843,7 @@ static const char *kernelize_one(kernelize_state *s,
 	// XXX nested lock, avoid possible deadlock. should be reworked not to
 	// require a nested lock
 	if (sink != stream && mutex_trylock(&sink->lock)) {
-		g_free(redi);
+		g_free(credi);
 		return ""; // indicate deadlock
 	}
 
@@ -1875,14 +1877,14 @@ static const char *kernelize_one(kernelize_state *s,
 		mutex_unlock(&sink->lock);
 
 	if (!redi->output.encrypt.cipher || !redi->output.encrypt.hmac) {
-		g_free(redi);
+		g_free(credi);
 		return "encryption cipher or HMAC not supported by kernel module";
 	}
 
 	// got a new output
 	redi->num = reti->num_destinations;
 	reti->num_destinations++;
-	t_queue_push_tail(&s->outputs, redi);
+	t_queue_push_tail(&s->outputs, credi);
 	assert(s->outputs.length == reti->num_destinations);
 
 	return NULL;
@@ -1953,7 +1955,9 @@ static void kernelize(struct packet_stream *stream) {
 	if (err)
 		ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
 
-	if (!s.reti.local.family)
+	__auto_type reti = &s.reti.target;
+
+	if (!reti->local.family)
 		goto no_kernel;
 
 	for (unsigned int mi = 0; mi < RTPE_NUM_OUTPUT_MEDIA; mi++) {
@@ -1961,7 +1965,7 @@ static void kernelize(struct packet_stream *stream) {
 			continue; // not filled
 
 		// primary RTP sinks
-		s.reti.media_output_idxs[mi].rtp_start_idx = s.reti.num_destinations;
+		reti->media_output_idxs[mi].rtp_start_idx = reti->num_destinations;
 		for (__auto_type l = s.rtp_sinks[mi]->head; l; l = l->next) {
 			struct sink_handler *sh = l->data;
 			if (sh->attrs.block_media)
@@ -1979,9 +1983,9 @@ static void kernelize(struct packet_stream *stream) {
 		}
 		// RTP -> RTCP sinks
 		// record number of RTP destinations up to now
-		s.reti.media_output_idxs[mi].rtp_end_idx = s.reti.num_destinations;
+		reti->media_output_idxs[mi].rtp_end_idx = reti->num_destinations;
 		// also marks the start of RTCP outputs
-		s.reti.media_output_idxs[mi].rtcp_start_idx = s.reti.num_destinations;
+		reti->media_output_idxs[mi].rtcp_start_idx = reti->num_destinations;
 		// ignore RTP payload types
 		for (__auto_type l = s.rtcp_sinks[mi]->head; l; l = l->next) {
 			struct sink_handler *sh = l->data;
@@ -1990,17 +1994,17 @@ static void kernelize(struct packet_stream *stream) {
 				goto retry;
 		}
 		// mark the end of RTCP outputs
-		s.reti.media_output_idxs[mi].rtcp_end_idx = s.reti.num_destinations;
+		reti->media_output_idxs[mi].rtcp_end_idx = reti->num_destinations;
 	}
 
-	if (!s.outputs.length && !s.reti.non_forwarding) {
-		s.reti.non_forwarding = 1;
+	if (!s.outputs.length && !reti->non_forwarding) {
+		reti->non_forwarding = 1;
 		ilog(LOG_NOTICE | LOG_FLAG_LIMIT, "Setting 'non-forwarding' flag for kernel stream due to "
 				"lack of sinks");
 	}
 
 	kernel_add_stream(&s.reti);
-	struct rtpengine_destination_info *redi;
+	struct rtpengine_command_destination *redi;
 	while ((redi = t_queue_pop_head(&s.outputs))) {
 		kernel_add_destination(redi);
 		g_free(redi);
@@ -2847,8 +2851,10 @@ static void rtp_ext_mid_kernel(kernelize_state *s, unsigned int component, struc
 	if (bundle->extmap_id[RTP_EXT_MID]->id != media->extmap_id[RTP_EXT_MID]->id)
 		return;
 
-	s->reti.extmap = 1;
-	s->reti.extmap_mid = bundle->extmap_id[RTP_EXT_MID]->id;
+	__auto_type reti = &s->reti.target;
+
+	reti->extmap = 1;
+	reti->extmap_mid = bundle->extmap_id[RTP_EXT_MID]->id;
 
 	struct call_monologue *ml = bundle->monologue;
 
@@ -2866,8 +2872,8 @@ static void rtp_ext_mid_kernel(kernelize_state *s, unsigned int component, struc
 		if (media->media_id.len > 255)
 			continue;
 
-		s->reti.mid_output[idx].len = media->media_id.len;
-		memcpy(s->reti.mid_output[idx].mid, media->media_id.s, media->media_id.len);
+		reti->mid_output[idx].len = media->media_id.len;
+		memcpy(reti->mid_output[idx].mid, media->media_id.s, media->media_id.len);
 
 		struct packet_stream *bundle_ps = get_media_component(media, component);
 		if (!bundle_ps)
