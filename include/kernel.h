@@ -32,7 +32,7 @@ bool kernel_setup_table(unsigned int);
 bool kernel_init_table(void);
 void kernel_shutdown_table(void);
 
-void kernel_add_stream(struct rtpengine_command_add_target *);
+bool kernel_add_stream(struct rtpengine_command_add_target *);
 void kernel_add_destination(struct rtpengine_command_destination *);
 
 bool kernel_del_stream(struct rtpengine_command_del_target *);

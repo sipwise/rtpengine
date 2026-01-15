@@ -202,19 +202,20 @@ void kernel_shutdown_table(void) {
 }
 
 
-void kernel_add_stream(struct rtpengine_command_add_target *cmd) {
+bool kernel_add_stream(struct rtpengine_command_add_target *cmd) {
 	ssize_t ret;
 
 	if (!kernel.is_open)
-		return;
+		return false;
 
 	cmd->cmd = REMG_ADD_TARGET;
 
 	ret = write(kernel.fd, cmd, sizeof(*cmd));
 	if (ret == sizeof(*cmd))
-		return;
+		return true;
 
 	ilog(LOG_ERROR, "Failed to push relay stream to kernel: %s", strerror(errno));
+	return false;
 }
 
 void kernel_add_destination(struct rtpengine_command_destination *cmd) {
