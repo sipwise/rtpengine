@@ -70,7 +70,7 @@ struct rtpengine_srtp {
 	unsigned int			master_salt_len;
 	unsigned int			session_key_len;
 	unsigned int			session_salt_len;
-	unsigned char			mki[256]; /* XXX uses too much memory? */
+	unsigned char			mki[256];
 	unsigned int			rtp_auth_tag_len; /* in bytes */
 	unsigned int			rtcp_auth_tag_len; /* in bytes */
 	unsigned int			mki_len;
@@ -108,10 +108,10 @@ struct rtpengine_target_info {
 
 	struct rtpengine_srtp		decrypt;
 	uint32_t			ssrc[RTPE_NUM_SSRC_TRACKING]; // Expose the SSRC to userspace when we resync.
-	struct ssrc_stats		*ssrc_stats[RTPE_NUM_SSRC_TRACKING];
+	struct ssrc_stats		*ssrc_stats[RTPE_NUM_SSRC_TRACKING]; // pinned memory
 	unsigned int			ssrc_media_idx[RTPE_NUM_PAYLOAD_TYPES]; // same idx as ssrc
 
-	struct rtp_stats		*pt_stats[RTPE_NUM_PAYLOAD_TYPES]; // must be sorted by PT
+	struct rtp_stats		*pt_stats[RTPE_NUM_PAYLOAD_TYPES]; // must be sorted by PT, pinned memory
 	unsigned int			pt_media_idx[RTPE_NUM_PAYLOAD_TYPES]; // same idx as pt_stats
 	unsigned int			num_payload_types;
 
@@ -159,9 +159,9 @@ struct rtpengine_output_info {
 	uint8_t				extmap_mid_len;
 	char				extmap_mid_str[255];
 
-	struct interface_stats_block	*iface_stats; // for egress stats
-	struct stream_stats		*stats; // for egress stats
-	struct ssrc_stats		*ssrc_stats[RTPE_NUM_SSRC_TRACKING];
+	struct interface_stats_block	*iface_stats; // for egress stats, pinned memory
+	struct stream_stats		*stats; // for egress stats, pinned memory
+	struct ssrc_stats		*ssrc_stats[RTPE_NUM_SSRC_TRACKING]; // pinned memory
 
 	unsigned char			tos;
 	unsigned int			ssrc_subst:1,
@@ -221,7 +221,7 @@ enum rtpengine_command {
 struct rtpengine_init_info {
 	int				last_cmd;
 	size_t				msg_size[__REMG_LAST];
-	struct global_stats_counter	*rtpe_stats;
+	struct global_stats_counter	*rtpe_stats; // pinned memory
 };
 
 struct rtpengine_command_init {
@@ -238,9 +238,9 @@ struct rtpengine_play_stream_info {
 	uint16_t			seq; // start seq
 	struct rtpengine_srtp		encrypt;
 	unsigned int			packet_stream_idx;
-	struct interface_stats_block	*iface_stats; // for egress stats
-	struct stream_stats		*stats; // for egress stats
-	struct ssrc_stats		*ssrc_stats;
+	struct interface_stats_block	*iface_stats; // for egress stats, pinned memory
+	struct stream_stats		*stats; // for egress stats, pinned memory
+	struct ssrc_stats		*ssrc_stats; // pinned memory
 	int				repeat;
 	int				remove_at_end;
 };
