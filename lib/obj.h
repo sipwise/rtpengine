@@ -39,7 +39,7 @@ struct obj {
 	uint32_t		magic;
 	char			*type;
 #endif
-	unsigned int		ref;
+	int			ref;
 	void			(*clear_func)(void *);
 	void			(*free_func)(void *);
 };

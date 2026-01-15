@@ -884,7 +884,7 @@ static struct rtpengine_table *new_table(void) {
 
 
 static inline void __ref_get(void *p, atomic_t *refcnt) {
-	DBG("ref_get(%p) - refcnt is %u\n", p, atomic_read(refcnt));
+	DBG("ref_get(%p) - refcnt is %d\n", p, atomic_read(refcnt));
 	atomic_inc(refcnt);
 }
 #define ref_get(o) __ref_get(o, &(o)->refcnt)
