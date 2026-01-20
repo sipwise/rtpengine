@@ -579,7 +579,6 @@ struct re_timer_thread {
 	struct task_struct *task;
 
 	wait_queue_head_t queue;
-	atomic_t shutdown;
 
 	spinlock_t tree_lock; // XXX use mutex?
 	struct btree_head64 tree; // timer entries // XXX use rbtree?
@@ -3862,7 +3861,7 @@ static void shut_threads(struct re_timer_thread **thr, unsigned int nt) {
 		if (!tt)
 			continue;
 		//printk(KERN_WARNING "stopping %u\n", i);
-		atomic_set(&tt->shutdown, 1);
+		kthread_stop(tt->task);
 		wake_up_interruptible(&tt->queue);
 		// thread frees itself
 	}
@@ -4071,7 +4070,7 @@ static int timer_worker(void *p) {
 	struct re_timer_thread *tt = p;
 
 	//printk(KERN_WARNING "cpu %u running\n", smp_processor_id());
-	while (!atomic_read(&tt->shutdown)) {
+	while (!kthread_should_stop()) {
 		int64_t timer_scheduled;
 		struct re_play_stream *stream;
 		ktime_t now, packet_scheduled;
@@ -4192,7 +4191,7 @@ static int timer_worker(void *p) {
 					//(long int) (sleeptime_ns / 1000000LL),
 					//(long int) (current->timer_slack_ns / 1000000LL));
 			a = ktime_get();
-			wait_event_interruptible_hrtimeout(tt->queue, atomic_read(&tt->shutdown) || tt->tree_added,
+			wait_event_interruptible_hrtimeout(tt->queue, kthread_should_stop() || tt->tree_added,
 					ktime_set(0, sleeptime_ns));
 			b = ktime_get();
 			c = ktime_sub(b, a);
@@ -4217,7 +4216,6 @@ static struct re_timer_thread *launch_thread(unsigned int cpu) {
 	if (!tt)
 		return ERR_PTR(-ENOMEM);
 	init_waitqueue_head(&tt->queue);
-	atomic_set(&tt->shutdown, 0);
 	ret = btree_init64(&tt->tree);
 	if (ret) {
 		btree_destroy64(&tt->tree);
