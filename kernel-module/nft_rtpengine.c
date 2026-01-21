@@ -298,7 +298,7 @@ static int send_proxy_packet_output(struct sk_buff *skb, struct rtpengine_target
 		int rtp_pt_idx,
 		struct rtpengine_output *o, struct rtp_parsed *rtp, int ssrc_idx,
 		struct net *);
-static int send_proxy_packet(struct sk_buff *skb, struct re_address *src, struct re_address *dst,
+static int send_proxy_packet(struct sk_buff *skb, const struct re_address *src, const struct re_address *dst,
 		unsigned char tos, struct net *);
 static uint32_t proxy_packet_srtp_encrypt(struct sk_buff *skb, struct re_crypto_context *ctx,
 		struct rtpengine_srtp *srtp,
@@ -4969,7 +4969,7 @@ static ssize_t proc_control_read(struct file *file, char __user *ubuf, size_t bu
 
 
 
-static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struct re_address *dst,
+static int send_proxy_packet4(struct sk_buff *skb, const struct re_address *src, const struct re_address *dst,
 		unsigned char tos, struct net *net)
 {
 	struct iphdr *ih;
@@ -5055,7 +5055,7 @@ drop:
 
 
 
-static int send_proxy_packet6(struct sk_buff *skb, struct re_address *src, struct re_address *dst,
+static int send_proxy_packet6(struct sk_buff *skb, const struct re_address *src, const struct re_address *dst,
 		unsigned char tos, struct net *net)
 {
 	struct ipv6hdr *ih;
@@ -5141,7 +5141,7 @@ drop:
 
 
 
-static int send_proxy_packet(struct sk_buff *skb, struct re_address *src, struct re_address *dst,
+static int send_proxy_packet(struct sk_buff *skb, const struct re_address *src, const struct re_address *dst,
 		unsigned char tos, struct net *net)
 {
 	if (src->family != dst->family) {
