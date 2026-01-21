@@ -57,6 +57,11 @@ bool uring_poller_isblocked(struct poller *p, void *fdp);
 void uring_poller_error(struct poller *p, void *fdp);
 bool uring_poller_del_item_callback(struct poller *p, int fd, void (*callback)(void *), void *arg);
 
+#else
+
+static inline void uring_thread_init(void) { }
+static inline void uring_thread_cleanup(void) { }
+
 #endif
 
 #endif

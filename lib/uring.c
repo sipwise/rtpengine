@@ -129,6 +129,9 @@ static void __uring_free(struct uring_req *r) {
 }
 
 void uring_thread_init(void) {
+	if (!rtpe_common_config_ptr->io_uring)
+		return;
+
 	struct io_uring_params params = {0};
 	int ret = io_uring_queue_init_params(rtpe_common_config_ptr->io_uring_buffers, &rtpe_uring, &params);
 	if (ret)
@@ -143,6 +146,9 @@ void uring_thread_init(void) {
 }
 
 void uring_thread_cleanup(void) {
+	if (!rtpe_common_config_ptr->io_uring)
+		return;
+
 	io_uring_queue_exit(&rtpe_uring);
 }
 

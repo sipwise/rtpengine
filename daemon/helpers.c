@@ -198,10 +198,7 @@ static void thread_detach_cleanup(void *dtp) {
 	struct detach_thread *dt = dtp;
 	g_free(dt);
 	bufferpool_destroy(media_bufferpool);
-#ifdef HAVE_LIBURING
-	if (rtpe_config.common.io_uring)
-		uring_thread_cleanup();
-#endif
+	uring_thread_cleanup();
 	thread_join_me();
 }
 
@@ -254,10 +251,7 @@ static void *thread_detach_func(struct detach_thread *dt) {
 	}
 
 	media_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free);
-#ifdef HAVE_LIBURING
-	if (rtpe_config.common.io_uring)
-		uring_thread_init();
-#endif
+	uring_thread_init();
 
 	thread_cleanup_push(thread_detach_cleanup, dt);
 	dt->func(dt->data);

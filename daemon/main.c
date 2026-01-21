@@ -1565,17 +1565,11 @@ static void early_init(void) {
 #ifdef WITH_TRANSCODING
 static void clib_init(void) {
 	media_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free);
-#ifdef HAVE_LIBURING
-	if (rtpe_config.common.io_uring)
-		uring_thread_init();
-#endif
+	uring_thread_init();
 }
 static void clib_cleanup(void) {
 	bufferpool_destroy(media_bufferpool);
-#ifdef HAVE_LIBURING
-	if (rtpe_config.common.io_uring)
-		uring_thread_cleanup();
-#endif
+	uring_thread_cleanup();
 }
 static void clib_loop(void) {
 	uring_methods.thread_loop();
