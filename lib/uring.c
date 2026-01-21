@@ -134,10 +134,12 @@ void uring_thread_init(void) {
 	if (ret)
 		die("io_uring init failed (%s)", strerror(-ret));
 
-	uring_methods.sendmsg = __uring_sendmsg;
-	uring_methods.thread_loop = __uring_thread_loop;
-	uring_methods.__alloc_req = __uring_alloc;
-	uring_methods.free = __uring_free;
+	uring_methods = (struct uring_methods) {
+		.sendmsg = __uring_sendmsg,
+		.thread_loop = __uring_thread_loop,
+		.__alloc_req = __uring_alloc,
+		.free = __uring_free,
+	};
 }
 
 void uring_thread_cleanup(void) {
