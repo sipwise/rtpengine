@@ -34,7 +34,8 @@ Conflicts:	%{name}-kernel < %{version}-%{release}
 %endif
 
 BuildRequires: gcc make pkgconfig %{redhat_rpm_config}
-BuildRequires:	glib2-devel libcurl-devel openssl-devel pcre-devel
+BuildRequires:	glib2-devel libcurl-devel openssl-devel
+BuildRequires: pcre2-devel
 BuildRequires:	zlib-devel hiredis-devel
 %if 0%{?has_systemd_dirs}
 BuildRequires:  systemd-devel
@@ -44,19 +45,20 @@ BuildRequires:	mosquitto-devel
 BuildRequires:	gperf perl-IPC-Cmd
 BuildRequires:	perl-podlators
 BuildRequires:	libatomic
+BuildRequires:	libjwt-devel
 BuildRequires:	%{mysql_devel_pkg}
 BuildRequires:	pkgconfig(libwebsockets)
 BuildRequires:	pkgconfig(spandsp)
 BuildRequires:	pkgconfig(opus)
 %if 0%{?rhel} == 8
 # LTS mr11.5.1 cannot build with gcc 8.5
-BuildRequires: gcc-toolset-13
+BuildRequires: gcc-toolset-13 gcc-toolset-13-libatomic-devel
 %endif
 Requires(pre):	shadow-utils
 %if 0%{?rhel} >= 8
 BuildRequires:	pkgconfig(libmnl) pkgconfig(libnftnl) pandoc ncurses-devel
 %endif
-%if 0%{?rhel} >= 9
+%if 0%{?rhel} <= 9
 BuildRequires:	pkgconfig(libiptc)
 %endif
 
@@ -141,6 +143,7 @@ echo ==== LDFLAGS = $LDFLAGS ====
 # LTS mr11.5.1 cannot build with gcc 8.5
 . /opt/rh/gcc-toolset-13/enable
 %endif
+
 %if 0%{?with_transcoding} > 0
 RTPENGINE_VERSION="\"%{version}-%{release}\"" make all
 %else
@@ -154,6 +157,12 @@ RTPENGINE_VERSION="\"%{version}-%{release}\"" make with_transcoding=no all
 echo ---- CFLAGS = $CFLAGS ----
 echo ---- CXXFLAGS = $CXXFLAGS ----
 echo ---- LDFLAGS = $LDFLAGS ----
+
+%if 0%{?rhel} == 8
+# LTS mr11.5.1 cannot build with gcc 8.5
+. /opt/rh/gcc-toolset-13/enable
+%endif
+
 # Install the userspace daemon
 %if 0%{?with_transcoding} > 0
 RTPENGINE_VERSION="\"%{version}-%{release}\"" make DESTDIR=%{buildroot} install
