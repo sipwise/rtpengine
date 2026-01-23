@@ -1229,8 +1229,7 @@ static bool media_player_play_start(struct media_player *mp, const rtp_payload_t
 	if (__ensure_codec_handler(mp, dst_pt, codec_set))
 		return false;
 
-	if (mp->opts.block_egress)
-		MEDIA_SET(mp->media, BLOCK_EGRESS);
+	__media_player_set_opts(mp, mp->opts);
 
 	if (media_player_cache_entry_init(mp, dst_pt, codec_set))
 		return true;
