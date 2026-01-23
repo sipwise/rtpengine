@@ -106,6 +106,7 @@ struct socket {
 	sockfamily_t			*family;
 	endpoint_t			local;
 	endpoint_t			remote;
+	unsigned int			tos;
 };
 
 
@@ -367,6 +368,7 @@ INLINE bool endpoint_parse_any_str(endpoint_t *d, str *s) {
 
 INLINE void set_tos(socket_t *s, unsigned int tos) {
 	s->family->tos(s, tos);
+	s->tos = tos;
 }
 INLINE void set_pmtu_disc(socket_t *s, int opt) {
 	if (s->family->pmtu_disc)
