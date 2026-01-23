@@ -3907,7 +3907,7 @@ done:
 	log_info_pop();
 }
 
-static void stream_fd_recv(struct obj *obj, char *buf, size_t len, struct sockaddr *sa, int64_t tv) {
+static void stream_fd_recv(struct obj *obj, char *buf, size_t len, const struct sockaddr *sa, int64_t tv) {
 	struct stream_fd *sfd = (struct stream_fd *) obj;
 	call_t *ca = sfd->call;
 	if (!ca)
