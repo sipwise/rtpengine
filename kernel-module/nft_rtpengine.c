@@ -4240,7 +4240,7 @@ static struct re_timer_thread *launch_thread(unsigned int cpu) {
 static int init_play_streams(unsigned int n_play_streams, unsigned int n_stream_packets) {
 	int ret = 0;
 	struct re_timer_thread **threads_new = NULL;
-	unsigned int new_num_threads = 0;
+	int new_num_threads = 0;
 	bool need_threads;
 	struct re_play_stream **new_play_streams, **old_play_streams = NULL;
 	struct re_play_stream_packets **new_stream_packets, **old_stream_packets = NULL;
@@ -4270,7 +4270,7 @@ static int init_play_streams(unsigned int n_play_streams, unsigned int n_stream_
 	if (need_threads) {
 		ret = -ENXIO;
 		new_num_threads = num_online_cpus();
-		if (new_num_threads == 0)
+		if (new_num_threads <= 0)
 			goto err;
 
 		threads_new = kzalloc(sizeof(*threads_new) * new_num_threads, GFP_KERNEL);

@@ -121,8 +121,8 @@ struct rtpengine_target_info {
 		size_t				len;
 	}				mid_output[RTPE_NUM_OUTPUT_MEDIA];
 
-	struct interface_stats_block	*iface_stats; // for ingress stats
-	struct stream_stats		*stats; // for ingress stats
+	struct interface_stats_block	*iface_stats; // for ingress stats, pinned memory
+	struct stream_stats		*stats; // for ingress stats, pinned memory
 
 	unsigned int			extmap:1,
 					dtls:1,
