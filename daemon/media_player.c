@@ -670,6 +670,8 @@ static void media_player_cached_reader_start(struct media_player *mp, str_case_v
 	struct media_player_cache_entry *entry = mp->cache_entry;
 	const rtp_payload_type *dst_pt = &entry->coder.handler->dest_pt;
 
+	__media_player_set_opts(mp, mp->opts);
+
 	if (entry->kernel_idx != -1) {
 		media_player_kernel_player_start(mp);
 		return;
