@@ -623,6 +623,7 @@ static void media_player_kernel_player_start_now(struct media_player *mp) {
 		.seq = mp->seq,
 		.ts = mp->buffer_ts,
 		.ssrc = mp->ssrc_out->h.ssrc,
+		.tos = mp->call->tos,
 		.repeat = mp->opts.repeat,
 		.stats = mp->sink.sink->stats_out,
 		.iface_stats = mp->sink.sink->selected_sfd->local_intf->stats,

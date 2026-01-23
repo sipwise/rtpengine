@@ -236,6 +236,7 @@ struct rtpengine_play_stream_info {
 	uint32_t			ssrc;
 	uint32_t			ts; // start TS
 	uint16_t			seq; // start seq
+	int				tos;
 	struct rtpengine_srtp		encrypt;
 	unsigned int			packet_stream_idx;
 	struct interface_stats_block	*iface_stats; // for egress stats, pinned memory

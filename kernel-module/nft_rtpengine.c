@@ -4043,9 +4043,8 @@ static void play_stream_send_packet(struct re_play_stream *stream, struct re_pla
 	rtp.ok = 1;
 	rtp.rtcp = 0;
 
-	// XXX add TOS
 	proxy_packet_srtp_encrypt(skb, &stream->encrypt, &stream->info.encrypt, &rtp, 0, &stream->info.ssrc_stats);
-	send_proxy_packet(skb, &stream->info.src_addr, &stream->info.dst_addr, 0, NULL);
+	send_proxy_packet(skb, &stream->info.src_addr, &stream->info.dst_addr, stream->info.tos, NULL);
 
 	atomic64_inc(&stream->info.stats->packets);
 	atomic64_add(packet->len, &stream->info.stats->bytes);
