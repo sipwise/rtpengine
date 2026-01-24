@@ -5,7 +5,7 @@
 int (*iptables_add_rule)(const socket_t *local_sock, const str *comment);
 int (*iptables_del_rule)(const socket_t *local_sock);
 
-#ifdef WITH_IPTABLES_OPTION
+#ifdef HAVE_IPTABLES
 
 #include <stdio.h>
 #include <errno.h>
@@ -308,7 +308,7 @@ static int __iptables_del_rule(const socket_t *local_sock) {
 	return 0;
 }
 
-#endif // WITH_IPTABLES_OPTION
+#endif // HAVE_IPTABLES
 
 static int __iptables_stub(void) {
 	return 0;
@@ -325,7 +325,7 @@ void iptables_init(void) {
 		return;
 	}
 
-#ifdef WITH_IPTABLES_OPTION
+#ifdef HAVE_IPTABLES
 
 	iptables_add_rule = __iptables_add_rule;
 	iptables_del_rule = __iptables_del_rule;
@@ -375,6 +375,6 @@ out:
 	if (err)
 		ilog(LOG_ERROR, "Failed to flush iptables chain: %s (%s)", err, strerror(errno));
 
-#endif // WITH_IPTABLES_OPTION
+#endif // HAVE_IPTABLES
 
 }

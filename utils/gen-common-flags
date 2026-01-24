@@ -79,7 +79,6 @@ gen-pkgconf-flags LIBAVUTIL           libavutil
 gen-pkgconf-flags LIBCURL             libcurl
 gen-pkgconf-flags LIBCRYPTO           libcrypto
 gen-pkgconf-flags LIBEVENT            libevent_pthreads
-gen-pkgconf-flags LIBIPTC             libiptc
 gen-pkgconf-flags LIBMNL              libmnl
 gen-pkgconf-flags LIBNFTNL            libnftnl
 gen-pkgconf-flags LIBPCRE             libpcre2-8
@@ -92,7 +91,6 @@ gen-pkgconf-flags OPENSSL             openssl
 gen-pkgconf-flags OPUS                opus
 gen-pkgconf-flags SPANDSP             spandsp
 gen-pkgconf-flags LIBJWT              libjwt
-gen-pkgconf-flags MYSQL               mysqlclient
 gen-pkgconf-flags LIBHIREDIS          hiredis
 gen-pkgconf-flags LIBPCAP             libpcap
 
@@ -107,8 +105,22 @@ if pkg-config --exists libsystemd; then
   echo "CFLAGS_LIBSYSTEMD += -DHAVE_LIBSYSTEMD"
 fi
 
+
 # look for liburing
 if pkg-config --atleast-version=2.3 liburing; then
   gen-pkgconf-flags LIBURING liburing
   echo "CFLAGS_LIBURING += -DHAVE_LIBURING"
+fi
+
+# look for libiptc
+if pkg-config libiptc; then
+  gen-pkgconf-flags LIBIPTC libiptc
+  echo "CFLAGS_LIBIPTC += -DHAVE_LIBIPTC"
+fi
+
+# alternative MySQL/MariaDB
+if pkg-config --exists libmariadb; then
+  gen-pkgconf-flags MYSQL libmariadb
+else
+  gen-pkgconf-flags MYSQL mysqlclient
 fi

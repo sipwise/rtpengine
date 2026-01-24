@@ -4,7 +4,6 @@ export top_srcdir = ..
 
 include ../lib/deps.Makefile
 
-with_iptables_option ?= yes
 with_transcoding ?= yes
 
 ifeq ($(origin CFLAGS),undefined)
@@ -29,10 +28,7 @@ CFLAGS+=	$(CFLAGS_JSON_GLIB)
 CFLAGS+=	$(CFLAGS_LIBWEBSOCKETS)
 CFLAGS+=	$(CFLAGS_LIBNFTNL)
 CFLAGS+=	$(CFLAGS_LIBMNL)
-ifeq ($(with_iptables_option),yes)
 CFLAGS+=	$(CFLAGS_LIBIPTC)
-CFLAGS+=	-DWITH_IPTABLES_OPTION
-endif
 ifeq ($(with_transcoding),yes)
 CFLAGS+=	$(CFLAGS_LIBAVCODEC)
 CFLAGS+=	$(CFLAGS_LIBAVFORMAT)
