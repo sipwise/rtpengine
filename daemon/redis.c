@@ -2406,18 +2406,20 @@ err:
 		parser->list_add_str_dup(inner, &encstr); \
 	} while (0)
 #define JSON_SET_NSTRING(a,b,c,...) do { \
-		int len = snprintf(tmp,sizeof(tmp), c, __VA_ARGS__); \
+		char tmp1[128]; \
+		int len = snprintf(tmp1, sizeof(tmp1), c, __VA_ARGS__); \
 		char enc[len * 3 + 1]; \
-		str encstr = parser->escape(enc, tmp, len); \
-		snprintf(tmp,sizeof(tmp), a,b); \
-		parser->dict_add_str_dup(inner, tmp, &encstr); \
+		str encstr = parser->escape(enc, tmp1, len); \
+		char tmp2[256]; \
+		snprintf(tmp2, sizeof(tmp2), a, b); \
+		parser->dict_add_str_dup_dup(inner, tmp2, &encstr); \
 	} while (0)
 #define JSON_SET_NSTRING_CSTR(a,b,d) JSON_SET_NSTRING_LEN(a, b, strlen(d), d)
 #define JSON_SET_NSTRING_LEN(a,b,l,d) do { \
 		char enc[l * 3 + 1]; \
 		str encstr = parser->escape(enc, d, l); \
 		snprintf(tmp,sizeof(tmp), a,b); \
-		parser->dict_add_str_dup(inner, tmp, &encstr); \
+		parser->dict_add_str_dup_dup(inner, tmp, &encstr); \
 	} while (0)
 #define JSON_SET_SIMPLE(a,c,...) do { \
 		int len = snprintf(tmp,sizeof(tmp), c, __VA_ARGS__); \
@@ -2455,7 +2457,6 @@ static int json_update_sdes_params(const ng_parser_t *parser, parser_arg inner, 
 		unsigned int unique_id,
 		const char *k, sdes_q *q)
 {
-	char tmp[2048];
 	unsigned int iter = 0;
 	char keybuf[32];
 	const char *key = k;
