@@ -116,6 +116,7 @@ INLINE void bencode_dictionary_add_string(bencode_item_t *dict, const char *key,
 INLINE void bencode_dictionary_add_str(bencode_item_t *dict, const char *key, const str *val);
 INLINE void bencode_dictionary_str_add_str(bencode_item_t *dict, const str *key, const str *val);
 INLINE void bencode_dictionary_add_str_dup(bencode_item_t *dict, const char *key, const str *val);
+INLINE void bencode_dictionary_add_str_dup_dup(bencode_item_t *dict, const char *key, const str *val);
 
 /* Convenience functions to add the respective (newly created) objects to a dictionary */
 INLINE void bencode_dictionary_add_integer(bencode_item_t *dict, const char *key, long long int val);
@@ -425,6 +426,12 @@ INLINE void bencode_dictionary_str_add_str(bencode_item_t *dict, const str *key,
 INLINE void bencode_dictionary_add_str_dup(bencode_item_t *dict, const char *key, const str *val) {
 	if (val)
 		bencode_dictionary_add(dict, key, bencode_str_dup(bencode_item_buffer(dict), val));
+}
+
+INLINE void bencode_dictionary_add_str_dup_dup(bencode_item_t *dict, const char *key, const str *val) {
+	if (val)
+		bencode_dictionary_add(dict, bencode_strdup(bencode_item_buffer(dict), key),
+				bencode_str_dup(bencode_item_buffer(dict), val));
 }
 
 INLINE void bencode_dictionary_add_integer(bencode_item_t *dict, const char *key, long long int val) {
