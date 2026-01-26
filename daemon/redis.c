@@ -2440,13 +2440,15 @@ err:
 #define JSON_SET_NSTRING_LEN(a,b,l,d) do { \
 		char enc[l * 3 + 1]; \
 		str encstr = parser->escape(enc, d, l); \
-		snprintf(tmp,sizeof(tmp), a,b); \
+		char tmp[256]; \
+		snprintf(tmp, sizeof(tmp), a, b); \
 		parser->dict_add_str_dup_dup(inner, tmp, &encstr); \
 	} while (0)
 #define JSON_SET_SIMPLE(a,c,...) do { \
-		int len = snprintf(tmp,sizeof(tmp), c, __VA_ARGS__); \
+		char tbuf[128]; \
+		int len = snprintf(tbuf, sizeof(tbuf), c, __VA_ARGS__); \
 		char enc[len * 3 + 1]; \
-		str encstr = parser->escape(enc, tmp, len); \
+		str encstr = parser->escape(enc, tbuf, len); \
 		parser->dict_add_str_dup(inner, a, &encstr); \
 	} while (0)
 #define JSON_SET_SIMPLE_LEN(a,l,d) do { \
@@ -2457,9 +2459,9 @@ err:
 #define JSON_SET_SIMPLE_CSTR(a,d) parser->dict_add_str_dup(inner, a, STR_PTR(d))
 #define JSON_SET_SIMPLE_STR(a,d) parser->dict_add_str_dup(inner, a, d)
 
-static void json_update_crypto_params(const ng_parser_t *parser, parser_arg inner, const char *key, struct crypto_params *p) {
-	char tmp[2048];
-
+static void json_update_crypto_params(const ng_parser_t *parser, parser_arg inner,
+		const char *key, struct crypto_params *p)
+{
 	if (!p->crypto_suite)
 		return;
 
@@ -2517,7 +2519,7 @@ static void json_update_dtls_fingerprint(const ng_parser_t *parser, parser_arg i
 
 static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 
-	char tmp[2048];
+	char tmp[128];
 	const ng_parser_t *parser = ctx->parser;
 
 	parser_arg root = parser->dict(ctx);
