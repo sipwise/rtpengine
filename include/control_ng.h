@@ -120,6 +120,7 @@ struct ng_parser {
 	void (*dict_add_string)(parser_arg, const char *, const char *);
 	void (*dict_add_str)(parser_arg, const char *, const str *);
 	void (*dict_add_str_dup)(parser_arg, const char *, const str *);
+	void (*dict_add_str_dup_dup)(parser_arg, const char *, const str *);
 	void (*dict_add_int)(parser_arg, const char *, long long);
 	parser_arg (*dict_add_dict)(parser_arg, const char *);
 	parser_arg (*dict_add_dict_dup)(parser_arg, const char *);
