@@ -677,7 +677,7 @@ int sockaddr_getaddrinfo_alt(sockaddr_t *a, sockaddr_t *a2, const char *s) {
 int endpoint_parse_any_getaddrinfo_alt(endpoint_t *d, endpoint_t *d2, const char *s) {
 	unsigned int len;
 	const char *ep;
-	char buf[64];
+	char buf[256];
 
 	ep = strrchr(s, ':');
 	if (!ep) {
