@@ -26540,5 +26540,96 @@ a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
 a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
+
+
+
+($sock_a, $sock_ax,
+	$sock_b, $sock_bx,
+	$sock_c, $sock_cx,
+	$sock_d, $sock_dx,
+) = new_call(
+	[qw(198.51.100.56 2444)], [qw(198.51.100.56 2445)],
+	[qw(198.51.100.56 2446)], [qw(198.51.100.56 2447)],
+	[qw(198.51.100.56 3444)], [qw(198.51.100.56 3445)],
+	[qw(198.51.100.56 3446)], [qw(198.51.100.56 3447)],
+);
+
+($port_a, $port_ax, $port_b, $port_bx) = offer('m=text', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.56
+t=0 0
+m=audio 2444 RTP/AVP 0 8
+m=text 2446 RTP/AVP 98 99
+a=rtpmap:98 t140/1000
+a=rtpmap:99 red/1000
+a=fmtp:99 98/98/98
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+m=text PORT RTP/AVP 98 99
+c=IN IP4 203.0.113.1
+a=rtpmap:98 t140/1000
+a=rtpmap:99 red/1000
+a=fmtp:99 98/98/98
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_c, $port_cx, $port_d, $port_dx) = answer('m=text', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.56
+t=0 0
+m=audio 3444 RTP/AVP 0 8
+m=text 3446 RTP/AVP 98 99
+a=rtpmap:98 t140/1000
+a=rtpmap:99 red/1000
+a=fmtp:99 98/98/98
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+m=text PORT RTP/AVP 98 99
+c=IN IP4 203.0.113.1
+a=rtpmap:98 t140/1000
+a=rtpmap:99 red/1000
+a=fmtp:99 98/98/98
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_c,  rtp(8, 1000, 3000, 0x1234, "\x99" x 160));
+rcv($sock_c, $port_a, rtpm(8, 1000, 3000, 0x1234, "\x99" x 160));
+
+snd($sock_c, $port_a,  rtp(8, 2000, 4000, 0x6234, "\x88" x 160));
+rcv($sock_a, $port_c, rtpm(8, 2000, 4000, 0x6234, "\x88" x 160));
+
+snd($sock_b, $port_d,  rtp(98, 6000, 8000, 0x9234, "a"));
+rcv($sock_d, $port_b, rtpm(98, 6000, 8000, 0x9234, "a"));
+
+snd($sock_d, $port_b,  rtp(98, 8000, 9000, 0xa234, "b"));
+rcv($sock_b, $port_d, rtpm(98, 8000, 9000, 0xa234, "b"));
+
+
+
+
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
