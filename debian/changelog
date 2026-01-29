@@ -1,3 +1,25 @@
+ngcp-rtpengine (13.5.1.4+0~mr13.5.1.4) unstable; urgency=medium
+
+  [ Orgad Shaneh ]
+  * [768a042] MT#55283 Doc: Fix internal links
+
+  [ S-P Chan ]
+  * [323bcd7] MT#55283 Add linker flag to fix LTO on EL
+  * [b8db4c7] MT#55283 Fix EL packaging
+
+  [ Richard Fuchs ]
+  * [3f20d61] MT#55283 fix deadlock retry logic
+  * [99647b5] MT#55283 include mysql dep
+  * [3028e13] MT#55283 support native libmariadb
+  * [ea11dfa] MT#55283 auto detect libiptc
+  * [4f26d7c] MT#55283 add str_dup_dup helper function
+  * [1622535] MT#55283 fix colliding use of temp buffer
+
+  [ Sergey Safarov ]
+  * [9e4c76e] MT#55283 el: updated mariadb-connector-c-devel as dependency
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 29 Jan 2026 13:39:40 +0100
+
 ngcp-rtpengine (13.5.1.3+0~mr13.5.1.3) unstable; urgency=medium
 
   [ Alex Brown ]
