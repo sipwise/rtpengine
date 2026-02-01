@@ -496,7 +496,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset
 	comps = 0;
 	for (__auto_type l = candidates->head; l; l = l->next) {
 		if (ag->remote_candidates.length >= MAX_ICE_CANDIDATES) {
-			ilogs(ice, LOG_WARNING, "Maxmimum number of ICE candidates exceeded");
+			ilogs(ice, LOG_WARNING, "Maximum number of ICE candidates exceeded");
 			break;
 		}
 
