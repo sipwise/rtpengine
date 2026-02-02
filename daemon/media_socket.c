@@ -3128,7 +3128,7 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 	// confirmation purposes when needed. This is regardless of whether rtcp-mux
 	// is enabled or not.
 	if (!phc->mp.sfd->confirmed && PS_ISSET(phc->mp.stream, RTP)) {
-		if (rtcp_demux_is_rtcp(&phc->s)) {
+		if (rtcp_demux_is_rtcp(&phc->s) && rtcp_pt(&phc->s) != RTCP_PT_APP) {
 			ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Ignoring stray RTCP packet from %s%s%s for "
 					"peer address confirmation purposes",
 					FMT_M(endpoint_print_buf(&phc->mp.fsin)));

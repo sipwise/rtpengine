@@ -36,15 +36,6 @@
 #define SRTCP_R_LENGTH 6
 #endif
 
-#define RTCP_PT_SR	200	/* sender report */
-#define RTCP_PT_RR	201	/* receiver report */
-#define RTCP_PT_SDES	202	/* source description */
-#define RTCP_PT_BYE	203	/* bye */
-#define RTCP_PT_APP	204	/* application specific */
-#define RTCP_PT_RTPFB	205	/* transport layer feedback message (RTP/AVPF) */
-#define RTCP_PT_PSFB	206	/* payload-specific feedback message (RTP/AVPF) */
-#define RTCP_PT_XR   207
-
 #define SDES_TYPE_END	0
 #define SDES_TYPE_CNAME	1
 #define SDES_TYPE_NAME	2
