@@ -2340,6 +2340,8 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			out->to_call_id = s;
 			break;
 		case CSH_LOOKUP("to-tag"):
+		case CSH_LOOKUP("to_tag"):
+		case CSH_LOOKUP("to tag"):
 			out->to_tag = s;
 			break;
 		case CSH_LOOKUP("TOS"):
