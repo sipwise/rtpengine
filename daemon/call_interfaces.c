@@ -2228,6 +2228,7 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 		case CSH_LOOKUP("rtpp-flags"):
 		case CSH_LOOKUP("rtpp_flags"):;
 			/* s - list of rtpp flags */
+			out->rtpp_flags = true;
 			parse_rtpp_flags(&s, out);
 			break;
 		case CSH_LOOKUP("SDES"):
