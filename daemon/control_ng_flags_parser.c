@@ -371,6 +371,16 @@ void parse_rtpp_flags(const str * rtpp_flags, sdp_ng_flags *out)
 					goto generic;
 				goto next;
 				break;
+			case 6:
+				if (val.s && (str_eq(&key, "to-tag")
+							|| str_eq(&key, "to_tag")
+							|| str_eq(&key, "to tag")))
+				{
+					out->to_tag = val;
+					out->to_tag_flag = true;
+					goto next;
+				}
+				goto generic;
 			case 7:
 				/* transport */
 				if (!val.s && str_eq(&key, "RTP/AVP"))
