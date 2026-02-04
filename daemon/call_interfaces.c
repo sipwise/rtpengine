@@ -4201,7 +4201,8 @@ const char *call_subscribe_request_ng(ng_command_ctx_t *ctx) {
 		flags.label = flags.set_label;
 
 	/* get destination monologue */
-	if (!flags.to_tag.len) {
+	// ignore the to-tag if rtpp_flags parsing is active and to-tag wasn't given explicitly
+	if (!flags.to_tag.len || (flags.rtpp_flags && !flags.to_tag_flag)) {
 		/* generate one */
 		flags.to_tag = STR_CONST(rand_buf);
 		rand_hex_str(flags.to_tag.s, flags.to_tag.len / 2);
