@@ -1,0 +1,69 @@
+name: Release
+on:
+  workflow_run:
+    workflows: [Debian package build]
+    types: [completed]
+permissions:
+  contents: write
+jobs:
+  release:
+    # Only run for successful tag pushes starting with 'mr'
+    # (package-build.yml only triggers 'push' events for tags, not branches)
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      startsWith(github.event.workflow_run.head_branch, 'mr')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v6
+        with:
+          path: packages
+          pattern: packages-*
+          merge-multiple: true
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate changelog
+        run: |
+          CURRENT_TAG="${{ github.event.workflow_run.head_branch }}"
+          PREVIOUS_TAG=$(git tag --list 'mr*' --sort=-version:refname | grep -A1 "^${CURRENT_TAG}$" | tail -1)
+
+          if [ "$PREVIOUS_TAG" = "$CURRENT_TAG" ] || [ -z "$PREVIOUS_TAG" ]; then
+            RANGE="$CURRENT_TAG"
+          else
+            RANGE="${PREVIOUS_TAG}..${CURRENT_TAG}"
+          fi
+
+          echo "Generating changelog for range: $RANGE"
+
+          echo "## Changes in ${CURRENT_TAG}" > release_notes.md
+          echo "" >> release_notes.md
+          if [ "$RANGE" != "$CURRENT_TAG" ]; then
+            echo "Changes since ${PREVIOUS_TAG}:" >> release_notes.md
+            echo "" >> release_notes.md
+          fi
+
+          git log --format='%aN' "$RANGE" | sort -u | while IFS= read -r author; do
+            echo "### $author" >> release_notes.md
+            echo "" >> release_notes.md
+            git log --format='* [%h] %s' --author="$author" "$RANGE" >> release_notes.md
+            echo "" >> release_notes.md
+          done
+
+          cat release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.workflow_run.head_branch }}
+          name: Release ${{ github.event.workflow_run.head_branch }}
+          body_path: release_notes.md
+          files: |
+            packages/*.deb
+            packages/*.tar.*
