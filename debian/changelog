@@ -1,3 +1,112 @@
+ngcp-rtpengine (14.1.1.0+0~mr14.1.1.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [15effb7] MT#55283 type-safe thread helpers
+  * [11f92ac] MT#55283 use g_new instead of g_malloc
+  * [750c006] MT#55283 increase poller wait time to forever
+  * [c1522c2] MT#55283 remove useless code
+  * [cbf8076] MT#55283 add atomic64 size/type assert
+  * [9196bb5] MT#55283 track poller stats
+  * [d279b14] MT#55283 export poller thread stats
+  * [e5d3aa0] MT#55283 add poller status to Prom
+  * [5586ed0] MT#55283 C90 compile fixes
+  * [0ed79a2] MT#55283 add hand-rolled netlink layer
+  * [09be645] MT#55283 replace linmnl/libnftnl usage
+  * [cc5c0f0] MT#55283 only remove rules with matching table
+  * [ecd535f] MT#55283 markup chain name
+  * [50e86ed] MT#55283 pull up extraction of PAR_STATE_NET ptr
+  * [b7586e2] MT#55283 generalise packet handler functions
+  * [ecdccf0] MT#55283 use more specific struct member names
+  * [7eeee27] MT#55283 add native nftables support
+  * [c2a9f0e] MT#55283 add dummy comment rule
+  * [b324647] MT#55283 create and delete native nftables rule
+  * [c5458cb] MT#55283 support nftables INET family
+  * [b9d1509] MT#55283 rename module
+  * [0fddfac] MT#55283 type safe codec containers
+  * [f5d9def] MT#55283 remove const qualifier from struct member
+  * [50dc4e5] MT#55283 support generic playback from AV files
+  * [11061b4] MT#55283 simpler lookup for PCM16
+  * [44d4dae] MT#55283 set AV seek flags
+  * [1e1e1d7] MT#55283 fix possible fd leak
+  * [addb93f] MT#55283 gitignore update
+  * [59ec32f] MT#55283 gitignore update
+  * [9995476] MT#55283 support native libmariadb
+  * [ff2f733] MT#55283 include mysql dep
+  * [5dcc70c] MT#55283 track human readable messages
+  * [645b5e1] MT#55283 return flexible error strings
+  * [b833a39] MT#55283 print readable msg for netlink errors
+  * [d891145] MT#55283 add sequencing to netlink messages
+  * [0fa3641] MT#55283 report netlink errors by seq num
+  * [1807eb9] MT#55283 skip over old NL messages
+  * [a766c0a] MT#55283 use nonblocking netlink recv
+  * [4b6b2eb] MT#55283 fix compilation for RHEL
+  * [422db0f] MT#55283 handle async errors
+  * [54ce6d6] MT#55283 add alternative opus encodings
+  * [fede2a0] MT#55283 fix deadlock retry logic
+  * [8b4219f] MT#55283 introduce stream_fd lock
+  * [c82d9ff] MT#55283 update return type
+  * [910624c] MT#55283 remove redundant condition
+  * [5defd9c] MT#55283 fix blank lines in stats output
+  * [cc53062] MT#55283 auto detect libiptc
+  * [26be887] MT#55283 generalise obj allocators
+  * [d813453] MT#55283 avoid implicit memcpy
+  * [65b94a7] MT#55283 return success from add_stream
+  * [00cc8f5] MT#55283 add comments
+  * [900dfd5] MT#55283 signed refcount for consistency
+  * [84ca9e6] MT#55283 use kthread_*_stop
+  * [91dde0b] MT#55283 use struct init
+  * [72ab151] MT#55283 move uring conditions
+  * [e242455] MT#55283 add const qualifiers
+  * [1456152] MT#55283 protect against possibly signed int
+  * [690d601] MT#55283 const qualifier
+  * [46a2124] MT#55283 use wrapper function
+  * [d27fc60] MT#55283 add missing opt setting
+  * [454983a] MT#55283 add TOS to kernel player
+  * [b1ac55c] MT#55283 add str_dup_dup helper function
+  * [cd5a77a] MT#55283 fix colliding use of temp buffer
+  * [d1c235c] MT#55283 tmp buffer improvements
+  * [2f6cdae] MT#55283 add m=text test
+  * [d3ef4ed] MT#55283 allow RTCP APP for peer verification
+  * [fe06c5c] MT#55283 track usage of rtpp-flags parsing
+  * [54c0dc9] MT#55283 allow alternative spellings for to-tag
+  * [d6cf41d] MT#55283 track explicit to-tag in rtpp-flags
+  * [3c07afd] MT#55283 ignore erroneous use of to-tag
+
+  [ Matteo Brancaleoni ]
+  * [e9fd1f8] MT#55283 Add inbound-peer, outbound-peer and peer flags for automatic interface selection
+
+  [ Victor Seva ]
+  * [9d8acb1] lib/netfilter_api.c: add missing headers
+
+  [ root ]
+  * [503c4aa] MT#55283 Fix nft_rtpengine compilation on RHEL/AlmaLinux 9.x kernel 5.14
+
+  [ Guillem Jover ]
+  * [88020c4] MT#62899 Update packaging for Debian trixie
+  * [b64e077] MT#55283 Rename from IPtables to nftables
+  * [99e9254] TT#82051 build: Remove unused .travis.yml file
+
+  [ Sergey Safarov ]
+  * [5a00f80] MT#55283 el: fixed dkms module build
+  * [708783b] MT#55283 el: updated mariadb-connector-c-devel as dependency
+
+  [ Orgad Shaneh ]
+  * [afb9f5b] MT#55283 Doc: Fix internal links
+  * [46fca93] MT#55283 Introduce docker build
+  * [2bc07e3] MT#55283 Support "record call" for publish
+
+  [ S-P Chan ]
+  * [92ff228] MT#55283 Add linker flag to fix LTO on EL
+  * [ec8f995] MT#55283 Fix EL packaging
+
+  [ Alexander Bakker ]
+  * [694a3b0] MT#55283 Increase input buffer size for getaddrinfo to 256
+
+  [ fergusean ]
+  * [256ad7b] MT#55283 Fix "maximum" typo
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 05 Feb 2026 10:24:35 +0100
+
 ngcp-rtpengine (14.1.0.0+0~mr14.1.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
