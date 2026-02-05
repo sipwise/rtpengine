@@ -1,0 +1,90 @@
+name: Debian package build
+on:
+  pull_request:
+  push:
+    tags:
+      - 'mr*'
+  schedule:
+    - cron: '0 8 * * *'
+permissions:
+  actions: read
+  contents: read
+  pull-requests: write
+concurrency:
+  group: "${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  build-debian:
+    if: github.event_name != 'schedule' || github.repository == 'sipwise/rtpengine'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dist: [trixie, sid]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Update changelog
+        run: |
+          set -ex
+          OLD_VERSION=$(dpkg-parsechangelog -SVersion)
+          SOURCE=$(dpkg-parsechangelog -SSource)
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION_SUFFIX="+gh"
+          else
+            VERSION_SUFFIX="+autobuild${GITHUB_RUN_NUMBER}"
+          fi
+          cat > debian/changelog <<EOT
+          ${SOURCE} (${OLD_VERSION}${VERSION_SUFFIX}) UNRELEASED; urgency=medium
+
+            * Automated Build
+
+           -- Automated Build <builder@localhost>  $(date -R)
+          EOT
+      - uses: jtdor/build-deb-action@v1
+        with:
+          docker-image: debian:${{ matrix.dist }}
+          buildpackage-opts: -Ppkg.ngcp-rtpengine.nobcg729
+      - name: Archive build result
+        uses: actions/upload-artifact@v6
+        with:
+          name: packages-${{ matrix.dist }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            debian/artifacts/*.deb
+            debian/artifacts/*.tar.*
+            debian/artifacts/*.changes
+            debian/artifacts/*.buildinfo
+
+  comment-pr:
+    if: github.event_name == 'pull_request'
+    needs: build-debian
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment PR with artifact links
+        continue-on-error: true
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const runId = context.runId;
+            const repoOwner = context.repo.owner;
+            const repoName = context.repo.repo;
+
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: repoOwner,
+              repo: repoName,
+              run_id: runId
+            });
+
+            const links = artifacts.data.artifacts
+              .filter(a => a.name.startsWith('packages-'))
+              .map(a => `- [${a.name}](https://github.com/${repoOwner}/${repoName}/actions/runs/${runId}/artifacts/${a.id})`)
+              .join('\n');
+
+            if (links) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: repoOwner,
+                repo: repoName,
+                body: `📦 Built Debian packages are ready!\n\n${links}`
+              });
+            }
