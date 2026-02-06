@@ -1043,6 +1043,11 @@ Spaces in each string may be replaced by hyphens.
 	Corresponds to the *rtpproxy* `a` flag. Advertises an RTP endpoint which uses asymmetric
 	RTP, which disables learning of endpoint addresses (see below).
 
+* `bidirectional`
+
+    For `publish` messages, support bidirectional media flow, i.e. don't
+    respond with `recvonly` media but instead respond with `sendrecv`.
+
 * `block DTMF`
 
     Useful in `offer` or `answer` messages to immdiately enable DTMF blocking

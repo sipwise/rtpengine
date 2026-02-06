@@ -4339,5 +4339,58 @@ is($resp->{interfaces}[1]{ports}{used}, 2, 'port usage');
 
 
 
+new_call;
+
+publish('sendrecv pub control',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=s-dummy
+a=s-foo:bar
+a=s-baz:quux blah
+m=audio 6642 RTP/AVP 0 8 9
+c=IN IP4 198.51.100.17
+a=sendrecv
+----------------------------------
+v=0
+o=- SDP_VERSION IN IP4 203.0.113.1
+s=RTPE_VERSION
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=recvonly
+a=rtcp:PORT
+SDP
+
+
+new_call;
+
+publish('sendrecv pub',
+	{ flags => ['bidirectional'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=s-dummy
+a=s-foo:bar
+a=s-baz:quux blah
+m=audio 6644 RTP/AVP 0 8 9
+c=IN IP4 198.51.100.17
+a=sendrecv
+----------------------------------
+v=0
+o=- SDP_VERSION IN IP4 203.0.113.1
+s=RTPE_VERSION
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
 done_testing();
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;

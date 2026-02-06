@@ -4334,8 +4334,11 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		if (codec_store_accept_one(&media->codecs, &flags->codec_accept, !!flags->accept_any))
 			return -1;
 
-		// the most we can do is receive
+		// we can definitely receive if needed
 		bf_copy(&media->media_flags, MEDIA_FLAG_RECV, &sp->sp_flags, SP_FLAG_SEND);
+		// and also send if so desired
+		if (flags->bidirectional)
+			bf_copy(&media->media_flags, MEDIA_FLAG_SEND, &sp->sp_flags, SP_FLAG_RECV);
 
 		if (sp->rtp_endpoint.port) {
 			__dtls_logic(flags, media, sp);

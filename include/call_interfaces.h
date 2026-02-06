@@ -298,6 +298,7 @@ RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 		     nat_wait:1,
 		     pierce_nat:1,
 		     directional:1,
+		     bidirectional:1,
 		     fatal:1,
 		     new_branch:1,
 		     provisional:1,

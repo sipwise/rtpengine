@@ -1110,6 +1110,9 @@ void call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 		case CSH_LOOKUP("player"):
 			out->audio_player = AP_TRANSCODING;
 			break;
+		case CSH_LOOKUP("bidirectional"):
+			out->bidirectional = true;
+			break;
 		case CSH_LOOKUP("block-dtmf"):
 		case CSH_LOOKUP("block-DTMF"):
 		case CSH_LOOKUP("block dtmf"):
