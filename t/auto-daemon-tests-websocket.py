@@ -13,7 +13,6 @@ import uuid
 
 from websockets import connect
 
-
 eventloop = None
 
 
@@ -22,10 +21,12 @@ async def make_ws(cls, proto):
     from websockets import __version__
 
     ws_ver = str(__version__)
-    ws_ver = '.'.join(ws_ver.split('.')[0:2])
+    ws_ver = ".".join(ws_ver.split(".")[0:2])
     if sys.version_info >= (3, 10) and float(ws_ver) <= 9.1:
         python_v = python_version()
-        msg = "python3-websocket {} unsupported in {}".format(__version__, python_v)
+        msg = "python3-websocket {} unsupported in {}".format(
+            __version__, python_v
+        )
         raise unittest.SkipTest(msg)
     for _ in range(1, 300):
         try:
@@ -120,7 +121,8 @@ class TestWSCli(unittest.TestCase):
         eventloop.run_until_complete(close_ws(cls))
 
     def testListNumsessions(self):
-        # race condition here if this runs at the same as the janus test (creates call)
+        # Race condition here if this runs at the same as the janus test
+        # (creates call).
         eventloop.run_until_complete(testIO(self, "list numsessions"))
         self.assertEqual(
             self._res,
@@ -180,16 +182,18 @@ class TestNG(unittest.TestCase):
     async def _testQueuedStats(self):
         futures = {}
         for idx in range(20):
-            cookie = f'test{idx}'
-            future = self._ws[0].send(cookie + ' ' + json.dumps({"command": "statistics"}))
+            cookie = f"test{idx}"
+            future = self._ws[0].send(
+                cookie + " " + json.dumps({"command": "statistics"})
+            )
             futures[cookie] = future
         for future in futures.values():
             await future
         for idx in range(20):
             msg = await asyncio.wait_for(self._ws[0].recv(), timeout=10)
             if isinstance(msg, bytes):
-                msg = msg.decode('utf-8')
-            cpos = msg.find(' ')
+                msg = msg.decode("utf-8")
+            cpos = msg.find(" ")
             cookie = msg[0:cpos]
             self.assertIn(cookie, futures)
             del futures[cookie]
@@ -211,7 +215,9 @@ class TestWSJanus(unittest.TestCase):
         eventloop.run_until_complete(
             testIOJson(self, {"janus": "ping", "transaction": "test123"})
         )
-        self.assertEqual(self._res, {"janus": "pong", "transaction": "test123"})
+        self.assertEqual(
+            self._res, {"janus": "pong", "transaction": "test123"}
+        )
 
     def testPingNoTS(self):
         eventloop.run_until_complete(testIOJson(self, {"janus": "ping"}))
@@ -239,7 +245,9 @@ class TestWSJanus(unittest.TestCase):
                 "janus": "server_info",
                 "name": "rtpengine Janus interface",
                 "plugins": {
-                    "janus.plugin.videoroom": {"name": "rtpengine Janus videoroom"}
+                    "janus.plugin.videoroom": {
+                        "name": "rtpengine Janus videoroom"
+                    }
                 },
                 "transaction": "foobar",
             },
@@ -260,7 +268,9 @@ class TestVideoroom(unittest.TestCase):
         # make sure we have a matching connection
         if conn_num >= len(self._ws):
             eventloop.run_until_complete(
-                get_more_ws(self, "janus-protocol", conn_num - len(self._ws) + 1)
+                get_more_ws(
+                    self, "janus-protocol", conn_num - len(self._ws) + 1
+                )
             )
 
         token = str(uuid.uuid4())
@@ -278,7 +288,10 @@ class TestVideoroom(unittest.TestCase):
         )
         self.assertEqual(
             self._res,
-            {"janus": "success", "data": {"plugins": ["janus.plugin.videoroom"]}},
+            {
+                "janus": "success",
+                "data": {"plugins": ["janus.plugin.videoroom"]},
+            },
         )
 
         # create session
@@ -295,7 +308,9 @@ class TestVideoroom(unittest.TestCase):
         )
         session = self._res["data"]["id"]
         self.assertIsInstance(session, int)
-        self.assertEqual(self._res, {"janus": "success", "data": {"id": session}})
+        self.assertEqual(
+            self._res, {"janus": "success", "data": {"id": session}}
+        )
 
         return (token, session)
 
@@ -303,7 +318,7 @@ class TestVideoroom(unittest.TestCase):
         # start fresh
         self.closeConns()
 
-        (token, session) = self.startSession()
+        token, session = self.startSession()
 
         handle = self.createHandle(token, session)
 
@@ -416,7 +431,11 @@ class TestVideoroom(unittest.TestCase):
         self.assertNotEqual(handle, session)
         self.assertEqual(
             self._res,
-            {"janus": "success", "session_id": session, "data": {"id": handle}},
+            {
+                "janus": "success",
+                "session_id": session,
+                "data": {"id": handle},
+            },
         )
 
         return handle
@@ -474,17 +493,18 @@ class TestVideoroom(unittest.TestCase):
         return feed
 
     def testKeepalive(self):
-        (token, session) = self.startSession()
+        token, session = self.startSession()
 
         eventloop.run_until_complete(
             testIOJanus(
-                self, {"janus": "keepalive", "token": token, "session_id": session}
+                self,
+                {"janus": "keepalive", "token": token, "session_id": session},
             )
         )
         self.assertEqual(self._res, {"janus": "ack", "session_id": session})
 
     def testVideoroomWebRTC(self):
-        (token, session, control_handle, room) = self.startVideoroom()
+        token, session, control_handle, room = self.startVideoroom()
 
         # timeout test
         eventloop.run_until_complete(asyncio.sleep(3))
@@ -660,7 +680,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
-                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"
+                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"  # noqa: E501
                 "a=end-of-candidates\r\n$",
                 re.DOTALL,
             ),
@@ -771,9 +791,10 @@ class TestVideoroom(unittest.TestCase):
         self.destroySession(token, session)
 
     def testVideoroomWebRTCAlt(self):
-        # alternative usage: publisher == controller, no extra feed_id, no room specified
+        # alternative usage: publisher == controller, no extra feed_id,
+        # no room specified
 
-        (token, session, control_handle, room) = self.startVideoroom()
+        token, session, control_handle, room = self.startVideoroom()
 
         # timeout test
         eventloop.run_until_complete(asyncio.sleep(3))
@@ -921,7 +942,9 @@ class TestVideoroom(unittest.TestCase):
         # followed by the attached event
         eventloop.run_until_complete(testIJanus(self))
         self.assertEqual(len(self._res["plugindata"]["data"]["streams"]), 1)
-        self.assertEqual(feed, self._res["plugindata"]["data"]["streams"][0]["feed_id"])
+        self.assertEqual(
+            feed, self._res["plugindata"]["data"]["streams"][0]["feed_id"]
+        )
         self.assertNotEqual(feed, control_handle)
         self.assertNotEqual(feed, session)
         self.assertNotEqual(feed, room)
@@ -948,7 +971,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
-                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"
+                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"  # noqa: E501
                 "a=end-of-candidates\r\n$",
                 re.DOTALL,
             ),
@@ -1064,7 +1087,7 @@ class TestVideoroom(unittest.TestCase):
         self.destroySession(token, session)
 
     def testVideoroomSDESDTLS(self):
-        (token, session, control_handle, room) = self.startVideoroom()
+        token, session, control_handle, room = self.startVideoroom()
 
         pub_handle = self.createHandle(token, session)
         self.assertNotEqual(pub_handle, control_handle)
@@ -1095,11 +1118,11 @@ class TestVideoroom(unittest.TestCase):
                             "t=0 0\r\n"
                             "m=audio 30000 RTP/SAVP 8 0 96\r\n"
                             "a=rtpmap:96 opus/48000\r\n"
-                            "a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:cJOJ7kxQjhFBp2fP6AYjs3vKw7CeBdWZCj0isbJv\r\n"
-                            "a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:VAzLKvoE3jG9cdH/AZsl/ZqWNXrUzyM4Gw6chrFr\r\n"
-                            "a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:8AbZePWwsKhLGX3GlXA+yHYPQ3cgraer/9DkFJYCOPZZy3o9wC0NIbIFYZfyHw==\r\n"
-                            "a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:2GLk3p/csdno4KlGO1TxCVaEt+bifmDlQ5NjnCb5cJYPURiGRSTBEtEq37db8g==\r\n"
-                            "a=fingerprint:sha-256 1A:20:98:16:CA:26:8C:33:62:0B:70:94:73:A0:9B:30:00:1A:EA:26:FC:7D:84:8B:F1:F9:52:2D:A7:92:C5:3D\r\n"
+                            "a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:cJOJ7kxQjhFBp2fP6AYjs3vKw7CeBdWZCj0isbJv\r\n"  # noqa: E501
+                            "a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:VAzLKvoE3jG9cdH/AZsl/ZqWNXrUzyM4Gw6chrFr\r\n"  # noqa: E501
+                            "a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:8AbZePWwsKhLGX3GlXA+yHYPQ3cgraer/9DkFJYCOPZZy3o9wC0NIbIFYZfyHw==\r\n"  # noqa: E501
+                            "a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:2GLk3p/csdno4KlGO1TxCVaEt+bifmDlQ5NjnCb5cJYPURiGRSTBEtEq37db8g==\r\n"  # noqa: E501
+                            "a=fingerprint:sha-256 1A:20:98:16:CA:26:8C:33:62:0B:70:94:73:A0:9B:30:00:1A:EA:26:FC:7D:84:8B:F1:F9:52:2D:A7:92:C5:3D\r\n"  # noqa: E501
                             "a=setup:actpass\r\n"
                             "a=sendonly\r\n"
                         ),
@@ -1165,7 +1188,7 @@ class TestVideoroom(unittest.TestCase):
         self.destroySession(token, session)
 
     def testVideoroomSDES(self):
-        (token, session, control_handle, room) = self.startVideoroom()
+        token, session, control_handle, room = self.startVideoroom()
 
         pub_handle = self.createHandle(token, session)
         self.assertNotEqual(pub_handle, control_handle)
@@ -1196,10 +1219,10 @@ class TestVideoroom(unittest.TestCase):
                             "t=0 0\r\n"
                             "m=audio 30000 RTP/SAVP 8 0 96\r\n"
                             "a=rtpmap:96 opus/48000\r\n"
-                            "a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:cJOJ7kxQjhFBp2fP6AYjs3vKw7CeBdWZCj0isbJv\r\n"
-                            "a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:VAzLKvoE3jG9cdH/AZsl/ZqWNXrUzyM4Gw6chrFr\r\n"
-                            "a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:8AbZePWwsKhLGX3GlXA+yHYPQ3cgraer/9DkFJYCOPZZy3o9wC0NIbIFYZfyHw==\r\n"
-                            "a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:2GLk3p/csdno4KlGO1TxCVaEt+bifmDlQ5NjnCb5cJYPURiGRSTBEtEq37db8g==\r\n"
+                            "a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:cJOJ7kxQjhFBp2fP6AYjs3vKw7CeBdWZCj0isbJv\r\n"  # noqa: E501
+                            "a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:VAzLKvoE3jG9cdH/AZsl/ZqWNXrUzyM4Gw6chrFr\r\n"  # noqa: E501
+                            "a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:8AbZePWwsKhLGX3GlXA+yHYPQ3cgraer/9DkFJYCOPZZy3o9wC0NIbIFYZfyHw==\r\n"  # noqa: E501
+                            "a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:2GLk3p/csdno4KlGO1TxCVaEt+bifmDlQ5NjnCb5cJYPURiGRSTBEtEq37db8g==\r\n"  # noqa: E501
                             "a=sendonly\r\n"
                         ),
                     },
@@ -1262,7 +1285,7 @@ class TestVideoroom(unittest.TestCase):
         self.destroySession(token, session)
 
     def testVideoroomDTLS(self):
-        (token, session, control_handle, room) = self.startVideoroom()
+        token, session, control_handle, room = self.startVideoroom()
 
         pub_handle = self.createHandle(token, session)
         self.assertNotEqual(pub_handle, control_handle)
@@ -1294,7 +1317,7 @@ class TestVideoroom(unittest.TestCase):
                             "m=audio 30000 UDP/TLS/RTP/SAVPF 8 0 96\r\n"
                             "a=mid:audio\r\n"
                             "a=rtpmap:96 opus/48000\r\n"
-                            "a=fingerprint:sha-256 1A:20:98:16:CA:26:8C:33:62:0B:70:94:73:A0:9B:30:00:1A:EA:26:FC:7D:84:8B:F1:F9:52:2D:A7:92:C5:3D\r\n"
+                            "a=fingerprint:sha-256 1A:20:98:16:CA:26:8C:33:62:0B:70:94:73:A0:9B:30:00:1A:EA:26:FC:7D:84:8B:F1:F9:52:2D:A7:92:C5:3D\r\n"  # noqa: E501
                             "a=setup:actpass\r\n"
                             "a=sendonly\r\n"
                         ),
@@ -1361,7 +1384,7 @@ class TestVideoroom(unittest.TestCase):
         self.destroySession(token, session)
 
     def testVideoroomWebrtcup(self):
-        (token, session, control_handle, room) = self.startVideoroom()
+        token, session, control_handle, room = self.startVideoroom()
 
         pub_handle = self.createHandle(token, session)
         self.assertNotEqual(pub_handle, control_handle)
@@ -1458,7 +1481,8 @@ class TestVideoroom(unittest.TestCase):
 
         # send fake RTP to trigger event
         m = pub_sock.send(
-            b"\x80\x08\x12\x34\x43\x32\x12\x45\x65\x45\x34\x23\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x80\x08\x12\x34\x43\x32\x12\x45\x65\x45\x34\x23\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
         )
 
         # wait for webrtcup event
@@ -1487,7 +1511,7 @@ class TestVideoroom(unittest.TestCase):
         pub_sock.close()
 
     def testVideoroomWebRTCVideo(self):
-        (token, session, control_handle, room) = self.startVideoroom()
+        token, session, control_handle, room = self.startVideoroom()
 
         pub_handle = self.createHandle(token, session)
         self.assertNotEqual(pub_handle, control_handle)
@@ -1517,24 +1541,24 @@ class TestVideoroom(unittest.TestCase):
                             "t=0 0\r\n"
                             "a=group:BUNDLE 0 1\r\n"
                             "a=extmap-allow-mixed\r\n"
-                            "a=msid-semantic: WMS hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"
+                            "a=msid-semantic: WMS hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"  # noqa: E501
                             "a=ice-options:trickle\r\n"
-                            "m=audio 9 UDP/TLS/RTP/SAVPF 111 103 104 9 0 8 106 105 13 110 112 113 126\r\n"
+                            "m=audio 9 UDP/TLS/RTP/SAVPF 111 103 104 9 0 8 106 105 13 110 112 113 126\r\n"  # noqa: E501
                             "c=IN IP4 0.0.0.0\r\n"
                             "a=rtcp:9 IN IP4 0.0.0.0\r\n"
                             "a=ice-ufrag:+JrN\r\n"
                             "a=ice-pwd:TMWORlSHr9fd+0bUNXnlBs5D\r\n"
-                            "a=fingerprint:sha-256 FD:56:1A:DB:3E:7B:8E:0B:75:4E:2E:49:1A:91:52:E4:69:9E:66:91:FF:34:A2:50:58:72:C0:8E:C2:87:CA:1F\r\n"
+                            "a=fingerprint:sha-256 FD:56:1A:DB:3E:7B:8E:0B:75:4E:2E:49:1A:91:52:E4:69:9E:66:91:FF:34:A2:50:58:72:C0:8E:C2:87:CA:1F\r\n"  # noqa: E501
                             "a=setup:actpass\r\n"
                             "a=mid:0\r\n"
-                            "a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level\r\n"
-                            "a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n"
-                            "a=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\n"
-                            "a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\n"
-                            "a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\n"
-                            "a=extmap:6 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\n"
+                            "a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level\r\n"  # noqa: E501
+                            "a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n"  # noqa: E501
+                            "a=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\n"  # noqa: E501
+                            "a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\n"  # noqa: E501
+                            "a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\n"  # noqa: E501
+                            "a=extmap:6 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\n"  # noqa: E501
                             "a=sendonly\r\n"
-                            "a=msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 2de0f1b0-3a39-450e-9804-8305ec87452b\r\n"
+                            "a=msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 2de0f1b0-3a39-450e-9804-8305ec87452b\r\n"  # noqa: E501
                             "a=rtcp-mux\r\n"
                             "a=rtpmap:111 opus/48000/2\r\n"
                             "a=rtcp-fb:111 transport-cc\r\n"
@@ -1552,30 +1576,30 @@ class TestVideoroom(unittest.TestCase):
                             "a=rtpmap:113 telephone-event/16000\r\n"
                             "a=rtpmap:126 telephone-event/8000\r\n"
                             "a=ssrc:677770262 cname:NMNDwVd66x2SfiO0\r\n"
-                            "a=ssrc:677770262 msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 2de0f1b0-3a39-450e-9804-8305ec87452b\r\n"
-                            "a=ssrc:677770262 mslabel:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"
-                            "a=ssrc:677770262 label:2de0f1b0-3a39-450e-9804-8305ec87452b\r\n"
-                            "m=video 9 UDP/TLS/RTP/SAVPF 96 97 98 99 100 101 102 121 127 120 125 107 108 109 35 36 124 119 123\r\n"
+                            "a=ssrc:677770262 msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 2de0f1b0-3a39-450e-9804-8305ec87452b\r\n"  # noqa: E501
+                            "a=ssrc:677770262 mslabel:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"  # noqa: E501
+                            "a=ssrc:677770262 label:2de0f1b0-3a39-450e-9804-8305ec87452b\r\n"  # noqa: E501
+                            "m=video 9 UDP/TLS/RTP/SAVPF 96 97 98 99 100 101 102 121 127 120 125 107 108 109 35 36 124 119 123\r\n"  # noqa: E501
                             "c=IN IP4 0.0.0.0\r\n"
                             "a=rtcp:9 IN IP4 0.0.0.0\r\n"
                             "a=ice-ufrag:+JrN\r\n"
                             "a=ice-pwd:TMWORlSHr9fd+0bUNXnlBs5D\r\n"
-                            "a=fingerprint:sha-256 FD:56:1A:DB:3E:7B:8E:0B:75:4E:2E:49:1A:91:52:E4:69:9E:66:91:FF:34:A2:50:58:72:C0:8E:C2:87:CA:1F\r\n"
+                            "a=fingerprint:sha-256 FD:56:1A:DB:3E:7B:8E:0B:75:4E:2E:49:1A:91:52:E4:69:9E:66:91:FF:34:A2:50:58:72:C0:8E:C2:87:CA:1F\r\n"  # noqa: E501
                             "a=setup:actpass\r\n"
                             "a=mid:1\r\n"
-                            "a=extmap:14 urn:ietf:params:rtp-hdrext:toffset\r\n"
-                            "a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n"
+                            "a=extmap:14 urn:ietf:params:rtp-hdrext:toffset\r\n"  # noqa: E501
+                            "a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n"  # noqa: E501
                             "a=extmap:13 urn:3gpp:video-orientation\r\n"
-                            "a=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\n"
-                            "a=extmap:12 http://www.webrtc.org/experiments/rtp-hdrext/playout-delay\r\n"
-                            "a=extmap:11 http://www.webrtc.org/experiments/rtp-hdrext/video-content-type\r\n"
-                            "a=extmap:7 http://www.webrtc.org/experiments/rtp-hdrext/video-timing\r\n"
-                            "a=extmap:8 http://www.webrtc.org/experiments/rtp-hdrext/color-space\r\n"
-                            "a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\n"
-                            "a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\n"
-                            "a=extmap:6 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\n"
+                            "a=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\n"  # noqa: E501
+                            "a=extmap:12 http://www.webrtc.org/experiments/rtp-hdrext/playout-delay\r\n"  # noqa: E501
+                            "a=extmap:11 http://www.webrtc.org/experiments/rtp-hdrext/video-content-type\r\n"  # noqa: E501
+                            "a=extmap:7 http://www.webrtc.org/experiments/rtp-hdrext/video-timing\r\n"  # noqa: E501
+                            "a=extmap:8 http://www.webrtc.org/experiments/rtp-hdrext/color-space\r\n"  # noqa: E501
+                            "a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\n"  # noqa: E501
+                            "a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\n"  # noqa: E501
+                            "a=extmap:6 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\n"  # noqa: E501
                             "a=sendonly\r\n"
-                            "a=msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"
+                            "a=msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"  # noqa: E501
                             "a=rtcp-mux\r\n"
                             "a=rtcp-rsize\r\n"
                             "a=rtpmap:96 VP8/90000\r\n"
@@ -1610,7 +1634,7 @@ class TestVideoroom(unittest.TestCase):
                             "a=rtcp-fb:102 ccm fir\r\n"
                             "a=rtcp-fb:102 nack\r\n"
                             "a=rtcp-fb:102 nack pli\r\n"
-                            "a=fmtp:102 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f\r\n"
+                            "a=fmtp:102 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f\r\n"  # noqa: E501
                             "a=rtpmap:121 rtx/90000\r\n"
                             "a=fmtp:121 apt=102\r\n"
                             "a=rtpmap:127 H264/90000\r\n"
@@ -1619,7 +1643,7 @@ class TestVideoroom(unittest.TestCase):
                             "a=rtcp-fb:127 ccm fir\r\n"
                             "a=rtcp-fb:127 nack\r\n"
                             "a=rtcp-fb:127 nack pli\r\n"
-                            "a=fmtp:127 level-asymmetry-allowed=1;packetization-mode=0;profile-level-id=42001f\r\n"
+                            "a=fmtp:127 level-asymmetry-allowed=1;packetization-mode=0;profile-level-id=42001f\r\n"  # noqa: E501
                             "a=rtpmap:120 rtx/90000\r\n"
                             "a=fmtp:120 apt=127\r\n"
                             "a=rtpmap:125 H264/90000\r\n"
@@ -1628,7 +1652,7 @@ class TestVideoroom(unittest.TestCase):
                             "a=rtcp-fb:125 ccm fir\r\n"
                             "a=rtcp-fb:125 nack\r\n"
                             "a=rtcp-fb:125 nack pli\r\n"
-                            "a=fmtp:125 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f\r\n"
+                            "a=fmtp:125 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f\r\n"  # noqa: E501
                             "a=rtpmap:107 rtx/90000\r\n"
                             "a=fmtp:107 apt=125\r\n"
                             "a=rtpmap:108 H264/90000\r\n"
@@ -1637,7 +1661,7 @@ class TestVideoroom(unittest.TestCase):
                             "a=rtcp-fb:108 ccm fir\r\n"
                             "a=rtcp-fb:108 nack\r\n"
                             "a=rtcp-fb:108 nack pli\r\n"
-                            "a=fmtp:108 level-asymmetry-allowed=1;packetization-mode=0;profile-level-id=42e01f\r\n"
+                            "a=fmtp:108 level-asymmetry-allowed=1;packetization-mode=0;profile-level-id=42e01f\r\n"  # noqa: E501
                             "a=rtpmap:109 rtx/90000\r\n"
                             "a=fmtp:109 apt=108\r\n"
                             "a=rtpmap:35 AV1X/90000\r\n"
@@ -1654,13 +1678,13 @@ class TestVideoroom(unittest.TestCase):
                             "a=rtpmap:123 ulpfec/90000\r\n"
                             "a=ssrc-group:FID 3005569364 2001490794\r\n"
                             "a=ssrc:3005569364 cname:NMNDwVd66x2SfiO0\r\n"
-                            "a=ssrc:3005569364 msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"
-                            "a=ssrc:3005569364 mslabel:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"
-                            "a=ssrc:3005569364 label:6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"
+                            "a=ssrc:3005569364 msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"  # noqa: E501
+                            "a=ssrc:3005569364 mslabel:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"  # noqa: E501
+                            "a=ssrc:3005569364 label:6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"  # noqa: E501
                             "a=ssrc:2001490794 cname:NMNDwVd66x2SfiO0\r\n"
-                            "a=ssrc:2001490794 msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"
-                            "a=ssrc:2001490794 mslabel:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"
-                            "a=ssrc:2001490794 label:6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"
+                            "a=ssrc:2001490794 msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"  # noqa: E501
+                            "a=ssrc:2001490794 mslabel:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"  # noqa: E501
+                            "a=ssrc:2001490794 label:6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"  # noqa: E501
                         ),
                     },
                     "handle_id": pub_handle,
@@ -1690,11 +1714,11 @@ class TestVideoroom(unittest.TestCase):
                 "a=rtcp-fb:111 transport-cc\r\n"
                 "a=extmap-allow-mixed\r\n"
                 "a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level\r\n"
-                "a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n"
-                "a=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\n"
+                "a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n"  # noqa: E501
+                "a=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\n"  # noqa: E501
                 "a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\n"
                 "a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\n"
-                "a=extmap:6 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\n"
+                "a=extmap:6 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\n"  # noqa: E501
                 "a=recvonly\r\n"
                 "a=rtcp:\\d+\r\n"
                 "a=rtcp-mux\r\n"
@@ -1704,7 +1728,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
-                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"
+                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"  # noqa: E501
                 "a=end-of-candidates\r\n"
                 "m=video \\d+ UDP/TLS/RTP/SAVPF 96\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
@@ -1717,16 +1741,16 @@ class TestVideoroom(unittest.TestCase):
                 "a=rtcp-fb:96 nack pli\r\n"
                 "a=extmap-allow-mixed\r\n"
                 "a=extmap:14 urn:ietf:params:rtp-hdrext:toffset\r\n"
-                "a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n"
+                "a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n"  # noqa: E501
                 "a=extmap:13 urn:3gpp:video-orientation\r\n"
-                "a=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\n"
-                "a=extmap:12 http://www.webrtc.org/experiments/rtp-hdrext/playout-delay\r\n"
-                "a=extmap:11 http://www.webrtc.org/experiments/rtp-hdrext/video-content-type\r\n"
-                "a=extmap:7 http://www.webrtc.org/experiments/rtp-hdrext/video-timing\r\n"
-                "a=extmap:8 http://www.webrtc.org/experiments/rtp-hdrext/color-space\r\n"
+                "a=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\n"  # noqa: E501
+                "a=extmap:12 http://www.webrtc.org/experiments/rtp-hdrext/playout-delay\r\n"  # noqa: E501
+                "a=extmap:11 http://www.webrtc.org/experiments/rtp-hdrext/video-content-type\r\n"  # noqa: E501
+                "a=extmap:7 http://www.webrtc.org/experiments/rtp-hdrext/video-timing\r\n"  # noqa: E501
+                "a=extmap:8 http://www.webrtc.org/experiments/rtp-hdrext/color-space\r\n"  # noqa: E501
                 "a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\n"
-                "a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\n"
-                "a=extmap:6 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\n"
+                "a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\n"  # noqa: E501
+                "a=extmap:6 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\n"  # noqa: E501
                 "a=recvonly\r\n"
                 "a=rtcp:\\d+\r\n"
                 "a=rtcp-mux\r\n"
@@ -1736,7 +1760,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
-                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"
+                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"  # noqa: E501
                 "a=end-of-candidates\r\n$",
                 re.DOTALL,
             ),
@@ -1815,16 +1839,16 @@ class TestVideoroom(unittest.TestCase):
                 "a=rtcp-fb:111 transport-cc\r\n"
                 "a=extmap-allow-mixed\r\n"
                 "a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level\r\n"
-                "a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n"
-                "a=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\n"
+                "a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n"  # noqa: E501
+                "a=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\n"  # noqa: E501
                 "a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\n"
                 "a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\n"
-                "a=extmap:6 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\n"
-                "a=msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 2de0f1b0-3a39-450e-9804-8305ec87452b\r\n"
+                "a=extmap:6 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\n"  # noqa: E501
+                "a=msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 2de0f1b0-3a39-450e-9804-8305ec87452b\r\n"  # noqa: E501
                 "a=ssrc:677770262 cname:NMNDwVd66x2SfiO0\r\n"
-                "a=ssrc:677770262 msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 2de0f1b0-3a39-450e-9804-8305ec87452b\r\n"
-                "a=ssrc:677770262 mslabel:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"
-                "a=ssrc:677770262 label:2de0f1b0-3a39-450e-9804-8305ec87452b\r\n"
+                "a=ssrc:677770262 msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 2de0f1b0-3a39-450e-9804-8305ec87452b\r\n"  # noqa: E501
+                "a=ssrc:677770262 mslabel:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"  # noqa: E501
+                "a=ssrc:677770262 label:2de0f1b0-3a39-450e-9804-8305ec87452b\r\n"  # noqa: E501
                 "a=sendonly\r\n"
                 "a=rtcp-mux\r\n"
                 "a=setup:actpass\r\n"
@@ -1833,7 +1857,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
-                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"
+                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"  # noqa: E501
                 "a=end-of-candidates\r\n"
                 "m=video \\d+ UDP/TLS/RTP/SAVPF 96\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
@@ -1846,27 +1870,27 @@ class TestVideoroom(unittest.TestCase):
                 "a=rtcp-fb:96 nack pli\r\n"
                 "a=extmap-allow-mixed\r\n"
                 "a=extmap:14 urn:ietf:params:rtp-hdrext:toffset\r\n"
-                "a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n"
+                "a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n"  # noqa: E501
                 "a=extmap:13 urn:3gpp:video-orientation\r\n"
-                "a=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\n"
-                "a=extmap:12 http://www.webrtc.org/experiments/rtp-hdrext/playout-delay\r\n"
-                "a=extmap:11 http://www.webrtc.org/experiments/rtp-hdrext/video-content-type\r\n"
-                "a=extmap:7 http://www.webrtc.org/experiments/rtp-hdrext/video-timing\r\n"
-                "a=extmap:8 http://www.webrtc.org/experiments/rtp-hdrext/color-space\r\n"
+                "a=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\n"  # noqa: E501
+                "a=extmap:12 http://www.webrtc.org/experiments/rtp-hdrext/playout-delay\r\n"  # noqa: E501
+                "a=extmap:11 http://www.webrtc.org/experiments/rtp-hdrext/video-content-type\r\n"  # noqa: E501
+                "a=extmap:7 http://www.webrtc.org/experiments/rtp-hdrext/video-timing\r\n"  # noqa: E501
+                "a=extmap:8 http://www.webrtc.org/experiments/rtp-hdrext/color-space\r\n"  # noqa: E501
                 "a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\n"
                 "a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\n"
-                "a=extmap:6 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\n"
-                "a=msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"
+                "a=extmap:6 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\n"  # noqa: E501
+                "a=msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"  # noqa: E501
                 "a=rtcp-rsize\r\n"
                 "a=ssrc-group:FID 3005569364 2001490794\r\n"
                 "a=ssrc:3005569364 cname:NMNDwVd66x2SfiO0\r\n"
-                "a=ssrc:3005569364 msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"
-                "a=ssrc:3005569364 mslabel:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"
-                "a=ssrc:3005569364 label:6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"
+                "a=ssrc:3005569364 msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"  # noqa: E501
+                "a=ssrc:3005569364 mslabel:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"  # noqa: E501
+                "a=ssrc:3005569364 label:6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"  # noqa: E501
                 "a=ssrc:2001490794 cname:NMNDwVd66x2SfiO0\r\n"
-                "a=ssrc:2001490794 msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"
-                "a=ssrc:2001490794 mslabel:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"
-                "a=ssrc:2001490794 label:6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"
+                "a=ssrc:2001490794 msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"  # noqa: E501
+                "a=ssrc:2001490794 mslabel:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"  # noqa: E501
+                "a=ssrc:2001490794 label:6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"  # noqa: E501
                 "a=sendonly\r\n"
                 "a=rtcp-mux\r\n"
                 "a=setup:actpass\r\n"
@@ -1875,7 +1899,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
-                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"
+                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"  # noqa: E501
                 "a=end-of-candidates\r\n$",
                 re.DOTALL,
             ),
@@ -1902,12 +1926,14 @@ class TestVideoroom(unittest.TestCase):
         self.destroySession(token, session)
 
     def testVideoroomICE(self):
-        (token, session, control_handle, room) = self.startVideoroom()
+        token, session, control_handle, room = self.startVideoroom()
 
         pub_handle = self.createHandle(token, session)
         self.assertNotEqual(pub_handle, control_handle)
 
-        feed = self.createPublisher(token, session, room, pub_handle, feed_id=123)
+        feed = self.createPublisher(
+            token, session, room, pub_handle, feed_id=123
+        )
         self.assertNotEqual(feed, control_handle)
 
         eventloop.run_until_complete(
@@ -1970,7 +1996,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
-                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"
+                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"  # noqa: E501
                 "a=end-of-candidates\r\n$",
                 re.DOTALL,
             ),
@@ -2013,7 +2039,9 @@ class TestVideoroom(unittest.TestCase):
                 {
                     "janus": "trickle",
                     "candidate": {
-                        "candidate": "candidate:3279615273 1 udp 2113937151 203.0.113.2 30000 typ host generation 0 ufrag 62lL network-cost 999",
+                        "candidate": (
+                            "candidate:3279615273 1 udp 2113937151 203.0.113.2 30000 typ host generation 0 ufrag 62lL network-cost 999"  # noqa: E501
+                        ),
                         "sdpMid": "audio",
                     },
                     "handle_id": pub_handle,
@@ -2028,7 +2056,11 @@ class TestVideoroom(unittest.TestCase):
         self.assertRegex(
             m,
             re.compile(
-                b"^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine.*?\x00\x06\x00\x0d62lL:(........)\x00\x00\x00\x80\\\x29\x00\x08........\x00\\\x24\x00\x04\x6e\xff\xff\xff\x00\x08\x00\x14....................\x80\\\x28\x00\x04....$",
+                b"^\x00\x01\x00.\x21\x12\xa4\x42(............)"
+                b"\x80\x22\x00.rtpengine.*?\x00\x06\x00\x0d"
+                b"62lL:(........)\x00\x00\x00\x80\\\x29\x00\x08........\x00"
+                b"\\\x24\x00\x04\x6e\xff\xff\xff\x00\x08\x00"
+                b"\x14....................\x80\\\x28\x00\x04....$",
                 re.DOTALL,
             ),
         )
@@ -2086,7 +2118,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
-                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"
+                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"  # noqa: E501
                 "a=end-of-candidates\r\n$",
                 re.DOTALL,
             ),
@@ -2171,7 +2203,9 @@ class TestVideoroom(unittest.TestCase):
                 {
                     "janus": "trickle",
                     "candidate": {
-                        "candidate": "candidate:3fgsdfs273 1 udp 2113937151 203.0.113.2 30002 typ host generation 0",
+                        "candidate": (
+                            "candidate:3fgsdfs273 1 udp 2113937151 203.0.113.2 30002 typ host generation 0"  # noqa: E501
+                        ),
                         "sdpMid": "1",
                         "usernameFragment": "abcd",
                     },
@@ -2187,7 +2221,11 @@ class TestVideoroom(unittest.TestCase):
         self.assertRegex(
             m,
             re.compile(
-                b"^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine.*?\x00\x06\x00\x0dabcd:(........)\x00\x00\x00\x80\\\x2a\x00\x08........\x00\\\x24\x00\x04\x6e\xff\xff\xff\x00\x08\x00\x14....................\x80\\\x28\x00\x04....$",
+                b"^\x00\x01\x00.\x21\x12\xa4\x42(............)"
+                b"\x80\x22\x00.rtpengine.*?\x00\x06\x00\x0d"
+                b"abcd:(........)\x00\x00\x00\x80\\\x2a\x00\x08........\x00"
+                b"\\\x24\x00\x04\x6e\xff\xff\xff\x00\x08\x00"
+                b"\x14....................\x80\\\x28\x00\x04....$",
                 re.DOTALL,
             ),
         )
@@ -2199,7 +2237,9 @@ class TestVideoroom(unittest.TestCase):
                 {
                     "janus": "trickle",
                     "candidate": {
-                        "candidate": "candidate:6 2 TCP 2105393406 2607:fea8:ab00:33::9f4 9 typ host tcptype active",
+                        "candidate": (
+                            "candidate:6 2 TCP 2105393406 2607:fea8:ab00:33::9f4 9 typ host tcptype active"  # noqa: E501
+                        ),
                         "sdpMid": "audio",
                         "usernameFragment": "abcd",
                     },
@@ -2217,7 +2257,7 @@ class TestVideoroom(unittest.TestCase):
         sub_sock.close()
 
     def testVideoroomPubSub(self):
-        (token, session, control_handle, room) = self.startVideoroom()
+        token, session, control_handle, room = self.startVideoroom()
 
         # XXX add tests for requests for invalid IDs/handles
 
@@ -2622,17 +2662,24 @@ class TestVideoroom(unittest.TestCase):
         self.destroySession(token, session)
 
     def testVideoroomMultiConn(self):
-        (token, session_1, control_handle, room) = self.startVideoroom()
+        token, session_1, control_handle, room = self.startVideoroom()
 
         # publisher #1 with its own connection and session
-        (token, session_2) = self.startSession(1)
+        token, session_2 = self.startSession(1)
         self.assertNotEqual(session_1, session_2)
 
         pub_handle_1 = self.createHandle(token, session_2, 1)
         self.assertNotEqual(pub_handle_1, control_handle)
 
         # create feed for publisher #1
-        feed_1 = self.createPublisher(token, session_2, room, pub_handle_1, [], 1)
+        feed_1 = self.createPublisher(
+            token,
+            session_2,
+            room,
+            pub_handle_1,
+            [],
+            1,
+        )
 
         pub_sock_1 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         pub_sock_1.settimeout(0.1)
@@ -2726,7 +2773,7 @@ class TestVideoroom(unittest.TestCase):
         pub_sock_1.connect(("203.0.113.1", pub_port_1))
 
         # publisher #2 with its own connection and session
-        (token, session_3) = self.startSession(2)
+        token, session_3 = self.startSession(2)
         self.assertNotEqual(session_1, session_3)
         self.assertNotEqual(session_2, session_3)
 
@@ -2942,7 +2989,9 @@ class TestVideoroom(unittest.TestCase):
         # destroy session #2
         self.destroySession(token, session_2)
         # success is received first
-        self.assertEqual(self._res, {"janus": "success", "session_id": session_2})
+        self.assertEqual(
+            self._res, {"janus": "success", "session_id": session_2}
+        )
 
         # followed by events in the other session
         eventloop.run_until_complete(testIJson(self, 2))
@@ -2990,7 +3039,7 @@ class TestVideoroom(unittest.TestCase):
         self.destroySession(token, session_3)
 
     def testVideoroomMute(self):
-        (token, session, control_handle, room) = self.startVideoroom()
+        token, session, control_handle, room = self.startVideoroom()
 
         pub_handle_1 = self.createHandle(token, session)
         self.assertNotEqual(pub_handle_1, control_handle)
@@ -3115,14 +3164,19 @@ class TestVideoroom(unittest.TestCase):
 
         # send fake RTP to trigger event
         m = pub_sock_audio.send(
-            b"\x80\x60\x12\x34\x43\x32\x12\x45\x65\x45\x34\x23\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x80\x60\x12\x34\x43\x32\x12\x45\x65\x45\x34\x23\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
         )
 
         # wait for webrtcup event
         eventloop.run_until_complete(testIJson(self))
         self.assertEqual(
             self._res,
-            {"janus": "webrtcup", "session_id": session, "sender": pub_handle_1},
+            {
+                "janus": "webrtcup",
+                "session_id": session,
+                "sender": pub_handle_1,
+            },
         )
 
         # wait for audio media
@@ -3141,7 +3195,8 @@ class TestVideoroom(unittest.TestCase):
 
         # repeat for video
         m = pub_sock_video.send(
-            b"\x80\x61\x12\x34\x43\x32\x12\x45\x65\x45\x34\x23\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x80\x61\x12\x34\x43\x32\x12\x45\x65\x45\x34\x23\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
         )
 
         eventloop.run_until_complete(testIJson(self))
@@ -3300,22 +3355,34 @@ class TestVideoroom(unittest.TestCase):
 
         # check forwarding
         m = pub_sock_audio.send(
-            b"\x80\x60\x12\x34\x43\x32\x12\x45\x65\x45\x34\x23\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x80\x60\x12\x34\x43\x32\x12\x45"
+            b"\x65\x45\x34\x23\x00\x10\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00"
         )
         m = pub_sock_video.send(
-            b"\x80\x61\x12\x34\x43\x32\x12\x45\x65\x45\x34\x23\x00\x00\x20\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x80\x61\x12\x34\x43\x32\x12\x45"
+            b"\x65\x45\x34\x23\x00\x00\x20\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00"
         )
 
         m = sub_sock_audio.recv(1000)
         self.assertEqual(
             m,
-            b"\x80\x60\x12\x34\x43\x32\x12\x45\x65\x45\x34\x23\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+            b"\x80\x60\x12\x34\x43\x32\x12\x45"
+            b"\x65\x45\x34\x23\x00\x10\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00",
         )
 
         m = sub_sock_video.recv(1000)
         self.assertEqual(
             m,
-            b"\x80\x61\x12\x34\x43\x32\x12\x45\x65\x45\x34\x23\x00\x00\x20\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+            b"\x80\x61\x12\x34\x43\x32\x12\x45"
+            b"\x65\x45\x34\x23\x00\x00\x20\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00",
         )
 
         # mute audio
@@ -3377,10 +3444,16 @@ class TestVideoroom(unittest.TestCase):
 
         # check forwarding
         m = pub_sock_audio.send(
-            b"\x80\x60\x12\x34\x43\x32\x12\x45\x65\x45\x34\x23\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x80\x60\x12\x34\x43\x32\x12\x45"
+            b"\x65\x45\x34\x23\x00\x10\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00"
         )
         m = pub_sock_video.send(
-            b"\x80\x61\x12\x34\x43\x32\x12\x45\x65\x45\x34\x23\x00\x00\x20\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x80\x61\x12\x34\x43\x32\x12\x45"
+            b"\x65\x45\x34\x23\x00\x00\x20\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00"
         )
 
         m = None
@@ -3393,7 +3466,10 @@ class TestVideoroom(unittest.TestCase):
         m = sub_sock_video.recv(1000)
         self.assertEqual(
             m,
-            b"\x80\x61\x12\x34\x43\x32\x12\x45\x65\x45\x34\x23\x00\x00\x20\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+            b"\x80\x61\x12\x34\x43\x32\x12\x45"
+            b"\x65\x45\x34\x23\x00\x00\x20\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00",
         )
 
         # unmute audio
@@ -3456,22 +3532,34 @@ class TestVideoroom(unittest.TestCase):
 
         # check forwarding
         m = pub_sock_audio.send(
-            b"\x80\x60\x12\x34\x43\x32\x12\x45\x65\x45\x34\x23\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x80\x60\x12\x34\x43\x32\x12\x45"
+            b"\x65\x45\x34\x23\x00\x10\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00"
         )
         m = pub_sock_video.send(
-            b"\x80\x61\x12\x34\x43\x32\x12\x45\x65\x45\x34\x23\x00\x00\x20\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x80\x61\x12\x34\x43\x32\x12\x45"
+            b"\x65\x45\x34\x23\x00\x00\x20\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00"
         )
 
         m = sub_sock_audio.recv(1000)
         self.assertEqual(
             m,
-            b"\x80\x60\x12\x34\x43\x32\x12\x45\x65\x45\x34\x23\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+            b"\x80\x60\x12\x34\x43\x32\x12\x45"
+            b"\x65\x45\x34\x23\x00\x10\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00",
         )
 
         m = sub_sock_video.recv(1000)
         self.assertEqual(
             m,
-            b"\x80\x61\x12\x34\x43\x32\x12\x45\x65\x45\x34\x23\x00\x00\x20\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+            b"\x80\x61\x12\x34\x43\x32\x12\x45"
+            b"\x65\x45\x34\x23\x00\x00\x20\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00",
         )
 
         self.destroyVideoroom(token, session, control_handle, room)
@@ -3525,7 +3613,7 @@ if __name__ == "__main__":
         else:
             code = e.code
             traceback.print_exc()
-    except:
+    except Exception:
         traceback.print_exc()
 
     if proc:
@@ -3542,5 +3630,9 @@ if __name__ == "__main__":
             os.unlink(so.name)
             os.unlink(se.name)
         else:
-            print("HINT: Stdout and stderr are {} and {}".format(so.name, se.name))
+            print(
+                "HINT: Stdout and stderr are {} and {}".format(
+                    so.name, se.name
+                )
+            )
             sys.exit(code)

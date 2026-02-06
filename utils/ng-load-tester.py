@@ -44,7 +44,8 @@ if cmd == "offer":
         "command": "offer",
         "from-tag": "bar",
         "to-tag": "meh",
-        "sdp": """
+        "sdp": (
+            """
     v=0
     o=- 1695296331 1695296331 IN IP4 192.168.1.202
     s=-
@@ -55,7 +56,8 @@ if cmd == "offer":
     a=rtpmap:8 PCMA/8000/1
     a=rtpmap:101 telephone-event/8000
     a=sendrecv
-    """,
+    """
+        ),
         "replace": ["origin"],
     }
 elif cmd == "answer":
@@ -64,7 +66,8 @@ elif cmd == "answer":
         "call-id": "foo",
         "from-tag": "bar",
         "to-tag": "meh",
-        "sdp": """
+        "sdp": (
+            """
     v=0
     o=- 1695296331 1695296331 IN IP4 192.168.1.202
     s=-
@@ -79,7 +82,8 @@ elif cmd == "answer":
     a=rtcp-mux
     a=rtcprsize
     a=sendrecv
-    """,
+    """  # noqa: E261
+        ),
         "flags": ["generate RTCP", "pad crypto", "symmetric codecs"],
         "ICE": "remove",
         "codec": {
