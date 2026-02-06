@@ -224,7 +224,7 @@ sub srtp_snd {
 }
 sub exts {
 	my ($exts) = @_;
-	$exts && @$exts or return '';
+	return '' unless $exts && @$exts;
 	my $e = '';
 	my $h;
 	# long format needed if IDs 16+ are used, or if the length is more than 16, or if
