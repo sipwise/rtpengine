@@ -22,15 +22,25 @@ jobs:
         dist: [trixie, sid]
     steps:
       - uses: actions/checkout@v6
+      - name: Packaging backports
+        run: |
+          set -ex
+          pushd pkg/deb
+          ./generator.sh
+          backports/${{ matrix.dist }}
+          popd
+          rm -rf debian
+          mv pkg/deb/${{ matrix.dist }} debian
+          rm -rf pkg/deb/debian
       - name: Update changelog
         run: |
           set -ex
           OLD_VERSION=$(dpkg-parsechangelog -SVersion)
           SOURCE=$(dpkg-parsechangelog -SSource)
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            VERSION_SUFFIX="+gh"
+            VERSION_SUFFIX="+gh+${{ matrix.dist }}"
           else
-            VERSION_SUFFIX="+autobuild${GITHUB_RUN_NUMBER}"
+            VERSION_SUFFIX="+autobuild${GITHUB_RUN_NUMBER}+${{ matrix.dist }}"
           fi
           cat > debian/changelog <<EOT
           ${SOURCE} (${OLD_VERSION}${VERSION_SUFFIX}) UNRELEASED; urgency=medium
@@ -42,7 +52,6 @@ jobs:
       - uses: jtdor/build-deb-action@v1
         with:
           docker-image: debian:${{ matrix.dist }}
-          buildpackage-opts: -Ppkg.ngcp-rtpengine.nobcg729
       - name: Archive build result
         uses: actions/upload-artifact@v6
         with:
