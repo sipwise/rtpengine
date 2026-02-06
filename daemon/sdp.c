@@ -2594,7 +2594,7 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 
 	insert_fingerprint(s, media, flags, hf, fp);
 
-	if (dtls)
+	if (dtls && !flags->no_tls_id)
 		insert_tls_id(s, media, flags, dtls);
 }
 
