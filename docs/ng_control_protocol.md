@@ -1161,6 +1161,13 @@ Spaces in each string may be replaced by hyphens.
 
 	Omit the `a=rtcp` line from the outgoing SDP.
 
+* `no-tls-id` or `no tls id`
+
+	Disables generation of the `a=tls-id` SDP attribute in outgoing SDP and prevents
+	automatic DTLS restart when an ICE restart occurs without a TLS-ID present. This flag
+	is useful in scenarios where TLS-ID handling should be completely bypassed, such as when
+	interoperating with endpoints that don't support or expect the `a=tls-id` attribute.
+
 * `original sendrecv`
 
 	With this flag present, *rtpengine* will leave the media direction attributes

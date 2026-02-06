@@ -2206,8 +2206,13 @@ static void __dtls_logic(const sdp_ng_flags *flags,
 		__dtls_restart(other_media);
 	}
 	else if (ice_is_restart(other_media->ice_agent, sp) && !other_media->tls_id.len && !sp->tls_id.len) {
-		ilogs(crypto, LOG_INFO, "ICE restart without TLS-ID, restarting DTLS");
-		__dtls_restart(other_media);
+		// Skip DTLS restart if no-tls-id flag is active (user opted out of TLS-ID handling)
+		if (!flags->no_tls_id) {
+			ilogs(crypto, LOG_INFO, "ICE restart without TLS-ID, restarting DTLS");
+			__dtls_restart(other_media);
+		} else {
+			ilogs(crypto, LOG_INFO, "ICE restart without TLS-ID detected, but no-tls-id flag is active - skipping DTLS restart");
+		}
 	}
 
 	other_media->tls_id = call_str_cpy(&sp->tls_id);
