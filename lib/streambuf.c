@@ -49,6 +49,8 @@ struct streambuf *streambuf_new(struct poller *p, int fd) {
 
 
 void streambuf_destroy(struct streambuf *b) {
+	if(!b)
+		return;
 	g_string_free(b->buf, TRUE);
 	g_slice_free1(sizeof(*b), b);
 }
