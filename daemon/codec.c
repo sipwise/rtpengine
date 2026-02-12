@@ -1441,7 +1441,7 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 		return;
 
 	/* required for updating the transcoding attrs of subscriber */
-	struct media_subscription * ms = call_get_media_subscription(receiver->media_subscribers_ht, sink);
+	struct media_subscription *ms = call_get_media_subscription(receiver->media_subscribers_ht, sink);
 
 	ilogs(codec, LOG_DEBUG, "Setting up codec handlers for " STR_FORMAT_M " #%u -> " STR_FORMAT_M " #%u",
 			STR_FMT_M(&monologue->tag), receiver->index,
@@ -4928,10 +4928,8 @@ void codec_update_all_handlers(struct call_monologue *ml) {
 		if (!source_media)
 			continue;
 
-		for (__auto_type sub = source_media->media_subscribers.head; sub; sub = sub->next)
-		{
-			struct media_subscription * ms = sub->data;
-			struct call_media * sink_media = ms->media;
+		IQUEUE_FOREACH(&source_media->media_subscribers, ms) {
+			struct call_media *sink_media = ms->media;
 
 			if (!sink_media)
 				continue;
@@ -4950,10 +4948,8 @@ void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_fl
 		if (!sink_media)
 			continue;
 
-		for (__auto_type sub = sink_media->media_subscriptions.head; sub; sub = sub->next)
-		{
-			struct media_subscription * ms = sub->data;
-			struct call_media * source_media = ms->media;
+		IQUEUE_FOREACH(&sink_media->media_subscriptions, ms) {
+			struct call_media *source_media = ms->media;
 
 			if (!source_media)
 				continue;

@@ -1891,11 +1891,7 @@ static struct media_subscription *__find_media_subscriber(struct call_media *med
 
 	struct call_monologue * find_ml = sink->media->monologue;
 
-	for (__auto_type subscriber = media->media_subscribers.head;
-			subscriber;
-			subscriber = subscriber->next)
-	{
-		struct media_subscription * ms = subscriber->data;
+	IQUEUE_FOREACH(&media->media_subscribers, ms) {
 		if (find_ml == ms->monologue)
 			return ms;
 	}
@@ -2716,9 +2712,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 			snprintf(tmp, sizeof(tmp), "media-subscriptions-%u", media->unique_id);
 			inner = parser->dict_add_list_dup(root, tmp);
 
-			for (__auto_type sub = media->media_subscriptions.head; sub; sub = sub->next)
-			{
-				struct media_subscription * ms = sub->data;
+			IQUEUE_FOREACH(&media->media_subscriptions, ms) {
 				JSON_ADD_LIST_STRING("%u/%u/%u/%u",
 						ms->media->unique_id,
 						ms->attrs.offer_answer,

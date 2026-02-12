@@ -3004,11 +3004,7 @@ static void ng_stats_monologue(ng_command_ctx_t *ctx, parser_arg dict, const str
 		if (!media)
 			continue;
 
-		for (__auto_type subscription = media->media_subscriptions.head;
-				subscription;
-				subscription = subscription->next)
-		{
-			struct media_subscription * ms = subscription->data;
+		IQUEUE_FOREACH(&media->media_subscriptions, ms) {
 			if (!g_queue_find(&mls_subscriptions, ms->monologue)) {
 				parser_arg sub1 = parser->list_add_dict(b_subscriptions);
 				parser->dict_add_str(sub1, "tag", &ms->monologue->tag);
@@ -3016,11 +3012,7 @@ static void ng_stats_monologue(ng_command_ctx_t *ctx, parser_arg dict, const str
 				g_queue_push_tail(&mls_subscriptions, ms->monologue);
 			}
 		}
-		for (__auto_type subscriber = media->media_subscribers.head;
-				subscriber;
-				subscriber = subscriber->next)
-		{
-			struct media_subscription * ms = subscriber->data;
+		IQUEUE_FOREACH(&media->media_subscribers, ms) {
 			if (!g_queue_find(&mls_subscribers, ms->monologue)) {
 				parser_arg sub1 = parser->list_add_dict(b_subscribers);
 				parser->dict_add_str(sub1, "tag", &ms->monologue->tag);
@@ -3204,11 +3196,7 @@ stats:
 				if (!media)
 					continue;
 
-				for (__auto_type subscription = media->media_subscriptions.head;
-						subscription;
-						subscription = subscription->next)
-				{
-					struct media_subscription * ms = subscription->data;
+				IQUEUE_FOREACH(&media->media_subscriptions, ms) {
 					if (!g_queue_find(&mls, ms->monologue)) {
 						ng_stats_monologue(ctx, tags, ms->monologue, totals, ssrc);
 						g_queue_push_tail(&mls, ms->monologue);
@@ -3456,7 +3444,7 @@ void add_media_to_sub_list(subscription_q *q, struct call_media *media, struct c
 	struct media_subscription *ms = g_new0(__typeof(*ms), 1);
 	ms->media = media;
 	ms->monologue = ml;
-	t_queue_push_tail(q, ms);
+	i_queue_push_tail(q, ms);
 }
 static const char *media_block_match_mult(call_t **call, subscription_q *medias,
 		sdp_ng_flags *flags, ng_command_ctx_t *ctx)
@@ -3796,16 +3784,16 @@ static const char *call_block_silence_media(ng_command_ctx_t *ctx, bool on_off, 
 					struct call_media * ml_media = monologue->medias->pdata[j];
 					if (!ml_media)
 						continue;
-					subscription_list * ll = t_hash_table_lookup(ml_media->media_subscriptions_ht, sink_md);
+					__auto_type ll = t_hash_table_lookup(ml_media->media_subscriptions_ht, sink_md);
 					if (ll) {
 						found_subscriptions = true;
-						G_STRUCT_MEMBER(bool, &ll->data->attrs, attr_offset) = on_off;
+						G_STRUCT_MEMBER(bool, &ll->attrs, attr_offset) = on_off;
 						ilog(LOG_INFO, "%s directional media flow: "
 								"monologue tag '" STR_FORMAT_M "' -> '" STR_FORMAT_M "' / "
 								"media index '%d' -> '%d'",
 								ucase_verb,
-								STR_FMT_M(&monologue->tag), STR_FMT_M(&ll->data->monologue->tag),
-								ml_media->index, ll->data->media->index);
+								STR_FMT_M(&monologue->tag), STR_FMT_M(&ll->monologue->tag),
+								ml_media->index, ll->media->index);
 					}
 				}
 				sinks = true;
@@ -3821,10 +3809,8 @@ static const char *call_block_silence_media(ng_command_ctx_t *ctx, bool on_off, 
 				if (!ml_media)
 					continue;
 
-				for (__auto_type sub = ml_media->media_subscribers.head; sub; sub = sub->next)
-				{
-					struct media_subscription * ms = sub->data;
-					struct call_media * sub_md = ms->media;
+				IQUEUE_FOREACH(&ml_media->media_subscribers, ms) {
+					struct call_media *sub_md = ms->media;
 
 					if (!sub_md ||
 						(flags.all == ALL_OFFER_ANSWER && !ms->attrs.offer_answer) ||
@@ -4089,9 +4075,7 @@ found:
 
 			struct call_media * ms_media_sink = NULL;
 
-			for (__auto_type ll = ml_media->media_subscribers.head; ll; ll = ll->next)
-			{
-				struct media_subscription * ms = ll->data;
+			IQUEUE_FOREACH(&ml_media->media_subscribers, ms) {
 				ms_media_sink = ms->media;
 				if (!ms_media_sink || ms_media_sink->type_id != MT_AUDIO)
 					continue;
@@ -4181,7 +4165,7 @@ const char *call_subscribe_request_ng(ng_command_ctx_t *ctx) {
 	g_auto(sdp_ng_flags) flags;
 	char rand_buf[65];
 	g_autoptr(call_t) call = NULL;
-	g_auto(subscription_q) srms = TYPED_GQUEUE_INIT;
+	g_auto(subscription_q) srms = IQUEUE_INIT;
 	g_auto(str) sdp_out = STR_NULL;
 	parser_arg output = ctx->resp;
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
@@ -4232,7 +4216,7 @@ const char *call_subscribe_request_ng(ng_command_ctx_t *ctx) {
 	 * TODO: deprecate it, since initially added for monologue subscriptions.
 	 */
 	if (srms.length == 1) {
-		struct media_subscription *ms = srms.head->data;
+		struct media_subscription *ms = srms.head;
 		struct call_monologue *source_ml = ms->monologue;
 		parser->dict_add_str_dup(output, "from-tag", &source_ml->tag);
 	}
@@ -4242,8 +4226,7 @@ const char *call_subscribe_request_ng(ng_command_ctx_t *ctx) {
 		media_labels = parser->dict_add_dict(output, "media-labels");
 	}
 	parser_arg from_list = parser->dict_add_list(output, "from-tags");
-	for (__auto_type l = srms.head; l; l = l->next) {
-		struct media_subscription *ms = l->data;
+	IQUEUE_FOREACH(&srms, ms) {
 		struct call_monologue *source_ml = ms->monologue;
 		parser->list_add_str_dup(from_list, &source_ml->tag);
 		if (tag_medias.gen) {

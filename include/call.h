@@ -332,10 +332,9 @@ struct media_subscription;
 TYPED_GHASHTABLE(codecs_ht, void, rtp_payload_type, g_direct_hash, g_direct_equal, NULL, NULL)
 TYPED_GHASHTABLE(codec_names_ht, str, GQueue, str_case_hash, str_case_equal, str_free, g_queue_free)
 TYPED_GHASHTABLE_LOOKUP_INSERT(codec_names_ht, str_free, g_queue_new)
-TYPED_GQUEUE(subscription, struct media_subscription)
 TYPED_DIRECT_FUNCS(media_direct_hash, media_direct_eq, struct call_media)
-TYPED_GHASHTABLE(subscription_ht, struct call_media, subscription_list, media_direct_hash, media_direct_eq,
-		NULL, NULL)
+TYPED_GHASHTABLE(subscription_ht, struct call_media, struct media_subscription,
+		media_direct_hash, media_direct_eq, NULL, NULL)
 TYPED_GHASHTABLE(media_id_ht, str, struct call_media, str_hash, str_equal, NULL, NULL)
 TYPED_GHASHTABLE(pt_media_ht, void, struct call_media, g_direct_hash, g_direct_equal, NULL, NULL)
 
@@ -480,6 +479,19 @@ struct extmap_ops {
 extern const struct extmap_ops extmap_ops_long;
 
 
+
+struct media_subscription {
+	IQUEUE_LINK		link;
+	struct call_media	*media;		/* media itself */
+	struct call_monologue	*monologue;	/* whom media belongs to */
+	struct sink_attrs	attrs;		/* attributes to passed to a sink */
+	struct media_subscription *reverse;	// opposite (subscription -> subscriber / vice versa)
+};
+
+typedef IQUEUE_TYPE(struct media_subscription, link) subscription_q;
+
+
+
 /**
  * Protected by call->master_lock, except the RO elements.
  * 
@@ -578,13 +590,6 @@ TYPED_GPTRARRAY(medias_arr, struct call_media)
 TYPED_GQUEUE(medias, struct call_media)
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(medias_q, medias_q_clear)
 
-
-struct media_subscription {
-	struct call_media	* media;	/* media itself */
-	struct call_monologue	* monologue;	/* whom media belongs to */
-	struct sink_attrs	attrs;		/* attributes to passed to a sink */
-	subscription_list	* link;		/* TODO: is this still really needed? */
-};
 
 /**
  * Half a dialogue.

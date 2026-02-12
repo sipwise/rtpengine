@@ -84,9 +84,7 @@ void cdr_update_entry(call_t * c) {
 				if (!media)
 					continue;
 
-				for (__auto_type sub = media->media_subscriptions.head; sub; sub = sub->next)
-				{
-					struct media_subscription * ms = sub->data;
+				IQUEUE_FOREACH(&media->media_subscriptions, ms) {
 					if (!g_queue_find(&mls, ms->monologue)) {
 						g_string_append_printf(cdr, "ml%i_remote_tag=%s, ", cdrlinecnt, ms->monologue->tag.s);
 						g_queue_push_tail(&mls, ms->monologue);

@@ -555,7 +555,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 	else {
 		// subscriber
 
-		g_auto(subscription_q) srms = TYPED_GQUEUE_INIT;
+		g_auto(subscription_q) srms = IQUEUE_INIT;
 
 		// get single feed ID if there is one
 		if (json_reader_read_member(reader, "feed")) {

@@ -329,9 +329,7 @@ static struct ssrc_entry_call *hunt_ssrc(struct call_media *media, uint32_t ssrc
 	if (!media)
 		return NULL;
 
-	for (__auto_type sub = media->media_subscriptions.head; sub; sub = sub->next)
-	{
-		struct media_subscription * ms = sub->data;
+	IQUEUE_FOREACH(&media->media_subscriptions, ms) {
 		struct ssrc_entry_call *e = find_ssrc(ssrc, &ms->media->ssrc_hash_in, NULL);
 		if (e)
 			return e;

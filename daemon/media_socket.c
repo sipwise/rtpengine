@@ -3744,10 +3744,7 @@ out:
 	}
 	if (phc->unkernelize_subscriptions) {
 		g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
-		for (__auto_type sub = phc->mp.media->media_subscriptions.head; sub; sub = sub->next)
-		{
-			struct media_subscription * ms = sub->data;
-
+		IQUEUE_FOREACH(&phc->mp.media->media_subscriptions, ms) {
 			if (!g_queue_find(&mls, ms->monologue)) {
 				for (unsigned int k = 0; k < ms->monologue->medias->len; k++)
 				{
