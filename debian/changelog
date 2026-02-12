@@ -1,3 +1,27 @@
+ngcp-rtpengine (12.5.1.49+0~mr12.5.1.49) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [1195373] MT#55283 fix opus fmtp booboo
+  * [db37504] MT#55283 obsolete `str_done`
+  * [bd86b89] MT#55283 update is_http to bool
+  * [16ca4c2] MT#55283 handle lws partial writes
+  * [bc94e05] MT#55283 overhaul WS locking logic
+  * [ccf5ad9] MT#55283 fix handing of sub-ans with extra media
+
+  [ Alex Brown ]
+  * [16dc953] MT#55283 Fix Issue with pcap based recording getting overwritten
+
+  [ S-P Chan ]
+  * [efacdfe] MT#55283 Add linker flag to fix LTO on EL
+
+  [ Alexander Bakker ]
+  * [222635a] MT#55283 Increase input buffer size for getaddrinfo to 256
+
+  [ Tom Briden ]
+  * [1f9eb1d] MT#55283 streambuf: check pointer isn't NULL before trying to free it
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 12 Feb 2026 13:20:03 +0100
+
 ngcp-rtpengine (12.5.1.48+0~mr12.5.1.48) unstable; urgency=medium
 
   [ Richard Fuchs ]
