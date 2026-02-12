@@ -29,6 +29,60 @@ use_json(1);
 
 
 
+
+new_call;
+
+publish('extra answer',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6478 RTP/AVP 0 8 9
+c=IN IP4 198.51.100.14
+a=sendonly
+----------------------------------
+v=0
+o=- SDP_VERSION IN IP4 203.0.113.1
+s=RTPE_VERSION
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=recvonly
+a=rtcp:PORT
+SDP
+
+(undef, $ttr) = subscribe_request('extra answer',
+	{ 'from-tag' => ft() }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+subscribe_answer('incomplete answer',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6562 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=recvonly
+m=audio 6570 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+
+
+
 ($sock_a, $sock_b, $sock_c, $sock_d) =
 	new_call([qw(198.51.100.14 6150)], [qw(198.51.100.14 6152)], [qw(198.51.100.14 6154)]);
 
@@ -3680,7 +3734,7 @@ $resp = decode_json($resp->{response});
 
 is($resp->{interfaces}[0]{name}, 'default', 'intf found');
 is($resp->{interfaces}[0]{address}, '203.0.113.1', 'address found');
-is($resp->{interfaces}[0]{ports}{used}, 184, 'port usage');
+is($resp->{interfaces}[0]{ports}{used}, 188, 'port usage');
 is($resp->{interfaces}[1]{name}, 'default', 'intf found');
 is($resp->{interfaces}[1]{address}, '2001:db8:4321::1', 'address found');
 is($resp->{interfaces}[1]{ports}{used}, 2, 'port usage');
