@@ -1,3 +1,19 @@
+ngcp-rtpengine (14.0.1.3+0~mr14.0.1.3) unstable; urgency=medium
+
+  [ Alexander Bakker ]
+  * [b0d1764] MT#55283 Increase input buffer size for getaddrinfo to 256
+
+  [ fergusean ]
+  * [055f4ed] MT#55283 Fix "maximum" typo
+
+  [ Tom Briden ]
+  * [d5b6ea2] MT#55283 streambuf: check pointer isn't NULL before trying to free it
+
+  [ Richard Fuchs ]
+  * [2e414fc] MT#55283 fix handing of sub-ans with extra media
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 12 Feb 2026 13:19:48 +0100
+
 ngcp-rtpengine (14.0.1.2+0~mr14.0.1.2) unstable; urgency=medium
 
   [ Orgad Shaneh ]
