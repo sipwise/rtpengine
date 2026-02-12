@@ -4505,8 +4505,8 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 
 	for (__auto_type l = streams->head; l; l = l->next)
 	{
-		struct stream_params * sp = l->data;
-		struct call_media * dst_media = __get_media(dst_ml, sp, flags, 0, mid_tracker);
+		struct stream_params *sp = l->data;
+		struct call_media *dst_media = __get_media(dst_ml, sp, flags, 0, mid_tracker);
 
 		if (!dst_media)
 			continue;
@@ -4515,8 +4515,12 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 		 * TODO: this should probably be reworked to support one-to-multi subscriptions.
 		 */
 		__auto_type src_ml_media_it = dst_media->media_subscriptions.head;
-		struct media_subscription * ms = src_ml_media_it->data;
-		struct call_media * src_media = ms->media;
+		if (!src_ml_media_it)
+			continue;
+		struct media_subscription *ms = src_ml_media_it->data;
+		if (!ms)
+			continue;
+		struct call_media *src_media = ms->media;
 
 		rev_ms = call_get_media_subscription(src_media->media_subscribers_ht, dst_media);
 		if (rev_ms)
