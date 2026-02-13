@@ -3743,21 +3743,11 @@ out:
 		unconfirm_sinks(&phc->mp.stream->rtcp_sinks, "peer address unconfirmed");
 	}
 	if (phc->unkernelize_subscriptions) {
-		g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
 		IQUEUE_FOREACH(&phc->mp.media->media_subscriptions, ms) {
-			if (!g_queue_find(&mls, ms->monologue)) {
-				for (unsigned int k = 0; k < ms->monologue->medias->len; k++)
-				{
-					struct call_media *sub_media = ms->monologue->medias->pdata[k];
-					if (!sub_media)
-						continue;
-
-					for (__auto_type m = sub_media->streams.head; m; m = m->next) {
-						struct packet_stream *sub_ps = m->data;
-						__unkernelize(sub_ps, "subscriptions modified");
-					}
-				}
-				g_queue_push_tail(&mls, ms->monologue);
+			__auto_type sub_media = ms->media;
+			for (__auto_type m = sub_media->streams.head; m; m = m->next) {
+				struct packet_stream *sub_ps = m->data;
+				__unkernelize(sub_ps, "subscriptions modified");
 			}
 		}
 	}
