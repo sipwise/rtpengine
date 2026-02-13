@@ -5952,7 +5952,6 @@ static void monologue_stop(struct call_monologue *ml, bool stop_media_subsribers
 	}
 	/* monologue's subscribers */
 	if (stop_media_subsribers) {
-		g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
 		for (unsigned int i = 0; i < ml->medias->len; i++)
 		{
 			struct call_media *media = ml->medias->pdata[i];
@@ -5960,10 +5959,7 @@ static void monologue_stop(struct call_monologue *ml, bool stop_media_subsribers
 				continue;
 			IQUEUE_FOREACH(&media->media_subscribers, ms) {
 				media_stop(ms->media);
-				if (!g_queue_find(&mls, ms->monologue)) {
-					__monologue_stop(ms->monologue);
-					g_queue_push_tail(&mls, ms->monologue);
-				}
+				__monologue_stop(ms->monologue);
 			}
 		}
 	}
