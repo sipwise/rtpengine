@@ -1788,14 +1788,25 @@ static void __sdp_t38(struct stream_params *sp, struct sdp_media *media) {
 }
 
 
-static void sp_free(struct stream_params *s) {
+void sdp_sp_clear(struct stream_params *s) {
 	codec_store_cleanup(&s->codecs);
 	ice_candidates_free(&s->ice_candidates);
 	crypto_params_sdes_queue_clear(&s->sdes_params);
 	t_queue_clear_full(&s->generic_attributes, sdp_attr_free);
 	t_queue_clear_full(&s->all_attributes, sdp_attr_free);
 	t_queue_clear_full(&s->extmap, rtp_extension_free);
+}
+
+static void sp_free(struct stream_params *s) {
+	sdp_sp_clear(s);
 	g_free(s);
+}
+
+void sdp_sp_move(struct stream_params *dst, struct stream_params *src) {
+	sdp_sp_clear(dst);
+	*dst = *src;
+	*src = (struct stream_params) {};
+	src->media_id = dst->media_id; // used by the `tracker` hash table in call_get_media()
 }
 
 

@@ -3991,6 +3991,8 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 
 		media_update_transcoding_flag(receiver_media);
 		media_update_transcoding_flag(sender_media);
+
+		sdp_sp_move(&sender_media->sp, sp);
 	}
 
 	monologue_bundle_accept(sender_ml, flags);
@@ -4342,6 +4344,8 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 			return -1;
 		__ice_init(media);
 		ice_update(media->ice_agent, sp, false);
+
+		sdp_sp_move(&media->sp, sp);
 	}
 
 	monologue_open_ports(ml);
@@ -4359,8 +4363,20 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 	g_auto(str_ht) mid_tracker_dst = str_ht_new();
 	g_auto(str_ht) mid_tracker_src = str_ht_new();
 
-	for (__auto_type l = src_ml->last_in_sdp_streams.head; l; l = l->next) {
-		struct stream_params *sp = l->data;
+	unsigned int src_media_iter_idx = 0;
+
+	while (true) {
+		struct stream_params *sp = NULL;
+
+		while (!sp && src_media_iter_idx < src_ml->medias->len) {
+			struct call_media *src_media_iter = src_ml->medias->pdata[src_media_iter_idx++];
+			if (!src_media_iter)
+				continue;
+			sp = &src_media_iter->sp;
+		}
+
+		if (!sp)
+			break;
 
 		struct call_media *dst_media = __get_media(dst_ml, sp, flags, (*index)++, mid_tracker_dst);
 		struct call_media *src_media = __get_media(src_ml, sp, flags, 0, mid_tracker_src);
@@ -4752,6 +4768,7 @@ static void __call_cleanup(call_t *c) {
 		t38_gateway_put(&md->t38_gateway);
 		audio_player_free(md);
 		mutex_destroy(&md->dtmf_lock);
+		sdp_sp_clear(&md->sp);
 	}
 
 	for (__auto_type l = c->monologues.head; l; l = l->next) {
@@ -5057,7 +5074,6 @@ void __monologue_free(struct call_monologue *m) {
 	t_queue_clear_full(&m->generic_attributes, sdp_attr_free);
 	t_queue_clear_full(&m->all_attributes, sdp_attr_free);
 	t_queue_clear(&m->tag_aliases);
-	sdp_streams_clear(&m->last_in_sdp_streams);
 	t_queue_clear(&m->groups_other);
 	g_free(m);
 }

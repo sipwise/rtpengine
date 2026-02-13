@@ -504,6 +504,7 @@ struct call_media {
 
 	unsigned int		index;				/* RO */
 	unsigned int		unique_id;			/* RO */
+	struct stream_params	sp;
 	str			type;
 	enum media_type		type_id;
 	str			protocol_str;
@@ -624,7 +625,6 @@ struct call_monologue {
 	struct media_player	*player;
 	struct media_player	*rec_player;
 	struct session_bandwidth sdp_session_bandwidth;
-	sdp_streams_q		last_in_sdp_streams;	/* last parsed `stream_params` */
 	GString			*last_out_sdp;
 
 	sdp_origin * session_sdp_orig;	/* actual origin belonging to this monologue */

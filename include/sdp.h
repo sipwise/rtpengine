@@ -57,6 +57,9 @@ int sdp_parse_candidate(struct ice_candidate *cand, const str *s); // returns -1
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(sdp_streams_q, sdp_streams_clear)
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(sdp_sessions_q, sdp_sessions_clear)
 
+void sdp_sp_clear(struct stream_params *s);
+void sdp_sp_move(struct stream_params *dst, struct stream_params *src);
+
 
 INLINE int is_trickle_ice_address(const struct endpoint *ep) {
 	if (is_addr_unspecified(&ep->address) && ep->port == 9)

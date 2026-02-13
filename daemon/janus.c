@@ -880,7 +880,6 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 		if (!ml->janus_session)
 			ml->janus_session = obj_get(session);
 
-		save_last_sdp(ml, &sdp_in, &parsed, &streams);
 		*jsep_sdp_out = sdp_out;
 		sdp_out = STR_NULL; // ownership passed to output
 
