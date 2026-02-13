@@ -4538,26 +4538,15 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 		MEDIA_SET(dst_media, INITIALIZED);
 
 		update_init_subscribers(dst_media, sp, flags, flags->opmode);
+		update_init_subscribers(src_media, NULL, NULL, flags->opmode);
+
 		__media_unconfirm(dst_media, "subscribe answer event");
-	}
+		__media_unconfirm(src_media, "subscribe answer event");
 
-	/* TODO: move inside the cycle above, to reduce iterations amount */
-	g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
-	for (int i = 0; i < dst_ml->medias->len; i++)
-	{
-		struct call_media * dst_media = dst_ml->medias->pdata[i];
-		if (!dst_media)
-			continue;
+		sdp_sp_move(&dst_media->sp, sp);
 
-		/* TODO: probably we should take care about subscribers as well? */
-		IQUEUE_FOREACH(&dst_media->media_subscriptions, ms) {
-			if (!g_queue_find(&mls, ms->monologue)) {
-				media_update_transcoding_flag(ms->media);
-				update_init_subscribers(ms->media, NULL, NULL, flags->opmode);
-				__media_unconfirm(ms->media, "subscribe answer event");
-				g_queue_push_tail(&mls, ms->monologue);
-			}
-		}
+		media_update_transcoding_flag(dst_media);
+		media_update_transcoding_flag(src_media);
 	}
 
 	monologue_media_start(dst_ml);
