@@ -4356,102 +4356,87 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3, 4)))
-static int monologue_subscribe_request1(struct call_monologue *src_ml, struct call_monologue *dst_ml,
+static int monologue_subscribe_request1(struct call_media *src_media, struct call_monologue *dst_ml,
 		sdp_ng_flags *flags, unsigned int *index)
 {
 	unsigned int idx_diff = 0, rev_idx_diff = 0;
 	g_auto(str_ht) mid_tracker_dst = str_ht_new();
 	g_auto(str_ht) mid_tracker_src = str_ht_new();
 
-	unsigned int src_media_iter_idx = 0;
+	struct stream_params *sp = &src_media->sp;
 
-	while (true) {
-		struct stream_params *sp = NULL;
+	struct call_media *dst_media = __get_media(dst_ml, sp, flags, (*index)++, mid_tracker_dst);
 
-		while (!sp && src_media_iter_idx < src_ml->medias->len) {
-			struct call_media *src_media_iter = src_ml->medias->pdata[src_media_iter_idx++];
-			if (!src_media_iter)
-				continue;
-			sp = &src_media_iter->sp;
-		}
+	/* subscribe dst_ml (subscriber) to src_ml, don't forget to carry the egress flag, if required */
+	__add_media_subscription(dst_media, src_media, &(struct sink_attrs) { .egress = !!flags->egress });
+	/* mirroring, so vice-versa: src_media gets subscribed to dst_media (subscriber) */
+	if (flags->rtcp_mirror)
+		__add_media_subscription(src_media, dst_media,
+			&(struct sink_attrs) { .egress = !!flags->egress, .rtcp_only = true });
 
-		if (!sp)
-			break;
+	// track media index difference if one ml is subscribed to multiple other mls
+	if (idx_diff == 0 && dst_media->index > src_media->index)
+		idx_diff = dst_media->index - src_media->index;
+	if (rev_idx_diff == 0 && src_media->index > dst_media->index)
+		rev_idx_diff = src_media->index - dst_media->index;
 
-		struct call_media *dst_media = __get_media(dst_ml, sp, flags, (*index)++, mid_tracker_dst);
-		struct call_media *src_media = __get_media(src_ml, sp, flags, 0, mid_tracker_src);
+	media_init_from_flags(src_media, flags);
+	media_init_from_flags(dst_media, flags);
+	media_set_echo(src_media, flags);
+	media_set_echo_reverse(dst_media, flags);
+	media_set_siprec_label(src_media, dst_media, flags);
+	media_update_type(dst_media, sp);
+	media_set_protocol(dst_media, src_media, sp, flags);
+	media_update_media_id(src_media, sp);
+	media_copy_media_id(dst_media, src_media, flags);
+	media_update_flags(dst_media, sp);
+	media_update_crypto(dst_media, sp, flags);
+	media_copy_format(dst_media, src_media);
+	media_set_address_family(dst_media, src_media, flags);
+	media_set_ptime(src_media, sp, flags->rev_ptime, flags->ptime);
+	media_set_ptime(dst_media, sp, flags->ptime, flags->rev_ptime);
+	media_set_extmap(dst_media, &src_media->extmap, media_extmap_strip, flags);
 
-		/* subscribe dst_ml (subscriber) to src_ml, don't forget to carry the egress flag, if required */
-		__add_media_subscription(dst_media, src_media, &(struct sink_attrs) { .egress = !!flags->egress });
-		/* mirroring, so vice-versa: src_media gets subscribed to dst_media (subscriber) */
-		if (flags->rtcp_mirror)
-			__add_media_subscription(src_media, dst_media,
-				&(struct sink_attrs) { .egress = !!flags->egress, .rtcp_only = true });
+	codec_store_populate(&dst_media->codecs, &src_media->codecs,
+			.allow_asymmetric = !!flags->allow_asymmetric_codecs);
+	codec_store_strip(&dst_media->codecs, &flags->codec_strip, flags->codec_except);
+	codec_store_strip(&dst_media->codecs, &flags->codec_consume, flags->codec_except);
+	codec_store_strip(&dst_media->codecs, &flags->codec_mask, flags->codec_except);
+	codec_store_offer(&dst_media->codecs, &flags->codec_offer, &sp->codecs);
+	codec_store_transcode(&dst_media->codecs, &flags->codec_transcode, &sp->codecs);
+	codec_store_synthesise(&dst_media->codecs, &src_media->codecs);
 
-		// track media index difference if one ml is subscribed to multiple other mls
-		if (idx_diff == 0 && dst_media->index > src_media->index)
-			idx_diff = dst_media->index - src_media->index;
-		if (rev_idx_diff == 0 && src_media->index > dst_media->index)
-			rev_idx_diff = src_media->index - dst_media->index;
+	codec_handlers_update(dst_media, src_media, .flags = flags, .sp = sp,
+			.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 
-		media_init_from_flags(src_media, flags);
-		media_init_from_flags(dst_media, flags);
-		media_set_echo(src_media, flags);
-		media_set_echo_reverse(dst_media, flags);
-		media_set_siprec_label(src_media, dst_media, flags);
-		media_update_type(dst_media, sp);
-		media_set_protocol(dst_media, src_media, sp, flags);
-		media_update_media_id(src_media, sp);
-		media_copy_media_id(dst_media, src_media, flags);
-		media_update_flags(dst_media, sp);
-		media_update_crypto(dst_media, sp, flags);
-		media_copy_format(dst_media, src_media);
-		media_set_address_family(dst_media, src_media, flags);
-		media_set_ptime(src_media, sp, flags->rev_ptime, flags->ptime);
-		media_set_ptime(dst_media, sp, flags->ptime, flags->rev_ptime);
-		media_set_extmap(dst_media, &src_media->extmap, media_extmap_strip, flags);
+	if (!flags->inactive)
+		bf_copy(&dst_media->media_flags, MEDIA_FLAG_SEND, &src_media->media_flags, SP_FLAG_RECV);
+	else
+		MEDIA_CLEAR(dst_media, SEND);
+	MEDIA_CLEAR(dst_media, RECV);
 
-		codec_store_populate(&dst_media->codecs, &src_media->codecs,
-				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
-		codec_store_strip(&dst_media->codecs, &flags->codec_strip, flags->codec_except);
-		codec_store_strip(&dst_media->codecs, &flags->codec_consume, flags->codec_except);
-		codec_store_strip(&dst_media->codecs, &flags->codec_mask, flags->codec_except);
-		codec_store_offer(&dst_media->codecs, &flags->codec_offer, &sp->codecs);
-		codec_store_transcode(&dst_media->codecs, &flags->codec_transcode, &sp->codecs);
-		codec_store_synthesise(&dst_media->codecs, &src_media->codecs);
+	__rtcp_mux_set(flags, dst_media);
+	__generate_crypto(flags, dst_media, src_media);
 
-		codec_handlers_update(dst_media, src_media, .flags = flags, .sp = sp,
-				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
+	unsigned int num_ports = proto_num_ports(sp->num_ports, dst_media, flags, false);
 
-		if (!flags->inactive)
-			bf_copy(&dst_media->media_flags, MEDIA_FLAG_SEND, &src_media->media_flags, SP_FLAG_RECV);
-		else
-			MEDIA_CLEAR(dst_media, SEND);
-		MEDIA_CLEAR(dst_media, RECV);
+	// interface selection
+	__init_interface(dst_media, &flags->interface, num_ports);
+	if (dst_media->logical_intf == NULL)
+		return -1; // XXX return error code
 
-		__rtcp_mux_set(flags, dst_media);
-		__generate_crypto(flags, dst_media, src_media);
+	__ice_offer(flags, dst_media, src_media, ice_is_restart(src_media->ice_agent, sp));
 
-		unsigned int num_ports = proto_num_ports(sp->num_ports, dst_media, flags, false);
+	struct endpoint_map *em = __get_endpoint_map(dst_media, num_ports, NULL, flags, true);
+	if (!em)
+		return -1; // XXX error - no ports
 
-		// interface selection
-		__init_interface(dst_media, &flags->interface, num_ports);
-		if (dst_media->logical_intf == NULL)
-			return -1; // XXX return error code
+	__num_media_streams(dst_media, num_ports);
 
-		__ice_offer(flags, dst_media, src_media, ice_is_restart(src_media->ice_agent, sp));
+	if (!__init_streams(dst_media, NULL, flags))
+		return -1;
 
-		struct endpoint_map *em = __get_endpoint_map(dst_media, num_ports, NULL, flags, true);
-		if (!em)
-			return -1; // XXX error - no ports
-
-		__num_media_streams(dst_media, num_ports);
-
-		if (!__init_streams(dst_media, NULL, flags))
-			return -1;
-
-		update_init_subscribers(src_media, NULL, NULL, flags->opmode);
-	}
+	update_init_subscribers(src_media, NULL, NULL, flags->opmode);
 
 	monologue_open_ports(dst_ml);
 
@@ -4465,21 +4450,18 @@ int monologue_subscribe_request(const subscription_q *srms, struct call_monologu
 	__unsubscribe_medias_from_all(dst_ml);
 	__call_monologue_init_from_flags(dst_ml, NULL, flags);
 
-	g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
 	IQUEUE_FOREACH(srms, ms) {
-		struct call_monologue *src_ml = ms->monologue;
-		if (!src_ml)
+		struct call_media *src_media = ms->media;
+		if (!src_media)
 			continue;
 
-		if (!g_queue_find(&mls, src_ml)) {
-			int ret = monologue_subscribe_request1(src_ml, dst_ml, flags, &index);
-			g_queue_push_tail(&mls, src_ml);
-			if (ret)
-				return -1;
-		}
+		int ret = monologue_subscribe_request1(src_media, dst_ml, flags, &index);
+		if (ret)
+			return -1;
 
 		/* update last used origin: copy from source to the dest monologue */
-		if (src_ml && src_ml->session_last_sdp_orig && !dst_ml->session_last_sdp_orig)
+		struct call_monologue *src_ml = src_media->monologue;
+		if (src_ml->session_last_sdp_orig && !dst_ml->session_last_sdp_orig)
 			dst_ml->session_last_sdp_orig = sdp_orig_dup(src_ml->session_last_sdp_orig);
 	}
 
