@@ -17,6 +17,7 @@ RUN apt-get update \
   iptables \
   libavcodec-extra \
   libavfilter-dev \
+  libbcg729-dev \
   libcurl4-openssl-dev \
   libevent-dev \
   libhiredis-dev \
@@ -65,6 +66,7 @@ RUN apt-get update \
   libglib2.0-0 \
   libavcodec-extra \
   libavfilter10 \
+  libbcg729-0 \
   libcurl4 \
   libevent-2.1-7 \
   libevent-pthreads-2.1-7 \
