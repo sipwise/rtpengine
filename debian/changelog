@@ -1,3 +1,13 @@
+ngcp-rtpengine (14.1.2.0+0~mr14.1.2.0) unstable; urgency=medium
+
+  [ Tom Briden ]
+  * [d85ab0f] MT#55283 streambuf: check pointer isn't NULL before trying to free it
+
+  [ Richard Fuchs ]
+  * [6e2630c] MT#55283 fix handing of sub-ans with extra media
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 17 Feb 2026 09:11:18 +0100
+
 ngcp-rtpengine (14.1.1.0+0~mr14.1.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
