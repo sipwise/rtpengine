@@ -2286,7 +2286,6 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 
 	if (flags->opmode == OP_OFFER ||
 		flags->opmode == OP_PUBLISH ||
-		flags->opmode == OP_SUBSCRIBE_REQ ||
 		IS_OP_OTHER(flags->opmode))
 	{
 		if (!other_media->media_id.s) {
@@ -2347,6 +2346,10 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 						STR_FORMAT "'",
 					STR_FMT(&sp->media_id), STR_FMT(&other_media->media_id));
 		}
+	}
+	else if (flags->generate_mid && !media->media_id.len) {
+		generate_mid(media, media->index);
+		t_hash_table_insert(ml->media_ids, &media->media_id, media);
 	}
 }
 
