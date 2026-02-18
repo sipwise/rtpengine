@@ -706,14 +706,15 @@ struct call_media *call_media_new(call_t *call) {
 	return med;
 }
 
-__attribute__((nonnull(1, 2, 4)))
+__attribute__((nonnull(1, 2)))
 static struct call_media *call_get_media(struct call_monologue *ml, const str *type, enum media_type type_id,
 		const str *media_id, bool trickle_ice, unsigned int want_index, str_ht tracker)
 {
 	struct call_media *med;
 	call_t *call;
 
-	if (media_id->len && (!t_hash_table_is_set(tracker) || !t_hash_table_lookup(tracker, media_id))) {
+	if (media_id && media_id->len
+			&& (!t_hash_table_is_set(tracker) || !t_hash_table_lookup(tracker, media_id))) {
 		if (t_hash_table_is_set(tracker))
 			t_hash_table_insert(tracker, (str *) media_id, (str *) media_id);
 		// in this case, the media sections can be out of order and the media ID
