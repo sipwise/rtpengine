@@ -4370,7 +4370,8 @@ static int monologue_subscribe_request1(struct call_media *src_media, struct cal
 
 	struct stream_params *sp = &src_media->sp;
 
-	struct call_media *dst_media = __get_media(dst_ml, sp, flags, (*index)++, mid_tracker_dst);
+	struct call_media *dst_media = call_get_media(dst_ml, &src_media->type, src_media->type_id,
+			NULL, false, (*index)++, mid_tracker_dst);
 
 	/* subscribe dst_ml (subscriber) to src_ml, don't forget to carry the egress flag, if required */
 	__add_media_subscription(dst_media, src_media, &(struct sink_attrs) { .egress = !!flags->egress });
