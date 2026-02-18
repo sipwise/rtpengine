@@ -4410,8 +4410,7 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		media_set_siprec_label(src_media, dst_media, flags);
 		media_update_type(dst_media, sp);
 		media_set_protocol(dst_media, src_media, sp, flags);
-		media_update_media_id(src_media, sp);
-		media_copy_media_id(dst_media, src_media, flags);
+		media_gen_media_id(dst_media, flags);
 		media_update_flags(dst_media, sp);
 		media_update_crypto(dst_media, sp, flags);
 		media_copy_format(dst_media, src_media);
