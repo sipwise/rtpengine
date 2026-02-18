@@ -4386,8 +4386,9 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 	for (__auto_type l = src_ml->last_in_sdp_streams.head; l; l = l->next) {
 		struct stream_params *sp = l->data;
 
-		struct call_media *dst_media = __get_media(dst_ml, sp, flags, (*index)++, mid_tracker_dst);
 		struct call_media *src_media = __get_media(src_ml, sp, flags, 0, mid_tracker_src);
+		struct call_media *dst_media = call_get_media(dst_ml, &src_media->type, src_media->type_id,
+				NULL, false, (*index)++, mid_tracker_dst);
 
 		/* subscribe dst_ml (subscriber) to src_ml, don't forget to carry the egress flag, if required */
 		__add_media_subscription(dst_media, src_media, &(struct sink_attrs) { .egress = !!flags->egress });
