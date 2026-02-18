@@ -1809,7 +1809,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=msid-semantic: WMS hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"
                 "m=audio \\d+ UDP/TLS/RTP/SAVPF 111\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
-                "a=mid:0\r\n"
+                "a=mid:1\r\n"
                 "a=rtpmap:111 opus/48000/2\r\n"
                 "a=fmtp:111 useinbandfec=1; minptime=10\r\n"
                 "a=rtcp-fb:111 transport-cc\r\n"
@@ -1837,7 +1837,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=end-of-candidates\r\n"
                 "m=video \\d+ UDP/TLS/RTP/SAVPF 96\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
-                "a=mid:1\r\n"
+                "a=mid:2\r\n"
                 "a=rtpmap:96 VP8/90000\r\n"
                 "a=rtcp-fb:96 goog-remb\r\n"
                 "a=rtcp-fb:96 transport-cc\r\n"
@@ -2076,7 +2076,7 @@ class TestVideoroom(unittest.TestCase):
                 "t=0 0\r\n"
                 "m=audio \\d+ UDP/TLS/RTP/SAVPF 8\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
-                "a=mid:audio\r\n"
+                "a=mid:1\r\n"
                 "a=rtpmap:8 PCMA/8000\r\n"
                 "a=sendonly\r\n"
                 "a=rtcp-mux\r\n"
@@ -2125,7 +2125,7 @@ class TestVideoroom(unittest.TestCase):
                             "s=foobar\r\n"
                             "t=0 0\r\n"
                             "m=audio 9 RTP/AVP 8\r\n"
-                            "a=mid:audio\r\n"
+                            "a=mid:1\r\n"
                             "a=ice-ufrag:abcd\r\n"
                             "a=ice-pwd:WD1pLsdgsdfsdWuEBb0vjyZr\r\n"
                             "a=ice-options:trickle\r\n"
@@ -2172,7 +2172,7 @@ class TestVideoroom(unittest.TestCase):
                     "janus": "trickle",
                     "candidate": {
                         "candidate": "candidate:3fgsdfs273 1 udp 2113937151 203.0.113.2 30002 typ host generation 0",
-                        "sdpMid": "audio",
+                        "sdpMid": "1",
                         "usernameFragment": "abcd",
                     },
                     "handle_id": sub_handle,
@@ -3208,13 +3208,13 @@ class TestVideoroom(unittest.TestCase):
             "t=0 0\r\n"
             "m=audio (\\d+) RTP/AVP 96\r\n"
             "c=IN IP4 203.0.113.1\r\n"
-            "a=mid:a\r\n"
+            "a=mid:1\r\n"
             "a=rtpmap:96 opus/48000/2\r\n"
             "a=sendonly\r\n"
             "a=rtcp:\\d+\r\n"
             "m=video (\\d+) RTP/AVP 97\r\n"
             "c=IN IP4 203.0.113.1\r\n"
-            "a=mid:v\r\n"
+            "a=mid:2\r\n"
             "a=rtpmap:97 VP9/90000\r\n"
             "a=sendonly\r\n"
             "a=rtcp:\\d+\r\n$",
@@ -3260,11 +3260,11 @@ class TestVideoroom(unittest.TestCase):
                             "t=0 0\r\n"
                             "m=audio 31010 RTP/AVP 96\r\n"
                             "a=rtpmap:96 opus/48000/2\r\n"
-                            "a=mid:a\r\n"
+                            "a=mid:1\r\n"
                             "a=recvonly\r\n"
                             "m=video 31110 RTP/AVP 97\r\n"
                             "a=rtpmap:97 VP9/90000\r\n"
-                            "a=mid:v\r\n"
+                            "a=mid:2\r\n"
                             "a=recvonly\r\n"
                         ),
                     },
