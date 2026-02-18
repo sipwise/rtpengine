@@ -2314,12 +2314,20 @@ static void media_answer_media_id(struct call_media *media, struct stream_params
 }
 
 
+__attribute__((nonnull(1, 2)))
+static void media_gen_media_id(struct call_media *media, const sdp_ng_flags *flags) {
+	struct call_monologue *ml = media->monologue;
+
+	if (!media->media_id.len && flags->generate_mid)
+		generate_mid(media, media->index);
+	if (media->media_id.len)
+		t_hash_table_insert(ml->media_ids, &media->media_id, media);
+}
+
 __attribute__((nonnull(1, 2, 3)))
 static void media_copy_media_id(struct call_media *media, struct call_media *other_media,
 		const sdp_ng_flags *flags)
 {
-	struct call_monologue *ml = media->monologue;
-
 	// we already have a media ID. keep what we have and ignore what's
 	// happening on the other side.
 	if (media->media_id.len)
@@ -2328,12 +2336,8 @@ static void media_copy_media_id(struct call_media *media, struct call_media *oth
 	// outgoing side: we copy from the other side
 	if (other_media->media_id.len)
 		media->media_id = call_str_cpy(&other_media->media_id);
-	else if (flags->generate_mid) {
-		// or generate one
-		generate_mid(media, other_media->index);
-	}
-	if (media->media_id.len)
-		t_hash_table_insert(ml->media_ids, &media->media_id, media);
+
+	media_gen_media_id(media, flags);
 }
 
 static void __t38_reset(struct call_media *media, struct call_media *other_media) {
