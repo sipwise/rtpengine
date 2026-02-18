@@ -28,6 +28,133 @@ use_json(1);
 
 
 
+new_call;
+
+offer('a=mid collision', { }, <<SDP);
+v=0
+o=- 7674244616960374498 2 IN IP4 193.84.65.132
+s=WebRTC session
+t=0 0
+a=msid-semantic: WMS b766fe81-0643-4514-b7b7-5a20d81c791e
+m=audio 11020 RTP/AVPF 111 9 96 8 97 110 101
+c=IN IP4 193.84.65.132
+a=mid:0
+a=rtpmap:111 opus/48000/2
+a=fmtp:111 useinbandfec=1; minptime=10
+a=rtcp-fb:111 transport-cc
+a=rtpmap:9 G722/8000
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,1,2
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 telephone-event/16000
+a=fmtp:97 0-15
+a=rtpmap:110 telephone-event/48000
+a=rtpmap:101 telephone-event/8000
+a=msid:b766fe81-0643-4514-b7b7-5a20d81c791e a95faab9-335f-4c3c-a40d-690a985c234a
+a=rtcp-rsize
+a=sendrecv
+a=rtcp:11021
+--------------------------------------------
+v=0
+o=- 7674244616960374498 2 IN IP4 193.84.65.132
+s=WebRTC session
+t=0 0
+a=msid-semantic: WMS b766fe81-0643-4514-b7b7-5a20d81c791e
+m=audio PORT RTP/AVPF 111 9 96 8 97 110 101
+c=IN IP4 203.0.113.1
+a=mid:0
+a=rtpmap:111 opus/48000/2
+a=fmtp:111 useinbandfec=1; minptime=10
+a=rtcp-fb:111 transport-cc
+a=rtpmap:9 G722/8000
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,1,2
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 telephone-event/16000
+a=fmtp:97 0-15
+a=rtpmap:110 telephone-event/48000
+a=rtpmap:101 telephone-event/8000
+a=msid:b766fe81-0643-4514-b7b7-5a20d81c791e a95faab9-335f-4c3c-a40d-690a985c234a
+a=rtcp-rsize
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('a=mid collision', { }, <<SDP);
+v=0
+o=- 2881828996508053496 2 IN IP4 193.84.65.132
+s=WebRTC session
+t=0 0
+a=msid-semantic: WMS eb7355ba-a793-4c31-a589-5751c170fad3
+m=audio 11500 RTP/AVPF 111 9 8 110 101
+c=IN IP4 193.84.65.132
+a=mid:0
+a=rtpmap:111 opus/48000/2
+a=fmtp:111 useinbandfec=1; minptime=10
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:110 telephone-event/48000
+a=rtpmap:101 telephone-event/8000
+a=msid:eb7355ba-a793-4c31-a589-5751c170fad3 f6f30d17-4f49-402c-a42d-105593b48a62
+a=rtcp-rsize
+a=sendrecv
+a=rtcp:11501
+--------------------------------------------
+v=0
+o=- 2881828996508053496 2 IN IP4 193.84.65.132
+s=WebRTC session
+t=0 0
+a=msid-semantic: WMS eb7355ba-a793-4c31-a589-5751c170fad3
+m=audio PORT RTP/AVPF 111 9 8 110 101
+c=IN IP4 203.0.113.1
+a=mid:0
+a=rtpmap:111 opus/48000/2
+a=fmtp:111 useinbandfec=1; minptime=10
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:110 telephone-event/48000
+a=rtpmap:101 telephone-event/8000
+a=msid:eb7355ba-a793-4c31-a589-5751c170fad3 f6f30d17-4f49-402c-a42d-105593b48a62
+a=rtcp-rsize
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+subscribe_request('a=mid collision', { 'from-tag' => '1', flags => ['SIPREC', 'all'] }, <<SDP);
+v=0
+o=- 7674244616960374498 2 IN IP4 193.84.65.132
+s=WebRTC session
+t=0 0
+m=audio PORT RTP/AVPF 111 9 8 110 101
+c=IN IP4 203.0.113.1
+a=label:0
+a=rtpmap:111 opus/48000/2
+a=fmtp:111 useinbandfec=1; minptime=10
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:110 telephone-event/48000
+a=rtpmap:101 telephone-event/8000
+a=msid:b766fe81-0643-4514-b7b7-5a20d81c791e a95faab9-335f-4c3c-a40d-690a985c234a
+a=rtcp-rsize
+a=sendonly
+a=rtcp:PORT
+m=audio PORT RTP/AVPF 111 9 8 110 101
+c=IN IP4 203.0.113.1
+a=label:1
+a=rtpmap:111 opus/48000/2
+a=fmtp:111 useinbandfec=1; minptime=10
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:110 telephone-event/48000
+a=rtpmap:101 telephone-event/8000
+a=msid:eb7355ba-a793-4c31-a589-5751c170fad3 f6f30d17-4f49-402c-a42d-105593b48a62
+a=rtcp-rsize
+a=sendonly
+a=rtcp:PORT
+SDP
+
+
+
 ($sock_a, $sock_b, $sock_c, $sock_d) =
 	new_call([qw(198.51.100.14 6150)], [qw(198.51.100.14 6152)], [qw(198.51.100.14 6154)]);
 
