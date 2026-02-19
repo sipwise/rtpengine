@@ -894,7 +894,6 @@ const rtp_payload_type *__rtp_stats_codec(struct call_media *m);
 
 #define call_malloc memory_arena_alloc
 #define call_dup memory_arena_dup
-#define call_ref memory_arena_ref
 
 #define call_strdup memory_arena_strdup
 #define call_strdup_str memory_arena_strdup_str
