@@ -2016,6 +2016,11 @@ static void __rtcp_mux_logic(sdp_ng_flags *flags, struct call_media *media,
 	if (flags->opmode == OP_ANSWER) {
 		/* default is to go with the client's choice, unless we were instructed not
 		 * to do that in the offer (see below) */
+		
+		/* if the consecutive answer is from different media endpoint, then we need to check if rtcp-mux was offered initially by client */
+                if (MEDIA_ISSET(media, RTCP_MUX))
+                    return;
+		
 		if (!MEDIA_ISSET(other_media, RTCP_MUX_OVERRIDE))
 			bf_copy_same(&media->media_flags, &other_media->media_flags, MEDIA_FLAG_RTCP_MUX);
 
