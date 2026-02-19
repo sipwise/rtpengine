@@ -1281,7 +1281,7 @@ static struct media_player_media_file *media_player_media_file_new(str blob) {
 	__auto_type fo = obj_alloc0(struct media_player_media_file,
 			media_player_media_file_free);
 	fo->blob = blob;
-	fo->blob.dup = call_ref; // string is allocated by reference on `fo`
+	fo->blob.arena = memory_arena; // string is allocated by reference on `fo`
 	RTPE_GAUGE_ADD(media_cache, blob.len);
 	fo->atime_us = fo->mtime_us = rtpe_now;
 	return fo;
