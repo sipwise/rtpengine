@@ -15,7 +15,7 @@
 struct _str {
 	char *s;
 	size_t len;
-	char *(*dup)(const char *, size_t);
+	void *arena;
 };
 
 typedef struct _str str;
@@ -325,7 +325,7 @@ INLINE str *str_alloc(size_t len) {
 	r = malloc(sizeof(*r) + len + 1);
 	r->s = ((char *) r) + sizeof(*r);
 	r->len = 0;
-	r->dup = NULL;
+	r->arena = NULL;
 	return r;
 }
 INLINE str *str_dup(const str *s) {

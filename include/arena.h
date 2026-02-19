@@ -29,16 +29,12 @@ INLINE char *memory_arena_dup(const char *b, size_t len) {
 	ret[len] = '\0';
 	return ret;
 }
-INLINE char *memory_arena_ref(const char *b, size_t len) {
-	return (char *) b;
-}
-INLINE char *memory_arena_strdup_len(const char *s, size_t len, char *(*dup)(const char *, size_t)) {
-	char *r;
+INLINE char *memory_arena_strdup_len(const char *s, size_t len, void *arena) {
 	if (!s)
 		return NULL;
-	dup = dup ?: memory_arena_dup;
-	r = dup(s, len);
-	return r;
+	if (arena == memory_arena)
+		return (char *) s;
+	return memory_arena_dup(s, len);
 }
 
 INLINE char *memory_arena_strdup(const char *s) {
@@ -49,24 +45,24 @@ INLINE char *memory_arena_strdup(const char *s) {
 INLINE char *memory_arena_strdup_str(const str *s) {
 	if (!s)
 		return NULL;
-	return memory_arena_strdup_len(s->s, s->len, s->dup);
+	return memory_arena_strdup_len(s->s, s->len, s->arena);
 }
-INLINE str memory_arena_str_cpy_fn(const char *in, size_t len, char *(*dup)(const char *, size_t)) {
+INLINE str memory_arena_str_cpy_fn(const char *in, size_t len, void *arena) {
 	str out;
 	if (!in) {
 		out = STR_NULL;
 		return out;
 	}
-	out.s = memory_arena_strdup_len(in, len, dup);
+	out.s = memory_arena_strdup_len(in, len, arena);
 	out.len = len;
-	out.dup = memory_arena_ref;
+	out.arena = memory_arena;
 	return out;
 }
 INLINE str memory_arena_str_cpy_len(const char *in, size_t len) {
 	return memory_arena_str_cpy_fn(in, len, NULL);
 }
 INLINE str memory_arena_str_cpy(const str *in) {
-	return memory_arena_str_cpy_fn((in ? in->s : NULL), (in ? in->len : 0), (in ? in->dup : NULL));
+	return memory_arena_str_cpy_fn((in ? in->s : NULL), (in ? in->len : 0), (in ? in->arena : NULL));
 }
 INLINE str memory_arena_str_cpy_c(const char *in) {
 	return memory_arena_str_cpy_len(in, in ? strlen(in) : 0);
