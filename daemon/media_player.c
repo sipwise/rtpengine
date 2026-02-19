@@ -912,6 +912,12 @@ static bool media_player_cache_entry_init(struct media_player *mp, const rtp_pay
 
 	entry->coder.handler->packet_encoded = media_player_packet_cache;
 
+	call_memory_arena_release();
+	memory_arena = &entry->arena;
+	codec_init_payload_type(&entry->coder.handler->source_pt, MT_UNKNOWN);
+	codec_init_payload_type(&entry->coder.handler->dest_pt, MT_UNKNOWN);
+	call_memory_arena_set(mp->call);
+
 	// use low priority (10 nice)
 	thread_create_detach_prio(media_player_cache_entry_decoder_thread, obj_hold(entry), NULL, 10, "mp decoder");
 
