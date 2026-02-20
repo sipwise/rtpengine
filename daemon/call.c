@@ -2756,10 +2756,6 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 
 	/* consume sdp session parts */
 	{
-		/* for cases with origin replacements, keep the very first used origin */
-		if (other_ml && !other_ml->sdp_orig_out.parsed && flags->session_sdp_orig.parsed)
-			other_ml->sdp_orig_out = sdp_orig_dup(&flags->session_sdp_orig);
-
 		/* origin (name, version etc.) */
 		if (flags->session_sdp_orig.parsed) {
 			ml->sdp_orig_in = sdp_orig_dup(&flags->session_sdp_orig);
@@ -4503,11 +4499,6 @@ int monologue_subscribe_request(const subscription_q *srms, struct call_monologu
 		int ret = monologue_subscribe_request1(src_media, dst_ml, flags, ht);
 		if (ret)
 			return -1;
-
-		/* update last used origin: copy from source to the dest monologue */
-		struct call_monologue *src_ml = src_media->monologue;
-		if (src_ml->sdp_orig_out.parsed && !dst_ml->sdp_orig_out.parsed)
-			dst_ml->sdp_orig_out = sdp_orig_dup(&src_ml->sdp_orig_out);
 	}
 
 	monologue_media_start(dst_ml);

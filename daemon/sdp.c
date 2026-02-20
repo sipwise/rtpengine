@@ -3040,6 +3040,16 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 		orig_address = ml->sdp_orig_in.address.address;
 	}
 
+	if (!monologue->sdp_orig_out.parsed)
+		monologue->sdp_orig_out = sdp_orig_dup(&(sdp_origin) {
+				.username = *orig_username,
+				.session_id = *orig_session_id,
+				.version_num = orig_session_version,
+				.address.address_type = orig_address_type,
+				.address.address = orig_address,
+				.parsed = 1,
+		});
+
 	/* print it to the output sdp */
 	g_string_append_printf(out,
 			"o="STR_FORMAT" "STR_FORMAT" %llu IN "STR_FORMAT" "STR_FORMAT"\r\n",
