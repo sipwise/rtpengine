@@ -1,3 +1,17 @@
+ngcp-rtpengine (14.0.1.5+0~mr14.0.1.5) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [061ca1d] MT#55283 add alternative opus encodings
+  * [42d6dca] MT#55283 allow null media_id
+  * [4c65e38] MT#55283 split out media_gen_media_id
+  * [f3f5da4] MT#55283 don't look up dst media by src media_id
+  * [cdd2512] MT#55283 don't copy media_id from src to dst
+  * [3088ffa] MT#55283 add test for a=mid collision
+  * [b6ad6cc] MT#55283 update memory arena logic
+  * [a5f4533] MT#55283 duplicate cache PTs into cache arena
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 20 Feb 2026 13:38:33 +0100
+
 ngcp-rtpengine (14.0.1.4+0~mr14.0.1.4) unstable; urgency=medium
 
   * New release.
