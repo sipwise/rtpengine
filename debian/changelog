@@ -1,3 +1,19 @@
+ngcp-rtpengine (14.1.1.2+0~mr14.1.1.2) unstable; urgency=medium
+
+  [ Orgad Shaneh ]
+  * [3c49c4d] MT#55283 Add g729 package to docker build
+
+  [ Richard Fuchs ]
+  * [28d883e] MT#55283 allow null media_id
+  * [400474e] MT#55283 split out media_gen_media_id
+  * [876687b] MT#55283 don't look up dst media by src media_id
+  * [9ff9f9e] MT#55283 don't copy media_id from src to dst
+  * [4bc1e9a] MT#55283 add test for a=mid collision
+  * [162d306] MT#55283 update memory arena logic
+  * [f445df6] MT#55283 duplicate cache PTs into cache arena
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 20 Feb 2026 13:38:25 +0100
+
 ngcp-rtpengine (14.1.1.1+0~mr14.1.1.1) unstable; urgency=medium
 
   [ Tom Briden ]
