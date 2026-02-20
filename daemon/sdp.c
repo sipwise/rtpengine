@@ -1901,25 +1901,21 @@ void sdp_attr_free(struct sdp_attr *c) {
 	g_free(c);
 }
 
-sdp_origin *sdp_orig_dup(const sdp_origin *orig) {
-	sdp_origin *copy = g_new0(__typeof(*copy), 1);
-	copy->username = call_str_cpy(&orig->username);
-	copy->session_id = call_str_cpy(&orig->session_id);
-	copy->version_str = call_str_cpy(&orig->version_str);
-	copy->version_num = orig->version_num;
-	copy->version_output_pos = orig->version_output_pos;
-	copy->parsed = orig->parsed;
+sdp_origin sdp_orig_dup(const sdp_origin *orig) {
+	sdp_origin copy = {};
+	copy.username = call_str_cpy(&orig->username);
+	copy.session_id = call_str_cpy(&orig->session_id);
+	copy.version_str = call_str_cpy(&orig->version_str);
+	copy.version_num = orig->version_num;
+	copy.version_output_pos = orig->version_output_pos;
+	copy.parsed = orig->parsed;
 	/* struct network_address */
-	copy->address.network_type = call_str_cpy(&orig->address.network_type);
-	copy->address.address_type = call_str_cpy(&orig->address.address_type);
-	copy->address.address = call_str_cpy(&orig->address.address);
-	copy->address.parsed = orig->address.parsed;
+	copy.address.network_type = call_str_cpy(&orig->address.network_type);
+	copy.address.address_type = call_str_cpy(&orig->address.address_type);
+	copy.address.address = call_str_cpy(&orig->address.address);
+	copy.address.parsed = orig->address.parsed;
 
 	return copy;
-}
-
-void sdp_orig_free(sdp_origin *o) {
-	g_free(o);
 }
 
 static void sdp_attr_append1(sdp_attr_q *dst, const struct sdp_attribute *attr) {
@@ -2744,14 +2740,14 @@ static void sdp_version_check(GString *s, struct call_monologue *monologue,
 		struct call_monologue *source_ml,
 		bool force_increase)
 {
-	if (!monologue->session_last_sdp_orig)
+	if (!monologue->sdp_orig_out.parsed)
 		return;
 
-	sdp_origin *origin = monologue->session_last_sdp_orig;
+	sdp_origin *origin = &monologue->sdp_orig_out;
 	sdp_origin *other_origin = NULL;
 
-	if (source_ml && source_ml->session_sdp_orig)
-		other_origin = source_ml->session_sdp_orig;
+	if (source_ml && source_ml->sdp_orig_in.parsed)
+		other_origin = &source_ml->sdp_orig_in;
 
 	/* We really expect only a single session here, but we treat all the same regardless,
 	* and use the same version number on all of them */
@@ -3017,20 +3013,20 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 	/* orig username
 	 * session_last_sdp_orig is stored on the other media always,
 	 * so if origin is meant for the A media, then it is stored on the B one */
-	str * orig_username = (monologue->session_last_sdp_orig &&
+	str * orig_username = (monologue->sdp_orig_out.parsed &&
 			(flags->replace_username || flags->replace_origin_full)) ?
-			&monologue->session_last_sdp_orig->username : &ml->session_sdp_orig->username;
+			&monologue->sdp_orig_out.username : &ml->sdp_orig_in.username;
 
 	/* orig session id */
-	str * orig_session_id = (monologue->session_last_sdp_orig && flags->replace_origin_full) ?
-			&monologue->session_last_sdp_orig->session_id : &ml->session_sdp_orig->session_id;
+	str * orig_session_id = (monologue->sdp_orig_out.parsed && flags->replace_origin_full) ?
+			&monologue->sdp_orig_out.session_id : &ml->sdp_orig_in.session_id;
 
 	/* orig session ver
 	 * replacement is handled later in sdp_create() based on SDP changes */
-	unsigned long long orig_session_version = ml->session_sdp_orig->version_num;
+	unsigned long long orig_session_version = ml->sdp_orig_in.version_num;
 	/* record origin version position for replacements
 	 * + 4 - means: `o=` + 2 spaces between username and version / version and id */
-	ml->session_sdp_orig->version_output_pos = out->len + orig_username->len + orig_session_id->len + 4;
+	ml->sdp_orig_in.version_output_pos = out->len + orig_username->len + orig_session_id->len + 4;
 
 	/* orig IP family and address */
 	str orig_address_type;
@@ -3040,8 +3036,8 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 		orig_address_type = STR(first_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name);
 		orig_address = STR(sockaddr_print_buf(&first_ps->selected_sfd->local_intf->advertised_address.addr));
 	} else {
-		orig_address_type = ml->session_sdp_orig->address.address_type;
-		orig_address = ml->session_sdp_orig->address.address;
+		orig_address_type = ml->sdp_orig_in.address.address_type;
+		orig_address = ml->sdp_orig_in.address.address;
 	}
 
 	/* print it to the output sdp */

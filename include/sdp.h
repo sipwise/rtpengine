@@ -41,8 +41,7 @@ void append_v_str_attr_to_gstring(GString *s, const str *name, const sdp_ng_flag
 #define sdp_append_attr(s, g, t, n, f, ...) append_v_str_attr_to_gstring(s, STR_PTR(n), g, t, f, ##__VA_ARGS__)
 
 void sdp_attr_free(struct sdp_attr *);
-sdp_origin *sdp_orig_dup(const sdp_origin *orig);
-void sdp_orig_free(sdp_origin *o);
+sdp_origin sdp_orig_dup(const sdp_origin *orig);
 
 bool sdp_parse(str *body, sdp_sessions_q *sessions, const sdp_ng_flags *);
 bool sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_flags *);

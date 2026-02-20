@@ -629,8 +629,8 @@ struct call_monologue {
 	struct session_bandwidth sdp_session_bandwidth;
 	GString			*last_out_sdp;
 
-	sdp_origin * session_sdp_orig;	/* actual origin belonging to this monologue */
-	sdp_origin * session_last_sdp_orig;	/* previously used origin by other other side */
+	sdp_origin		sdp_orig_in;	/* actual origin belonging to this monologue */
+	sdp_origin		sdp_orig_out;	/* previously used origin by other other side */
 
 	str			sdp_session_name;
 	str			sdp_session_timing;
