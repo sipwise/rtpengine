@@ -1,3 +1,16 @@
+ngcp-rtpengine (13.5.1.6+0~mr13.5.1.6) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [55ea13f] MT#55283 add alternative opus encodings
+  * [42f25f7] MT#55283 allow null media_id
+  * [8056fef] MT#55283 don't look up dst media by src media_id
+  * [3277389] MT#55283 don't copy media_id from src to dst
+  * [4008039] MT#55283 add test for a=mid collision
+  * [9ef3536] MT#55283 update memory arena logic
+  * [a9ee211] MT#55283 duplicate cache PTs into cache arena
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 20 Feb 2026 13:38:42 +0100
+
 ngcp-rtpengine (13.5.1.5+0~mr13.5.1.5) unstable; urgency=medium
 
   [ Alexander Bakker ]
