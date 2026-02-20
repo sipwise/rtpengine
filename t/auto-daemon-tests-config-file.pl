@@ -119,7 +119,7 @@ t=0 0
 m=audio 6000 RTP/AVP 0 8
 ----------------------------------
 v=0
-o=- 1545997027 1 IN IP4 203.0.113.6
+o=- SDP_VERSION IN IP4 203.0.113.6
 s=RTPE_VERSION
 t=0 0
 m=audio PORT RTP/AVP 0
@@ -147,7 +147,7 @@ t=0 0
 m=audio 6000 RTP/AVP 0 8
 ----------------------------------
 v=0
-o=- 1545997027 1 IN IP4 203.0.113.6
+o=- SDP_VERSION IN IP4 203.0.113.6
 s=RTPE_VERSION
 t=0 0
 m=audio PORT RTP/AVP 0
@@ -176,7 +176,7 @@ t=0 0
 m=audio 6000 RTP/AVP 0 8
 ----------------------------------
 v=0
-o=- 1545997027 1 IN IP4 203.0.113.6
+o=- SDP_VERSION IN IP4 203.0.113.6
 s=RTPE_VERSION
 t=0 0
 m=audio PORT RTP/AVP 0
@@ -206,7 +206,7 @@ t=0 0
 m=audio 6000 RTP/AVP 0 8
 ----------------------------------
 v=0
-o=- 1545997027 1 IN IP4 203.0.113.6
+o=- SDP_VERSION IN IP4 203.0.113.6
 s=RTPE_VERSION
 t=0 0
 m=audio PORT RTP/AVP 0

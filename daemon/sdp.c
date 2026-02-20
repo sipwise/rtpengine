@@ -1905,7 +1905,6 @@ sdp_origin sdp_orig_dup(const sdp_origin *orig) {
 	sdp_origin copy = {};
 	copy.username = call_str_cpy(&orig->username);
 	copy.session_id = call_str_cpy(&orig->session_id);
-	copy.version_str = call_str_cpy(&orig->version_str);
 	copy.version_num = orig->version_num;
 	copy.version_output_pos = orig->version_output_pos;
 	copy.parsed = orig->parsed;
@@ -2706,29 +2705,28 @@ static void insert_rtcp_attr(GString *s, struct packet_stream *ps, const sdp_ng_
 /**
  * Handle sdp version replacements.
  */
-static void sdp_version_replace(GString *s, sdp_origin *src_orig, sdp_origin *other_orig)
+static void sdp_version_increase(GString *s, sdp_origin *origin)
 {
 	char version_str[64];
-	snprintf(version_str, sizeof(version_str), "%llu", src_orig->version_num);
+	snprintf(version_str, sizeof(version_str), "%llu", origin->version_num);
+	size_t old_version_len = strlen(version_str);
+
+	origin->version_num++;
+
+	snprintf(version_str, sizeof(version_str), "%llu", origin->version_num);
 	size_t version_len = strlen(version_str);
 
-	if (!other_orig)
-		return;
-
-	other_orig->version_num = src_orig->version_num;
 	/* is our new value longer? */
-	if (version_len > other_orig->version_str.len) {
+	if (version_len > old_version_len) {
 		/* overwrite + insert */
-		g_string_overwrite_len(s, other_orig->version_output_pos, version_str, other_orig->version_str.len);
-		g_string_insert(s, other_orig->version_output_pos + other_orig->version_str.len, version_str + other_orig->version_str.len);
-		other_orig->version_str.len = version_len;
+		g_string_overwrite_len(s, origin->version_output_pos, version_str, old_version_len);
+		g_string_insert(s, origin->version_output_pos + old_version_len, version_str + old_version_len);
 	}
 	else {
 		/* overwrite + optional erase */
-		g_string_overwrite(s, other_orig->version_output_pos, version_str);
-		if (version_len < other_orig->version_str.len) {
-			g_string_erase(s, other_orig->version_output_pos + version_len, other_orig->version_str.len - version_len);
-			other_orig->version_str.len = version_len;
+		g_string_overwrite(s, origin->version_output_pos, version_str);
+		if (version_len < old_version_len) {
+			g_string_erase(s, origin->version_output_pos + version_len, old_version_len - version_len);
 		}
 	}
 }
@@ -2736,40 +2734,19 @@ static void sdp_version_replace(GString *s, sdp_origin *src_orig, sdp_origin *ot
 /**
  * SDP session version manipulations.
  */
-static void sdp_version_check(GString *s, struct call_monologue *monologue,
-		struct call_monologue *source_ml,
-		bool force_increase)
-{
+static void sdp_version_check(GString *s, struct call_monologue *monologue) {
 	if (!monologue->sdp_orig_out.parsed)
 		return;
 
 	sdp_origin *origin = &monologue->sdp_orig_out;
-	sdp_origin *other_origin = NULL;
 
-	if (source_ml && source_ml->sdp_orig_in.parsed)
-		other_origin = &source_ml->sdp_orig_in;
-
-	/* We really expect only a single session here, but we treat all the same regardless,
-	* and use the same version number on all of them */
-
-	/* First update all versions to match our single version */
-	sdp_version_replace(s, origin, other_origin);
-
-	/* Now check if we need to change the version actually.
-	 * The version change will be forced with the 'force_increase',
-	 * and it gets incremented, regardless whether:
-	 * - we have no previously stored SDP,
-	 * - we have previous SDP and it's equal to the current one */
-	if (!force_increase) {
-		if (!monologue->last_out_sdp)
-			goto dup;
-		if (g_string_equal(monologue->last_out_sdp, s))
-			return;
-	}
+	if (!monologue->last_out_sdp)
+		goto dup;
+	if (g_string_equal(monologue->last_out_sdp, s))
+		return;
 
 	/* mismatch detected. increment version, update again, and store copy */
-	origin->version_num++;
-	sdp_version_replace(s, origin, other_origin);
+	sdp_version_increase(s, origin);
 	if (monologue->last_out_sdp)
 		g_string_free(monologue->last_out_sdp, TRUE);
 dup:
@@ -3006,56 +2983,81 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 		struct call_monologue *source_ml,
 		struct packet_stream *first_ps, sdp_ng_flags *flags)
 {
-	__auto_type ml = source_ml;
-	if (!ml)
-		ml = monologue;
+	/* origin username */
+	str username = STR_NULL;
+	if (source_ml && !(flags->replace_username || flags->replace_origin_full))
+		username = source_ml->sdp_orig_in.username;
+	if (!username.len && monologue->sdp_orig_out.parsed)
+		username = monologue->sdp_orig_out.username;
+	if (!username.len && source_ml)
+		username = source_ml->sdp_orig_in.username;
+	if (!username.len)
+		username = STR("-");
 
-	/* orig username
-	 * session_last_sdp_orig is stored on the other media always,
-	 * so if origin is meant for the A media, then it is stored on the B one */
-	str * orig_username = (monologue->sdp_orig_out.parsed &&
-			(flags->replace_username || flags->replace_origin_full)) ?
-			&monologue->sdp_orig_out.username : &ml->sdp_orig_in.username;
+	/* origin session id */
+	str session_id = STR_NULL;
+	char id_buf[64];
+	if (source_ml && !flags->replace_origin_full)
+		session_id = source_ml->sdp_orig_in.session_id;
+	if (!session_id.len && monologue->sdp_orig_out.parsed)
+		session_id = monologue->sdp_orig_out.session_id;
+	if (!session_id.len && source_ml)
+		session_id = source_ml->sdp_orig_in.session_id;
+	if (!session_id.len) {
+		snprintf(id_buf, sizeof(id_buf), "%" PRId64, (rtpe_now & 0xfffffffL) + 1);
+		session_id = STR(id_buf);
+	}
 
-	/* orig session id */
-	str * orig_session_id = (monologue->sdp_orig_out.parsed && flags->replace_origin_full) ?
-			&monologue->sdp_orig_out.session_id : &ml->sdp_orig_in.session_id;
+	/* origin session ver */
+	unsigned long long session_version;
+	if (monologue->sdp_orig_out.parsed && flags->force_inc_sdp_ver)
+		session_version = monologue->sdp_orig_out.version_num + 1;
+	else if (monologue->sdp_orig_out.parsed
+			&& (flags->replace_sdp_version || flags->replace_origin_full))
+		session_version = monologue->sdp_orig_out.version_num;
+	else if (source_ml)
+		session_version = source_ml->sdp_orig_in.version_num;
+	else if (monologue->sdp_orig_out.parsed)
+		session_version = monologue->sdp_orig_out.version_num;
+	else
+		session_version = (ssl_random() & 0xfffffffL) + 1;
 
-	/* orig session ver
-	 * replacement is handled later in sdp_create() based on SDP changes */
-	unsigned long long orig_session_version = ml->sdp_orig_in.version_num;
 	/* record origin version position for replacements
 	 * + 4 - means: `o=` + 2 spaces between username and version / version and id */
-	ml->sdp_orig_in.version_output_pos = out->len + orig_username->len + orig_session_id->len + 4;
+	size_t version_output_pos = out->len + username.len + session_id.len + 4;
 
 	/* orig IP family and address */
 	str orig_address_type;
 	str orig_address;
-	if (!source_ml || flags->replace_origin || flags->replace_origin_full) {
-		/* replacing flags or PUBLISH */
+	if (source_ml && !(flags->replace_origin || flags->replace_origin_full)) {
+		orig_address_type = source_ml->sdp_orig_in.address.address_type;
+		orig_address = source_ml->sdp_orig_in.address.address;
+	}
+	else if (monologue->sdp_orig_out.parsed) {
+		orig_address_type = monologue->sdp_orig_out.address.address_type;
+		orig_address = monologue->sdp_orig_out.address.address;
+	}
+	else {
 		orig_address_type = STR(first_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name);
 		orig_address = STR(sockaddr_print_buf(&first_ps->selected_sfd->local_intf->advertised_address.addr));
-	} else {
-		orig_address_type = ml->sdp_orig_in.address.address_type;
-		orig_address = ml->sdp_orig_in.address.address;
 	}
 
-	if (!monologue->sdp_orig_out.parsed)
-		monologue->sdp_orig_out = sdp_orig_dup(&(sdp_origin) {
-				.username = *orig_username,
-				.session_id = *orig_session_id,
-				.version_num = orig_session_version,
-				.address.address_type = orig_address_type,
-				.address.address = orig_address,
-				.parsed = 1,
-		});
+	monologue->sdp_orig_out = sdp_orig_dup(&(sdp_origin) {
+			.username = username,
+			.session_id = session_id,
+			.version_num = session_version,
+			.address.address_type = orig_address_type,
+			.address.address = orig_address,
+			.version_output_pos = version_output_pos,
+			.parsed = 1,
+	});
 
 	/* print it to the output sdp */
 	g_string_append_printf(out,
 			"o="STR_FORMAT" "STR_FORMAT" %llu IN "STR_FORMAT" "STR_FORMAT"\r\n",
-			STR_FMT(orig_username),
-			STR_FMT(orig_session_id),
-			orig_session_version,
+			STR_FMT(&username),
+			STR_FMT(&session_id),
+			session_version,
 			STR_FMT(&orig_address_type),
 			STR_FMT(&orig_address));
 }
@@ -3551,13 +3553,8 @@ bool sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 		sdp_manipulations_add(s, sdp_manipulations);
 	}
 
-	/* The SDP version gets increased in case:
-	* - if replace_sdp_version (sdp-version) or replace_origin_full flag is set and SDP information has been updated, or
-	* - if the force_inc_sdp_ver (force-increment-sdp-ver) flag is set additionally to replace_sdp_version,
-	*    which forces version increase regardless changes in the SDP information.
-	*/
-	if (flags->force_inc_sdp_ver || flags->replace_sdp_version || flags->replace_origin_full)
-		sdp_version_check(s, monologue, source_ml, !!flags->force_inc_sdp_ver);
+	if (flags->replace_sdp_version || flags->replace_origin_full)
+		sdp_version_check(s, monologue);
 
 	out->len = s->len;
 	out->s = g_string_free(s, FALSE);

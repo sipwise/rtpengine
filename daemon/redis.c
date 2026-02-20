@@ -1589,8 +1589,6 @@ static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 				ml->sdp_orig_in.username = call_str_cpy(&s);
 			if (!redis_hash_get_str(&s, rh, "sdp_orig_session_id"))
 				ml->sdp_orig_in.session_id = call_str_cpy(&s);
-			if (!redis_hash_get_str(&s, rh, "sdp_orig_version_str"))
-				ml->sdp_orig_in.version_str = call_str_cpy(&s);
 			if (!redis_hash_get_str(&s, rh, "sdp_orig_address_network_type"))
 				ml->sdp_orig_in.address.network_type = call_str_cpy(&s);
 			if (!redis_hash_get_str(&s, rh, "sdp_orig_address_address_type"))
@@ -1606,8 +1604,6 @@ static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 				ml->sdp_orig_out.username = call_str_cpy(&s);
 			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_session_id"))
 				ml->sdp_orig_out.session_id = call_str_cpy(&s);
-			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_version_str"))
-				ml->sdp_orig_out.version_str = call_str_cpy(&s);
 			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_address_network_type"))
 				ml->sdp_orig_out.address.network_type = call_str_cpy(&s);
 			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_address_address_type"))
@@ -2652,7 +2648,6 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 				if (ml->sdp_orig_in.parsed) {
 					JSON_SET_SIMPLE_STR("sdp_orig_username", &ml->sdp_orig_in.username);
 					JSON_SET_SIMPLE_STR("sdp_orig_session_id", &ml->sdp_orig_in.session_id);
-					JSON_SET_SIMPLE_STR("sdp_orig_version_str", &ml->sdp_orig_in.version_str);
 					JSON_SET_SIMPLE("sdp_orig_version_num", "%llu", ml->sdp_orig_in.version_num);
 					JSON_SET_SIMPLE("sdp_orig_parsed", "%u", ml->sdp_orig_in.parsed);
 					JSON_SET_SIMPLE_STR("sdp_orig_address_network_type", &ml->sdp_orig_in.address.network_type);
@@ -2662,7 +2657,6 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 				if (ml->sdp_orig_out.parsed) {
 					JSON_SET_SIMPLE_STR("last_sdp_orig_username", &ml->sdp_orig_out.username);
 					JSON_SET_SIMPLE_STR("last_sdp_orig_session_id", &ml->sdp_orig_out.session_id);
-					JSON_SET_SIMPLE_STR("last_sdp_orig_version_str", &ml->sdp_orig_out.version_str);
 					JSON_SET_SIMPLE("last_sdp_orig_version_num", "%llu", ml->sdp_orig_out.version_num);
 					JSON_SET_SIMPLE("last_sdp_orig_parsed", "%u", ml->sdp_orig_out.parsed);
 					JSON_SET_SIMPLE_STR("last_sdp_orig_address_network_type", &ml->sdp_orig_out.address.network_type);
