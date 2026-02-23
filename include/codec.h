@@ -164,9 +164,9 @@ void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_fl
 
 struct codec_store_args {
 	str_case_value_ht codec_set;
-	bool answer_only;
-	bool allow_asymmetric;
+	const struct codec_store *answer_cs;
 	struct codec_store *merge_cs;
+	bool allow_asymmetric;
 };
 
 __attribute__((nonnull(1)))
