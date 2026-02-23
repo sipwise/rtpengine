@@ -55,7 +55,7 @@ static struct timerthread codec_timers_thread;
 
 static void rtp_payload_type_copy(rtp_payload_type *dst, const rtp_payload_type *src);
 static void codec_store_add_raw_order(struct codec_store *cs, rtp_payload_type *pt);
-static rtp_payload_type *codec_store_find_compatible(struct codec_store *cs,
+static rtp_payload_type *codec_store_find_compatible(const struct codec_store *cs,
 		const rtp_payload_type *pt);
 static void __rtp_payload_type_add_name(codec_names_ht, rtp_payload_type *pt);
 static void codec_calc_lost(struct ssrc_entry_call *ssrc, uint16_t seq);
@@ -5612,7 +5612,7 @@ static void codec_store_add_end(struct codec_store *cs, rtp_payload_type *pt) {
 	codec_store_add_link(cs, pt, NULL);
 }
 
-static rtp_payload_type *codec_store_find_compatible_q(struct codec_store *cs, GQueue *q,
+static rtp_payload_type *codec_store_find_compatible_q(const struct codec_store *cs, GQueue *q,
 		const rtp_payload_type *pt)
 {
 	if (!q)
@@ -5624,7 +5624,7 @@ static rtp_payload_type *codec_store_find_compatible_q(struct codec_store *cs, G
 	}
 	return NULL;
 }
-static rtp_payload_type *codec_store_find_compatible(struct codec_store *cs,
+static rtp_payload_type *codec_store_find_compatible(const struct codec_store *cs,
 		const rtp_payload_type *pt)
 {
 	rtp_payload_type *ret;
