@@ -5674,7 +5674,7 @@ void __codec_store_populate_reuse(struct codec_store *dst, struct codec_store *s
 			codec_store_add_raw_link(dst, dup, pos);
 		}
 		else {
-			if (!a.answer_only) {
+			if (!a.answer_cs) {
 				ilogs(codec, LOG_DEBUG, "Adding codec " STR_FORMAT "/" STR_FORMAT
 					" (%i) to end of list",
 						STR_FMT(&pt->encoding_with_params),
@@ -5754,8 +5754,11 @@ void __codec_store_populate(struct codec_store *dst, struct codec_store *src, st
 				GINT_TO_POINTER(pt->payload_type));
 		if (orig_pt && !rtp_payload_type_eq_compat(orig_pt, pt))
 			orig_pt = NULL;
-		if (a.answer_only && !orig_pt) {
-			if (a.allow_asymmetric)
+		if (a.answer_cs && !orig_pt) {
+			orig_pt = t_hash_table_lookup(a.answer_cs->codecs, GINT_TO_POINTER(pt->payload_type));
+			if (orig_pt && !rtp_payload_type_eq_compat(orig_pt, pt))
+				orig_pt = NULL;
+			if (a.allow_asymmetric && !orig_pt)
 				orig_pt = codec_store_find_compatible(&orig_dst, pt);
 			if (!orig_pt) {
 				ilogs(codec, LOG_DEBUG, "Not adding stray answer codec "
