@@ -2539,21 +2539,21 @@ static void codecs_answer(struct call_media *media, struct call_media *other_med
 			STR_FMT(&other_media->monologue->tag),
 			other_media->index);
 
-	bool codec_answer_only = true;
+	const struct codec_store *answer_cs = &media->offered_codecs;
 	// don't do codec answer for a rejected media section
 	if (other_media->streams.length == 0)
-		codec_answer_only = false;
+		answer_cs = NULL;
 	else if (sp->rtp_endpoint.port == 0)
-		codec_answer_only = false;
+		answer_cs = NULL;
 
 	if (flags->reuse_codec)
 		codec_store_populate_reuse(&other_media->codecs, &sp->codecs,
 				.codec_set = flags->codec_set,
-				.answer_only = codec_answer_only);
+				.answer_cs = answer_cs);
 	else
 		codec_store_populate(&other_media->codecs, &sp->codecs,
 				.codec_set = flags->codec_set,
-				.answer_only = codec_answer_only,
+				.answer_cs = answer_cs,
 				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 	codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
 	codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
@@ -4514,12 +4514,13 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 		if (flags->allow_transcoding) {
 			codec_store_populate(&dst_media->codecs, &sp->codecs,
 					.codec_set = flags->codec_set,
-					.answer_only = true,
+					.answer_cs = &src_media->codecs,
 					.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 			codec_store_strip(&dst_media->codecs, &flags->codec_strip, flags->codec_except);
 			codec_store_offer(&dst_media->codecs, &flags->codec_offer, &sp->codecs);
 		} else {
-			codec_store_populate(&dst_media->codecs, &sp->codecs, .answer_only = true,
+			codec_store_populate(&dst_media->codecs, &sp->codecs,
+					.answer_cs = &src_media->codecs,
 					.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 			if (!codec_store_is_full_answer(&src_media->codecs, &dst_media->codecs))
 				return -1;
