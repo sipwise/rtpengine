@@ -2529,6 +2529,7 @@ static void codecs_offer(struct call_media *media, struct call_media *other_medi
 
 	// keep a copy of the final list of what was offered
 	codec_store_copy(&other_media->offered_codecs, &other_media->codecs);
+	codec_store_copy(&media->offered_codecs, &media->codecs);
 }
 
 __attribute__((nonnull(1, 2, 3, 4)))
@@ -2538,6 +2539,9 @@ static void codecs_answer(struct call_media *media, struct call_media *other_med
 	ilogs(codec, LOG_DEBUG, "Updating codecs for answerer " STR_FORMAT " #%u",
 			STR_FMT(&other_media->monologue->tag),
 			other_media->index);
+
+	// reset to codecs that were offered
+	codec_store_copy(&other_media->codecs, &other_media->offered_codecs);
 
 	const struct codec_store *answer_cs = &media->offered_codecs;
 	// don't do codec answer for a rejected media section
