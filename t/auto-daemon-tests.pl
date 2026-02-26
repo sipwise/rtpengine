@@ -4358,6 +4358,439 @@ cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{'round-trip time leg'}, '<', 2000
 
 
 
+if ($extended_tests) {
+
+new_call;
+
+offer('new to-tag answer w/ strip/except', { codec => { strip => ['all'], transcode => ['PCMA', 'G722'], except => ['PCMA', 'G722', 'telephone-event'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 96 8 0 101 102
+c=IN IP4 198.51.100.50
+a=rtpmap:96 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:102 telephone-event/48000
+a=sendrecv
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 9 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('new to-tag answer w/ strip/except', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8 101
+c=IN IP4 198.51.100.50
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_tt();
+
+answer('new to-tag answer w/ strip/except', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 9 101
+c=IN IP4 198.51.100.50
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 102
+c=IN IP4 203.0.113.1
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; useinbandfec=1
+a=rtpmap:102 telephone-event/48000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+new_call;
+
+offer('new to-tag answer w/ strip/except 2.5', { codec => { strip => ['all'], "except" => [ "PCMA", "G729/8000", "telephone-event" ], "transcode" => [ "PCMA", "G729/8000////annexb--no" ] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 96 9 8 0 101 102
+c=IN IP4 198.51.100.50
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 useinbandfec=1
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/48000
+a=fmtp:101 0-16
+a=rtpmap:102 telephone-event/8000
+a=fmtp:102 0-16
+a=sendrecv
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 18 102
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:102 telephone-event/8000
+a=fmtp:102 0-16
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('new to-tag answer w/ strip/except 2.5', { codec => { strip => ['all'], "except" => [ "PCMA", "G729/8000" ], "transcode" => [ "PCMA", "G729/8000////annexb--no" ] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8 102
+c=IN IP4 198.51.100.50
+a=rtpmap:102 telephone-event/8000
+a=sendrecv
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_tt();
+
+answer('new to-tag answer w/ strip/except 2.5', { codec => { strip => ['all'], "except" => [ "PCMA", "G729/8000" ], "transcode" => [ "PCMA", "G729/8000////annexb--no" ] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 18 102
+c=IN IP4 198.51.100.50
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:102 telephone-event/8000
+a=fmtp:102 0-15
+a=sendrecv
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; useinbandfec=1
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+new_call;
+
+offer('new to-tag answer w/ strip/except 3.5', { codec => { strip => ['all'], "except" => [ "PCMA", "G729/8000", "telephone-event" ], "transcode" => [ "PCMA", "G729/8000////annexb--no" ] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 96 9 8 0 101 102
+c=IN IP4 198.51.100.50
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 useinbandfec=1
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/48000
+a=fmtp:101 0-16
+a=rtpmap:102 telephone-event/8000
+a=fmtp:102 0-16
+a=sendrecv
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 18 102
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:102 telephone-event/8000
+a=fmtp:102 0-16
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('new to-tag answer w/ strip/except 3.5', { codec => { strip => ['all'], "except" => [ "PCMA", "G729/8000", "telephone-event" ], "transcode" => [ "PCMA", "G729/8000////annexb--no" ] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8 102
+c=IN IP4 198.51.100.50
+a=rtpmap:102 telephone-event/8000
+a=sendrecv
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 102
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:102 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_tt();
+
+answer('new to-tag answer w/ strip/except 3.5', { codec => { strip => ['all'], "except" => [ "PCMA", "G729/8000", "telephone-event" ], "transcode" => [ "PCMA", "G729/8000////annexb--no" ] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 18 102
+c=IN IP4 198.51.100.50
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:102 telephone-event/8000
+a=fmtp:102 0-15
+a=sendrecv
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 101
+c=IN IP4 203.0.113.1
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; useinbandfec=1
+a=rtpmap:101 telephone-event/48000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+if (0) { # extended PT syntax for `except` not (yet) supported
+
+new_call;
+
+offer('new to-tag answer w/ strip/except 2', { codec => { strip => ['all'], "except" => [ "PCMA", "G729/8000////annexb--no", "telephone-event" ], "transcode" => [ "PCMA", "G729/8000////annexb--no" ] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 96 9 8 0 101 102
+c=IN IP4 198.51.100.50
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 useinbandfec=1
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/48000
+a=fmtp:101 0-16
+a=rtpmap:102 telephone-event/8000
+a=fmtp:102 0-16
+a=sendrecv
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 18 102
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:102 telephone-event/8000
+a=fmtp:102 0-16
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('new to-tag answer w/ strip/except 2', { codec => { strip => ['all'], "except" => [ "PCMA", "G729/8000////annexb--no" ], "transcode" => [ "PCMA", "G729/8000////annexb--no" ] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8 102
+c=IN IP4 198.51.100.50
+a=rtpmap:102 telephone-event/8000
+a=sendrecv
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_tt();
+
+answer('new to-tag answer w/ strip/except 2', { codec => { strip => ['all'], "except" => [ "PCMA", "G729/8000////annexb--no" ], "transcode" => [ "PCMA", "G729/8000////annexb--no" ] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 18 102
+c=IN IP4 198.51.100.50
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:102 telephone-event/8000
+a=fmtp:102 0-15
+a=sendrecv
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 101
+c=IN IP4 203.0.113.1
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; useinbandfec=1
+a=rtpmap:101 telephone-event/48000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+new_call;
+
+offer('new to-tag answer w/ strip/except 3', { codec => { strip => ['all'], "except" => [ "PCMA", "G729/8000////annexb--no", "telephone-event" ], "transcode" => [ "PCMA", "G729/8000////annexb--no" ] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 96 9 8 0 101 102
+c=IN IP4 198.51.100.50
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 useinbandfec=1
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/48000
+a=fmtp:101 0-16
+a=rtpmap:102 telephone-event/8000
+a=fmtp:102 0-16
+a=sendrecv
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 18 102
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:102 telephone-event/8000
+a=fmtp:102 0-16
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('new to-tag answer w/ strip/except 3', { codec => { strip => ['all'], "except" => [ "PCMA", "G729/8000////annexb--no", "telephone-event" ], "transcode" => [ "PCMA", "G729/8000////annexb--no" ] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8 102
+c=IN IP4 198.51.100.50
+a=rtpmap:102 telephone-event/8000
+a=sendrecv
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 102
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:102 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_tt();
+
+answer('new to-tag answer w/ strip/except 3', { codec => { strip => ['all'], "except" => [ "PCMA", "G729/8000////annexb--no", "telephone-event" ], "transcode" => [ "PCMA", "G729/8000////annexb--no" ] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 18 102
+c=IN IP4 198.51.100.50
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:102 telephone-event/8000
+a=fmtp:102 0-15
+a=sendrecv
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 101
+c=IN IP4 203.0.113.1
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; useinbandfec=1
+a=rtpmap:101 telephone-event/48000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+}
+
+}
+
+
 new_call;
 
 offer('new to-tag answer w/ diff codec w/ tc', { codec => {transcode => ['G722'] } }, <<SDP);
