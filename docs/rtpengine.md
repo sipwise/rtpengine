@@ -1068,6 +1068,13 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     megabyte) or larger if you experience high WS activity, to improve
     performance and prevent possible protocol hiccups.
 
+- __\-\-http-idle-timeout=__*INT*
+
+    Seconds to allow idle HTTP/HTTPS keepalive connections before the server
+    closes them. If zero (the default), the libwebsockets default is used
+    (5 seconds for HTTP/1.1). Set to a positive value (e.g. 60) to align with
+    load balancer idle timeouts or to keep connections open longer.
+
 - __\-\-software-id=__*STRING*
 
     Sets a free-form string that is used to identify this software towards external

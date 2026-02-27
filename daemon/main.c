@@ -820,6 +820,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 #if LWS_LIBRARY_VERSION_MAJOR >= 3 || (LWS_LIBRARY_VERSION_MAJOR == 2 && LWS_LIBRARY_VERSION_MINOR >= 1)
 		{ "http-buf-size", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.http_buf_size,"Send buffer size for HTTP and WS in kB","INT"},
 #endif
+		{ "http-idle-timeout", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.http_keepalive_timeout,"Seconds to allow idle HTTP/HTTPS keepalive (0 = libwebsockets default, 5s for HTTP/1.1)","INT"},
 		{ "software-id", 0,0,	G_OPTION_ARG_STRING,	&rtpe_config.software_id,"Identification string of this software presented to external systems","STRING"},
 		{ "poller-per-thread", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.poller_per_thread,	"Use poller per thread",	NULL },
 		{ "timer-accuracy", 0,0,G_OPTION_ARG_INT,	&rtpe_config.timer_accuracy,"Minimum number of microseconds to sleep","INT"},
@@ -1084,6 +1085,8 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	if (rtpe_config.http_buf_size >= max_buf_size)
 		die("Option 'http-buf-size' too large (must be <%zu)", max_buf_size);
 #endif
+	if (rtpe_config.http_keepalive_timeout < 0)
+		die("Option 'http-idle-timeout' must be >= 0");
 
 	if (graphitep) {
 		if (!endpoint_parse_any_getaddrinfo_full(&rtpe_config.graphite_ep, graphitep))

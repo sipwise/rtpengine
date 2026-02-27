@@ -95,6 +95,7 @@ enum endpoint_learning {
 	X(ng_client_timeout) \
 	X(ng_client_retries) \
 	X(http_buf_size) \
+	X(http_keepalive_timeout) \
 
 #define RTPE_CONFIG_INT64_PARAMS \
 	X(bw_limit) \

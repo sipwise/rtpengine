@@ -1195,6 +1195,7 @@ int websocket_init(void) {
 				.port = ep->port,
 				.iface = g_strdup(sockaddr_print_buf(&ep->address)),
 				.protocols = websocket_protocols,
+				.keepalive_timeout = rtpe_config.http_keepalive_timeout,
 #if LWS_LIBRARY_VERSION_MAJOR >= 3 || (LWS_LIBRARY_VERSION_MAJOR == 2 && LWS_LIBRARY_VERSION_MINOR >= 1)
 				.pt_serv_buf_size = wci.pt_serv_buf_size,
 #endif
@@ -1245,6 +1246,7 @@ int websocket_init(void) {
 				.port = ep->port,
 				.iface = g_strdup(sockaddr_print_buf(&ep->address)),
 				.protocols = websocket_protocols,
+				.keepalive_timeout = rtpe_config.http_keepalive_timeout,
 				.ssl_cert_filepath = rtpe_config.https_cert,
 				.ssl_private_key_filepath = rtpe_config.https_key ? : rtpe_config.https_cert,
 				.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT,
