@@ -15,7 +15,7 @@ my $wav_file = "\x52\x49\x46\x46\x64\x06\x00\x00\x57\x41\x56\x45\x66\x6d\x74\x20
 $NGCP::Rtpengine::AutoTest::host = 'http://localhost:6666/ng';
 
 autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
-			--listen-http=localhost:6666 -f -L 7 -E))
+			--listen-http=localhost:6666 --http-idle-timeout=5 -f -L 7 -E))
 		or die;
 
 
