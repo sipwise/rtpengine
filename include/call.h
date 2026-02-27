@@ -670,7 +670,7 @@ struct call_monologue {
 
 TYPED_GQUEUE(monologues, struct call_monologue)
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(monologues_q, monologues_q_clear)
-TYPED_GHASHTABLE(tags_ht, str, struct call_monologue, str_hash, str_equal, NULL, NULL)
+TYPED_GHASHTABLE(str_ml_ht, str, struct call_monologue, str_hash, str_equal, NULL, NULL)
 
 struct sdp_fragment;
 TYPED_GQUEUE(fragment, struct sdp_fragment)
@@ -726,8 +726,6 @@ struct call_iterator_entry {
 	} while (0)
 
 
-TYPED_GHASHTABLE(labels_ht, str, struct call_monologue, str_hash, str_equal, NULL, NULL)
-
 /**
  * call_t is the main parent structure of all call-related objects.
  * 
@@ -778,9 +776,9 @@ struct call {
 	/* everything below is protected by the master_lock */
 	monologues_q		monologues;	/* call_monologue */
 	medias_q		medias;		/* call_media */
-	tags_ht			tags;
-	tags_ht			viabranches;
-	labels_ht		labels;
+	str_ml_ht		tags;
+	str_ml_ht		viabranches;
+	str_ml_ht		labels;
 	fragments_ht		sdp_fragments;
 	packet_stream_q		streams;
 	stream_fd_q		stream_fds;	/* stream_fd */

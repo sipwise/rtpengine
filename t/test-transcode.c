@@ -97,7 +97,7 @@ static void __start(const char *file, int line) {
 	call.obj.magic = OBJ_MAGIC;
 #endif
 	obj_hold(&call);
-	call.tags = tags_ht_new();
+	call.tags = str_ml_ht_new();
 	call.callid = STR("test-call");
 	bencode_buffer_init(&call.buffer);
 	call_memory_arena_set(&call);

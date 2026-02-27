@@ -5113,9 +5113,9 @@ static call_t *call_create(const str *callid) {
 	c = obj_alloc0(call_t, __call_free);
 	memory_arena_init(&c->buffer);
 	rwlock_init(&c->master_lock);
-	c->tags = tags_ht_new();
-	c->viabranches = tags_ht_new();
-	c->labels = labels_ht_new();
+	c->tags = str_ml_ht_new();
+	c->viabranches = str_ml_ht_new();
+	c->labels = str_ml_ht_new();
 	call_memory_arena_set(c);
 	c->callid = call_str_cpy(callid);
 	c->created = rtpe_now;
