@@ -69,7 +69,7 @@ INLINE str memory_arena_str_cpy_c(const char *in) {
 }
 INLINE str *memory_arena_str_dup(const str *in) {
 	__auto_type out = memory_arena_alloc(str);
-	*out = memory_arena_str_cpy_len(in->s, in->len);
+	*out = memory_arena_str_cpy_fn(in->s, in->len, in->arena);
 	return out;
 }
 
