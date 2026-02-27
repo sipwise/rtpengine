@@ -14,18 +14,20 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 #endif
 
 #define TYPED_GHASHTABLE_PROTO(type_name, key_type, value_type) \
+	typedef union type_name##_iter type_name##_iter; \
 	typedef union { \
 		GHashTable *ht; \
 		/* unused members to store the contained types */ \
 		key_type *__key; \
 		const key_type *__ckey; \
 		value_type *__value; \
+		type_name##_iter *__iter; \
 	} type_name; \
-	typedef union { \
+	union type_name##_iter { \
 		GHashTableIter it; \
 		/* unused members to store the contained types */ \
 		type_name __ht; \
-	} type_name##_iter; \
+	}; \
 	static inline type_name type_name##_null(void) { \
 		return (type_name) { NULL }; \
 	} \
@@ -98,9 +100,10 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 		__ret; \
 	})
 
-#define t_hash_table_iter_init(i, h) ({ \
-		__typeof__((i)->__ht) *__h = &(h); \
-		g_hash_table_iter_init(&(i)->it, __h->ht); \
+#define t_hash_table_iter(h) ({ \
+		__typeof__(*(h).__iter) __ret; \
+		g_hash_table_iter_init(&__ret.it, (h).ht); \
+		__ret; \
 	})
 
 #define t_hash_table_iter_next(i, kp, vp) ({ \

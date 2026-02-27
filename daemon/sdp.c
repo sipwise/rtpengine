@@ -3128,8 +3128,7 @@ static void append_bundle_groups(GString *out, struct call_monologue *ml, sdp_ng
 		}
 	}
 
-	bundle_ht_iter iter;
-	t_hash_table_iter_init(&iter, ht);
+	__auto_type iter = t_hash_table_iter(ht);
 
 	GString *bundle_str;
 	while (t_hash_table_iter_next(&iter, NULL, &bundle_str)) {

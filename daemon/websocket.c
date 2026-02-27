@@ -781,8 +781,7 @@ static void websocket_conn_cleanup(struct websocket_conn *wc) {
 
 	// detach all Janus sessions
 	if (t_hash_table_is_set(janus_sessions)) {
-		janus_sessions_ht_iter iter;
-		t_hash_table_iter_init(&iter, janus_sessions);
+		__auto_type iter = t_hash_table_iter(janus_sessions);
 		struct janus_session *session;
 		while (t_hash_table_iter_next(&iter, &session, NULL)) {
 			janus_detach_websocket(session, wc);

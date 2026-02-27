@@ -3213,12 +3213,11 @@ stats:
 }
 
 static void ng_list_calls(ng_command_ctx_t *ctx, parser_arg output, long long int limit) {
-	rtpe_calls_ht_iter iter;
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
 	rwlock_lock_r(&rtpe_callhash_lock);
 
-	t_hash_table_iter_init (&iter, rtpe_callhash);
+	__auto_type iter = t_hash_table_iter(rtpe_callhash);
 	str *key;
 	while (limit-- && t_hash_table_iter_next (&iter, &key, NULL)) {
 		parser->list_add_str_dup(output, key);
@@ -4484,8 +4483,7 @@ static void parse_templates(charp_ht templates) {
 	if (!t_hash_table_is_set(templates))
 		return;
 
-	charp_ht_iter iter;
-	t_hash_table_iter_init(&iter, templates);
+	__auto_type iter = t_hash_table_iter(templates);
 	char *keyp, *valuep;
 	while (t_hash_table_iter_next(&iter, &keyp, &valuep)) {
 		char *key = keyp;

@@ -123,8 +123,7 @@ static void dtmf_bencode_and_notify(struct call_media *media, unsigned int event
 		bencode_dictionary_add_str(data, "source_label", &ml->label);
 	}
 
-	tags_ht_iter iter;
-	t_hash_table_iter_init(&iter, call->tags);
+	__auto_type iter = t_hash_table_iter(call->tags);
 	struct call_monologue *tml;
 	while (t_hash_table_iter_next(&iter, NULL, &tml))
 		bencode_list_add_str(tags, &tml->tag);
@@ -162,8 +161,7 @@ static GString *dtmf_json_print(struct call_media *media, unsigned int event, un
 			STR_FMT(&ml->tag),
 			STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY));
 
-	tags_ht_iter iter;
-	t_hash_table_iter_init(&iter, call->tags);
+	__auto_type iter = t_hash_table_iter(call->tags);
 	int i = 0;
 	struct call_monologue *tml;
 	while (t_hash_table_iter_next(&iter, NULL, &tml)) {

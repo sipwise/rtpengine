@@ -828,8 +828,7 @@ static void media_player_cache_entry_decoder_thread(struct media_player_cache_en
 	entry->finished = true;
 	cond_broadcast(&entry->cond);
 
-	media_player_ht_iter iter;
-	t_hash_table_iter_init(&iter, entry->wait_queue);
+	__auto_type iter = t_hash_table_iter(entry->wait_queue);
 	struct media_player *mp;
 	while (t_hash_table_iter_next(&iter, &mp, NULL)) {
 		if (mp->media)
@@ -2117,8 +2116,7 @@ static void __media_player_cache_entry_free(struct media_player_cache_entry *e) 
 	mutex_destroy(&e->lock);
 	g_free(e->info_str);
 	if (t_hash_table_is_set(e->wait_queue)) {
-		media_player_ht_iter iter;
-		t_hash_table_iter_init(&iter, e->wait_queue);
+		__auto_type iter = t_hash_table_iter(e->wait_queue);
 		struct media_player *mp;
 		while (t_hash_table_iter_next(&iter, &mp, NULL))
 			obj_put(&mp->tt_obj);
@@ -2749,9 +2747,8 @@ charp_q media_player_list_player_cache(void) {
 #ifdef WITH_TRANSCODING
 	if (!t_hash_table_is_set(media_player_cache))
 		return ret;
-	media_player_cache_ht_iter iter;
 	LOCK(&media_player_cache_lock);
-	t_hash_table_iter_init(&iter, media_player_cache);
+	__auto_type iter = t_hash_table_iter(media_player_cache);
 	struct media_player_cache_entry *entry;
 	while (t_hash_table_iter_next(&iter, NULL, &entry))
 		t_queue_push_tail(&ret, g_strdup_printf("%s for PT " STR_FORMAT, entry->info_str,
@@ -2778,10 +2775,9 @@ unsigned int media_player_evict_player_caches(void) {
 
 	// grab references from hash table
 	media_player_cache_entry_q q = TYPED_GQUEUE_INIT;
-	media_player_cache_ht_iter iter;
 	{
 		LOCK(&media_player_cache_lock);
-		t_hash_table_iter_init(&iter, media_player_cache);
+		__auto_type iter = t_hash_table_iter(media_player_cache);
 		struct media_player_cache_entry *entry;
 		while (t_hash_table_iter_next(&iter, NULL, &entry))
 			t_queue_push_tail(&q, obj_get(entry));

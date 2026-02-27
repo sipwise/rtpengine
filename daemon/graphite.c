@@ -191,8 +191,7 @@ GString *print_graphite_data(void) {
 	int last_tv_sec = rtpe_now / 1000000 - 1;
 	unsigned int idx = last_tv_sec & 1;
 
-	codec_stats_ht_iter iter;
-	t_hash_table_iter_init(&iter, rtpe_codec_stats);
+	__auto_type iter = t_hash_table_iter(rtpe_codec_stats);
 	char *chain;
 	struct codec_stats *stats_entry;
 	while (t_hash_table_iter_next(&iter, &chain, &stats_entry)) {

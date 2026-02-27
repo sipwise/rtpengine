@@ -651,8 +651,7 @@ static void __call_iterator_remove(call_t *c) {
 }
 void call_free(void) {
 	mqtt_timer_stop(&global_mqtt_timer);
-	rtpe_calls_ht_iter iter;
-	t_hash_table_iter_init(&iter, rtpe_callhash);
+	__auto_type iter = t_hash_table_iter(rtpe_callhash);
 	call_t *c;
 	while (t_hash_table_iter_next(&iter, NULL, &c)) {
 		__call_iterator_remove(c);
@@ -1229,8 +1228,7 @@ void __rtp_stats_update(rtp_stats_ht dst, struct codec_store *cs) {
 	/* "src" is a call_media->codecs table, while "dst" is a
 	 * packet_stream->rtp_stats table */
 
-	codecs_ht_iter iter;
-	t_hash_table_iter_init(&iter, src);
+	__auto_type iter = t_hash_table_iter(src);
 
 	while (t_hash_table_iter_next(&iter, NULL, &pt))
 		rtp_stats_add_pt(dst, pt);
@@ -3048,8 +3046,7 @@ static void media_update_extmap(struct call_media *media, struct stream_params *
 	}
 
 	// clean up of orig table
-	extmap_ht_iter iter;
-	t_hash_table_iter_init(&iter, orig);
+	__auto_type iter = t_hash_table_iter(orig);
 	struct rtp_extension *ext;
 	while (t_hash_table_iter_next(&iter, NULL, &ext))
 		rtp_extension_free(ext);
@@ -4674,8 +4671,7 @@ const rtp_payload_type *__rtp_stats_codec(struct call_media *m) {
 
 	ps = m->streams.head->data;
 
-	rtp_stats_ht_iter iter;
-	t_hash_table_iter_init(&iter, ps->rtp_stats);
+	__auto_type iter = t_hash_table_iter(ps->rtp_stats);
 	struct rtp_stats *rs, *top = NULL;
 	while (t_hash_table_iter_next(&iter, NULL, &rs)) {
 		if (!top || __rtp_stats_sort(rs, top) < 0)

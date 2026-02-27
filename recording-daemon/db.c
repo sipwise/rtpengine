@@ -281,8 +281,7 @@ static void db_do_call_metadata(metafile_t *mf) {
 	MYSQL_BIND b[3];
 	my_ull(&b[0], &mf->db_id); // stays persistent
 
-	metadata_ht_iter iter;
-	t_hash_table_iter_init(&iter, mf->metadata_parsed);
+	__auto_type iter = t_hash_table_iter(mf->metadata_parsed);
 	str *key;
 	str_q *vals;
 	while (t_hash_table_iter_next(&iter, &key, &vals)) {

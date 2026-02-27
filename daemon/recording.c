@@ -1060,8 +1060,7 @@ static void setup_media_proc(struct call_media *media) {
 
 	append_meta_chunk_null(recording, "MEDIA %u PTIME %i", media->unique_id, media->ptime);
 
-	codecs_ht_iter iter;
-	t_hash_table_iter_init(&iter, media->codecs.codecs);
+	__auto_type iter = t_hash_table_iter(media->codecs.codecs);
 
 	rtp_payload_type *pt;
 	while (t_hash_table_iter_next(&iter, NULL, &pt)) {

@@ -1534,8 +1534,7 @@ G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(kernelize_state, kernelize_state_clear)
 
 __attribute__((nonnull(1, 2)))
 static void fill_bundle_pt_stats(kernelize_state *s, struct call_media *bundle, unsigned int component) {
-	pt_media_ht_iter iter;
-	t_hash_table_iter_init(&iter, bundle->pt_media);
+	__auto_type iter = t_hash_table_iter(bundle->pt_media);
 	void *pt;
 	struct call_media *pt_media;
 	while (t_hash_table_iter_next(&iter, &pt, &pt_media)) {
@@ -1556,8 +1555,7 @@ static void fill_pt_stats(kernelize_state *s, struct packet_stream *stream, unsi
 		return;
 	}
 
-	rtp_stats_ht_iter iter;
-	t_hash_table_iter_init(&iter, stream->rtp_stats);
+	__auto_type iter = t_hash_table_iter(stream->rtp_stats);
 	struct rtp_stats *rs;
 	while (t_hash_table_iter_next(&iter, NULL, &rs) && s->num_payload_types < RTPE_NUM_PAYLOAD_TYPES) {
 		s->pts[s->num_payload_types].stream = stream;
@@ -4041,15 +4039,13 @@ void interfaces_free(void) {
 
 	t_hash_table_destroy(__logical_intf_name_family_hash);
 
-	local_intf_ht_iter l_iter;
-	t_hash_table_iter_init(&l_iter, __local_intf_addr_type_hash);
+	__auto_type l_iter = t_hash_table_iter(__local_intf_addr_type_hash);
 	local_intf_list *lifl;
 	while (t_hash_table_iter_next(&l_iter, NULL, &lifl))
 		t_list_free(lifl);
 	t_hash_table_destroy(__local_intf_addr_type_hash);
 
-	intf_spec_ht_iter s_iter;
-	t_hash_table_iter_init(&s_iter, __intf_spec_addr_type_hash);
+	__auto_type s_iter = t_hash_table_iter(__intf_spec_addr_type_hash);
 	intf_spec_q *spec_q;
 	while (t_hash_table_iter_next(&s_iter, NULL, &spec_q)) {
 		while (spec_q->length) {
@@ -4065,8 +4061,7 @@ void interfaces_free(void) {
 	}
 	t_hash_table_destroy(__intf_spec_addr_type_hash);
 
-	intf_rr_lookup_iter r_iter;
-	t_hash_table_iter_init(&r_iter, __logical_intf_name_family_rr_hash);
+	__auto_type r_iter = t_hash_table_iter(__logical_intf_name_family_rr_hash);
 	struct intf_rr *rr;
 	while (t_hash_table_iter_next(&r_iter, NULL, &rr)) {
 		t_queue_clear(&rr->logical_intfs);

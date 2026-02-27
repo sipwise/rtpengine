@@ -43,8 +43,7 @@ static void control_list(struct control_tcp *c, struct streambuf_stream *s) {
 
 	mutex_lock(&c->listener.lock);
 
-	tcp_streams_ht_iter iter;
-	t_hash_table_iter_init(&iter, c->listener.streams);
+	__auto_type iter = t_hash_table_iter(c->listener.streams);
 	struct streambuf_stream *cl;
 
 	while (t_hash_table_iter_next(&iter, NULL, &cl))

@@ -147,8 +147,7 @@ static void janus_send_json_sync_response(struct websocket_message *wm, JsonBuil
 static void janus_send_json_async(struct janus_session *session, JsonBuilder *builder) {
 	char *result = glib_json_print(builder);
 
-	janus_websockets_ht_iter iter;
-	t_hash_table_iter_init(&iter, session->websockets);
+	__auto_type iter = t_hash_table_iter(session->websockets);
 
 	struct websocket_conn *wc;
 	while (t_hash_table_iter_next(&iter, NULL, &wc)) {
@@ -398,8 +397,7 @@ static void janus_publishers_list(JsonBuilder *builder, call_t *call, struct jan
 {
 	json_builder_begin_array(builder); // [
 
-	janus_feeds_ht_iter iter;
-	t_hash_table_iter_init(&iter, room->publishers);
+	__auto_type iter = t_hash_table_iter(room->publishers);
 
 	uint64_t *feed_id_ptr, *handle_id_ptr;
 	while (t_hash_table_iter_next(&iter, &handle_id_ptr, &feed_id_ptr)) {
@@ -748,8 +746,7 @@ static void janus_notify_publishers(uint64_t room_id, uint64_t except, void *ptr
 	if (!room)
 		return;
 
-	janus_feeds_ht_iter iter;
-	t_hash_table_iter_init(&iter, room->publishers);
+	__auto_type iter = t_hash_table_iter(room->publishers);
 
 	uint64_t *handle_id, *feed_id;
 	while (t_hash_table_iter_next(&iter, &handle_id, &feed_id)) {
@@ -1436,8 +1433,7 @@ static const char *janus_detach(struct websocket_message *wm, JsonReader *reader
 
 // janus_lock must be held
 static void janus_session_cleanup(struct janus_session *session) {
-	janus_handles_set_iter iter;
-	t_hash_table_iter_init(&iter, session->handles);
+	__auto_type iter = t_hash_table_iter(session->handles);
 	uint64_t *handle_id;
 	while (t_hash_table_iter_next(&iter, &handle_id, NULL)) {
 		struct janus_handle *handle = NULL;
