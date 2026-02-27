@@ -5082,6 +5082,8 @@ static void __call_free(call_t *c) {
 	t_hash_table_destroy(c->tags);
 	t_hash_table_destroy(c->viabranches);
 	t_hash_table_destroy(c->labels);
+	t_hash_table_destroy(c->sdps);
+	t_hash_table_destroy(c->endpoints);
 	t_queue_clear(&c->callid_aliases);
 
 	while (c->streams.head) {
@@ -5111,6 +5113,8 @@ static call_t *call_create(const str *callid) {
 	c->tags = str_ml_ht_new();
 	c->viabranches = str_ml_ht_new();
 	c->labels = str_ml_ht_new();
+	c->sdps = str_ml_ht_new();
+	c->endpoints = endpoint_ml_ht_new();
 	call_memory_arena_set(c);
 	c->callid = call_str_cpy(callid);
 	c->created = rtpe_now;
@@ -5654,6 +5658,25 @@ struct call_monologue *call_get_monologue(call_t *call, const str *fromtag) {
 	return t_hash_table_lookup(call->tags, fromtag);
 }
 
+static struct call_monologue *call_get_monologue_alias(call_t *call, const str *fromtag,
+		sdp_ng_flags *flags, const str *sdp, const endpoint_t *ep)
+{
+	__auto_type ret = t_hash_table_lookup(call->tags, fromtag);
+	if (ret)
+		return ret;
+
+	if (flags->alias_key == AK_SDP && sdp->len)
+		ret = t_hash_table_lookup(call->sdps, sdp);
+	else if (flags->alias_key == AK_ADDRESS && ep && ep->port)
+		ret = t_hash_table_lookup(call->endpoints, ep);
+
+	if (!ret)
+		return NULL;
+
+	__monologue_tag(ret, fromtag);
+	return ret;
+}
+
 /**
  * Based on the monologue tag, try to lookup the monologue in the 'tags' GHashTable.
  * If not found create a new one (call_monologue) and associate with a given tag.
@@ -5715,14 +5738,14 @@ static int call_get_monologue_new(struct call_monologue *monologues[2], call_t *
 		const str *fromtag,
 		const str *totag,
 		const str *viabranch,
-		sdp_ng_flags *flags)
+		sdp_ng_flags *flags, const endpoint_t *ep)
 {
 	struct call_monologue *ret, *os = NULL; /* ret - initial offer, os - other side */
 
 	__C_DBG("getting monologue for tag '"STR_FORMAT"' in call '"STR_FORMAT"'",
 			STR_FMT(fromtag), STR_FMT(&call->callid));
 
-	ret = call_get_monologue(call, fromtag);
+	ret = call_get_monologue_alias(call, fromtag, flags, &flags->sdp, ep);
 	if (!ret) {
 		/* this is a brand new offer */
 		ret = __monologue_create(call);
@@ -5738,7 +5761,7 @@ static int call_get_monologue_new(struct call_monologue *monologues[2], call_t *
 	 * Create a new monologue for the other side, if the monologue with such to-tag not found.
 	 */
 	if (totag && totag->s) {
-		struct call_monologue * monologue = call_get_monologue(call, totag);
+		struct call_monologue *monologue = call_get_monologue(call, totag);
 		if (!monologue)
 			goto new_branch;
 	}
@@ -5807,7 +5830,7 @@ static int call_get_dialogue(struct call_monologue *monologues[2], call_t *call,
 		const str *fromtag,
 		const str *totag,
 		const str *viabranch,
-		sdp_ng_flags *flags)
+		sdp_ng_flags *flags, const endpoint_t *ep)
 {
 	struct call_monologue *ft, *tt;
 
@@ -5821,10 +5844,10 @@ static int call_get_dialogue(struct call_monologue *monologues[2], call_t *call,
 	/* we start with the to-tag. if it's not known, we treat it as a branched offer */
 	tt = call_get_monologue(call, totag);
 	if (!tt)
-		return call_get_monologue_new(monologues, call, fromtag, totag, viabranch, flags);
+		return call_get_monologue_new(monologues, call, fromtag, totag, viabranch, flags, ep);
 
 	/* if the from-tag is known already, return that */
-	ft = call_get_monologue(call, fromtag);
+	ft = call_get_monologue_alias(call, fromtag, flags, &flags->sdp, ep);
 	if (ft) {
 		__C_DBG("found existing dialogue");
 
@@ -5915,13 +5938,13 @@ int call_get_mono_dialogue(struct call_monologue *monologues[2], call_t *call,
 		const str *fromtag,
 		const str *totag,
 		const str *viabranch,
-		sdp_ng_flags *flags)
+		sdp_ng_flags *flags, const endpoint_t *ep)
 {
 	/* initial offer */
 	if (!totag || !totag->s)
-		return call_get_monologue_new(monologues, call, fromtag, NULL, viabranch, flags);
+		return call_get_monologue_new(monologues, call, fromtag, NULL, viabranch, flags, ep);
 
-	return call_get_dialogue(monologues, call, fromtag, totag, viabranch, flags);
+	return call_get_dialogue(monologues, call, fromtag, totag, viabranch, flags, ep);
 }
 
 static void media_stop(struct call_media *m) {

@@ -168,6 +168,28 @@ Optionally included keys are:
 	body. The default is to auto-detect the address family if possible (if the receiving end is known
 	already) or otherwise to leave it unchanged.
 
+* `alias key`
+
+    Contains a string value to control the creation of from-tag aliases. The
+    default is to disable from-tag aliases, which corresponds to the string
+    value `off`. Any other value enables the creation of from-tag aliases.
+
+    A from-tag alias is created when an offer from an unknown from-tag is
+    received, and the criteria selected through the `alias key` value is
+    matched against an existing, known from-tag. If a match is found, the newly
+    appeared from-tag will be remembered as an alias for the existing from-tag
+    going forward. Note that the same `alias key` value must have been used
+    when the offer for the existing from-tag was received for this to work.
+
+    With the value `SDP`, matching is performed on the entire SDP body as
+    received in the offer. In other words, if an offer from an unknown from-tag
+    is received and the identical SDP was previously used in another offer with
+    a different from-tag, then these two from-tags will be considered aliases.
+
+    With the value `address` or `endpoint`, matching is performed on the
+    address/port pair used as connection address in the SDP, specifically the
+    address and port used by the first media section.
+
 * `audio player`
 
     Contains a string value of either `default`, `transcoding`, `off`, or `always`.

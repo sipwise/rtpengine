@@ -102,6 +102,7 @@ my @string_opts = qw(
 	vsc-start-pause-resume-rec
 	rtpp-flags
 	body
+	alias-key
 );
 
 my @int_opts = qw(

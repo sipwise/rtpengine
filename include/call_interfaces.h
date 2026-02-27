@@ -142,6 +142,11 @@ struct sdp_ng_flags {
 		AP_TRANSCODING,
 		AP_FORCE,
 	} audio_player:2;
+	enum {
+		AK_NONE = 0,
+		AK_SDP,
+		AK_ADDRESS,
+	} alias_key:2;
 	enum endpoint_learning el_option;
 	enum block_dtmf_mode block_dtmf_mode;
 	int delay_buffer;

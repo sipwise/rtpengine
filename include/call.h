@@ -676,6 +676,8 @@ struct sdp_fragment;
 TYPED_GQUEUE(fragment, struct sdp_fragment)
 TYPED_GHASHTABLE(fragments_ht, str, fragment_q, str_hash, str_equal, NULL, NULL)
 
+TYPED_GHASHTABLE(endpoint_ml_ht, endpoint_t, struct call_monologue, endpoint_hash, endpoint_eq, NULL, NULL)
+
 
 struct call_iterator_list {
 	call_list *first;
@@ -779,6 +781,8 @@ struct call {
 	str_ml_ht		tags;
 	str_ml_ht		viabranches;
 	str_ml_ht		labels;
+	str_ml_ht		sdps;
+	endpoint_ml_ht		endpoints;
 	fragments_ht		sdp_fragments;
 	packet_stream_q		streams;
 	stream_fd_q		stream_fds;	/* stream_fd */
@@ -869,7 +873,7 @@ int call_get_mono_dialogue(struct call_monologue *monologues[2], call_t *call,
 		const str *fromtag,
 		const str *totag,
 		const str *viabranch,
-		sdp_ng_flags *);
+		sdp_ng_flags *, const endpoint_t *);
 struct call_monologue *call_get_monologue(call_t *call, const str *fromtag);
 struct call_monologue *call_get_or_create_monologue(call_t *call, const str *fromtag);
 __attribute__((nonnull(1, 2, 4, 5, 6)))

@@ -192,7 +192,7 @@ static str call_update_lookup_udp(char **out, enum ng_opmode opmode, const char*
 
 	updated_created_from(c, addr);
 
-	if (call_get_mono_dialogue(monologues, c, &fromtag, &totag, NULL, NULL))
+	if (call_get_mono_dialogue(monologues, c, &fromtag, &totag, NULL, NULL, NULL))
 		goto ml_fail;
 
 	struct call_monologue *from_ml = monologues[0];
@@ -355,7 +355,7 @@ static str call_request_lookup_tcp(char **out, enum ng_opmode opmode) {
 		str_swap(&fromtag, &totag);
 	}
 
-	if (call_get_mono_dialogue(monologues, c, &fromtag, &totag, NULL, NULL)) {
+	if (call_get_mono_dialogue(monologues, c, &fromtag, &totag, NULL, NULL, NULL)) {
 		ilog(LOG_WARNING, "Invalid dialogue association");
 		goto out2;
 	}
@@ -1799,6 +1799,26 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 							STR_FMT(&s));
 			}
 			break;
+		case CSH_LOOKUP("alias-key"):
+			switch (__csh_lookup_n(1, &s)) {
+				case CSH_LOOKUP_N(1, "none"):
+				case CSH_LOOKUP_N(1, "off"):
+				case CSH_LOOKUP_N(1, "no"):
+					out->alias_key = AK_NONE;
+					break;
+				case CSH_LOOKUP_N(1, "sdp"):
+				case CSH_LOOKUP_N(1, "SDP"):
+					out->alias_key = AK_SDP;
+					break;
+				case CSH_LOOKUP_N(1, "address"):
+				case CSH_LOOKUP_N(1, "endpoint"):
+					out->alias_key = AK_ADDRESS;
+					break;
+				default:
+					ilog(LOG_WARN, "Unknown 'alias-key' flag encountered: '" STR_FORMAT "'",
+							STR_FMT(&s));
+			}
+			break;
 		case CSH_LOOKUP("audio-player"):
 		case CSH_LOOKUP("player"):
 			switch (__csh_lookup_n(1, &s)) {
@@ -2588,7 +2608,7 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char* addr)
 	g_auto(sdp_sessions_q) parsed = TYPED_GQUEUE_INIT;
 	g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
 	g_autoptr(call_t) call = NULL;
-	struct call_monologue * monologues[2];
+	struct call_monologue *monologues[2];
 	int ret;
 	g_auto(sdp_ng_flags) flags;
 	parser_arg output = ctx->resp;
@@ -2659,7 +2679,8 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char* addr)
 
 	errstr = "Invalid dialogue association";
 	if (call_get_mono_dialogue(monologues, call, &flags.from_tag, &flags.to_tag,
-			flags.via_branch.s ? &flags.via_branch : NULL, &flags)) {
+			flags.via_branch.s ? &flags.via_branch : NULL, &flags,
+			streams.length ? &streams.head->data->rtp_endpoint : NULL)) {
 		goto out;
 	}
 
@@ -2680,7 +2701,13 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char* addr)
 	}
 
 	if (flags.block_dtmf)
-		call_set_dtmf_block(call, monologues[0], &flags);
+		call_set_dtmf_block(call, from_ml, &flags);
+
+	if (flags.alias_key == AK_SDP)
+		t_hash_table_insert(call->sdps, call_str_dup(&sdp), from_ml);
+	else if (flags.alias_key == AK_ADDRESS && streams.length && streams.head->data->rtp_endpoint.port)
+		t_hash_table_insert(call->endpoints, memory_arena_objdup(streams.head->data->rtp_endpoint),
+				from_ml);
 
 	struct recording *recording = NULL;
 

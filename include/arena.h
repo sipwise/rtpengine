@@ -23,6 +23,14 @@ INLINE void *__memory_arena_alloc0(size_t len) {
 	return ret;
 }
 #define memory_arena_alloc0(type) ((type *) __memory_arena_alloc0(sizeof(type)))
+
+INLINE char *__memory_arena_memdup(const void *b, size_t len) {
+	char *ret = __memory_arena_alloc(len);
+	memcpy(ret, b, len);
+	return ret;
+}
+#define memory_arena_objdup(o) ((__typeof(&(o))) __memory_arena_memdup(&(o), sizeof(o)))
+
 INLINE char *memory_arena_dup(const char *b, size_t len) {
 	char *ret = __memory_arena_alloc(len + 1);
 	memcpy(ret, b, len);
