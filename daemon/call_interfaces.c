@@ -1972,6 +1972,12 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 		case CSH_LOOKUP("file"):
 			out->file = s;
 			break;
+		case CSH_LOOKUP("audio-raw-rtp-file"):
+			out->audio_raw_rtp_file = s;
+			break;
+		case CSH_LOOKUP("audio-raw-rtp-codec"):
+			out->audio_raw_rtp_codec = s;
+			break;
 		case CSH_LOOKUP("frequency"):
 		case CSH_LOOKUP("frequencies"):
 			call_ng_flags_freqs(parser, value, out);
@@ -3940,6 +3946,8 @@ const char *call_play_media_ng(ng_command_ctx_t *ctx) {
 				.codec_set = flags.codec_set,
 				.file = flags.file,
 				.blob = flags.blob,
+				.audio_raw_rtp_file = flags.audio_raw_rtp_file,
+				.audio_raw_rtp_codec = flags.audio_raw_rtp_codec,
 				.db_id = flags.db_id,
 			);
 
