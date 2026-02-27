@@ -513,7 +513,7 @@ INLINE gboolean int64_eq(const uint64_t *a, const uint64_t *b) {
 
 /*** TAINT FUNCTIONS ***/
 
-#if HAS_ATTR(__error__)
+#if HAS_ATTR(__error__) && !defined(__clang__)
 /* This is not supported in clang, and on gcc it might become inert if the
  * symbol gets remapped to a builtin or stack protected function, but it
  * otherwise gives better diagnostics. */

@@ -196,12 +196,13 @@ for my $section (@sections) {
 
 	print "#pragma GCC diagnostic push\n";
 	print "#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"\n";
-	print "#pragma GCC diagnostic ignored \"-Wshadow=global\"\n";
+	print "#pragma GCC diagnostic ignored \"-Wshadow\"\n";
 	print $hash_func_code;
 	print "#pragma GCC diagnostic pop\n";
 	# add convenience function
 	print <<END;
 #include "str.h"
+#pragma GCC diagnostic push
 #pragma GCC diagnostic ignored \"-Wunused-function\"
 static int __csh_lookup_$num(const str *s) {
 	if (!s->s)
@@ -221,6 +222,7 @@ for my $section (@sections) {
 }
 print <<END;
 };
+#pragma GCC diagnostic push
 #pragma GCC diagnostic ignored \"-Wunused-function\"
 static int __csh_lookup_section(unsigned int n, const str *s) {
 	if (n >= G_N_ELEMENTS(__csh_lookup_funcs))

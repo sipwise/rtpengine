@@ -28,10 +28,10 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 		/* unused members to store the contained types */ \
 		type_name __ht; \
 	}; \
-	static inline type_name type_name##_null(void) { \
+	__attribute__((unused)) static inline type_name type_name##_null(void) { \
 		return (type_name) { NULL }; \
 	} \
-	static inline void type_name##_destroy_ptr(type_name *h) { \
+	__attribute__((unused)) static inline void type_name##_destroy_ptr(type_name *h) { \
 		if (h->ht) \
 			g_hash_table_destroy(h->ht); \
 		h->ht = NULL; \
@@ -225,14 +225,14 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 			"tail offset mismatch"); \
 	static_assert(G_STRUCT_OFFSET(GQueue, length) == G_STRUCT_OFFSET(type_name##_q, length), \
 			"length offset mismatch"); \
-	static inline type_name##_q *type_name##_q_new(void) { \
+	__attribute__((unused)) static inline type_name##_q *type_name##_q_new(void) { \
 		GQueue *q = g_queue_new(); \
 		return (type_name##_q *) q; \
 	} \
-	static inline void type_name##_q_clear(type_name##_q *q) { \
+	__attribute__((unused)) static inline void type_name##_q_clear(type_name##_q *q) { \
 		g_queue_clear(&q->q); \
 	} \
-	static inline void type_name##_q_free(type_name##_q *q) { \
+	__attribute__((unused)) static inline void type_name##_q_free(type_name##_q *q) { \
 		g_queue_free(&q->q); \
 	}
 
@@ -461,18 +461,18 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 			"pdata offset mismatch"); \
 	static_assert(G_STRUCT_OFFSET(GPtrArray, len) == G_STRUCT_OFFSET(type_name, len), \
 			"len offset mismatch"); \
-	static inline type_name *type_name##_new_sized(unsigned int len) { \
+	__attribute__((unused)) static inline type_name *type_name##_new_sized(unsigned int len) { \
 		void (*func)(contained_type *) = free_func; \
 		return (type_name *) g_ptr_array_new_full(len, (GDestroyNotify) func); \
 	} \
-	static inline type_name *type_name##_new(void) { \
+	__attribute__((unused)) static inline type_name *type_name##_new(void) { \
 		return type_name##_new_sized(0); \
 	} \
-	static inline void type_name##_destroy(type_name *A) { \
+	__attribute__((unused)) static inline void type_name##_destroy(type_name *A) { \
 		if (A) \
 			g_ptr_array_free(&(A)->a, TRUE); \
 	} \
-	static inline void type_name##_destroy_ptr(type_name **A) { \
+	__attribute__((unused)) static inline void type_name##_destroy_ptr(type_name **A) { \
 		if (*A) \
 			g_ptr_array_free(&(*A)->a, TRUE); \
 		*A = NULL; \

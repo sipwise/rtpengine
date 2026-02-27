@@ -892,7 +892,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 
 		{ "ng-client-timeout",0,0,G_OPTION_ARG_INT,	&rtpe_config.ng_client_timeout,"Timeout in milliseconds for outgoing NG requests","INT"},
 		{ "ng-client-retries",0,0,G_OPTION_ARG_INT,	&rtpe_config.ng_client_retries,"How often to retry a timed-out NG request","INT"},
-		{ NULL, }
+		{ 0 }
 	};
 
 	struct ifaddrs *ifas;

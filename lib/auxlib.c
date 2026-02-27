@@ -274,7 +274,7 @@ void config_load_ext(int *argc, char ***argv, GOptionEntry *app_entries, const c
 		{ "codec-chain-opus-application",0,0,G_OPTION_ARG_STRING,&opus_application,			"Opus application",			"default|VoIP|audio|low-delay"	},
 		{ "codec-chain-opus-complexity",0,0,G_OPTION_ARG_INT,	&rtpe_common_config_ptr->codec_chain_opus_complexity,"Opus encoding complexity (0..10)","INT"	},
 #endif
-		{ NULL, }
+		{ 0 }
 	};
 #undef ll
 

@@ -758,8 +758,8 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 			.rtp = &rtp,
 			.ssrc_in = ssrc_in,
 			.ssrc_out = ssrc_out,
-			.raw = { (void *) &tep, sizeof(tep) },
-			.payload = { (void *) &tep, sizeof(tep) },
+			.raw = { (void *) &tep, sizeof(tep), 0 },
+			.payload = { (void *) &tep, sizeof(tep), 0 },
 			.sink = { .sink = sink_ps },
 		};
 
