@@ -147,8 +147,10 @@ void bencode_buffer_free(bencode_buffer_t *buf) {
 }
 
 void bencode_buffer_merge(bencode_buffer_t *to, bencode_buffer_t *from) {
-	from->pieces->next = to->pieces;
-	to->pieces = from->pieces;
+	struct __bencode_buffer_piece *last = to->pieces;
+	while (last->next)
+		last = last->next;
+	last->next = from->pieces;
 	from->pieces = NULL;
 }
 
