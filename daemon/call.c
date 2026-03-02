@@ -5036,8 +5036,6 @@ void call_media_free(struct call_media **mdp) {
 	t_hash_table_destroy(md->extmap_ht);
 	t_queue_clear_full(&md->extmap, rtp_extension_free);
 	t_hash_table_destroy_ptr(&md->pt_media);
-	g_free(md);
-	*mdp = NULL;
 }
 
 void __monologue_free(struct call_monologue *m) {
@@ -5052,7 +5050,6 @@ void __monologue_free(struct call_monologue *m) {
 	t_queue_clear_full(&m->all_attributes, sdp_attr_free);
 	t_queue_clear(&m->tag_aliases);
 	t_queue_clear(&m->groups_other);
-	g_free(m);
 }
 
 static void __call_free(call_t *c) {
@@ -5080,7 +5077,6 @@ static void __call_free(call_t *c) {
 		em = t_queue_pop_head(&c->endpoint_maps);
 
 		t_queue_clear_full(&em->intf_sfds, free_sfd_intf_list);
-		g_free(em);
 	}
 
 	t_hash_table_destroy(c->tags);
@@ -5095,7 +5091,6 @@ static void __call_free(call_t *c) {
 		t_hash_table_destroy(ps->rtp_stats);
 		bufferpool_unref(ps->stats_in);
 		bufferpool_unref(ps->stats_out);
-		g_free(ps);
 	}
 
 	memory_arena_free(&c->buffer);

@@ -78,7 +78,7 @@ static void __init(void) {
 	flags.codec_set = str_case_value_ht_new();
 }
 static struct packet_stream *ps_new(struct call_media *m) {
-	struct packet_stream *ps = malloc(sizeof(*ps));
+	struct packet_stream *ps = memory_arena_alloc(struct packet_stream);
 	assert(ps != NULL);
 	memset(ps, 0, sizeof(*ps));
 	ps->endpoint.port = 12345;
@@ -383,11 +383,10 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 static void end(void) {
 	g_hash_table_destroy(rtp_ts_ht);
 	g_hash_table_destroy(rtp_seq_ht);
-	t_queue_clear_full(&media_A->streams, (void (*)(struct packet_stream *)) free);
-	t_queue_clear_full(&media_B->streams, (void (*)(struct packet_stream *)) free);
+	t_queue_clear(&media_A->streams);
+	t_queue_clear(&media_B->streams);
 	call_media_free(&media_A);
 	call_media_free(&media_B);
-	bencode_buffer_free(&call.buffer);
 	t_hash_table_destroy(call.tags);
 	t_queue_clear(&call.medias);
 	if (ml_A)
@@ -395,6 +394,7 @@ static void end(void) {
 	if (ml_B)
 		__monologue_free(ml_B);
 	__cleanup();
+	bencode_buffer_free(&call.buffer);
 	call_memory_arena_release();
 	printf("\n");
 }

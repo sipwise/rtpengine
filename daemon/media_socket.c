@@ -4034,7 +4034,6 @@ void interfaces_free(void) {
 	while ((ifc = t_queue_pop_head(&all_local_interfaces))) {
 		free(ifc->ice_foundation.s);
 		bufferpool_unref(ifc->stats);
-		g_free(ifc);
 	}
 
 	t_hash_table_destroy(__logical_intf_name_family_hash);
