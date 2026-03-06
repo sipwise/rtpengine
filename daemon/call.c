@@ -131,6 +131,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 	bool do_update = false;
 	bool has_srtp = false;
 	bool recv_checked = false;
+	bool has_inactive = false;
 	struct packet_stream *ps;
 	int tmp_t_reason = UNKNOWN;
 	enum call_stream_state css;
@@ -233,6 +234,8 @@ no_sfd:
 			check = atomic_get_na(&rtpe_config.silent_timeout_us);
 			tmp_t_reason = SILENT_TIMEOUT;
 			check_good = &silent_good;
+			if (!MEDIA_ISSET(ps->media, SEND))
+				has_inactive = true;
 		}
 		else if (!PS_ISSET(ps, FILLED)) {
 			check = atomic_get_na(&rtpe_config.offer_timeout_us);
@@ -245,7 +248,7 @@ no_sfd:
 			*check_good = true;
 	}
 
-	if (!recv_checked && !recv_good)
+	if (!recv_good && (!recv_checked || has_inactive))
 		recv_good = silent_good;
 
 	for (__auto_type it = c->medias.head; it; it = it->next) {
