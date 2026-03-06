@@ -261,6 +261,7 @@ struct sink_attrs {
 	bool rtcp_only:1;
 	bool transcoding:1;
 	bool egress:1;
+	bool inject:1;
 };
 
 struct rtpext_printer {

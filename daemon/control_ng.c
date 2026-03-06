@@ -47,6 +47,7 @@ const char *ng_command_strings[OP_COUNT] = {
 	"block silence media", "unblock silence media",
 	"publish", "subscribe request",
 	"subscribe answer", "unsubscribe",
+	"inject start", "inject stop",
 	"connect", "cli", "transform"
 };
 const char *ng_command_strings_esc[OP_COUNT] = {
@@ -58,6 +59,7 @@ const char *ng_command_strings_esc[OP_COUNT] = {
 	"block_silence_media", "unblock_silence_media",
 	"publish", "subscribe_request",
 	"subscribe_answer", "unsubscribe",
+	"inject_start", "inject_stop",
 	"connect", "cli", "transform"
 };
 const char *ng_command_strings_short[OP_COUNT] = {
@@ -68,6 +70,7 @@ const char *ng_command_strings_short[OP_COUNT] = {
 	"PlayDTMF", "Stats", "SlnMedia", "UnslnMedia",
 	"BlkSlnMedia", "UnblkSlnMedia",
 	"Pub", "SubReq", "SubAns", "Unsub",
+	"InjStart", "InjStop",
 	"Conn", "CLI", "Trnsfm"
 };
 
@@ -843,6 +846,14 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 		case CSH_LOOKUP("unsubscribe"):
 			command_ctx.opmode = OP_UNSUBSCRIBE;
 			errstr = call_unsubscribe_ng(&command_ctx);
+			break;
+		case CSH_LOOKUP("inject start"):
+			command_ctx.opmode = OP_INJECT_START;
+			errstr = call_inject_start_ng(&command_ctx);
+			break;
+		case CSH_LOOKUP("inject stop"):
+			command_ctx.opmode = OP_INJECT_STOP;
+			errstr = call_inject_stop_ng(&command_ctx);
 			break;
 		case CSH_LOOKUP("connect"):
 			command_ctx.opmode = OP_CONNECT;
