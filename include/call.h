@@ -66,6 +66,7 @@ enum message_type {
 		 || (opmode == OP_START_FORWARDING || opmode == OP_STOP_FORWARDING)              \
 		 || (opmode == OP_UNSUBSCRIBE || opmode == OP_START_RECORDING)                   \
 		 || (opmode == OP_STOP_RECORDING || opmode == OP_PAUSE_RECORDING)                \
+		 || (opmode == OP_INJECT_START || opmode == OP_INJECT_STOP)                      \
 		 || (opmode == OP_OTHER))
 
 #define IS_OP_DIRECTIONAL(opmode)                                                                \
@@ -896,6 +897,10 @@ int monologue_subscribe_request(const subscription_q *srms, struct call_monologu
 int monologue_subscribe_answer(struct call_monologue *dst, sdp_ng_flags *flags,
 		sdp_streams_q *streams);
 int monologue_unsubscribe(struct call_monologue *dst, sdp_ng_flags *);
+int monologue_inject_start(struct call_monologue *src, struct call_monologue *dst,
+		sdp_ng_flags *flags);
+int monologue_inject_stop(struct call_monologue *src, struct call_monologue *dst,
+		sdp_ng_flags *flags);
 void dialogue_connect(struct call_monologue *, struct call_monologue *, sdp_ng_flags *);
 bool monologue_transform(struct call_monologue *, sdp_ng_flags *, medias_q *);
 void monologue_destroy(struct call_monologue *ml);

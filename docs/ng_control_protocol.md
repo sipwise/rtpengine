@@ -63,6 +63,8 @@ Currently the following commands are defined:
 * subscribe request
 * subscribe answer
 * unsubscribe
+* inject start
+* inject stop
 * connect
 
 The response dictionary must contain at least one key called `result`.
@@ -2602,6 +2604,58 @@ forwarding will start to the endpoint given in the answer SDP.
 
 This message is a counterpart to `subsscribe answer` to stop an established
 subscription. The subscription to be stopped is identified by the `to-tag`.
+
+## `inject start` Message
+
+This message creates one-way media injection from a source call participant to
+a destination call participant and mixes the injected audio into the destination
+audio stream.
+
+Required keys are:
+
+* `call-id` and `to-tag` to identify the destination participant
+* `source-tag` to identify the source participant
+
+An optional key `source-call-id` can be given to identify the source
+participant in a different call. In this case both calls are merged internally
+before creating the injection.
+
+The command currently applies to audio media only.
+
+Example:
+
+```
+{
+  "command": "inject start",
+  "call-id": "main-call-id",
+  "to-tag": "dst-tag",
+  "source-call-id": "src-call-id",
+  "source-tag": "src-tag"
+}
+```
+
+## `inject stop` Message
+
+Stops one-way media injection previously started by `inject start`.
+
+The same participant selection keys as for `inject start` must be provided:
+
+* `call-id`
+* `to-tag`
+* `source-tag`
+* optional `source-call-id`
+
+Example:
+
+```
+{
+  "command": "inject stop",
+  "call-id": "main-call-id",
+  "to-tag": "dst-tag",
+  "source-call-id": "src-call-id",
+  "source-tag": "src-tag"
+}
+```
 
 ## `connect` Message
 

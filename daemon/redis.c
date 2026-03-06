@@ -1792,7 +1792,7 @@ static int redis_link_sfds(struct redis_list *sfds, struct redis_list *streams) 
 /**
  * Supports only `media-subscriptions-*` structures.
  * Restores media subscriptions based on:
- * `unique_id`, `offer_answer`, `rtcp_only`, `egress`
+ * `unique_id`, `offer_answer`, `rtcp_only`, `egress`, `inject`
  */
 static int rbl_subs_cb(str *s, callback_arg_t dummy, struct redis_list *list, void *ptr) {
 	str token;
@@ -1805,13 +1805,17 @@ static int rbl_subs_cb(str *s, callback_arg_t dummy, struct redis_list *list, vo
 	bool offer_answer = false;
 	bool rtcp_only = false;
 	bool egress = false;
+	bool inject = false;
 
 	if (str_token_sep(&token, s, '/')) {
 		offer_answer = str_to_i(&token, 0) ? true : false;
 		if (str_token_sep(&token, s, '/')) {
 			rtcp_only = str_to_i(&token, 0) ? true : false;
-			if (str_token_sep(&token, s, '/'))
+			if (str_token_sep(&token, s, '/')) {
 				egress = str_to_i(&token, 0) ? true : false;
+				if (str_token_sep(&token, s, '/'))
+					inject = str_to_i(&token, 0) ? true : false;
+			}
 		}
 	}
 
@@ -1825,6 +1829,7 @@ static int rbl_subs_cb(str *s, callback_arg_t dummy, struct redis_list *list, vo
 						.offer_answer = offer_answer,
 						.rtcp_only = rtcp_only,
 						.egress = egress,
+						.inject = inject,
 					});
 
 	codec_handlers_update(other_media, media, .reset_transcoding = true);
@@ -2713,11 +2718,12 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 			inner = parser->dict_add_list_dup(root, tmp);
 
 			IQUEUE_FOREACH(&media->media_subscriptions, ms) {
-				JSON_ADD_LIST_STRING("%u/%u/%u/%u",
+				JSON_ADD_LIST_STRING("%u/%u/%u/%u/%u",
 						ms->media->unique_id,
 						ms->attrs.offer_answer,
 						ms->attrs.rtcp_only,
-						ms->attrs.egress);
+						ms->attrs.egress,
+						ms->attrs.inject);
 			}
 
 			snprintf(tmp, sizeof(tmp), "media-%u", media->unique_id);
