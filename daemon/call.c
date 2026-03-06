@@ -4590,6 +4590,198 @@ int monologue_unsubscribe(struct call_monologue *dst_ml, sdp_ng_flags *flags) {
 	return 0;
 }
 
+static bool inject_media_types_match(const struct call_media *src_media, const struct call_media *dst_media) {
+	if (!src_media || !dst_media)
+		return false;
+	if (src_media->type_id != MT_AUDIO || dst_media->type_id != MT_AUDIO)
+		return false;
+	return !str_cmp_str(&src_media->type, &dst_media->type);
+}
+
+static struct call_media *inject_find_destination_media(struct call_media *src_media,
+		struct call_monologue *dst_ml)
+{
+	struct call_media *dst_media = NULL;
+
+	if (src_media->media_id.len) {
+		dst_media = t_hash_table_lookup(dst_ml->media_ids, &src_media->media_id);
+		if (inject_media_types_match(src_media, dst_media))
+			return dst_media;
+	}
+
+	// best-effort match by index
+	if (src_media->index > 0 && src_media->index <= dst_ml->medias->len) {
+		dst_media = dst_ml->medias->pdata[src_media->index - 1];
+		if (inject_media_types_match(src_media, dst_media))
+			return dst_media;
+	}
+
+	// fallback to first same media type
+	for (unsigned int i = 0; i < dst_ml->medias->len; i++) {
+		dst_media = dst_ml->medias->pdata[i];
+		if (inject_media_types_match(src_media, dst_media))
+			return dst_media;
+	}
+
+	return NULL;
+}
+
+static bool media_has_inject_subscriptions(const struct call_media *media) {
+	IQUEUE_FOREACH(&media->media_subscriptions, ms) {
+		if (ms->attrs.inject)
+			return true;
+	}
+	return false;
+}
+
+static void inject_set_subscription_attrs(struct media_subscription *ms) {
+	if (!ms)
+		return;
+	ms->attrs.inject = true;
+	ms->attrs.offer_answer = false;
+	ms->attrs.egress = false;
+	ms->attrs.rtcp_only = false;
+}
+
+static void inject_reconfigure_destination_media(struct call_media *dst_media,
+		bool force_audio_player, const sdp_ng_flags *flags)
+{
+	g_auto(sdp_ng_flags) local_flags;
+	bool reconfigured = false;
+	call_ng_flags_init(&local_flags, flags ? flags->opmode : OP_OTHER);
+	local_flags.audio_player = force_audio_player ? AP_FORCE : AP_OFF;
+	if (flags)
+		local_flags.allow_asymmetric_codecs = flags->allow_asymmetric_codecs;
+
+	IQUEUE_FOREACH(&dst_media->media_subscriptions, ms) {
+		struct call_media *src_media = ms->media;
+		if (!inject_media_types_match(src_media, dst_media))
+			continue;
+
+		codec_handlers_update(src_media, dst_media,
+				.flags = &local_flags,
+				.allow_asymmetric = !!local_flags.allow_asymmetric_codecs,
+				.reset_transcoding = true);
+		reconfigured = true;
+	}
+
+	if (force_audio_player)
+		audio_player_activate(dst_media);
+	else if (!reconfigured) {
+		MEDIA_CLEAR(dst_media, AUDIO_PLAYER);
+		audio_player_stop(dst_media);
+	}
+}
+
+/* called with call->master_lock held in W */
+int monologue_inject_start(struct call_monologue *src_ml, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
+	bool has_candidates = false;
+	bool linked = false;
+
+	for (unsigned int i = 0; i < src_ml->medias->len; i++) {
+		struct call_media *src_media = src_ml->medias->pdata[i];
+		if (!src_media || src_media->type_id != MT_AUDIO)
+			continue;
+
+		struct call_media *dst_media = inject_find_destination_media(src_media, dst_ml);
+		if (!dst_media)
+			continue;
+
+		has_candidates = true;
+
+		struct media_subscription *existing_ms =
+			call_get_media_subscription(dst_media->media_subscriptions_ht, src_media);
+		if (existing_ms && !existing_ms->attrs.inject) {
+			ilog(LOG_WARN, "Inject failed for destination tag '" STR_FORMAT_M "': "
+					"media pair %d <- %d already has non-inject subscription",
+					STR_FMT_M(&dst_ml->tag), dst_media->index, src_media->index);
+			return -1;
+		}
+	}
+
+	if (!has_candidates)
+		return -1;
+
+	for (unsigned int i = 0; i < src_ml->medias->len; i++) {
+		struct call_media *src_media = src_ml->medias->pdata[i];
+		if (!src_media || src_media->type_id != MT_AUDIO)
+			continue;
+
+		struct call_media *dst_media = inject_find_destination_media(src_media, dst_ml);
+		if (!dst_media)
+			continue;
+
+		struct media_subscription *dst_to_src_ms =
+			call_get_media_subscription(dst_media->media_subscriptions_ht, src_media);
+		if (!dst_to_src_ms) {
+			__add_media_subscription(dst_media, src_media, &(struct sink_attrs) { .inject = true });
+			dst_to_src_ms = call_get_media_subscription(dst_media->media_subscriptions_ht, src_media);
+		}
+		if (!dst_to_src_ms)
+			continue;
+
+		inject_set_subscription_attrs(dst_to_src_ms);
+
+		linked = true;
+	}
+
+	if (!linked)
+		return -1;
+
+	for (unsigned int i = 0; i < dst_ml->medias->len; i++) {
+		struct call_media *dst_media = dst_ml->medias->pdata[i];
+		if (!dst_media || dst_media->type_id != MT_AUDIO)
+			continue;
+		if (!media_has_inject_subscriptions(dst_media))
+			continue;
+		inject_reconfigure_destination_media(dst_media, true, flags);
+	}
+
+	update_init_monologue_subscribers(dst_ml, flags->opmode);
+	return 0;
+}
+
+/* called with call->master_lock held in W */
+int monologue_inject_stop(struct call_monologue *src_ml, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
+	bool removed_any = false;
+
+	for (unsigned int i = 0; i < dst_ml->medias->len; i++) {
+		struct call_media *dst_media = dst_ml->medias->pdata[i];
+		bool removed_from_media = false;
+
+		if (!dst_media || dst_media->type_id != MT_AUDIO)
+			continue;
+
+		IQUEUE_FOREACH_SAFE_DECL(&dst_media->media_subscriptions, ms);
+		IQUEUE_FOREACH_SAFE(&dst_media->media_subscriptions, ms) {
+			struct call_media *src_media = ms->media;
+			if (!src_media)
+				continue;
+			if (!ms->attrs.inject)
+				continue;
+			if (ms->monologue != src_ml)
+				continue;
+
+			if (!__unsubscribe_media(dst_media, src_media))
+				continue;
+
+			removed_any = true;
+			removed_from_media = true;
+		}
+
+		if (removed_from_media) {
+			bool still_injected = media_has_inject_subscriptions(dst_media);
+			inject_reconfigure_destination_media(dst_media, still_injected, flags);
+		}
+	}
+
+	if (!removed_any)
+		return -1;
+
+	update_init_monologue_subscribers(dst_ml, flags->opmode);
+	return 0;
+}
+
 
 __attribute__((nonnull(1, 2, 3)))
 void dialogue_connect(struct call_monologue *src_ml, struct call_monologue *dst_ml, sdp_ng_flags *flags) {

@@ -391,10 +391,10 @@ $json_exp = {
 		   '3'
 		 ],
   'media-subscriptions-0' => [
-			 '1/1/0/0'
+			 '1/1/0/0/0'
 		       ],
   'media-subscriptions-1' => [
-			 '0/1/0/0'
+			 '0/1/0/0/0'
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
@@ -532,10 +532,10 @@ my $dict = {
                          'type' => 'audio'
                        },
           'media-subscriptions-0' => [
-                                       '1/1/0/0'
+                                       '1/1/0/0/0'
                                      ],
           'media-subscriptions-1' => [
-                                       '0/1/0/0'
+                                       '0/1/0/0/0'
                                      ],
           'medias-0' => [
                           \'0'

@@ -352,6 +352,8 @@ const char *call_publish_ng(ng_command_ctx_t *, const char *);
 const char *call_subscribe_request_ng(ng_command_ctx_t *);
 const char *call_subscribe_answer_ng(ng_command_ctx_t *);
 const char *call_unsubscribe_ng(ng_command_ctx_t *);
+const char *call_inject_start_ng(ng_command_ctx_t *);
+const char *call_inject_stop_ng(ng_command_ctx_t *);
 const char *call_connect_ng(ng_command_ctx_t *);
 const char *call_transform_ng(ng_command_ctx_t *);
 
