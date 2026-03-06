@@ -2012,6 +2012,10 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 		case CSH_LOOKUP("from-tags"):
 			call_ng_flags_str_list(parser, value, call_ng_flags_esc_str_list, &out->from_tags);
 			break;
+		case CSH_LOOKUP("source-call-id"):
+		case CSH_LOOKUP("source-tag"):
+			/* handled by inject start/stop command parsing */
+			break;
 		case CSH_LOOKUP("flags"):
 			call_ng_flags_str_list(parser, value, call_ng_flags_flags, out);
 			break;
@@ -4356,6 +4360,78 @@ const char *call_unsubscribe_ng(ng_command_ctx_t *ctx) {
 	call_unlock_release_update(&call);
 
 	return NULL;
+}
+
+static const char *call_inject_ng(ng_command_ctx_t *ctx, bool start) {
+	g_auto(sdp_ng_flags) flags;
+	g_autoptr(call_t) call = NULL;
+	g_autoptr(call_t) call2 = NULL;
+	parser_arg input = ctx->req;
+	const ng_parser_t *parser = ctx->parser_ctx.parser;
+
+	call_ng_process_flags(&flags, ctx);
+
+	str source_call_id = STR_NULL;
+	str source_tag = STR_NULL;
+
+	if (!flags.call_id.s)
+		return "No call-id in message";
+	if (!flags.to_tag.s)
+		return "No to-tag in message";
+
+	if (!parser->dict_get_str(input, "source-tag", &source_tag))
+		source_tag = flags.from_tag;
+	if (!source_tag.s)
+		return "No source-tag in message";
+
+	if (!parser->dict_get_str(input, "source-call-id", &source_call_id))
+		source_call_id = flags.call_id;
+
+	if (str_cmp_str(&source_call_id, &flags.call_id)) {
+		call_get2_ret_t ret = call_get2(&call, &call2, &flags.call_id, &source_call_id);
+		if (ret == CG2_NF1)
+			return "Unknown call-ID";
+		if (ret == CG2_NF2)
+			return "Unknown source call-ID";
+	}
+	else {
+		call = call_get(&flags.call_id);
+		if (!call)
+			return "Unknown call-ID";
+	}
+
+	struct call_monologue *dst_ml = call_get_monologue(call, &flags.to_tag);
+	if (!dst_ml)
+		return "To-tag not found";
+
+	struct call_monologue *src_ml = call_get_monologue(call2 ?: call, &source_tag);
+	if (!src_ml)
+		return "Source-tag not found";
+
+	if (src_ml == dst_ml)
+		return "Trying to inject to self";
+
+	if (call2) {
+		if (!call_merge(call, &call2))
+			return "Failed to merge two calls into one";
+	}
+
+	int ret = start
+		? monologue_inject_start(src_ml, dst_ml, &flags)
+		: monologue_inject_stop(src_ml, dst_ml, &flags);
+	if (ret)
+		return start ? "Failed to start inject" : "Failed to stop inject";
+
+	call_unlock_release_update(&call);
+	return NULL;
+}
+
+const char *call_inject_start_ng(ng_command_ctx_t *ctx) {
+	return call_inject_ng(ctx, true);
+}
+
+const char *call_inject_stop_ng(ng_command_ctx_t *ctx) {
+	return call_inject_ng(ctx, false);
 }
 
 
