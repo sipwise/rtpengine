@@ -24,16 +24,6 @@ if command -v dpkg-parsechangelog >/dev/null; then
   have_dpkg_parsechangelog=yes
 fi
 
-if [ -z "${RELEASE_DATE}" ]; then
-  if [ "${have_dpkg_parsechangelog}" = yes ]; then
-    RELEASE_DATE="$(date -u -d "@$(dpkg-parsechangelog -l"${top_srcdir}"/debian/changelog -STimestamp)" '+%F')"
-  fi
-  if [ -z "${RELEASE_DATE}" ]; then
-    RELEASE_DATE="undefined"
-  fi
-fi
-echo "RELEASE_DATE = ${RELEASE_DATE}"
-
 if [ -z "${RTPENGINE_VERSION}" ]; then
   if [ "${have_dpkg_parsechangelog}" = yes ]; then
     deb_version="$(dpkg-parsechangelog -l"${top_srcdir}"/debian/changelog | awk '/^Version: / { print $2 }')"
