@@ -818,9 +818,9 @@ struct media_subscription *__add_media_subscription(struct call_media * which, s
 bool __unsubscribe_media(struct call_media * which, struct call_media * from);
 struct media_subscription *call_ml_get_top_ms(struct call_monologue *ml);
 bool call_ml_sendonly_inactive(struct call_monologue *ml);
-struct media_subscription *call_media_get_top_ms(struct call_media * cm);
-struct media_subscription *call_get_media_subscription(subscription_ht ht, struct call_media * cm);
-struct call_monologue * ml_medias_subscribed_to_single_ml(struct call_monologue *ml);
+struct media_subscription *call_media_get_top_ms(struct call_media *cm);
+struct media_subscription *call_get_media_subscription(subscription_ht ht, struct call_media *cm);
+struct call_monologue *ml_medias_subscribed_to_single_ml(struct call_monologue *ml);
 
 void free_sink_handler(struct sink_handler *);
 void __add_sink_handler(sink_handler_q *, struct packet_stream *, const struct sink_attrs *);
@@ -888,6 +888,11 @@ void __rtp_stats_update(rtp_stats_ht dst, struct codec_store *);
 bool __init_stream(struct packet_stream *ps);
 
 const rtp_payload_type *__rtp_stats_codec(struct call_media *m);
+
+
+TYPED_GHASHTABLE(subscription_store_ht, struct call_media, struct media_subscription,
+		media_direct_hash, media_direct_eq, NULL, media_subscription_free)
+
 
 #include "str.h"
 #include "rtp.h"
