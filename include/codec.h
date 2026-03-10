@@ -101,7 +101,7 @@ struct codec_packet {
 	void (*plain_free_func)(void *);
 };
 
-typedef IQUEUE_TYPE(struct codec_packet, link) codec_packet_q;
+typedef IQUEUE(struct codec_packet, link) codec_packet_q;
 
 
 struct codec_scheduler {

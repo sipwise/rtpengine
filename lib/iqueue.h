@@ -12,7 +12,7 @@
 	}
 
 
-#define IQUEUE_TYPE(ele_type, link_name) \
+#define IQUEUE(ele_type, link_name) \
 	struct { \
 		union { \
 			struct { \
@@ -30,10 +30,6 @@
 			const ele_type *const_ele; \
 		}; \
 	}
-
-
-#define IQUEUE(ele_type, link_name, queue_name) \
-	IQUEUE_TYPE(ele_type, link_name) queue_name
 
 
 #define i_queue_init(list) do { \

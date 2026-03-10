@@ -489,7 +489,7 @@ struct media_subscription {
 	struct media_subscription *reverse;	// opposite (subscription -> subscriber / vice versa)
 };
 
-typedef IQUEUE_TYPE(struct media_subscription, link) subscription_q;
+typedef IQUEUE(struct media_subscription, link) subscription_q;
 
 
 
