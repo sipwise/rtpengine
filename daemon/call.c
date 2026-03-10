@@ -4086,7 +4086,6 @@ bool __unsubscribe_media(struct call_media *which, struct call_media *from)
  */
 __attribute__((nonnull(1, 2)))
 static void __unsubscribe_all_offer_answer_medias(struct call_media *cm, medias_q *medias) {
-	IQUEUE_FOREACH_SAFE_DECL(&cm->media_subscribers, ms);
 	IQUEUE_FOREACH_SAFE(&cm->media_subscribers, ms) {
 		if (!ms->attrs.offer_answer)
 			continue;
@@ -4106,7 +4105,6 @@ static void __unsubscribe_medias_from_all(struct call_monologue *ml) {
 		if (!media)
 			continue;
 
-		IQUEUE_FOREACH_SAFE_DECL(&media->media_subscriptions, subscription);
 		IQUEUE_FOREACH_SAFE(&media->media_subscriptions, subscription)
 			__unsubscribe_media_link(media, subscription);
 	}
@@ -4573,7 +4571,6 @@ int monologue_unsubscribe(struct call_monologue *dst_ml, sdp_ng_flags *flags) {
 		__media_unconfirm(media, "media unsubscribe");
 
 		/* TODO: should we care about subscribers as well? */
-		IQUEUE_FOREACH_SAFE_DECL(&media->media_subscriptions, ms);
 		IQUEUE_FOREACH_SAFE(&media->media_subscriptions, ms) {
 			struct call_media *src_media = ms->media;
 
@@ -4752,7 +4749,6 @@ int monologue_inject_stop(struct call_monologue *src_ml, struct call_monologue *
 		if (!dst_media || dst_media->type_id != MT_AUDIO)
 			continue;
 
-		IQUEUE_FOREACH_SAFE_DECL(&dst_media->media_subscriptions, ms);
 		IQUEUE_FOREACH_SAFE(&dst_media->media_subscriptions, ms) {
 			struct call_media *src_media = ms->media;
 			if (!src_media)

@@ -112,20 +112,15 @@
 			var; var = ((__typeof((list)->offset)) var)->link.next)
 
 
-#define IQUEUE_FOREACH_SAFE_DECL(list, var) \
-	__typeof__ ( ({ __typeof__ (*(list)->head) __t; &__t; }) ) var, __next ## var \
-
-
 #define IQUEUE_FOREACH_SAFE(list, var) \
-	for (var = (list)->head, \
-				__next ## var = var ? ((__typeof((list)->offset)) var)->link.next : NULL; \
-			var; \
-			var = __next ## var, \
-				__next ## var = var ? ((__typeof((list)->offset)) var)->link.next : NULL)
+	for (__typeof__ ( ({ __typeof__ (*(list)->head) __t; &__t; }) ) var = (list)->head, \
+			__next ## var = var ? ((__typeof((list)->offset)) var)->link.next : NULL; \
+		var; \
+		var = __next ## var, \
+			__next ## var = var ? ((__typeof((list)->offset)) var)->link.next : NULL)
 
 
 #define i_queue_clear_full(list, fn) do { \
-	IQUEUE_FOREACH_SAFE_DECL(list, __ele); \
 	IQUEUE_FOREACH_SAFE(list, __ele) \
 		(fn)(__ele); \
 	i_queue_init(list); \
