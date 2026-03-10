@@ -20,11 +20,470 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $port_c, $ssrc_a, $ssr
 	$sock_ax, $sock_bx, $port_ax, $port_bx, $port_d, $sock_e, $port_e, $sock_cx, $port_cx,
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev, $ufrag_a, $ufrag_b,
 	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq, $tag_medias, $media_labels,
-	$ftr, $ttr, $fts, $ttr2);
+	$ftr, $ttr, $fts, $ttr2, $sock_f, $sock_g, $sock_h, $port_f, $port_g, $port_h,
+	$port_cx, $port_dx, $port_gx, $port_hx);
 
 
 
 use_json(1);
+
+
+
+
+
+($sock_a, $sock_b, $sock_c, $sock_d, $sock_e, $sock_f, $sock_g, $sock_h) = new_call(
+	[qw(198.51.100.14 6228)],
+	[qw(198.51.100.14 6232)],
+	[qw(198.51.100.14 6236)],
+	[qw(198.51.100.14 6240)],
+	[qw(198.51.100.14 6244)],
+	[qw(198.51.100.14 6248)],
+	[qw(198.51.100.14 6252)],
+	[qw(198.51.100.14 6256)],
+);
+
+($port_a) = offer('add video',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6228 RTP/AVP 0
+c=IN IP4 198.51.100.14
+---------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('add video',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6232 RTP/AVP 0
+c=IN IP4 198.51.100.14
+---------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_b, $port_a, rtp (0, 2000, 4000, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160));
+rcv_no($sock_c);
+rcv_no($sock_d);
+rcv_no($sock_e);
+rcv_no($sock_f);
+rcv_no($sock_g);
+rcv_no($sock_h);
+
+snd($sock_a, $port_b, rtp (0, 3000, 5000, 0x383e, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 3000, 5000, 0x383e, "\x00" x 160));
+rcv_no($sock_c);
+rcv_no($sock_d);
+rcv_no($sock_e);
+rcv_no($sock_f);
+rcv_no($sock_g);
+rcv_no($sock_h);
+
+(undef, $ttr, undef, undef, undef, $port_c, undef, $port_d) = subscribe_request('add video',
+	{ flags => ["SIPREC"], 'from-tags' => [ft(), tt()] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:0
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+subscribe_answer('SIPREC pause/resume',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6236 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=recvonly
+m=audio 6240 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+snd($sock_b, $port_a, rtp (0, 2001, 4160, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x3456, "\x00" x 160));
+rcv_no($sock_c);
+rcv($sock_d, $port_d, rtpm(0, 2001, 4160, 0x3456, "\x00" x 160));
+rcv_no($sock_e);
+rcv_no($sock_f);
+rcv_no($sock_g);
+rcv_no($sock_h);
+
+snd($sock_a, $port_b, rtp (0, 3001, 5160, 0x383e, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 3001, 5160, 0x383e, "\x11" x 160));
+rcv($sock_c, $port_c, rtpm(0, 3001, 5160, 0x383e, "\x11" x 160));
+rcv_no($sock_d);
+rcv_no($sock_e);
+rcv_no($sock_f);
+rcv_no($sock_g);
+rcv_no($sock_h);
+
+($port_ax, undef, $port_e) = offer('add video',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6228 RTP/AVP 0
+c=IN IP4 198.51.100.14
+m=video 6244 RTP/AVP 99
+c=IN IP4 198.51.100.14
+a=rtpmap:99 VP8/90000
+---------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 99
+c=IN IP4 203.0.113.1
+a=rtpmap:99 VP8/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_bx, undef, $port_f) = answer('add video',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6232 RTP/AVP 0
+c=IN IP4 198.51.100.14
+m=video 6248 RTP/AVP 99
+c=IN IP4 198.51.100.14
+a=rtpmap:99 VP8/90000
+---------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 99
+c=IN IP4 203.0.113.1
+a=rtpmap:99 VP8/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+is($port_a, $port_ax, "port unchanged");
+is($port_b, $port_bx, "port unchanged");
+
+snd($sock_b, $port_a, rtp (0, 2001, 4160, 0x3456, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x3456, "\x22" x 160));
+rcv_no($sock_c);
+rcv($sock_d, $port_d, rtpm(0, 2001, 4160, 0x3456, "\x22" x 160));
+rcv_no($sock_e);
+rcv_no($sock_f);
+rcv_no($sock_g);
+rcv_no($sock_h);
+
+snd($sock_a, $port_b, rtp (0, 3001, 5160, 0x383e, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 3001, 5160, 0x383e, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(0, 3001, 5160, 0x383e, "\x00" x 160));
+rcv_no($sock_d);
+rcv_no($sock_e);
+rcv_no($sock_f);
+rcv_no($sock_g);
+rcv_no($sock_h);
+
+
+snd($sock_e, $port_f, rtp (99, 5000, 6000, 0x5555, "x33" x 500));
+rcv($sock_f, $port_e, rtpm(99, 5000, 6000, 0x5555, "x33" x 500));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+rcv_no($sock_e);
+rcv_no($sock_f);
+rcv_no($sock_g);
+rcv_no($sock_h);
+
+snd($sock_f, $port_e, rtp (99, 6000, 7000, 0x593d, "x44" x 500));
+rcv($sock_e, $port_f, rtpm(99, 6000, 7000, 0x593d, "x44" x 500));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+rcv_no($sock_e);
+rcv_no($sock_f);
+rcv_no($sock_g);
+rcv_no($sock_h);
+
+
+# brand new subscription
+subscribe_request('add video',
+	{ flags => ["SIPREC"], 'from-tags' => [ft(), tt()] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:0
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+m=video PORT RTP/AVP 99
+c=IN IP4 203.0.113.1
+a=label:4
+a=rtpmap:99 VP8/90000
+a=sendonly
+a=rtcp:PORT
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+m=video PORT RTP/AVP 99
+c=IN IP4 203.0.113.1
+a=label:5
+a=rtpmap:99 VP8/90000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+# update existing subscription
+
+(undef, $ttr2, undef, undef, undef, $port_cx, undef, $port_dx, undef, $port_g, undef, $port_h)
+	= subscribe_request('add video',
+	{ flags => ["SIPREC"], 'from-tags' => [ft(), tt()], 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:0
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+m=video PORT RTP/AVP 99
+c=IN IP4 203.0.113.1
+a=label:4
+a=rtpmap:99 VP8/90000
+a=sendonly
+a=rtcp:PORT
+m=video PORT RTP/AVP 99
+c=IN IP4 203.0.113.1
+a=label:5
+a=rtpmap:99 VP8/90000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is($port_c, $port_cx, "port unchanged");
+is($port_d, $port_dx, "port unchanged");
+is($ttr, $ttr2, "to-tag unchanged");
+
+subscribe_answer('add video',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6236 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=recvonly
+m=audio 6240 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=recvonly
+m=video 6252 RTP/AVP 99
+c=IN IP4 198.51.100.14
+a=rtpmap:99 VP8/90000
+a=recvonly
+m=video 6256 RTP/AVP 99
+c=IN IP4 198.51.100.14
+a=rtpmap:99 VP8/90000
+a=recvonly
+SDP
+
+
+snd($sock_b, $port_a, rtp (0, 2002, 4320, 0x3456, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2002, 4320, 0x3456, "\x22" x 160));
+rcv_no($sock_c);
+rcv($sock_d, $port_d, rtpm(0, 2002, 4320, 0x3456, "\x22" x 160));
+rcv_no($sock_e);
+rcv_no($sock_f);
+rcv_no($sock_g);
+rcv_no($sock_h);
+
+snd($sock_a, $port_b, rtp (0, 3002, 5320, 0x383e, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 3002, 5320, 0x383e, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(0, 3002, 5320, 0x383e, "\x00" x 160));
+rcv_no($sock_d);
+rcv_no($sock_e);
+rcv_no($sock_f);
+rcv_no($sock_g);
+rcv_no($sock_h);
+
+
+snd($sock_e, $port_f, rtp (99, 5001, 6000, 0x5555, "x33" x 500));
+rcv($sock_f, $port_e, rtpm(99, 5001, 6000, 0x5555, "x33" x 500));
+rcv($sock_g, $port_g, rtpm(99, 5001, 6000, 0x5555, "x33" x 500));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+rcv_no($sock_e);
+rcv_no($sock_f);
+rcv_no($sock_h);
+
+snd($sock_f, $port_e, rtp (99, 6001, 7000, 0x593d, "x44" x 500));
+rcv($sock_e, $port_f, rtpm(99, 6001, 7000, 0x593d, "x44" x 500));
+rcv($sock_h, $port_h, rtpm(99, 6001, 7000, 0x593d, "x44" x 500));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+rcv_no($sock_e);
+rcv_no($sock_f);
+rcv_no($sock_g);
+
+
+# update with tags reversed
+
+(undef, $ttr2, undef, undef, undef, $port_cx, undef, $port_dx, undef, $port_gx, undef, $port_hx)
+	= subscribe_request('add video',
+	{ flags => ["SIPREC"], 'from-tags' => [tt(), ft()], 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:0
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+m=video PORT RTP/AVP 99
+c=IN IP4 203.0.113.1
+a=label:4
+a=rtpmap:99 VP8/90000
+a=sendonly
+a=rtcp:PORT
+m=video PORT RTP/AVP 99
+c=IN IP4 203.0.113.1
+a=label:5
+a=rtpmap:99 VP8/90000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is($port_c, $port_cx, "port unchanged");
+is($port_d, $port_dx, "port unchanged");
+is($port_g, $port_gx, "port unchanged");
+is($port_h, $port_hx, "port unchanged");
+is($ttr, $ttr2, "to-tag unchanged");
+
+
+
+
+
+new_call;
+
+publish('extra answer',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6478 RTP/AVP 0 8 9
+c=IN IP4 198.51.100.14
+a=sendonly
+----------------------------------
+v=0
+o=- SDP_VERSION IN IP4 203.0.113.1
+s=RTPE_VERSION
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=recvonly
+a=rtcp:PORT
+SDP
+
+(undef, $ttr) = subscribe_request('extra answer',
+	{ 'from-tag' => ft() }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+subscribe_answer('incomplete answer',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6562 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=recvonly
+m=audio 6570 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
 
 
 
@@ -3807,7 +4266,7 @@ $resp = decode_json($resp->{response});
 
 is($resp->{interfaces}[0]{name}, 'default', 'intf found');
 is($resp->{interfaces}[0]{address}, '203.0.113.1', 'address found');
-is($resp->{interfaces}[0]{ports}{used}, 192, 'port usage');
+is($resp->{interfaces}[0]{ports}{used}, 220, 'port usage');
 is($resp->{interfaces}[1]{name}, 'default', 'intf found');
 is($resp->{interfaces}[1]{address}, '2001:db8:4321::1', 'address found');
 is($resp->{interfaces}[1]{ports}{used}, 2, 'port usage');
