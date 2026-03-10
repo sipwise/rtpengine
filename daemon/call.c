@@ -4036,7 +4036,9 @@ void media_subscriptions_clear(subscription_q *q) {
 	t_queue_clear_full(q, media_subscription_free);
 }
 
-static void __unsubscribe_media_link(struct call_media * which, subscription_list * which_cm_link)
+__attribute__((nonnull(1, 2)))
+static inline void __unsubscribe_media_link_store(struct call_media *which, subscription_list *which_cm_link,
+		subscription_store_ht ht)
 {
 	struct media_subscription * ms = which_cm_link->data;
 	struct media_subscription * rev_ms = ms->link->data;
@@ -4054,12 +4056,24 @@ static void __unsubscribe_media_link(struct call_media * which, subscription_lis
 	t_hash_table_remove(from->media_subscribers_ht, rev_ms->media);
 
 	g_free(ms);
-	g_free(rev_ms);
+
+	if (t_hash_table_is_set(ht))
+		t_hash_table_insert(ht, from, rev_ms);
+	else
+		g_free(rev_ms);
 }
+
+__attribute__((nonnull(1, 2)))
+static void __unsubscribe_media_link(struct call_media *which, subscription_list *which_cm_link)
+{
+	__unsubscribe_media_link_store(which, which_cm_link, subscription_store_ht_null());
+}
+
 /**
  * Unsubscribe one particular media subscriber from this call media.
  */
-bool __unsubscribe_media(struct call_media * which, struct call_media * from)
+__attribute__((nonnull(1, 2)))
+bool __unsubscribe_media(struct call_media *which, struct call_media *from)
 {
 	if (!t_hash_table_is_set(which->media_subscriptions_ht)
 			|| !t_hash_table_is_set(from->media_subscribers_ht))
@@ -4104,27 +4118,31 @@ static void __unsubscribe_all_offer_answer_medias(struct call_media * cm, medias
 		l = next;
 	}
 }
-static void __unsubscribe_medias_from_all(struct call_monologue *ml) {
+
+__attribute__((nonnull(1)))
+static inline void __unsubscribe_medias_from_all(struct call_monologue *ml, subscription_store_ht ht)
+{
 	for (int i = 0; i < ml->medias->len; i++)
 	{
-		struct call_media * media = ml->medias->pdata[i];
+		struct call_media *media = ml->medias->pdata[i];
 		if (!media)
 			continue;
 
 		for (__auto_type subcription = media->media_subscriptions.head; subcription; )
 		{
 			__auto_type next = subcription->next;
-			__unsubscribe_media_link(media, subcription);
+			__unsubscribe_media_link_store(media, subcription, ht);
 			subcription = next;
 		}
 	}
 }
+
 /**
  * Check whether this monologue medias are subscribed to a single other monologue medias.
  */
 struct call_monologue * ml_medias_subscribed_to_single_ml(struct call_monologue *ml) {
 	/* detect monologues multiplicity */
-	struct call_monologue * return_ml = NULL;
+	struct call_monologue *return_ml = NULL;
 	for (unsigned int i = 0; i < ml->medias->len; i++)
 	{
 		struct call_media *media = ml->medias->pdata[i];
@@ -4141,7 +4159,7 @@ struct call_monologue * ml_medias_subscribed_to_single_ml(struct call_monologue 
 	}
 	return return_ml;
 }
-struct media_subscription *__add_media_subscription(struct call_media * which, struct call_media * to,
+struct media_subscription *__add_media_subscription(struct call_media *which, struct call_media *to,
 		const struct sink_attrs *attrs)
 {
 	subscription_list *ret;
@@ -4374,9 +4392,9 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 }
 
 /* called with call->master_lock held in W */
-__attribute__((nonnull(1, 2, 3, 4)))
+__attribute__((nonnull(1, 2, 3)))
 static int monologue_subscribe_request1(struct call_monologue *src_ml, struct call_monologue *dst_ml,
-		sdp_ng_flags *flags, unsigned int *index)
+		sdp_ng_flags *flags, subscription_store_ht ht)
 {
 	unsigned int idx_diff = 0, rev_idx_diff = 0;
 	g_auto(str_ht) mid_tracker_dst = str_ht_new();
@@ -4386,8 +4404,15 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		struct stream_params *sp = l->data;
 
 		struct call_media *src_media = __get_media(src_ml, sp, flags, 0, mid_tracker_src);
-		struct call_media *dst_media = call_get_media(dst_ml, &src_media->type, src_media->type_id,
-				NULL, false, (*index)++, mid_tracker_dst);
+		struct call_media *dst_media = NULL;
+		__auto_type ms = t_hash_table_lookup(ht, src_media);
+		if (ms)
+			dst_media = ms->media;
+		if (!dst_media) {
+			// new media needed
+			dst_media = call_get_media(dst_ml, &src_media->type, src_media->type_id,
+					NULL, false, dst_ml->medias->len + 1, mid_tracker_dst);
+		}
 
 		/* subscribe dst_ml (subscriber) to src_ml, don't forget to carry the egress flag, if required */
 		__add_media_subscription(dst_media, src_media, &(struct sink_attrs) { .egress = !!flags->egress });
@@ -4464,12 +4489,13 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 
 	return 0;
 }
+
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
 int monologue_subscribe_request(const subscription_q *srms, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
-	unsigned int index = 1; /* running counter for output/dst medias */
+	g_auto(subscription_store_ht) ht = subscription_store_ht_new();
 
-	__unsubscribe_medias_from_all(dst_ml);
+	__unsubscribe_medias_from_all(dst_ml, ht);
 	__call_monologue_init_from_flags(dst_ml, NULL, flags);
 
 	g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
@@ -4481,7 +4507,7 @@ int monologue_subscribe_request(const subscription_q *srms, struct call_monologu
 			continue;
 
 		if (!g_queue_find(&mls, src_ml)) {
-			int ret = monologue_subscribe_request1(src_ml, dst_ml, flags, &index);
+			int ret = monologue_subscribe_request1(src_ml, dst_ml, flags, ht);
 			g_queue_push_tail(&mls, src_ml);
 			if (ret)
 				return -1;
