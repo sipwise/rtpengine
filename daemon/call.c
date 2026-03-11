@@ -343,10 +343,12 @@ void xmlrpc_kill_calls(struct xmlrpc_helper *xh) {
 		}
 
 		if (tag)
-			ilog(LOG_INFO, "Initiating XMLRPC for call (ID " STR_FORMAT_M ", tag " STR_FORMAT_M ")",
-					STR_FMT_M(call_id), STR_FMT_M(tag));
+			ilog(LOG_INFO, "Initiating XMLRPC for call (ID " STR_FORMAT_M ", tag " STR_FORMAT_M ") "
+					"to %s",
+					STR_FMT_M(call_id), STR_FMT_M(tag), url);
 		else
-			ilog(LOG_INFO, "Initiating XMLRPC for call (ID " STR_FORMAT_M ")", STR_FMT_M(call_id));
+			ilog(LOG_INFO, "Initiating XMLRPC for call (ID " STR_FORMAT_M ") to %s",
+					STR_FMT_M(call_id), url);
 
 		g_autoptr(GString) body = g_string_new("");
 		g_autoptr(GString) response = g_string_new("");
