@@ -474,8 +474,12 @@ void kill_calls_timer(GSList *list, const char *url) {
 			str cb_addr;
 			if (ca->xmlrpc_callback.len)
 				cb_addr = ca->xmlrpc_callback;
-			else
+			else {
 				cb_addr = ca->created_from;
+				char *colon = memrchr(cb_addr.s, ':', cb_addr.len);
+				if (colon)
+					cb_addr.len = (colon - cb_addr.s);
+			}
 
 			snprintf(url_buf, sizeof(url_buf), "%s" STR_FORMAT "%s",
 					url_prefix, STR_FMT(&cb_addr),
