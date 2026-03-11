@@ -1223,12 +1223,12 @@ static void stream_put(struct re_stream *stream) {
 	if (!stream)
 		return;
 
-	if (!atomic_dec_and_test(&stream->refcnt)) {
-		/* if this is an open file being closed and there's a del_stream()
-		 * waiting for us, we need to wake up the sleeping del_stream() */
-		wake_up_interruptible(&stream->close_wq);
+	/* if this is an open file being closed and there's a del_stream()
+	 * waiting for us, we need to wake up the sleeping del_stream() */
+	wake_up_interruptible(&stream->close_wq);
+
+	if (!atomic_dec_and_test(&stream->refcnt))
 		return;
-	}
 
 	DBG("Freeing stream object\n");
 
