@@ -152,7 +152,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 			ml->term_reason = tmp_t_reason;
 		}
 
-		goto delete;
+		goto timeout;
 	}
 
 	// other timeouts not applicable to foreign calls
@@ -297,6 +297,7 @@ no_sfd:
 
 	ilog(LOG_INFO, "Closing call due to timeout");
 
+timeout:
 	hlp->del_timeout = g_slist_prepend(hlp->del_timeout, obj_get(c));
 	goto out;
 
