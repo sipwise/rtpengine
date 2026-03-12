@@ -2846,23 +2846,19 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 #endif
 }
 
-__attribute__((nonnull(2, 3)))
-static void __update_media_label(struct call_media *media, struct call_media *other_media,
-		sdp_ng_flags *flags)
+__attribute__((nonnull(1, 2)))
+static void __update_media_label(struct call_media *media, sdp_ng_flags *flags, unsigned int id)
 {
-	if (!media)
+	if (!flags->siprec)
+		return;
+	if (flags->opmode != OP_SUBSCRIBE_REQ)
+		return;
+	if (media->label.len)
 		return;
 
-	if (flags->siprec && flags->opmode == OP_SUBSCRIBE_REQ) {
-		if (!media->label.len) {
-			char buf[64];
-			snprintf(buf, sizeof(buf), "%u", other_media->unique_id);
-			media->label = call_str_cpy_c(buf);
-		}
-		// put same label on both sides
-		if (!other_media->label.len)
-			other_media->label = media->label;
-	}
+	char buf[64];
+	snprintf(buf, sizeof(buf), "%u", id);
+	media->label = call_str_cpy_c(buf);
 }
 
 // `media` can be NULL
@@ -2927,7 +2923,8 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 			break;
 	}
 
-	__update_media_label(media, other_media, flags);
+	if (media)
+		__update_media_label(media, flags, other_media->unique_id);
 	__update_media_protocol(media, other_media, sp, flags);
 	__update_media_id(media, other_media, sp, flags);
 	__endpoint_loop_protect(sp, other_media);
