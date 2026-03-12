@@ -2861,6 +2861,15 @@ static void __update_media_label(struct call_media *media, sdp_ng_flags *flags, 
 	media->label = call_str_cpy_c(buf);
 }
 
+__attribute__((nonnull(1, 2)))
+static void media_update_label(struct call_media *media, sdp_ng_flags *flags, const str *label)
+{
+	if (flags->siprec) // we generate our own
+		return;
+
+	media->label = call_str_cpy(label);
+}
+
 // `media` can be NULL
 __attribute__((nonnull(1, 3, 4)))
 static void __media_init_from_flags(struct call_media *other_media, struct call_media *media,
@@ -2923,8 +2932,10 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 			break;
 	}
 
-	if (media)
+	if (media) {
 		__update_media_label(media, flags, other_media->unique_id);
+		media_update_label(media, flags, &sp->label);
+	}
 	__update_media_protocol(media, other_media, sp, flags);
 	__update_media_id(media, other_media, sp, flags);
 	__endpoint_loop_protect(sp, other_media);
