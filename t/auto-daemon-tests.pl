@@ -5884,6 +5884,7 @@ m=video PORT RTP/AVP 99 97 126 123
 c=IN IP6 2001:db8:4321::1
 b=TIAS:5952000
 a=mid:2
+a=label:11
 a=rtpmap:99 H265/90000
 a=fmtp:99  level-id=90;max-lsr=125337600;max-lps=2088960;max-tr=22;max-tc=20;max-fps=6000;x-cisco-hevc=529
 a=rtpmap:97 H264/90000
@@ -5898,7 +5899,6 @@ a=rtcp-fb:* ccm pan
 a=rtcp-fb:* nack pli
 a=rtcp-fb:* ccm fir
 a=rtcp-fb:* ccm tmmbr
-a=label:11
 a=answer:full
 a=cisco-mari-psre:97 ltrf=3
 a=cisco-mari-psre:126 ltrf=3
@@ -6355,6 +6355,7 @@ m=video 0 RTP/AVP 99 97 126 123
 c=IN IP6 ::
 b=TIAS:5952000
 a=mid:2
+a=label:11
 m=application 0 RTP/SAVP 96
 c=IN IP4 0.0.0.0
 a=mid:5
@@ -26304,6 +26305,7 @@ t=0 0
 m=audio PORT RTP/AVP 104 9 103 111 8 101
 c=IN IP4 203.0.113.1
 a=mid:1
+a=label:main-audio
 a=rtpmap:104 SILK/16000
 a=rtpmap:9 G722/8000
 a=rtpmap:103 SILK/8000
@@ -26312,7 +26314,6 @@ a=fmtp:111 bitrate=16000
 a=rtpmap:8 PCMA/8000
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-16
-a=label:main-audio
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
