@@ -3444,8 +3444,7 @@ out:
 
 
 static ssize_t proc_stream_read(struct file *f, char __user *b, size_t l, loff_t *o) {
-	unsigned int stream_idx = (unsigned int) (unsigned long) PDE_DATA(f->f_path.dentry->d_inode);
-	struct re_stream *stream;
+	struct re_stream *stream = f->private_data;
 	unsigned long flags;
 	struct re_stream_packet *packet;
 	ssize_t ret;
@@ -3456,10 +3455,6 @@ static ssize_t proc_stream_read(struct file *f, char __user *b, size_t l, loff_t
 	unsigned int udplen, version;
 
 	DBG("entering proc_stream_read()\n");
-
-	stream = get_stream_lock(NULL, stream_idx);
-	if (!stream)
-		return -EINVAL;
 
 	DBG("locking stream's packet list lock\n");
 	spin_lock_irqsave(&stream->packet_list_lock, flags);
@@ -3547,20 +3542,14 @@ err:
 	free_packet(packet);
 
 out:
-	stream_put(stream);
 	return ret;
 }
 static unsigned int proc_stream_poll(struct file *f, struct poll_table_struct *p) {
-	unsigned int stream_idx = (unsigned int) (unsigned long) PDE_DATA(f->f_path.dentry->d_inode);
-	struct re_stream *stream;
+	struct re_stream *stream = f->private_data;
 	unsigned long flags;
 	unsigned int ret = 0;
 
 	DBG("entering proc_stream_poll()\n");
-
-	stream = get_stream_lock(NULL, stream_idx);
-	if (!stream)
-		return POLLERR;
 
 	poll_wait(f, &stream->read_wq, p);
 
@@ -3575,8 +3564,6 @@ static unsigned int proc_stream_poll(struct file *f, struct poll_table_struct *p
 	DBG("returning from proc_stream_poll()\n");
 
 	spin_unlock_irqrestore(&stream->packet_list_lock, flags);
-
-	stream_put(stream);
 
 	return ret;
 }
@@ -3600,22 +3587,18 @@ static int proc_stream_open(struct inode *i, struct file *f) {
 		return -ETXTBSY;
 	}
 
+	f->private_data = stream;
+
 	return 0;
 }
 
 static int proc_stream_close(struct inode *i, struct file *f) {
-	unsigned int stream_idx = (unsigned int) (unsigned long) PDE_DATA(f->f_path.dentry->d_inode);
-	struct re_stream *stream;
+	struct re_stream *stream = f->private_data;
 
 	DBG("entering proc_stream_close()\n");
 
-	stream = get_stream_lock(NULL, stream_idx);
-	if (!stream)
-		return -EIO;
-	/* release our own ref and the ref from _open */
 	stream_put(stream);
-	stream_put(stream);
-
+	f->private_data = NULL;
 	proc_generic_close_modref(i, f);
 
 	return 0;
