@@ -66,6 +66,7 @@ enum attr_id {
 	ATTR_TLS_ID,
 	ATTR_END_OF_CANDIDATES,
 	ATTR_MOH_ATTR_NAME,
+	ATTR_LABEL,
 };
 // make sure g_direct_hash can be used
 static_assert(sizeof(void *) >= sizeof(enum attr_id), "sizeof enum attr_id wrong");
@@ -1219,6 +1220,9 @@ static int parse_attribute(struct sdp_attribute *a) {
 		case CSH_LOOKUP("maxptime"):
 			a->attr = ATTR_MAXPTIME;
 			break;
+		case CSH_LOOKUP("label"):
+			a->attr = ATTR_LABEL;
+			break;
 		default:
 			/* check moh-attr-name (can be a variable attribute value) */
 			if (rtpe_config.moh_attr_name && !str_cmp(&a->strs.name, rtpe_config.moh_attr_name))
@@ -2002,6 +2006,11 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 			if (attr)
 				sp->media_id = attr->strs.value;
 
+			// a=label
+			attr = attr_get_by_id(&media->attributes, ATTR_LABEL);
+			if (attr)
+				sp->label = attr->strs.value;
+
 			// be ignorant about the contents
 			if (attr_get_by_id(&media->attributes, ATTR_RTCP_FB))
 				SP_SET(sp, RTCP_FB);
@@ -2717,7 +2726,7 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 	/* mid and label must be added even for inactive streams (see #1361 and #1362). */
 	if (media->media_id.s)
 		append_attr_to_gstring(s, "mid", &media->media_id, flags, media->type_id);
-	if (media->label.len && flags->siprec)
+	if (media->label.len)
 		append_attr_to_gstring(s, "label", &media->label, flags, media->type_id);
 
 	/* nothing more to be printed for inactive stream (non-accepted media session) */
