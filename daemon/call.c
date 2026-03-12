@@ -2853,20 +2853,17 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 }
 
 __attribute__((nonnull(1, 2)))
-static void media_set_siprec_label(struct call_media *other_media, struct call_media *media,
-		sdp_ng_flags *flags)
+static void media_set_siprec_label(struct call_media *media, sdp_ng_flags *flags, unsigned int id)
 {
 	if (!flags->siprec)
 		return;
 
-	if (!media->label.len) {
-		char buf[64];
-		snprintf(buf, sizeof(buf), "%u", other_media->unique_id);
-		media->label = call_str_cpy_c(buf);
-	}
-	// put same label on both sides
-	if (!other_media->label.len)
-		other_media->label = media->label;
+	if (media->label.len)
+		return;
+
+	char buf[64];
+	snprintf(buf, sizeof(buf), "%u", id);
+	media->label = call_str_cpy_c(buf);
 }
 
 __attribute__((nonnull(1)))
@@ -4422,7 +4419,7 @@ static int monologue_subscribe_request1(struct call_media *src_media, struct cal
 	media_init_from_flags(dst_media, flags);
 	media_set_echo(src_media, flags);
 	media_set_echo_reverse(dst_media, flags);
-	media_set_siprec_label(src_media, dst_media, flags);
+	media_set_siprec_label(dst_media, flags, src_media->unique_id);
 	media_update_type(dst_media, sp);
 	media_set_protocol(dst_media, src_media, sp, flags);
 	media_gen_media_id(dst_media, flags);
