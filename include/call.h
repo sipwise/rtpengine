@@ -385,6 +385,7 @@ struct stream_params {
 	struct session_bandwidth media_session_bandiwdth;
 	str			sdp_information;
 	extmap_q		extmap;
+	str			label;
 };
 
 struct endpoint_map {

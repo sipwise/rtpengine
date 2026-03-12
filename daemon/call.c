@@ -2862,6 +2862,15 @@ static void media_set_siprec_label(struct call_media *media, sdp_ng_flags *flags
 	media->label = call_str_cpy_c(buf);
 }
 
+__attribute__((nonnull(1, 2)))
+static void media_update_label(struct call_media *media, sdp_ng_flags *flags, const str *label)
+{
+	if (flags->siprec) // we generate our own
+		return;
+
+	media->label = call_str_cpy(label);
+}
+
 __attribute__((nonnull(1)))
 static unsigned int media_bundle_extmap_id(struct call_media *media) {
 	__auto_type ml = media->monologue;
@@ -3874,6 +3883,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		}
 		else
 			media_answer_media_id(sender_media, sp);
+		media_update_label(receiver_media, flags, &sp->label);
 		media_loop_protect(sp, sender_media);
 		media_update_flags(sender_media, sp);
 		media_update_crypto(sender_media, sp, flags);
@@ -4433,6 +4443,7 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		media_set_echo(src_media, flags);
 		media_set_echo_reverse(dst_media, flags);
 		media_set_siprec_label(dst_media, flags, src_media->unique_id);
+		media_update_label(dst_media, flags, &src_media->label);
 		media_update_type(dst_media, sp);
 		media_set_protocol(dst_media, src_media, sp, flags);
 		media_gen_media_id(dst_media, flags);
