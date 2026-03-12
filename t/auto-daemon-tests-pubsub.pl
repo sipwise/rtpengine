@@ -31,6 +31,72 @@ use_json(1);
 
 
 
+new_call;
+
+offer('existing a=label', { }, <<SDP);
+v=0
+o=- 7674244616960374498 2 IN IP4 193.84.65.132
+s=-
+t=0 0
+m=audio 11020 RTP/AVP 0
+c=IN IP4 193.84.65.132
+a=label:foo
+--------------------------------------------
+v=0
+o=- 7674244616960374498 2 IN IP4 193.84.65.132
+s=-
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:foo
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('existing a=label', { }, <<SDP);
+v=0
+o=- 2881828996508053496 2 IN IP4 193.84.65.132
+s=-
+t=0 0
+m=audio 11500 RTP/AVP 0
+c=IN IP4 193.84.65.132
+a=label:bar
+--------------------------------------------
+v=0
+o=- 2881828996508053496 2 IN IP4 193.84.65.132
+s=-
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:bar
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+subscribe_request('existing a=label', { flags => ['SIPREC', 'all'] }, <<SDP);
+v=0
+o=- 7674244616960374498 2 IN IP4 193.84.65.132
+s=-
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:0
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+
+
+
 ($sock_a, $sock_b, $sock_c, $sock_d, $sock_e, $sock_f, $sock_g, $sock_h) = new_call(
 	[qw(198.51.100.14 6228)],
 	[qw(198.51.100.14 6232)],
@@ -4266,7 +4332,7 @@ $resp = decode_json($resp->{response});
 
 is($resp->{interfaces}[0]{name}, 'default', 'intf found');
 is($resp->{interfaces}[0]{address}, '203.0.113.1', 'address found');
-is($resp->{interfaces}[0]{ports}{used}, 220, 'port usage');
+is($resp->{interfaces}[0]{ports}{used}, 228, 'port usage');
 is($resp->{interfaces}[1]{name}, 'default', 'intf found');
 is($resp->{interfaces}[1]{address}, '2001:db8:4321::1', 'address found');
 is($resp->{interfaces}[1]{ports}{used}, 2, 'port usage');
