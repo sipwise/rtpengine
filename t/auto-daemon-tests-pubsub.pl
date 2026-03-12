@@ -32,6 +32,72 @@ use_json(1);
 
 new_call;
 
+offer('existing a=label', { }, <<SDP);
+v=0
+o=- 7674244616960374498 2 IN IP4 193.84.65.132
+s=-
+t=0 0
+m=audio 11020 RTP/AVP 0
+c=IN IP4 193.84.65.132
+a=label:foo
+--------------------------------------------
+v=0
+o=- 7674244616960374498 2 IN IP4 193.84.65.132
+s=-
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:foo
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('existing a=label', { }, <<SDP);
+v=0
+o=- 2881828996508053496 2 IN IP4 193.84.65.132
+s=-
+t=0 0
+m=audio 11500 RTP/AVP 0
+c=IN IP4 193.84.65.132
+a=label:bar
+--------------------------------------------
+v=0
+o=- 2881828996508053496 2 IN IP4 193.84.65.132
+s=-
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:bar
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+subscribe_request('existing a=label', { flags => ['SIPREC', 'all'] }, <<SDP);
+v=0
+o=- 7674244616960374498 2 IN IP4 193.84.65.132
+s=-
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:0
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+
+
+
+new_call;
+
 publish('extra answer',
 	{ }, <<SDP);
 v=0
