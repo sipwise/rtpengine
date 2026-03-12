@@ -4148,37 +4148,47 @@ const char *call_subscribe_request_ng(ng_command_ctx_t *ctx) {
 		media_labels = parser->dict_add_dict(output, "media-labels");
 	}
 	parser_arg from_list = parser->dict_add_list(output, "from-tags");
-	for (__auto_type l = srms.head; l; l = l->next) {
-		struct media_subscription *ms = l->data;
-		struct call_monologue *source_ml = ms->monologue;
+
+	for (unsigned int i = 0; i < dest_ml->medias->len; i++) {
+		struct call_media *dest_media = dest_ml->medias->pdata[i];
+		if (!dest_media)
+			continue;
+
+		// each media should be subscribed to just one other media
+		if (!dest_media->media_subscriptions.length)
+			continue;
+
+		struct call_media *source_media = dest_media->media_subscriptions.head->data->media;
+		struct call_monologue *source_ml = source_media->monologue;
+
 		parser->list_add_str_dup(from_list, &source_ml->tag);
+
+		if (media_labels.gen && dest_media->label.len) {
+			parser_arg label =
+				parser->dict_add_dict(media_labels, dest_media->label.s);
+			parser->dict_add_str(label, "tag", &source_ml->tag);
+			parser->dict_add_int(label, "index", source_media->index);
+			parser->dict_add_str(label, "type", &dest_media->type);
+			if (source_ml->label.len)
+				parser->dict_add_str(label, "label", &source_ml->label);
+			parser->dict_add_string(label, "mode", sdp_get_sendrecv(source_media));
+		}
+
 		if (tag_medias.gen) {
 			parser_arg tag_label = parser->list_add_dict(tag_medias);
 			parser->dict_add_str(tag_label, "tag", &source_ml->tag);
 			if (source_ml->label.len)
 				parser->dict_add_str(tag_label, "label", &source_ml->label);
-			parser_arg medias = parser->dict_add_list(tag_label, "medias");
-			for (unsigned int i = 0; i < source_ml->medias->len; i++) {
-				struct call_media *media = source_ml->medias->pdata[i];
-				if (!media)
-					continue;
-				parser_arg med_ent = parser->list_add_dict(medias);
-				parser->dict_add_int(med_ent, "index", media->index);
-				parser->dict_add_str(med_ent, "type", &media->type);
-				parser->dict_add_str(med_ent, "label", &media->label);
-				parser->dict_add_string(med_ent, "mode", sdp_get_sendrecv(media));
 
-				if (media_labels.gen) {
-					parser_arg label =
-						parser->dict_add_dict(media_labels, media->label.s);
-					parser->dict_add_str(label, "tag", &source_ml->tag);
-					parser->dict_add_int(label, "index", media->index);
-					parser->dict_add_str(label, "type", &media->type);
-					if (source_ml->label.len)
-						parser->dict_add_str(label, "label", &source_ml->label);
-					parser->dict_add_string(label, "mode", sdp_get_sendrecv(media));
-				}
-			}
+			parser_arg medias = parser->dict_add_list(tag_label, "medias");
+
+			// this is a bit strange because in this mode, each list can only
+			// ever get one entry...
+			parser_arg med_ent = parser->list_add_dict(medias);
+			parser->dict_add_int(med_ent, "index", source_media->index);
+			parser->dict_add_str(med_ent, "type", &dest_media->type);
+			parser->dict_add_str(med_ent, "label", &dest_media->label);
+			parser->dict_add_string(med_ent, "mode", sdp_get_sendrecv(source_media));
 		}
 	}
 
