@@ -1,3 +1,12 @@
+ngcp-rtpengine (11.5.1.50+0~mr11.5.1.50) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [efc4be2] MT#62735 pull up SRTP decryption
+  * [b84f9ee] MT#55283 fix opus fmtp booboo
+  * [b419632] MT#55283 fix stream close race condition
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 12 Mar 2026 13:13:04 +0100
+
 ngcp-rtpengine (11.5.1.49+0~mr11.5.1.49) unstable; urgency=medium
 
   [ Richard Fuchs ]
