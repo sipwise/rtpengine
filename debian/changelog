@@ -1,3 +1,14 @@
+ngcp-rtpengine (14.1.1.3+0~mr14.1.1.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7eaec1f] MT#55283 fix buffer merge logic
+  * [eac0b48] MT#55283 facilitate media reuse for updated subs
+  * [7ca05e2] MT#55283 tests for I410c6af17e
+  * [5b104a2] MT#55283 fix incorrect substituted RPC URL
+  * [1de1f41] MT#55283 fix stream close race condition
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 12 Mar 2026 13:12:35 +0100
+
 ngcp-rtpengine (14.1.1.2+0~mr14.1.1.2) unstable; urgency=medium
 
   [ Orgad Shaneh ]
