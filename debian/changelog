@@ -1,3 +1,12 @@
+ngcp-rtpengine (14.0.1.6+0~mr14.0.1.6) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [8f63cb8] MT#55283 fix buffer merge logic
+  * [51859e2] MT#55283 fix compilation for RHEL
+  * [47405c3] MT#55283 fix stream close race condition
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 12 Mar 2026 13:12:42 +0100
+
 ngcp-rtpengine (14.0.1.5+0~mr14.0.1.5) unstable; urgency=medium
 
   [ Richard Fuchs ]
