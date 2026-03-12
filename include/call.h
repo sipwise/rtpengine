@@ -523,7 +523,7 @@ struct call_media {
 	const struct extmap_ops	*extmap_ops;
 
 	str			media_id;
-	str			label;
+	str			label;				// outgoing a=label:
 	struct call_media	*bundle;
 	pt_media_ht		pt_media;
 	sdes_q			sdes_in, sdes_out;
