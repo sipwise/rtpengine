@@ -730,6 +730,87 @@ rcv($sock_b, $port_a, rtpm(0, 3000, 5000, 0x6321, "\xfb\x7b\xfa\x78\xf6\x71\xee\
 
 if ($extended_tests) {
 
+new_call;
+
+offer('a/a/c tp/e gh2084',
+	{ codec => { transcode => [qw/PCMA G729/] }, flags => [qw/allow-asymmetric-codecs/] },
+	<<SDP);
+v=0
+o=- 886916473740350 1145423270 IN IP4 10.10.10.10
+s=-
+c=IN IP4 10.10.10.10
+t=0 0
+m=audio 60818 RTP/AVP 96 97 8 98 99
+b=AS:80
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-change-capability=2; max-red=0
+a=rtpmap:97 AMR/8000
+a=fmtp:97 mode-change-period=2; mode-change-neighbor=1; max-red=0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:98 telephone-event/8000
+a=rtpmap:99 telephone-event/16000
+a=ptime:20
+a=maxptime:20
+----------------------------------------------
+v=0
+o=- 886916473740350 1145423270 IN IP4 10.10.10.10
+s=-
+t=0 0
+m=audio PORT RTP/AVP 96 97 8 18 98 99
+c=IN IP4 203.0.113.1
+b=AS:80
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-change-capability=2; max-red=0
+a=rtpmap:97 AMR/8000
+a=fmtp:97 mode-change-period=2; mode-change-neighbor=1; max-red=0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=yes
+a=rtpmap:98 telephone-event/8000
+a=rtpmap:99 telephone-event/16000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+a=maxptime:20
+SDP
+
+answer('a/a/c tp/e gh2084',
+	{ codec => { transcode => [qw/PCMA G729/] }, flags => [qw/allow-asymmetric-codecs/] },
+	<<SDP);
+v=0
+o=root 1112911144 1112911144 IN IP4 10.20.20.20
+s=-
+c=IN IP4 10.20.20.20
+t=0 0
+m=audio 43694 RTP/AVP 8 18 98
+a=rtpmap:8 PCMA/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:98 telephone-event/8000
+a=fmtp:98 0-16
+a=ptime:20
+a=maxptime:150
+a=sendrecv
+----------------------------------------------
+v=0
+o=root 1112911144 1112911144 IN IP4 10.20.20.20
+s=-
+t=0 0
+m=audio PORT RTP/AVP 8 96 98 99
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-change-capability=2; max-red=0
+a=rtpmap:98 telephone-event/8000
+a=rtpmap:99 telephone-event/16000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+a=maxptime:150
+SDP
+
+
+
 ($sock_a, $sock_b) = new_call([qw(198.51.100.1 7256)], [qw(198.51.100.3 7258)]);
 
 ($port_a, undef, $ufrag_a, $pwd_a) = offer('remote-candidates', { 'rtcp-mux' => ['require'] }, <<SDP);
