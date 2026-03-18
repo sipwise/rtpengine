@@ -33,6 +33,7 @@ my @flags = qw(
 	original-sendrecv
 	symmetric-codecs
 	asymmetric-codecs
+	allow-asymmetric-codecs
 	inject-DTMF
 	detect-DTMF
 	generate-RTCP
