@@ -1598,7 +1598,7 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 		if (!sink_pt) {
 			// no matching/identical output codec. maybe we have the same output codec,
 			// but with a different payload type or a different format?
-			if (!a.allow_asymmetric || pt->for_transcoding)
+			if (!a.allow_asymmetric || pt->for_transcoding || pt->codec_def->supplemental)
 				sink_pt = codec_store_find_compatible(&sink->codecs, pt);
 			else
 				sink_pt = pt;
@@ -1648,17 +1648,15 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 
 sink_pt_fixed:;
 		// we have found a usable output codec. gather matching output supp codecs
-		rtp_payload_type *sink_dtmf_pt = NULL;
-		rtp_payload_type *sink_cn_pt = NULL;
-		if (!a.allow_asymmetric) {
-			sink_dtmf_pt = __supp_payload_type(supplemental_sinks,
-					sink_pt->clock_rate, "telephone-event");
-			sink_cn_pt = __supp_payload_type(supplemental_sinks,
-					sink_pt->clock_rate, "CN");
-		}
-		else {
-			sink_dtmf_pt = recv_dtmf_pt;
-			sink_cn_pt = recv_cn_pt;
+		rtp_payload_type *sink_dtmf_pt = __supp_payload_type(supplemental_sinks,
+				sink_pt->clock_rate, "telephone-event");
+		rtp_payload_type *sink_cn_pt = __supp_payload_type(supplemental_sinks,
+				sink_pt->clock_rate, "CN");
+		if (a.allow_asymmetric) {
+			if (!sink_dtmf_pt || (recv_dtmf_pt && !rtp_payload_type_fmt_cmp(sink_dtmf_pt, recv_dtmf_pt)))
+				sink_dtmf_pt = recv_dtmf_pt;
+			if (!sink_cn_pt || (recv_cn_pt && !rtp_payload_type_fmt_cmp(sink_cn_pt, recv_cn_pt)))
+				sink_cn_pt = recv_cn_pt;
 		}
 		rtp_payload_type *real_sink_dtmf_pt = NULL; // for DTMF delay
 
