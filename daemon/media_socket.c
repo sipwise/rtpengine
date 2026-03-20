@@ -3104,7 +3104,7 @@ out:
 
 					for (__auto_type m = sub_media->streams.head; m; m = m->next) {
 						struct packet_stream *sub_ps = m->data;
-						__unkernelize(sub_ps, "subscriptions modified");
+						unkernelize(sub_ps, "subscriptions modified");
 					}
 				}
 				g_queue_push_tail(&mls, ms->monologue);
