@@ -36,6 +36,8 @@ struct rec_pcap_format {
 
 static int check_main_spool_dir(const char *spoolpath);
 static char *recording_setup_file(struct recording *recording, const str *);
+static char *recording_setup_file_explicit(struct recording *recording, const char *path);
+static char *recording_open_pcap_file(struct recording *recording, char *path);
 static char *meta_setup_file(struct recording *recording, const str *);
 static int append_meta_chunk(struct recording *recording, const char *buf, unsigned int buflen,
 		const char *label_fmt, ...)
@@ -486,7 +488,14 @@ static void rec_pcap_init(call_t *call) {
 	meta_setup_file(recording, &call->recording_meta_prefix);
 
 	// set up pcap file
-	char *pcap_path = recording_setup_file(recording, &call->recording_meta_prefix);
+	// If an explicit recording-file path was specified, use it directly;
+	// otherwise auto-generate a path from the meta prefix.
+	char *pcap_path;
+	if (call->recording_file.len)
+		pcap_path = recording_setup_file_explicit(recording, call->recording_file.s);
+	else
+		pcap_path = recording_setup_file(recording, &call->recording_meta_prefix);
+
 	if (pcap_path != NULL && recording->pcap.recording_pdumper != NULL
 	    && recording->pcap.meta_fp) {
 		// Write the location of the PCAP file to the metadata file
@@ -593,6 +602,12 @@ static void rec_pcap_meta_finish_file(call_t *call) {
 	// Get the filename (in between its directory and the file extension)
 	// and move it to the finished file location.
 	// Rename extension to ".txt".
+	if (!spooldir) {
+		ilog(LOG_WARN, "Cannot move metadata file: spool directory not set");
+		mutex_destroy(&recording->pcap.recording_lock);
+		g_clear_pointer(&recording->pcap.meta_filepath, g_free);
+		return;
+	}
 	int fn_len;
 	char *meta_filename = strrchr(recording->pcap.meta_filepath, '/');
 	char *meta_ext = NULL;
@@ -641,31 +656,49 @@ static void rec_pcap_meta_discard_file(call_t *call) {
 }
 
 /**
+ * Common helper: takes ownership of a g_malloc-allocated path string, opens
+ * the PCAP file there, and stores everything in the recording struct.
+ * Returns the path on success or failure (caller checks recording_pdumper).
+ */
+static char *recording_open_pcap_file(struct recording *recording, char *path) {
+	recording->pcap.recording_path = path;
+
+	recording->pcap.recording_pd = pcap_open_dead(rec_pcap_format->linktype, 65535);
+	recording->pcap.recording_pdumper = pcap_dump_open(recording->pcap.recording_pd, path);
+	if (recording->pcap.recording_pdumper == NULL) {
+		pcap_close(recording->pcap.recording_pd);
+		recording->pcap.recording_pd = NULL;
+		ilog(LOG_INFO, "Failed to write recording file: %s", path);
+	} else {
+		ilog(LOG_INFO, "Writing recording file: %s", path);
+	}
+
+	return path;
+}
+
+/**
  * Generate a random PCAP filepath to write recorded RTP stream.
  * Returns path to created file.
  */
 static char *recording_setup_file(struct recording *recording, const str *meta_prefix) {
-	char *recording_path = NULL;
-
 	if (!spooldir)
 		return NULL;
 	if (recording->pcap.recording_pd || recording->pcap.recording_pdumper)
 		return NULL;
 
-	recording_path = file_path_str(meta_prefix->s, "/pcaps/", ".pcap");
-	recording->pcap.recording_path = recording_path;
+	return recording_open_pcap_file(recording,
+			file_path_str(meta_prefix->s, "/pcaps/", ".pcap"));
+}
 
-	recording->pcap.recording_pd = pcap_open_dead(rec_pcap_format->linktype, 65535);
-	recording->pcap.recording_pdumper = pcap_dump_open(recording->pcap.recording_pd, recording_path);
-	if (recording->pcap.recording_pdumper == NULL) {
-		pcap_close(recording->pcap.recording_pd);
-		recording->pcap.recording_pd = NULL;
-		ilog(LOG_INFO, "Failed to write recording file: %s", recording_path);
-	} else {
-		ilog(LOG_INFO, "Writing recording file: %s", recording_path);
-	}
+/**
+ * Open a PCAP file at an explicit absolute path supplied by the caller.
+ * No directory prefix or file extension is added.
+ */
+static char *recording_setup_file_explicit(struct recording *recording, const char *path) {
+	if (recording->pcap.recording_pd || recording->pcap.recording_pdumper)
+		return NULL;
 
-	return recording_path;
+	return recording_open_pcap_file(recording, g_strdup(path));
 }
 
 /**
@@ -675,11 +708,11 @@ static void rec_pcap_recording_finish_file(struct recording *recording) {
 	if (recording->pcap.recording_pdumper != NULL) {
 		pcap_dump_flush(recording->pcap.recording_pdumper);
 		pcap_dump_close(recording->pcap.recording_pdumper);
-		g_clear_pointer(&recording->pcap.recording_path, free);
 	}
 	if (recording->pcap.recording_pd != NULL) {
 		pcap_close(recording->pcap.recording_pd);
 	}
+	g_clear_pointer(&recording->pcap.recording_path, free);
 }
 
 // "out" must be at least inp->len + MAX_PACKET_HEADER_LEN bytes
@@ -784,9 +817,14 @@ void recording_finish(call_t *call, bool discard) {
 	g_slice_free1(sizeof(*(recording)), recording);
 	call->recording = NULL;
 
-	// clear the meta prefix to esure that pcaps for subsequent
+	// clear the meta prefix to ensure that pcaps for subsequent
 	// start recordings dont overwrite previous ones
 	call->recording_meta_prefix = STR_NULL;
+	// also clear per-recording path overrides so they are not
+	// inadvertently reused if the next start recording omits them
+	call->recording_file = STR_NULL;
+	call->recording_path = STR_NULL;
+	call->recording_pattern = STR_NULL;
 }
 
 

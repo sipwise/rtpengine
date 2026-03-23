@@ -105,7 +105,8 @@ include ../lib/common.Makefile
 	daemon-tests-main daemon-tests-jb daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-pubsub \
 	daemon-tests-intfs daemon-tests-stats daemon-tests-delay-buffer daemon-tests-delay-timing \
 	daemon-tests-evs daemon-tests-player-cache daemon-tests-redis daemon-tests-t38 daemon-tests-evs-dtx \
-	daemon-tests-measure-rtp daemon-tests-heuristic daemon-tests-rtcp
+	daemon-tests-measure-rtp daemon-tests-heuristic daemon-tests-rtcp \
+	daemon-tests-recording
 
 TESTS=		test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
 ifeq ($(with_transcoding),yes)
@@ -144,7 +145,8 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-audio-player daemon-tests-audio-player-play-media \
 	daemon-tests-record-egress-play-media \
 	daemon-tests-intfs daemon-tests-stats daemon-tests-player-cache daemon-tests-redis \
-	daemon-tests-rtpp-flags daemon-tests-measure-rtp daemon-tests-heuristic daemon-tests-rtcp
+	daemon-tests-rtpp-flags daemon-tests-measure-rtp daemon-tests-heuristic daemon-tests-rtcp \
+	daemon-tests-recording
 
 daemon-test-deps:	tests-preload.so
 	$(MAKE) -C ../daemon
@@ -215,6 +217,9 @@ daemon-tests-t38:	daemon-test-deps spandsp_recv_fax_pcm spandsp_recv_fax_t38 \
 
 daemon-tests-rtcp:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-rtcp.pl
+
+daemon-tests-recording:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-recording.pl
 
 test-bitstr:	test-bitstr.o
 
