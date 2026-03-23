@@ -738,6 +738,8 @@ static void stream_pcap_dump(struct media_packet *mp, const str *s) {
 }
 
 static void dump_packet_pcap(struct media_packet *mp, const str *s) {
+	if (!mp->media || !mp->media->monologue)
+		return;
 	if (ML_ISSET(mp->media->monologue, NO_RECORDING))
 		return;
 	struct recording *recording = mp->call->recording;
