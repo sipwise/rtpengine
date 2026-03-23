@@ -519,9 +519,9 @@ a=sendrecv
 v=0
 o=- 524683 524683 IN IP4 10.10.10.10
 s=-
+c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 18 96 101
-c=IN IP4 203.0.113.1
 a=rtpmap:18 G729a/8000
 a=rtpmap:96 G729/8000
 a=fmtp:96 annexb=yes
