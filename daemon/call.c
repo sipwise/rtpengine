@@ -4610,8 +4610,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 }
 
 /* called with call->master_lock held in W */
-__attribute__((nonnull(1, 2)))
-int monologue_unsubscribe(struct call_monologue *dst_ml, sdp_ng_flags *flags) {
+int monologue_unsubscribe(struct call_monologue *dst_ml, struct call_monologue *src_ml, sdp_ng_flags *flags) {
 	for (unsigned int i = 0; i < dst_ml->medias->len; i++)
 	{
 		struct call_media *media = dst_ml->medias->pdata[i];
@@ -4622,6 +4621,9 @@ int monologue_unsubscribe(struct call_monologue *dst_ml, sdp_ng_flags *flags) {
 
 		/* TODO: should we care about subscribers as well? */
 		IQUEUE_FOREACH_SAFE(&media->media_subscriptions, ms) {
+			if (src_ml && ms->monologue != src_ml)
+				continue;
+
 			struct call_media *src_media = ms->media;
 
 			__media_unconfirm(src_media, "media unsubscribe");
@@ -4632,7 +4634,8 @@ int monologue_unsubscribe(struct call_monologue *dst_ml, sdp_ng_flags *flags) {
 		update_init_subscribers(media, NULL, NULL, flags->opmode);
 	}
 
-	monologue_destroy(dst_ml);
+	if (!src_ml)
+		monologue_destroy(dst_ml);
 
 	return 0;
 }

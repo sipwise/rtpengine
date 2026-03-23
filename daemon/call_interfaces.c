@@ -4381,11 +4381,19 @@ const char *call_unsubscribe_ng(ng_command_ctx_t *ctx) {
 		return "No to-tag in message";
 
 	// get destination monologue
-	struct call_monologue *dest_ml = call_get_or_create_monologue(call, &flags.to_tag);
+	struct call_monologue *dest_ml = call_get_monologue(call, &flags.to_tag);
 	if (!dest_ml)
 		return "To-tag not found";
 
-	int ret = monologue_unsubscribe(dest_ml, &flags);
+	// get optional source monologue
+	struct call_monologue *src_ml = NULL;
+	if (flags.directional && flags.from_tag.len) {
+		src_ml = call_get_monologue(call, &flags.from_tag);
+		if (!src_ml)
+			return "From-tag not found";
+	}
+
+	int ret = monologue_unsubscribe(dest_ml, src_ml, &flags);
 	if (ret)
 		return "Failed to unsubscribe";
 

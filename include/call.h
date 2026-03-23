@@ -898,8 +898,8 @@ int monologue_subscribe_request(const subscription_q *srms, struct call_monologu
 __attribute__((nonnull(1, 2, 3)))
 int monologue_subscribe_answer(struct call_monologue *dst, sdp_ng_flags *flags,
 		sdp_streams_q *streams);
-__attribute__((nonnull(1, 2)))
-int monologue_unsubscribe(struct call_monologue *dst, sdp_ng_flags *);
+__attribute__((nonnull(1, 3)))
+int monologue_unsubscribe(struct call_monologue *dst, struct call_monologue *src, sdp_ng_flags *);
 int monologue_inject_start(struct call_monologue *src, struct call_monologue *dst,
 		sdp_ng_flags *flags);
 int monologue_inject_stop(struct call_monologue *src, struct call_monologue *dst,
