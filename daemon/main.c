@@ -1999,11 +1999,11 @@ int main(int argc, char **argv) {
 
 	ilog(LOG_INFO, "Version %s shutting down", RTPENGINE_VERSION);
 
-	recording_fs_free();
-
 	unfill_initial_rtpe_cfg(&initial_rtpe_config);
 
 	call_free();
+
+	recording_fs_free();
 
 	jitter_buffer_init_free();
 	media_player_free();
