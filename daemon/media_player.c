@@ -315,6 +315,7 @@ static bool __send_timer_send_1(struct rtp_header *rh, struct packet_stream *sin
 		struct media_packet mp = {
 			.call = sink->call,
 			.stream = sink,
+			.media = sink->media,
 			.sfd = sink_fd,
 			.fsin = sink->endpoint,
 		};
