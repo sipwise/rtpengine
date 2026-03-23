@@ -4224,7 +4224,7 @@ struct media_subscription *__add_media_subscription(struct call_media *which, st
  * Returns B's subscription to A, i.e. the same as
  * call_get_media_subscription(B->media_subscribers_ht, A) would return.
  */
-static struct media_subscription *__subscribe_medias_both_ways(struct call_media * a, struct call_media * b,
+static struct media_subscription *__subscribe_medias_both_ways(struct call_media *a, struct call_media *b,
 		bool is_offer, medias_q *medias)
 {
 	/* retrieve previous subscriptions to retain attributes */
@@ -4873,7 +4873,21 @@ void dialogue_connect(struct call_monologue *src_ml, struct call_monologue *dst_
 
 		g_auto(medias_q) medias = TYPED_GQUEUE_INIT;
 
-		__subscribe_medias_both_ways(src_media, dst_media, false, &medias);
+		if (!flags->directional)
+			__subscribe_medias_both_ways(src_media, dst_media, false, &medias);
+		else {
+			__auto_type ms = call_get_media_subscription(dst_media->media_subscriptions_ht,
+					src_media);
+			if (!ms)
+				__add_media_subscription(dst_media, src_media, &(struct sink_attrs) { });
+
+			if (flags->bidirectional) {
+				ms = call_get_media_subscription(src_media->media_subscriptions_ht,
+						dst_media);
+				if (!ms)
+					__add_media_subscription(src_media, dst_media, &(struct sink_attrs) { });
+			}
+		}
 
 		__medias_unconfirm(&medias, "connect");
 		codec_update_medias_handlers(&medias);
