@@ -147,6 +147,7 @@ unit-tests:	$(TESTS) aead-decrypt
 daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests-websocket \
 	daemon-tests-evs daemon-tests-async-tc \
 	daemon-tests-audio-player daemon-tests-audio-player-play-media \
+	daemon-tests-record-egress-play-media \
 	daemon-tests-intfs daemon-tests-stats daemon-tests-player-cache daemon-tests-redis \
 	daemon-tests-rtpp-flags daemon-tests-redis-json daemon-tests-measure-rtp daemon-tests-mos-legacy \
 	daemon-tests-mos-fullband daemon-tests-config-file \
@@ -224,6 +225,9 @@ daemon-tests-audio-player:	daemon-test-deps
 
 daemon-tests-audio-player-play-media:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-audio-player-play-media.pl
+
+daemon-tests-record-egress-play-media:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-record-egress-play-media.pl
 
 daemon-tests-rtpp-flags:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-rtpp-flags.pl
