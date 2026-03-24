@@ -75,6 +75,7 @@ __attribute__((nonnull(1, 2, 4)))
 static struct media_subscription *__subscribe_medias_both_ways(struct call_media * a, struct call_media * b,
 		bool is_offer, medias_q *);
 static void call_stream_crypto_reset(struct packet_stream *ps);
+static void __monologue_prune_from_call(struct call_monologue *ml);
 
 /* called with call->master_lock held in R */
 static int call_timer_delete_monologues(call_t *c) {
@@ -87,6 +88,11 @@ static int call_timer_delete_monologues(call_t *c) {
 	rwlock_unlock_r(&c->master_lock);
 	rwlock_lock_w(&c->master_lock);
 
+	/* Two-pass approach: collect expired monologues first, then destroy
+	 * and prune. Pruning removes entries from c->monologues, so we
+	 * cannot do it while iterating that list. */
+	GQueue expired = G_QUEUE_INIT;
+
 	for (__auto_type i = c->monologues.head; i; i = i->next) {
 		ml = i->data;
 
@@ -98,7 +104,12 @@ static int call_timer_delete_monologues(call_t *c) {
 			continue;
 		}
 
+		g_queue_push_tail(&expired, ml);
+	}
+
+	while ((ml = g_queue_pop_head(&expired))) {
 		monologue_destroy(ml);
+		__monologue_prune_from_call(ml);
 		update = true;
 	}
 
@@ -5820,6 +5831,166 @@ void monologue_destroy(struct call_monologue *monologue) {
 	monologue->deleted_us = 0;
 }
 
+/* Remove a destroyed monologue and all its child objects (medias, streams, sfds)
+ * from the call's queues. Must be called AFTER monologue_destroy() and with
+ * call->master_lock held in W. */
+static gboolean __ml_match_str(str *key, struct call_monologue *val, void *ml) {
+	return val == ml;
+}
+static gboolean __ml_match_endpoint(endpoint_t *key, struct call_monologue *val, void *ml) {
+	return val == ml;
+}
+
+static void __monologue_prune_from_call(struct call_monologue *ml) {
+	call_t *call = ml->call;
+	if (!call)
+		return;
+
+	/* (a) Clean up media subscriptions in both directions.
+	 * Collect affected surviving medias so we can rebuild their
+	 * sink handlers before the dead streams are freed. */
+	GQueue affected_medias = G_QUEUE_INIT;
+	for (unsigned int i = 0; i < ml->medias->len; i++) {
+		struct call_media *media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+
+		/* Remove our outgoing subscriptions (and the reverse subscriber
+		 * entries on the other side). Track the other side. */
+		IQUEUE_FOREACH_SAFE(&media->media_subscriptions, ms) {
+			struct call_media *other = ms->media;
+			__unsubscribe_media_link(media, ms);
+			g_queue_push_tail(&affected_medias, other);
+		}
+
+		/* Remove incoming subscriptions from other medias to us */
+		IQUEUE_FOREACH_SAFE(&media->media_subscribers, ms) {
+			struct call_media *other = ms->media;
+			__unsubscribe_media(other, media);
+			g_queue_push_tail(&affected_medias, other);
+		}
+	}
+
+	/* Reset and rebuild sink handlers on surviving medias that
+	 * were connected to the now-dead monologue. This must happen
+	 * before step (b) frees the dead streams, because the old
+	 * sink_handler entries still reference them. */
+	struct call_media *affected;
+	while ((affected = g_queue_pop_head(&affected_medias))) {
+		__reset_streams(affected);
+		IQUEUE_FOREACH(&affected->media_subscribers, ms)
+			__streams_set_sinks(affected, ms->media, NULL, &ms->attrs);
+	}
+
+	/* (b) Remove streams from call->streams with per-stream cleanup
+	 * mirroring __call_cleanup + __call_free */
+	for (unsigned int i = 0; i < ml->medias->len; i++) {
+		struct call_media *media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+
+		for (__auto_type k = media->streams.head; k; k = k->next) {
+			struct packet_stream *ps = k->data;
+
+			/* __call_cleanup work */
+			send_timer_put(&ps->send_timer);
+			jb_put(&ps->jb);
+			__unkernelize(ps, "pruning destroyed monologue");
+			dtls_shutdown(ps);
+			ps->selected_sfd = NULL;
+			t_queue_clear(&ps->sfds);
+			crypto_cleanup(&ps->crypto);
+			mutex_destroy(&ps->lock);
+
+			t_queue_clear_full(&ps->rtp_sinks, free_sink_handler);
+			t_queue_clear_full(&ps->rtcp_sinks, free_sink_handler);
+			t_queue_clear_full(&ps->rtp_mirrors, free_sink_handler);
+
+			/* __call_free work */
+			t_hash_table_destroy(ps->rtp_stats);
+			bufferpool_unref(ps->stats_in);
+			bufferpool_unref(ps->stats_out);
+
+			t_queue_remove(&call->streams, ps);
+		}
+	}
+
+	/* (c) Remove sfds belonging to this monologue's streams from
+	 * call->stream_fds. monologue_destroy() already popped sfds from
+	 * per-stream queues, but the call-level queue entries remain. */
+	for (__auto_type l = call->stream_fds.head; l; ) {
+		stream_fd *sfd = l->data;
+		l = l->next;
+
+		/* Check if this sfd belongs to one of the monologue's streams */
+		bool owned = false;
+		for (unsigned int i = 0; i < ml->medias->len && !owned; i++) {
+			struct call_media *media = ml->medias->pdata[i];
+			if (!media)
+				continue;
+			for (__auto_type k = media->streams.head; k && !owned; k = k->next) {
+				if (sfd->stream == k->data)
+					owned = true;
+			}
+		}
+		if (!owned)
+			continue;
+
+		t_queue_remove(&call->stream_fds, sfd);
+		stream_fd_release(sfd);
+		obj_release(sfd);
+	}
+
+	/* (d) Remove medias from call->medias with per-media cleanup
+	 * mirroring __call_cleanup + __call_free */
+	for (unsigned int i = 0; i < ml->medias->len; i++) {
+		struct call_media *md = ml->medias->pdata[i];
+		if (!md)
+			continue;
+
+		/* __call_cleanup work (items not covered by call_media_free) */
+		ice_shutdown(&md->ice_agent);
+		media_stop(md);
+		audio_player_free(md);
+		sdp_sp_clear(&md->sp);
+
+		t_queue_remove(&call->medias, md);
+
+		/* __call_free work — frees remaining heap state
+		 * (codecs, SDES, SSRC tables, subscription HTs, etc.) */
+		call_media_free(&md);
+	}
+
+	/* (e) Remove monologue from all call-level lookup tables and free.
+	 * monologue_destroy() already removed the primary tag and viabranch;
+	 * purge remaining aliases so later lookups can't find this monologue. */
+	__monologue_stop(ml);
+	media_player_put(&ml->player);
+	media_player_put(&ml->rec_player);
+	if (ml->tone_freqs) {
+		g_array_free(ml->tone_freqs, true);
+		ml->tone_freqs = NULL;
+	}
+	obj_release_o(ml->janus_session);
+
+	/* Remove tag aliases from call->tags */
+	for (__auto_type l = ml->tag_aliases.head; l; l = l->next) {
+		str *alias = l->data;
+		t_hash_table_remove(call->tags, alias);
+	}
+
+	/* Remove from label, SDP, and endpoint lookup tables */
+	if (ml->label.s)
+		t_hash_table_remove(call->labels, &ml->label);
+	t_hash_table_foreach_remove(call->sdps, __ml_match_str, ml);
+	t_hash_table_foreach_remove(call->endpoints, __ml_match_endpoint, ml);
+
+	t_queue_remove(&call->monologues, ml);
+
+	/* __call_free work */
+	__monologue_free(ml);
+}
+
 /* must be called with call->master_lock held in W */
 static void __tags_unassociate(struct call_monologue *a, struct call_monologue *b) {
 	g_hash_table_remove(a->associated_tags, b);
@@ -5865,6 +6036,12 @@ static bool monologue_delete_iter(struct call_monologue *a, int64_t delete_delay
 		if (g_hash_table_size(b->associated_tags) == 0)
 			monologue_delete_iter(b, delete_delay_us);	/* schedule deletion of B */
 	}
+
+	/* Prune after the cascade so that a->associated_tags (used by
+	 * __tags_unassociate above) is still valid. __monologue_prune_from_call
+	 * calls __monologue_free which destroys associated_tags. */
+	if (delete_delay_us <= 0)
+		__monologue_prune_from_call(a);
 
 	g_list_free(associated);
 	return update_redis;

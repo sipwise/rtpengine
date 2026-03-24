@@ -28060,5 +28060,137 @@ rcv($sock_b, $port_d, rtpm(98, 8000, 9000, 0xa234, "b"));
 
 
 
+# connect + partial delete monologue cleanup
+
+($sock_a, $sock_ax, $sock_b, $sock_bx) = new_call([qw(198.51.100.35 3200)], [qw(198.51.100.35 3201)],
+						[qw(198.51.100.35 3202)], [qw(198.51.100.35 3203)],
+						);
+
+($port_a, $port_ax) = offer('connect partial delete cleanup', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3200 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b, $port_bx) = answer('connect partial delete cleanup', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3202 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# Verify call A media flows
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234567, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234567, "\x00" x 160));
+
+my $cid_a = cid();
+my $t_a_saved = ft();
+my $t_b_saved = tt();
+
+# Query call A: should have exactly 2 tags
+$resp = rtpe_req('query', 'connect partial delete cleanup - initial query', { });
+is scalar keys %{$resp->{tags}}, 2, 'call A starts with 2 tags';
+
+# Repeat connect/disconnect cycle 3 times
+# After each call_merge(new_call, old_surviving_call), new_call survives.
+# Track the surviving call-id so we address the right call.
+my $surviving_cid = $cid_a;
+for my $cycle (1..3) {
+    my $bp = 3204 + ($cycle - 1) * 4;
+    ($sock_c, $sock_cx, $sock_d, $sock_dx) =
+        new_call_nc([qw(198.51.100.35), $bp],
+                    [qw(198.51.100.35), $bp + 1],
+                    [qw(198.51.100.35), $bp + 2],
+                    [qw(198.51.100.35), $bp + 3]);
+
+    ($port_c, $port_cx) = offer("connect partial delete cleanup cycle $cycle", { }, <<"SDP");
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio $bp RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+    ($port_d, $port_dx) = answer("connect partial delete cleanup cycle $cycle", { }, <<"SDP");
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio @{[$bp + 2]} RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+    my $t_c_saved = ft();
+    my $cid_b = cid();
+
+    # Connect B into A (merge calls) — new call (B) survives, old surviving call is destroyed
+    rtpe_req('connect', "connect partial delete cleanup connect cycle $cycle",
+        { 'from-tag' => $t_c_saved, 'to-tag' => $t_a_saved, 'to-call-id' => $surviving_cid });
+
+    # After merge, the new call (from new_call_nc) is the survivor
+    $surviving_cid = $cid_b;
+
+    # Partial delete: remove caller 2's side from surviving call
+    rtpe_req('delete', "connect partial delete cleanup delete cycle $cycle",
+        { 'from-tag' => $t_c_saved, 'call-id' => $surviving_cid, 'delete-delay' => 0 });
+
+    # Query surviving call: should still have exactly 2 tags (A's monologues only)
+    $resp = rtpe_req('query', "connect partial delete cleanup query cycle $cycle",
+        { 'call-id' => $surviving_cid });
+    is scalar keys %{$resp->{tags}}, 2,
+        "after cycle $cycle: only 2 tags remain (no orphaned monologues)";
+}
+
+# Clean up
+rtpe_req('delete', 'connect partial delete cleanup final', { 'call-id' => $surviving_cid, 'delete-delay' => 0 });
+
+
+
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
