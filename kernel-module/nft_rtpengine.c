@@ -6842,7 +6842,7 @@ static int rtpengine_expr_dump(struct sk_buff *skb, const struct nft_expr *expr
 }
 
 static int rtpengine_expr_validate(const struct nft_ctx *ctx, const struct nft_expr *expr
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6,12,0)
+#if defined(NFT_EXPR_OPS_VALIDATE_HAS_DATA)
 		, const struct nft_data **data
 #endif
 )
