@@ -1,4 +1,4 @@
-KSRC   ?= /lib/modules/$(shell uname -r)/build
+KSRC   ?= /lib/modules/$(or $(KERNELRELEASE),$(shell uname -r))/build
 KBUILD := $(KSRC)
 M      ?= $(CURDIR)
 
