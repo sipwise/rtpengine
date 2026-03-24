@@ -4498,7 +4498,8 @@ static struct ssrc_entry *__ssrc_handler_decode_new(void *p) {
 	ch->ptime = h->dest_pt.ptime;
 
 	format_t dest_format = {
-		.clockrate = h->dest_pt.clock_rate,
+		.clockrate = fraction_mult(h->dest_pt.clock_rate,
+				&h->dest_pt.codec_def->default_clockrate_fact),
 		.channels = h->dest_pt.channels,
 		.format = AV_SAMPLE_FMT_S16,
 	};

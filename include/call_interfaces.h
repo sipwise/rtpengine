@@ -240,6 +240,8 @@ RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 	             reset:1,
 		     egress:1,
 		     siprec:1,
+		     mix:1,
+		     auto_all:1,
 	             fragment:1,
 	             record_call:1,
 		     discard_recording:1,

@@ -74,6 +74,7 @@ static void media_stop(struct call_media *m);
 __attribute__((nonnull(1, 2, 4)))
 static struct media_subscription *__subscribe_medias_both_ways(struct call_media * a, struct call_media * b,
 		bool is_offer, medias_q *);
+static void __update_auto_all_subscribers(call_t *, sdp_ng_flags *);
 static void call_stream_crypto_reset(struct packet_stream *ps);
 
 /* called with call->master_lock held in R */
@@ -4404,6 +4405,13 @@ static int monologue_subscribe_request1(struct call_media *src_media, struct cal
 	__auto_type ms = t_hash_table_lookup(ht, src_media);
 	if (ms)
 		dst_media = ms->media;
+	// Don't reuse a dest that was already claimed by another source in this
+	// request. This can happen when transitioning from mix mode (one shared
+	// dest) to non-mix mode (one dest per source): all ht entries point to
+	// the same old dest, but we need separate dests. Check head instead of
+	// length because i_queue_delete doesn't update length.
+	if (dst_media && dst_media->media_subscriptions.head)
+		dst_media = NULL;
 	if (!dst_media) {
 		// new media needed
 		dst_media = call_get_media(dst_ml, &src_media->type, src_media->type_id,
@@ -4486,13 +4494,204 @@ static int monologue_subscribe_request1(struct call_media *src_media, struct cal
 	return 0;
 }
 
+static void inject_reconfigure_destination_media(struct call_media *, bool, const sdp_ng_flags *);
+
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
-int monologue_subscribe_request(const subscription_q *srms, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
+static int monologue_subscribe_request_mix(const subscription_q *srms, struct call_monologue *dst_ml,
+		sdp_ng_flags *flags)
+{
+	g_auto(str_ht) mid_tracker_dst = str_ht_new();
 	g_auto(subscription_store_ht) ht = subscription_store_ht_new();
 
 	__unsubscribe_medias_from_all(dst_ml, ht);
 	__call_monologue_init_from_flags(dst_ml, NULL, flags);
+
+	// For audio sources, create ONE destination media and subscribe all sources to it.
+	// For non-audio, fall through to normal per-source handling.
+
+	struct call_media *dst_audio_media = NULL;
+	bool dst_audio_initialized = false;
+
+	IQUEUE_FOREACH(srms, ms) {
+		struct call_media *src_media = ms->media;
+		if (!src_media)
+			continue;
+
+		if (src_media->type_id != MT_AUDIO) {
+			// non-audio: create separate destination media per source (normal behavior)
+			int ret = monologue_subscribe_request1(src_media, dst_ml, flags, ht);
+			if (ret)
+				return -1;
+			continue;
+		}
+
+		// Audio source: all go to one shared destination media
+		if (!dst_audio_media) {
+			// check all audio sources in ht for an existing dest media
+			IQUEUE_FOREACH(srms, check_ms) {
+				if (!check_ms->media || check_ms->media->type_id != MT_AUDIO)
+					continue;
+				__auto_type old_ms = t_hash_table_lookup(ht, check_ms->media);
+				if (old_ms) {
+					dst_audio_media = old_ms->media;
+					break;
+				}
+			}
+			if (!dst_audio_media)
+				dst_audio_media = call_get_media(dst_ml, &src_media->type,
+						src_media->type_id, NULL, false,
+						dst_ml->medias->len + 1, mid_tracker_dst);
+		}
+
+		__add_media_subscription(dst_audio_media, src_media,
+				&(struct sink_attrs) { .egress = !!flags->egress });
+
+		if (flags->rtcp_mirror)
+			__add_media_subscription(src_media, dst_audio_media,
+				&(struct sink_attrs) { .egress = !!flags->egress, .rtcp_only = true });
+
+		// Initialize destination media properties from first audio source
+		if (!dst_audio_initialized) {
+			struct stream_params *sp = &src_media->sp;
+
+			media_init_from_flags(src_media, flags);
+			media_init_from_flags(dst_audio_media, flags);
+			media_set_echo(src_media, flags);
+			media_set_echo_reverse(dst_audio_media, flags);
+			media_set_siprec_label(dst_audio_media, flags, src_media->unique_id);
+			media_update_label(dst_audio_media, flags, &src_media->label);
+			media_update_type(dst_audio_media, sp);
+			media_set_protocol(dst_audio_media, src_media, sp, flags);
+			media_gen_media_id(dst_audio_media, flags);
+			media_update_flags(dst_audio_media, sp);
+			media_update_crypto(dst_audio_media, sp, flags);
+			media_copy_format(dst_audio_media, src_media);
+			media_set_address_family(dst_audio_media, src_media, flags);
+			media_set_ptime(src_media, sp, flags->rev_ptime, flags->ptime);
+			media_set_ptime(dst_audio_media, sp, flags->ptime, flags->rev_ptime);
+			media_set_extmap(dst_audio_media, &src_media->extmap, media_extmap_strip, flags);
+
+			codec_store_populate(&dst_audio_media->codecs, &src_media->codecs,
+					.allow_asymmetric = !!flags->allow_asymmetric_codecs);
+			codec_store_strip(&dst_audio_media->codecs, &flags->codec_strip, flags->codec_except);
+			codec_store_strip(&dst_audio_media->codecs, &flags->codec_consume, flags->codec_except);
+			codec_store_strip(&dst_audio_media->codecs, &flags->codec_mask, flags->codec_except);
+			codec_store_offer(&dst_audio_media->codecs, &flags->codec_offer, &sp->codecs);
+			codec_store_transcode(&dst_audio_media->codecs, &flags->codec_transcode, &sp->codecs);
+			codec_store_synthesise(&dst_audio_media->codecs, &src_media->codecs);
+
+			if (!flags->inactive)
+				bf_copy(&dst_audio_media->media_flags, MEDIA_FLAG_SEND,
+						&src_media->media_flags, SP_FLAG_RECV);
+			else
+				MEDIA_CLEAR(dst_audio_media, SEND);
+			MEDIA_CLEAR(dst_audio_media, RECV);
+
+			__rtcp_mux_set(flags, dst_audio_media);
+			__generate_crypto(flags, dst_audio_media, src_media);
+
+			unsigned int num_ports = proto_num_ports(sp->num_ports, dst_audio_media, flags, false);
+
+			__init_interface(dst_audio_media, &flags->interface, num_ports);
+			if (dst_audio_media->logical_intf == NULL)
+				return -1;
+
+			__ice_offer(flags, dst_audio_media, src_media,
+					ice_is_restart(src_media->ice_agent, sp));
+
+			struct endpoint_map *em = __get_endpoint_map(dst_audio_media, num_ports,
+					NULL, flags, true);
+			if (!em)
+				return -1;
+
+			__num_media_streams(dst_audio_media, num_ports);
+
+			if (!__init_streams(dst_audio_media, NULL, flags))
+				return -1;
+
+			dst_audio_initialized = true;
+		} else {
+			// Additional audio sources: init the source side
+			media_init_from_flags(src_media, flags);
+			media_set_echo(src_media, flags);
+			media_set_ptime(src_media, &src_media->sp, flags->rev_ptime, flags->ptime);
+		}
+
+		update_init_subscribers(src_media, NULL, NULL, flags->opmode);
+	}
+
+	// Activate audio_player for the mixed destination media
+	if (dst_audio_media) {
+		MEDIA_SET(dst_audio_media, MIX);
+		inject_reconfigure_destination_media(dst_audio_media, true, flags);
+	}
+
+	// Retire stale audio destination medias left over from a previous
+	// non-mix topology (e.g. non-mix had 2 audio dests, mix reuses 1).
+	// Without this, sdp_create() would emit extra m=audio lines.
+	for (unsigned int i = 0; i < dst_ml->medias->len; i++) {
+		struct call_media *media = dst_ml->medias->pdata[i];
+		if (!media)
+			continue;
+		if (media == dst_audio_media)
+			continue;
+		if (media->type_id != MT_AUDIO)
+			continue;
+		if (media->media_subscriptions.head)
+			continue;
+		__disable_streams(media, 0);
+		dst_ml->medias->pdata[i] = NULL;
+	}
+
+	// Compact: collapse NULL holes so the mixed destination always
+	// occupies the lowest index. Without this, monologue_subscribe_answer
+	// resolves streams by SDP index (1-based) via call_get_media, so a
+	// leading NULL hole causes it to allocate a new empty media instead
+	// of finding the active mixed destination.
+	unsigned int dst_idx = 0;
+	for (unsigned int src_idx = 0; src_idx < dst_ml->medias->len; src_idx++) {
+		struct call_media *media = dst_ml->medias->pdata[src_idx];
+		if (!media)
+			continue;
+		if (dst_idx != src_idx) {
+			dst_ml->medias->pdata[dst_idx] = media;
+			dst_ml->medias->pdata[src_idx] = NULL;
+			media->index = dst_idx + 1;
+		}
+		dst_idx++;
+	}
+	if (dst_idx < dst_ml->medias->len)
+		t_ptr_array_set_size(dst_ml->medias, dst_idx);
+
+	monologue_open_ports(dst_ml);
+	monologue_media_start(dst_ml);
+
+	return 0;
+}
+
+/* called with call->master_lock held in W */
+__attribute__((nonnull(1, 2, 3)))
+int monologue_subscribe_request(const subscription_q *srms, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
+	if (flags->mix)
+		return monologue_subscribe_request_mix(srms, dst_ml, flags);
+
+	g_auto(subscription_store_ht) ht = subscription_store_ht_new();
+
+	__unsubscribe_medias_from_all(dst_ml, ht);
+	__call_monologue_init_from_flags(dst_ml, NULL, flags);
+
+	// Deactivate audio_player on previously mixed medias before reuse
+	for (unsigned int i = 0; i < dst_ml->medias->len; i++) {
+		struct call_media *media = dst_ml->medias->pdata[i];
+		if (!media)
+			continue;
+		if (MEDIA_ISSET(media, MIX)) {
+			MEDIA_CLEAR(media, AUDIO_PLAYER);
+			audio_player_stop(media);
+			MEDIA_CLEAR(media, MIX);
+		}
+	}
 
 	IQUEUE_FOREACH(srms, ms) {
 		struct call_media *src_media = ms->media;
@@ -4526,10 +4725,12 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 		/* set src_media based on subscription (assuming it is one-to-one)
 		 * TODO: this should probably be reworked to support one-to-multi subscriptions.
 		 */
-		__auto_type ms = dst_media->media_subscriptions.head;
-		if (!ms)
+		__auto_type head_ms = dst_media->media_subscriptions.head;
+		if (!head_ms)
 			continue;
-		struct call_media *src_media = ms->media;
+		struct call_media *src_media = head_ms->media;
+
+		bool is_mix = MEDIA_ISSET(dst_media, MIX);
 
 		rev_ms = call_get_media_subscription(src_media->media_subscribers_ht, dst_media);
 		if (rev_ms)
@@ -4545,7 +4746,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 		media_set_ptime(dst_media, sp, flags->ptime, 0);
 		media_update_extmap(dst_media, sp, NULL, flags);
 
-		if (flags->allow_transcoding) {
+		if (flags->allow_transcoding || is_mix) {
 			codec_store_populate(&dst_media->codecs, &sp->codecs,
 					.codec_set = flags->codec_set,
 					.answer_cs = &src_media->codecs,
@@ -4560,11 +4761,16 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 				return -1;
 		}
 
-		codec_handlers_update(src_media, dst_media, .flags = flags,
-				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
-		codec_handlers_update(dst_media, src_media, .flags = flags, .sp = sp,
-				.allow_asymmetric = !!flags->allow_asymmetric_codecs,
-				.reset_transcoding = true);
+		if (is_mix) {
+			/* Mix mode: reconfigure audio_player with answer codecs for all subscriptions */
+			inject_reconfigure_destination_media(dst_media, true, flags);
+		} else {
+			codec_handlers_update(src_media, dst_media, .flags = flags,
+					.allow_asymmetric = !!flags->allow_asymmetric_codecs);
+			codec_handlers_update(dst_media, src_media, .flags = flags, .sp = sp,
+					.allow_asymmetric = !!flags->allow_asymmetric_codecs,
+					.reset_transcoding = true);
+		}
 
 		__dtls_logic(flags, dst_media, sp);
 
@@ -4578,15 +4784,26 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 		MEDIA_SET(dst_media, INITIALIZED);
 
 		update_init_subscribers(dst_media, sp, flags, flags->opmode);
-		update_init_subscribers(src_media, NULL, NULL, flags->opmode);
+
+		/* For mix mode, update all source subscriptions */
+		if (is_mix) {
+			IQUEUE_FOREACH(&dst_media->media_subscriptions, sub_ms) {
+				struct call_media *sub_src = sub_ms->media;
+				update_init_subscribers(sub_src, NULL, NULL, flags->opmode);
+				__media_unconfirm(sub_src, "subscribe answer event");
+				media_update_transcoding_flag(sub_src);
+			}
+		} else {
+			update_init_subscribers(src_media, NULL, NULL, flags->opmode);
+			__media_unconfirm(src_media, "subscribe answer event");
+			media_update_transcoding_flag(src_media);
+		}
 
 		__media_unconfirm(dst_media, "subscribe answer event");
-		__media_unconfirm(src_media, "subscribe answer event");
 
 		sdp_sp_move(&dst_media->sp, sp);
 
 		media_update_transcoding_flag(dst_media);
-		media_update_transcoding_flag(src_media);
 	}
 
 	monologue_media_start(dst_ml);
@@ -4870,8 +5087,81 @@ void dialogue_connect(struct call_monologue *src_ml, struct call_monologue *dst_
 		update_init_subscribers(src_media, NULL, NULL, flags->opmode);
 		__update_init_medias(&medias, flags->opmode);
 	}
+
+	__update_auto_all_subscribers(src_ml->call, flags);
 }
 
+/* Add new call participants to existing auto-all subscribers.
+ * For mix-mode subscribers, incrementally adds newly appeared audio sources
+ * to the shared mixed destination media.
+ * Called with call->master_lock held in W. */
+static void __update_auto_all_subscribers(call_t *call, sdp_ng_flags *flags) {
+	for (__auto_type l = call->monologues.head; l; l = l->next) {
+		struct call_monologue *sub_ml = l->data;
+		if (!ML_ISSET(sub_ml, AUTO_ALL))
+			continue;
+
+		// Find the mix dest media (if any)
+		struct call_media *dst_audio = NULL;
+		for (unsigned int i = 0; i < sub_ml->medias->len; i++) {
+			struct call_media *m = sub_ml->medias->pdata[i];
+			if (m && MEDIA_ISSET(m, MIX)) {
+				dst_audio = m;
+				break;
+			}
+		}
+
+		if (!dst_audio)
+			continue; // TODO: non-mix auto-all
+
+		// Derive egress and rtcp_mirror from existing subscriptions
+		bool egress = false;
+		bool rtcp_mirror = false;
+		struct media_subscription *first_ms = dst_audio->media_subscriptions.head;
+		if (first_ms) {
+			egress = first_ms->attrs.egress;
+			// rtcp_mirror was set up as a reverse rtcp_only subscription
+			rtcp_mirror = !!call_get_media_subscription(
+					first_ms->media->media_subscriptions_ht, dst_audio);
+		}
+
+		bool added = false;
+
+		// Check all call medias for audio sources not yet subscribed
+		for (__auto_type m = call->medias.head; m; m = m->next) {
+			struct call_media *src_media = m->data;
+			if (!src_media)
+				continue;
+			if (src_media->type_id != MT_AUDIO)
+				continue;
+			// Same filter as media_block_match_mult with ALL_ALL
+			if (src_media->monologue->tagtype != FROM_TAG
+					&& src_media->monologue->tagtype != TO_TAG)
+				continue;
+			// Don't subscribe to own media
+			if (src_media->monologue == sub_ml)
+				continue;
+			// Already subscribed?
+			if (call_get_media_subscription(dst_audio->media_subscriptions_ht,
+						src_media))
+				continue;
+
+			__add_media_subscription(dst_audio, src_media,
+					&(struct sink_attrs) { .egress = egress });
+
+			if (rtcp_mirror)
+				__add_media_subscription(src_media, dst_audio,
+						&(struct sink_attrs) { .egress = egress,
+							.rtcp_only = true });
+
+			update_init_subscribers(src_media, NULL, NULL, flags->opmode);
+			added = true;
+		}
+
+		if (added)
+			inject_reconfigure_destination_media(dst_audio, true, NULL);
+	}
+}
 
 
 
@@ -6195,7 +6485,10 @@ static void monologue_stop(struct call_monologue *ml, bool stop_media_subsribers
 	{
 		media_stop(ml->medias->pdata[i]);
 	}
-	/* monologue's subscribers */
+	/* Stop codec handlers on subscriber medias that target this monologue's
+	 * medias. Avoid media_stop() on the subscriber itself — it would
+	 * tear down handlers for *other* subscriptions (e.g. audio_player
+	 * for a mix tap). */
 	if (stop_media_subsribers) {
 		for (unsigned int i = 0; i < ml->medias->len; i++)
 		{
@@ -6203,8 +6496,8 @@ static void monologue_stop(struct call_monologue *ml, bool stop_media_subsribers
 			if (!media)
 				continue;
 			IQUEUE_FOREACH(&media->media_subscribers, ms) {
-				media_stop(ms->media);
-				__monologue_stop(ms->monologue);
+				codec_handlers_stop(&ms->media->codec_handlers_store,
+						media, false);
 			}
 		}
 	}

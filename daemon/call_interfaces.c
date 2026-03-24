@@ -1208,6 +1208,14 @@ void call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 		case CSH_LOOKUP("media handover"):
 			out->media_handover = true;
 			break;
+		case CSH_LOOKUP("mix"):
+			out->mix = true;
+			break;
+		case CSH_LOOKUP("auto-all"):
+		case CSH_LOOKUP("auto all"):
+			out->auto_all = true;
+			out->all = ALL_ALL;
+			break;
 		case CSH_LOOKUP("mirror-RTCP"):
 		case CSH_LOOKUP("mirror-rtcp"):
 		case CSH_LOOKUP("RTCP-mirror"):
@@ -4218,6 +4226,11 @@ const char *call_subscribe_request_ng(ng_command_ctx_t *ctx) {
 
 	struct call_monologue *dest_ml = call_get_or_create_monologue(call, &flags.to_tag);
 
+	if (flags.auto_all)
+		ML_SET(dest_ml, AUTO_ALL);
+	else
+		ML_CLEAR(dest_ml, AUTO_ALL);
+
 	int ret = monologue_subscribe_request(&srms, dest_ml, &flags);
 	if (ret)
 		return "Failed to request subscription";
@@ -4252,41 +4265,42 @@ const char *call_subscribe_request_ng(ng_command_ctx_t *ctx) {
 		if (!dest_media)
 			continue;
 
-		// each media should be subscribed to just one other media
 		if (!dest_media->media_subscriptions.length)
 			continue;
 
-		struct call_media *source_media = dest_media->media_subscriptions.head->media;
-		struct call_monologue *source_ml = source_media->monologue;
+		/* iterate all subscriptions per dest media (supports mix mode
+		 * where one dest media has multiple source subscriptions) */
+		IQUEUE_FOREACH(&dest_media->media_subscriptions, ms) {
+			struct call_media *source_media = ms->media;
+			struct call_monologue *source_ml = source_media->monologue;
 
-		parser->list_add_str_dup(from_list, &source_ml->tag);
+			parser->list_add_str_dup(from_list, &source_ml->tag);
 
-		if (media_labels.gen && dest_media->label.len) {
-			parser_arg label =
-				parser->dict_add_dict(media_labels, dest_media->label.s);
-			parser->dict_add_str(label, "tag", &source_ml->tag);
-			parser->dict_add_int(label, "index", source_media->index);
-			parser->dict_add_str(label, "type", &dest_media->type);
-			if (source_ml->label.len)
-				parser->dict_add_str(label, "label", &source_ml->label);
-			parser->dict_add_string(label, "mode", sdp_get_sendrecv(source_media));
-		}
+			if (media_labels.gen && dest_media->label.len) {
+				parser_arg label =
+					parser->dict_add_dict(media_labels, dest_media->label.s);
+				parser->dict_add_str(label, "tag", &source_ml->tag);
+				parser->dict_add_int(label, "index", source_media->index);
+				parser->dict_add_str(label, "type", &dest_media->type);
+				if (source_ml->label.len)
+					parser->dict_add_str(label, "label", &source_ml->label);
+				parser->dict_add_string(label, "mode", sdp_get_sendrecv(source_media));
+			}
 
-		if (tag_medias.gen) {
-			parser_arg tag_label = parser->list_add_dict(tag_medias);
-			parser->dict_add_str(tag_label, "tag", &source_ml->tag);
-			if (source_ml->label.len)
-				parser->dict_add_str(tag_label, "label", &source_ml->label);
+			if (tag_medias.gen) {
+				parser_arg tag_label = parser->list_add_dict(tag_medias);
+				parser->dict_add_str(tag_label, "tag", &source_ml->tag);
+				if (source_ml->label.len)
+					parser->dict_add_str(tag_label, "label", &source_ml->label);
 
-			parser_arg medias = parser->dict_add_list(tag_label, "medias");
+				parser_arg medias = parser->dict_add_list(tag_label, "medias");
 
-			// this is a bit strange because in this mode, each list can only
-			// ever get one entry...
-			parser_arg med_ent = parser->list_add_dict(medias);
-			parser->dict_add_int(med_ent, "index", source_media->index);
-			parser->dict_add_str(med_ent, "type", &dest_media->type);
-			parser->dict_add_str(med_ent, "label", &dest_media->label);
-			parser->dict_add_string(med_ent, "mode", sdp_get_sendrecv(source_media));
+				parser_arg med_ent = parser->list_add_dict(medias);
+				parser->dict_add_int(med_ent, "index", source_media->index);
+				parser->dict_add_str(med_ent, "type", &dest_media->type);
+				parser->dict_add_str(med_ent, "label", &dest_media->label);
+				parser->dict_add_string(med_ent, "mode", sdp_get_sendrecv(source_media));
+			}
 		}
 	}
 

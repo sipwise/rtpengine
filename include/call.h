@@ -219,6 +219,7 @@ enum {
 #define MEDIA_FLAG_SELECT_PT			(1LL << 36)
 #define MEDIA_FLAG_RECRYPT			(1LL << 37)
 #define MEDIA_FLAG_PUBLIC			(1LL << 38)
+#define MEDIA_FLAG_MIX				(1LL << 41)
 #define MEDIA_FLAG_EXTMAP_SHORT			SHARED_FLAG_EXTMAP_SHORT
 #define MEDIA_FLAG_BUNDLE_ONLY			(1LL << 40)
 
@@ -236,6 +237,7 @@ enum {
 #define ML_FLAG_MOH_ZEROCONN			(1LL << 26)
 #define ML_FLAG_FORCE_TRANSCODING		(1LL << 27)
 #define ML_FLAG_BUNDLE				(1LL << 28)
+#define ML_FLAG_AUTO_ALL			(1LL << 29)
 
 /* call_t */
 #define CALL_FLAG_IPV4_OFFER			(1LL << 16)

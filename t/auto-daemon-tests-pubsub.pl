@@ -21,7 +21,8 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $port_c, $ssrc_a, $ssr
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev, $ufrag_a, $ufrag_b,
 	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq, $tag_medias, $media_labels,
 	$ftr, $ttr, $fts, $ttr2, $sock_f, $sock_g, $sock_h, $port_f, $port_g, $port_h,
-	$port_cx, $port_dx, $port_gx, $port_hx);
+	$port_cx, $port_dx, $port_gx, $port_hx,
+	$t_a, $t_b, $t_c, $t_d, $cid1);
 
 
 
@@ -4391,6 +4392,1355 @@ a=rtpmap:0 PCMU/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
+
+
+
+
+
+
+# mix subscribe - from-tags with mix flag produces single mixed output
+
+($sock_a, $sock_b, $sock_c) =
+	new_call([qw(198.51.100.14 6650)], [qw(198.51.100.14 6652)], [qw(198.51.100.14 6654)]);
+
+($port_a) = offer('mix sub from-tags',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6650 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('mix sub from-tags',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6652 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
+
+# subscribe with mix flag - should produce ONE m= audio line (mixed), not two separate ones
+($ftr, $ttr, $fts, undef, undef, $port_c) = subscribe_request('mix sub from-tags',
+	{ 'from-tags' => [ft(), tt()], 'flags' => ['mix'] }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ftr, undef, 'mix sub - from-tag is undef for multi-source';
+is_deeply $fts, [ft(), tt()], 'mix sub - from-tags contain both tags';
+
+subscribe_answer('mix sub from-tags',
+	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6654 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+# verify normal call traffic still works
+snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4001, 7160, 0x6543, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x3456, "\x00" x 160));
+
+# both sides should produce mixed audio at the single subscriber port
+# (audio_player mixes both streams into one output; actual mixing
+# produces silence-padded frames via mix_buffer so we just verify
+# the subscriber receives *something* from each sender direction)
+snd($sock_a, $port_b, rtp(0, 4002, 7320, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4002, 7320, 0x6543, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2002, 4320, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2002, 4320, 0x3456, "\x00" x 160));
+
+# subscriber should not be able to send back into the call
+snd($sock_c, $port_c, rtp(0, 8001, 9160, 0x9876, "\x00" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+
+
+
+# mix subscribe with "all" flag
+
+($sock_a, $sock_b, $sock_c) =
+	new_call([qw(198.51.100.14 6660)], [qw(198.51.100.14 6662)], [qw(198.51.100.14 6664)]);
+
+($port_a) = offer('mix sub all',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6660 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('mix sub all',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6662 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
+
+# subscribe with all + mix - should produce single m= audio line
+($ftr, $ttr, $fts, undef, undef, $port_c) = subscribe_request('mix sub all',
+	{ 'flags' => ['all', 'mix'] }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ftr, undef, 'mix sub all - from-tag is undef for multi-source';
+is_deeply $fts, [ft(), tt()], 'mix sub all - from-tags contain both tags';
+
+subscribe_answer('mix sub all',
+	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6664 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4001, 7160, 0x6543, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x3456, "\x00" x 160));
+
+# subscriber should not send into call
+snd($sock_c, $port_c, rtp(0, 8001, 9160, 0x9876, "\x00" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+
+
+
+# mix subscribe then unsubscribe
+
+($sock_a, $sock_b, $sock_c) =
+	new_call([qw(198.51.100.14 6670)], [qw(198.51.100.14 6672)], [qw(198.51.100.14 6674)]);
+
+($port_a) = offer('mix sub unsub',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6670 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('mix sub unsub',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6672 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($ftr, $ttr, $fts, undef, undef, $port_c) = subscribe_request('mix sub unsub',
+	{ 'from-tags' => [ft(), tt()], 'flags' => ['mix'] }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+subscribe_answer('mix sub unsub',
+	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6674 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+# verify call still works after subscribe
+snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4001, 7160, 0x6543, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x3456, "\x00" x 160));
+
+# unsubscribe
+$resp = rtpe_req('unsubscribe', 'mix sub unsub',
+	{ 'from-tag' => ft(), 'to-tag' => $ttr });
+
+# call traffic should still work after unsubscribe
+snd($sock_a, $port_b, rtp(0, 4002, 7320, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4002, 7320, 0x6543, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2002, 4320, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2002, 4320, 0x3456, "\x00" x 160));
+
+
+
+# mix subscribe - single from-tag (degenerate case, should still work)
+
+($sock_a, $sock_b, $sock_c) =
+	new_call([qw(198.51.100.14 6680)], [qw(198.51.100.14 6682)], [qw(198.51.100.14 6684)]);
+
+($port_a) = offer('mix sub single tag',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6680 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('mix sub single tag',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6682 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
+
+# mix with single from-tag: should produce one m= line with one from-tag
+($ftr, $ttr, $fts, undef, undef, $port_c) = subscribe_request('mix sub single tag',
+	{ 'from-tag' => ft(), 'flags' => ['mix'] }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ftr, ft(), 'mix sub single - from-tag matches';
+is_deeply $fts, [ft()], 'mix sub single - from-tags has one entry';
+
+subscribe_answer('mix sub single tag',
+	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6684 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+# A sends to B, subscriber should receive (A's audio via mix)
+snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4001, 7160, 0x6543, "\x00" x 160));
+
+# B sends to A, subscriber should NOT receive (only subscribed to A's tag)
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x3456, "\x00" x 160));
+
+
+
+# mix re-subscribe (same to-tag) should reuse media, not leak
+
+($sock_a, $sock_b, $sock_c) =
+	new_call([qw(198.51.100.14 6690)], [qw(198.51.100.14 6692)], [qw(198.51.100.14 6694)]);
+
+($port_a) = offer('mix resub',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6690 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('mix resub',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6692 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# first mix subscribe
+($ftr, $ttr, $fts, undef, undef, $port_c) = subscribe_request('mix resub',
+	{ 'from-tags' => [ft(), tt()], 'flags' => ['mix'] }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+subscribe_answer('mix resub',
+	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6694 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+# re-subscribe with same to-tag - should still produce ONE m= audio line
+($ftr, $ttr2, $fts, undef, undef, $port_c) = subscribe_request('mix resub',
+	{ 'from-tags' => [ft(), tt()], 'to-tag' => $ttr, 'flags' => ['mix'] }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ttr, $ttr2, 'mix resub to-tag matches';
+is_deeply $fts, [ft(), tt()], 'mix resub from-tags match';
+
+subscribe_answer('mix resub',
+	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6694 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4001, 7160, 0x6543, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x3456, "\x00" x 160));
+
+
+
+# mix-to-non-mix transition on same to-tag
+
+($sock_a, $sock_b, $sock_c, $sock_d) =
+	new_call([qw(198.51.100.14 6700)], [qw(198.51.100.14 6702)],
+		[qw(198.51.100.14 6704)], [qw(198.51.100.14 6706)]);
+
+($port_a) = offer('mix to non-mix',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6700 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('mix to non-mix',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6702 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# first: mix subscribe
+($ftr, $ttr, $fts, undef, undef, $port_c) = subscribe_request('mix to non-mix',
+	{ 'from-tags' => [ft(), tt()], 'flags' => ['mix'] }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+subscribe_answer('mix to non-mix',
+	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6704 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+# now: re-subscribe WITHOUT mix on same to-tag - should produce TWO m= lines
+($ftr, $ttr2, $fts, undef, undef, $port_c, undef, $port_d) = subscribe_request('mix to non-mix',
+	{ 'from-tags' => [ft(), tt()], 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ttr, $ttr2, 'mix-to-nonmix to-tag matches';
+is_deeply $fts, [ft(), tt()], 'mix-to-nonmix from-tags match';
+
+subscribe_answer('mix to non-mix',
+	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6704 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+m=audio 6706 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+# verify separate streams: A's audio goes to sock_c, B's audio goes to sock_d
+snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(8, 4001, 7160, -1, "\x2a" x 160));
+rcv_no($sock_d);
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x3456, "\x00" x 160));
+rcv($sock_d, $port_d, rtpm(8, 2001, 4160, -1, "\x2a" x 160));
+rcv_no($sock_c);
+
+
+
+# non-mix-to-mix transition on same to-tag
+
+($sock_a, $sock_b, $sock_c, $sock_d) =
+	new_call([qw(198.51.100.14 6710)], [qw(198.51.100.14 6712)],
+		[qw(198.51.100.14 6714)], [qw(198.51.100.14 6716)]);
+
+($port_a) = offer('non-mix to mix',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6710 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('non-mix to mix',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6712 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# first: non-mix subscribe (produces TWO m= audio lines)
+($ftr, $ttr, $fts, undef, undef, $port_c, undef, $port_d) = subscribe_request('non-mix to mix',
+	{ 'from-tags' => [ft(), tt()] }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+subscribe_answer('non-mix to mix',
+	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6714 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+m=audio 6716 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+# now: re-subscribe WITH mix on same to-tag - should collapse to ONE m= audio line
+($ftr, $ttr2, $fts, undef, undef, $port_c) = subscribe_request('non-mix to mix',
+	{ 'from-tags' => [ft(), tt()], 'to-tag' => $ttr, 'flags' => ['mix'] }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ttr, $ttr2, 'nonmix-to-mix to-tag matches';
+is_deeply $fts, [ft(), tt()], 'nonmix-to-mix from-tags match';
+
+subscribe_answer('non-mix to mix',
+	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6714 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+# cycle back to non-mix on same to-tag - verifies no stale growth
+($ftr, $ttr2, $fts, undef, undef, $port_c, undef, $port_d) = subscribe_request('non-mix to mix',
+	{ 'from-tags' => [ft(), tt()], 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ttr, $ttr2, 'mix-back-to-nonmix to-tag matches';
+is_deeply $fts, [ft(), tt()], 'mix-back-to-nonmix from-tags match';
+
+subscribe_answer('non-mix to mix',
+	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6714 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+m=audio 6716 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+# verify separate streams after cycling back
+snd($sock_a, $port_b, rtp(0, 4002, 7320, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4002, 7320, 0x6543, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(8, 4002, 7320, -1, "\x2a" x 160));
+rcv_no($sock_d);
+snd($sock_b, $port_a, rtp(0, 2002, 4320, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2002, 4320, 0x3456, "\x00" x 160));
+rcv($sock_d, $port_d, rtpm(8, 2002, 4320, -1, "\x2a" x 160));
+rcv_no($sock_c);
+
+
+
+# non-mix-to-mix with reversed from-tags (leading hole scenario)
+
+($sock_a, $sock_b, $sock_c, $sock_d) =
+	new_call([qw(198.51.100.14 6720)], [qw(198.51.100.14 6722)],
+		[qw(198.51.100.14 6724)], [qw(198.51.100.14 6726)]);
+
+($port_a) = offer('non-mix to mix reversed',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6720 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('non-mix to mix reversed',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6722 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# non-mix subscribe: ft() first, tt() second -> dest[0] for ft(), dest[1] for tt()
+($ftr, $ttr, $fts, undef, undef, $port_c, undef, $port_d) = subscribe_request('non-mix to mix reversed',
+	{ 'from-tags' => [ft(), tt()] }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+subscribe_answer('non-mix to mix reversed',
+	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6724 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+m=audio 6726 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+# mix re-subscribe with REVERSED from-tags: tt() first -> picks dest[1],
+# dest[0] becomes stale (leading hole). Compaction must shift dest[1] to [0].
+($ftr, $ttr2, $fts, undef, undef, $port_c) = subscribe_request('non-mix to mix reversed',
+	{ 'from-tags' => [tt(), ft()], 'to-tag' => $ttr, 'flags' => ['mix'] }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ttr, $ttr2, 'reversed-nonmix-to-mix to-tag matches';
+
+subscribe_answer('non-mix to mix reversed',
+	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6724 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+
+
+
+
+
+
+# mix subscribe with G722 codec (non-trivial clockrate_fact)
+
+($sock_a, $sock_b, $sock_c) =
+	new_call([qw(198.51.100.14 6730)], [qw(198.51.100.14 6732)], [qw(198.51.100.14 6734)]);
+
+($port_a) = offer('mix sub G722',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6730 RTP/AVP 9
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 9
+c=IN IP4 203.0.113.1
+a=rtpmap:9 G722/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('mix sub G722',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6732 RTP/AVP 9
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 9
+c=IN IP4 203.0.113.1
+a=rtpmap:9 G722/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_b, $port_a, rtp(9, 2000, 4000, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(9, 2000, 4000, 0x3456, "\x00" x 160));
+snd($sock_a, $port_b, rtp(9, 4000, 7000, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(9, 4000, 7000, 0x6543, "\x00" x 160));
+
+# subscribe with mix flag using G722 endpoints
+($ftr, $ttr, $fts, undef, undef, $port_c) = subscribe_request('mix sub G722',
+	{ 'from-tags' => [ft(), tt()], 'flags' => ['mix'] }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 9
+c=IN IP4 203.0.113.1
+a=rtpmap:9 G722/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ftr, undef, 'mix sub G722 - from-tag is undef for multi-source';
+is_deeply $fts, [ft(), tt()], 'mix sub G722 - from-tags contain both tags';
+
+subscribe_answer('mix sub G722',
+	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6734 RTP/AVP 9
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+# verify normal call traffic still works with G722
+snd($sock_a, $port_b, rtp(9, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(9, 4001, 7160, 0x6543, "\x00" x 160));
+snd($sock_b, $port_a, rtp(9, 2001, 4160, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(9, 2001, 4160, 0x3456, "\x00" x 160));
+
+# subscriber should not send into call
+snd($sock_c, $port_c, rtp(9, 8001, 9160, 0x9876, "\x00" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+
+
+
+# mix subscribe - tap survives dialogue deletion
+# Two dialogues (A-B and C-D) in the same call, mix subscribe to all,
+# then delete C-D. A-B traffic should still work and mix subscriber should not crash.
+
+($sock_a, $sock_b, $sock_c, $sock_d, $sock_e) =
+	new_call([qw(198.51.100.14 6740)], [qw(198.51.100.14 6742)],
+		 [qw(198.51.100.14 6744)], [qw(198.51.100.14 6746)],
+		 [qw(198.51.100.14 6748)]);
+
+$t_a = ft();
+$t_b = tt();
+
+($port_a) = offer('mix detach A-B',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6740 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('mix detach A-B',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6742 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
+
+# set up second dialogue C-D in the same call
+new_ft();
+new_tt();
+$t_c = ft();
+$t_d = tt();
+
+($port_c) = offer('mix detach C-D',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6744 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_d) = answer('mix detach C-D',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6746 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_c, $port_d, rtp(0, 5000, 8000, 0x7777, "\x00" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5000, 8000, 0x7777, "\x00" x 160));
+
+# mix subscribe to all 4 tags
+($ftr, $ttr, $fts, undef, undef, $port_e) = subscribe_request('mix detach sub',
+	{ 'flags' => ['all', 'mix'] }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ftr, undef, 'mix detach - from-tag is undef';
+
+subscribe_answer('mix detach sub',
+	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6748 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+# verify both dialogues work
+snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4001, 7160, 0x6543, "\x00" x 160));
+snd($sock_c, $port_d, rtp(0, 5001, 8160, 0x7777, "\x00" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5001, 8160, 0x7777, "\x00" x 160));
+
+# delete C-D dialogue — should not crash the mix subscriber
+rtpe_req('delete', 'mix detach delete C-D', { 'from-tag' => $t_c, 'to-tag' => $t_d });
+
+# A-B traffic should still work (the mix subscriber's audio_player handlers
+# for C/D medias should be cleanly stopped without tearing down the entire
+# mix subscription or A-B's handlers)
+snd($sock_a, $port_b, rtp(0, 4002, 7320, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4002, 7320, 0x6543, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x3456, "\x00" x 160));
+
+
+
+# auto-all: mix subscribe gains new legs dynamically via connect
+
+($sock_a, $sock_b, $sock_c, $sock_d, $sock_e) =
+	new_call([qw(198.51.100.14 6750)], [qw(198.51.100.14 6752)],
+		 [qw(198.51.100.14 6754)], [qw(198.51.100.14 6756)],
+		 [qw(198.51.100.14 6758)]);
+
+($port_a) = offer('auto-all',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6750 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('auto-all',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6752 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$t_a = ft();
+$t_b = tt();
+
+snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160));
+
+# mix subscribe with all + auto-all — should get A and B initially
+($ftr, $ttr, $fts, undef, undef, $port_e) = subscribe_request('auto-all sub',
+	{ 'flags' => ['all', 'mix', 'auto-all'] }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ftr, undef, 'auto-all - from-tag is undef for multi-source';
+is_deeply $fts, [$t_a, $t_b], 'auto-all - initial from-tags are A and B';
+
+subscribe_answer('auto-all sub',
+	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6758 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+# verify normal traffic
+snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4001, 7160, 0x6543, "\x00" x 160));
+
+# set up second dialogue C-D in the same call
+new_ft();
+new_tt();
+
+($port_c) = offer('auto-all C-D',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6754 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_d) = answer('auto-all C-D',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6756 RTP/AVP 0 8
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$t_c = ft();
+$t_d = tt();
+
+snd($sock_c, $port_d, rtp(0, 5000, 8000, 0x7777, "\x00" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5000, 8000, 0x7777, "\x00" x 160));
+
+# connect A to C — triggers auto-all update, should add C and D to mix subscriber
+rtpe_req('connect', 'auto-all connect', { 'from-tag' => $t_a, 'to-tag' => $t_c });
+
+# verify connect works
+snd($sock_c, $port_d, rtp(0, 5001, 8160, 0x7777, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5001, 8160, 0x7777, "\x00" x 160));
+
+# verify auto-all dynamically added C and D to subscriber's subscriptions
+# (query is non-destructive — proves incremental update, not re-subscribe rebuild)
+$resp = rtpe_req('query', 'auto-all query after connect', { 'from-tag' => $ttr });
+ok(exists $resp->{tags}{$t_c}, 'auto-all - C in subscriber subs after connect (before re-sub)');
+ok(exists $resp->{tags}{$t_d}, 'auto-all - D in subscriber subs after connect (before re-sub)');
+
+# re-issue subscribe request with same to-tag to check updated from-tags
+($ftr, $ttr2, $fts) = subscribe_request('auto-all re-sub',
+	{ 'to-tag' => $ttr, 'flags' => ['all', 'mix', 'auto-all'] }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ttr, $ttr2, 'auto-all re-sub - to-tag matches';
+# from-tags should now include all four tags (A, B, C, D)
+is scalar(@{$fts}), 4, 'auto-all re-sub - from-tags now has 4 entries';
+
+# verify traffic still works (A→C after connect)
+snd($sock_a, $port_b, rtp(0, 4002, 7320, 0x6543, "\x00" x 160));
+rcv($sock_c, $port_d, rtpm(0, 4002, 7320, 0x6543, "\x00" x 160));
+
+
 
 done_testing();
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;

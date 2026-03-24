@@ -1299,6 +1299,47 @@ Spaces in each string may be replaced by hyphens.
 	source.  This makes it possible for the media source to receive
 	feedback from all media receivers (sinks).
 
+* `mix`
+
+	Useful only for `subscribe request` message with multiple
+	source participants. Instructs *rtpengine* to mix all audio
+	sources into a single output stream instead of creating
+	separate destination media sections per source. The response
+	SDP will contain a single `m=audio` line carrying the mixed
+	audio. Non-audio media types are unaffected and still receive
+	separate per-source destination sections.
+
+	This is primarily intended for call monitoring and listen-in
+	scenarios where a single mixed stream is preferred over
+	separate per-party streams.
+
+	The mixed audio is produced using the audio player / mix buffer
+	pipeline: each source's audio is decoded to PCM, mixed in a
+	circular buffer (keyed by SSRC), and re-encoded to the codec
+	negotiated in the `subscribe answer`.
+
+	Re-subscribing with the same `to-tag` is supported in both
+	directions: adding `mix` to a previously non-mixed subscription
+	collapses the destination to a single media, and removing `mix`
+	expands it back to separate per-source medias.
+
+* `auto-all`
+
+	Useful only for `subscribe request` with `mix`. Implies
+	`all` (subscribes to all current call participants) and also
+	makes the subscription dynamic: when a new call participant
+	later joins the call (e.g. via `connect`), the subscriber
+	automatically gains a subscription to the new participant's
+	audio without requiring a new `subscribe request`.
+
+	Without this flag, `from-tags: all` resolves the set of
+	source participants at the time of the request and is static.
+	Participants that join later are not included.
+
+	New subscriptions added through `auto-all` inherit the
+	`egress` mode and `RTCP mirror` settings from the original
+	subscription.
+
 * `single codec`
 
 	Using this flag in an `answer` message will leave only the first listed codec in place
@@ -2576,15 +2617,25 @@ The reply message will contain a sendonly offer SDP in `sdp` which by default
 will mirror the SDP of the call participant being subscribed to. If multiple
 call participants are subscribed to at the same time, then this SDP will
 contain multiple media sections, combined out of the media sections of all
-selected call participants. This offer SDP can be manipulated with the same
-flags as used in an `offer` message, including the option to manipulate the
-codecs. The reply message will also contain the `from-tags` (corresponding to
-the call participants being subscribed to) and the `to-tag` (corresponding to
-the subscription, either generated or taken from the received message).
+selected call participants. If the `mix` flag is given, all audio sources are
+instead mixed into a single output stream, so the SDP will contain only one
+audio media section regardless of the number of source participants. This
+offer SDP can be manipulated with the same flags as used in an `offer`
+message, including the option to manipulate the codecs. The reply message will
+also contain the `from-tags` (corresponding to the call participants being
+subscribed to) and the `to-tag` (corresponding to the subscription, either
+generated or taken from the received message).
 
 If a `subscribe request` is made for an existing `to-tag` then all existing
 subscriptions for that `to-tag` are deleted before the new subscriptions are
 created.
+
+The `auto-all` flag (currently only supported with `mix`) implies `all`
+(subscribes to all current call participants) and makes the subscription
+dynamic. When a new call participant later joins the call (e.g. via
+`connect`), the subscriber automatically gains a subscription to the new
+participant's audio. Without `auto-all`, the set of sources is fixed at the
+time of the `subscribe request`.
 
 ## `subscribe answer` Message
 
