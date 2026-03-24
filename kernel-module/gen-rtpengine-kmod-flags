@@ -4,6 +4,10 @@ if [ -z "${M}" ]; then
   M=$(pwd)
 fi
 
+if [ -z "${RTPENGINE_VERSION}" ] && [ -f .release-version ]; then
+  RTPENGINE_VERSION=$(<.release-version)
+fi
+
 if [ -z "${RTPENGINE_VERSION}" ]; then
   have_dpkg_parsechangelog=no
   if command -v dpkg-parsechangelog >/dev/null; then
