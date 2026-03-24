@@ -31,3 +31,39 @@ if [ -z "${RTPENGINE_VERSION}" ]; then
   fi
   echo "RTPENGINE_VERSION := ${RTPENGINE_VERSION}"
 fi
+
+# Compile test: detect nft_expr_ops.validate callback signature.
+# Distribution kernels (e.g. Ubuntu) may backport the 2-param validate
+# callback (mainline commit eaf9b2c875ec, merged in 6.12) to earlier
+# kernel versions without changing LINUX_VERSION_CODE. A compile test
+# is the only reliable way to detect the actual API.
+#
+# The test tries to assign a 3-param function to .validate. If it
+# compiles, the old API is present and we set the flag. If it fails
+# (incompatible pointer types), the kernel has the new 2-param version.
+
+# KERNELRELEASE is set by kbuild to the target kernel version, which
+# may differ from the running kernel during DKMS cross-kernel builds.
+KSRC="${KSRC:-/lib/modules/${KERNELRELEASE:-$(uname -r)}/build}"
+
+if [ -d "${KSRC}" ]; then
+  nft_test_dir=$(mktemp -d)
+  cat > "${nft_test_dir}/nft_test.c" <<'TESTEOF'
+#include <linux/module.h>
+#include <net/netfilter/nf_tables.h>
+static int test_validate(const struct nft_ctx *ctx, const struct nft_expr *expr,
+    const struct nft_data **data) { return 0; }
+static struct nft_expr_ops __attribute__((unused)) test_ops = {
+    .validate = test_validate };
+MODULE_LICENSE("GPL");
+TESTEOF
+  echo "obj-m := nft_test.o" > "${nft_test_dir}/Makefile"
+
+  # Use env -i to prevent kbuild state (KBUILD_EXTMOD, M, MAKEFLAGS, etc.)
+  # leaking from an outer kbuild invocation into the compile test.
+  if env -i PATH="$PATH" make -j1 -C "${KSRC}" M="${nft_test_dir}" modules >/dev/null 2>&1; then
+    echo "ccflags-y += -DNFT_EXPR_OPS_VALIDATE_HAS_DATA"
+  fi
+
+  rm -rf "${nft_test_dir}"
+fi
