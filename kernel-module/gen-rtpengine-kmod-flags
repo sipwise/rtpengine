@@ -4,8 +4,12 @@ if [ -z "${M}" ]; then
   M=$(pwd)
 fi
 
-if [ -z "${RTPENGINE_VERSION}" ] && [ -f .release-version ]; then
-  RTPENGINE_VERSION=$(<.release-version)
+if [ -z "${RTPENGINE_VERSION}" ]; then
+  if [ -f .release-version ]; then
+    RTPENGINE_VERSION=$(<.release-version)
+  elif [ -f ../.release-version ]; then
+    RTPENGINE_VERSION=$(<../.release-version)
+  fi
 fi
 
 if [ -z "${RTPENGINE_VERSION}" ]; then
@@ -20,18 +24,23 @@ if [ -z "${RTPENGINE_VERSION}" ]; then
   fi
   if [ "${have_dpkg_parsechangelog}" = yes ]; then
     deb_version="$(dpkg-parsechangelog -l"${deb_changelog}" | awk '/^Version: / {print $2}')"
+    RTPENGINE_VERSION="${deb_version}"
   fi
+
   git_br_commit="git-$(cd "${M}" && git rev-parse --abbrev-ref --symbolic-full-name HEAD 2> /dev/null)-$(cd "${M}" && git rev-parse --short HEAD 2> /dev/null)"
 
-  if [ "${have_dpkg_parsechangelog}" = yes ]; then
-    RTPENGINE_VERSION+=" ${deb_version}"
-  fi
   if [ "${git_br_commit}" != "git--" ]; then
-    RTPENGINE_VERSION+=" ${git_br_commit}"
+    if [ -n "${RTPENGINE_VERSION}" ]; then
+      RTPENGINE_VERSION+=" "
+    fi
+    RTPENGINE_VERSION+="${git_br_commit}"
   fi
+fi
 
-  if [ -z "${RTPENGINE_VERSION}" ]; then
-    RTPENGINE_VERSION="undefined"
-  fi
+if [ -z "${RTPENGINE_VERSION}" ]; then
+  RTPENGINE_VERSION="undefined"
+fi
+
+if [ -n "${RTPENGINE_VERSION}" ]; then
   echo "RTPENGINE_VERSION := ${RTPENGINE_VERSION}"
 fi
