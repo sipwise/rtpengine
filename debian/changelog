@@ -1,3 +1,30 @@
+ngcp-rtpengine (14.1.1.4+0~mr14.1.1.4) unstable; urgency=medium
+
+  [ Michael Prokop ]
+  * [6df3f89] MT#55283 GH: automate GitHub releases for mr* tags, build Debian packages for PRs + update to trixie
+
+  [ Richard Fuchs ]
+  * [884946a] MT#55283 update GH build actions
+  * [1f085e1] MT#55283 rework info printing for sub-req
+  * [6cfb836] MT#55283 set media label only for out direction
+  * [0399c47] MT#55283 parse a=label
+  * [6a7c9c2] MT#55283 tests for I021f44ba2
+  * [45c7ca2] MT#55283 add missing lock for subscribe streams
+  * [4dc5090] MT#55283 remove RELEASE_DATE
+  * [f81fd49] MT#55283 add empty .release-version tag file
+  * [23bc4aa] MT#55283 use .release-version info while building
+  * [35674a2] MT#55283 honour .release-version also for .ko
+  * [22c7359] MT#55283 improve asymmetric codec logic
+  * [a99be15] MT#55283 test for Ie401db500
+  * [bf151a4] MT#55283 fix refcount release
+  * [3d3cef9] MT#55283 improve version handling
+
+  [ Sean Ferguson ]
+  * [187b3ff] MT#55283 Fix segfault in play media with record-egress enabled
+  * [fcb91a9] MT#55283 Fix recording-file parameter ignores for pcap recording method
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 25 Mar 2026 15:35:41 +0100
+
 ngcp-rtpengine (14.1.1.3+0~mr14.1.1.3) unstable; urgency=medium
 
   [ Richard Fuchs ]
