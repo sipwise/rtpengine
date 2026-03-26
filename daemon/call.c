@@ -4619,7 +4619,6 @@ int monologue_unsubscribe(struct call_monologue *dst_ml, struct call_monologue *
 
 		__media_unconfirm(media, "media unsubscribe");
 
-		/* TODO: should we care about subscribers as well? */
 		IQUEUE_FOREACH_SAFE(&media->media_subscriptions, ms) {
 			if (src_ml && ms->monologue != src_ml)
 				continue;
@@ -4629,6 +4628,19 @@ int monologue_unsubscribe(struct call_monologue *dst_ml, struct call_monologue *
 			__media_unconfirm(src_media, "media unsubscribe");
 			__unsubscribe_media_link(media, ms);
 			update_init_subscribers(src_media, NULL, NULL, flags->opmode);
+		}
+
+		if (flags->bidirectional) {
+			IQUEUE_FOREACH_SAFE(&media->media_subscribers, ms) {
+				if (src_ml && ms->monologue != src_ml)
+					continue;
+
+				struct call_media *src_media = ms->media;
+
+				__media_unconfirm(src_media, "media unsubscribe");
+				__unsubscribe_media_link(src_media, ms->reverse);
+				update_init_subscribers(src_media, NULL, NULL, flags->opmode);
+			}
 		}
 
 		update_init_subscribers(media, NULL, NULL, flags->opmode);
