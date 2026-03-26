@@ -4909,12 +4909,13 @@ void dialogue_connect(struct call_monologue *src_ml, struct call_monologue *dst_
 
 		media_set_audio_player(dst_media, flags);
 
-		codec_update_media_source_handlers(dst_media);
+		codec_update_media_source_handlers(dst_media, .flags = flags);
 		codec_update_media_source_handlers(src_media);
 		codec_update_media_handlers(src_media);
 		codec_update_media_handlers(dst_media);
 
 		update_init_subscribers(src_media, NULL, NULL, flags->opmode);
+		update_init_subscribers(dst_media, NULL, NULL, flags->opmode);
 		__update_init_medias(&medias, flags->opmode);
 	}
 }
