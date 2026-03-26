@@ -33,6 +33,1732 @@ is length($wav_file), 1644, 'embedded binary wav file';
 
 if ($extended_tests) {
 
+($sock_a, $sock_b, $sock_c) = new_call([qw(198.51.100.4 4114)], [qw(198.51.100.4 4116)], [qw(198.51.100.4 4118)]);
+
+($port_a) = offer('mixed sub manual w/ immediate audio player', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4114 RTP/AVP 0 8
+c=IN IP4 198.51.100.4
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('mixed sub manual w/ immediate audio player', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4116 RTP/AVP 0
+c=IN IP4 198.51.100.4
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($cid, $ft, $port_c) = create('mixed sub manual w/ immediate audio player', {
+	codec => { offer => ['G722'] },
+	'audio player' => 'force',
+	'call-id' => cid(),
+}, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 203.0.113.1
+s=RTPE_VERSION
+t=0 0
+m=audio PORT RTP/AVP 9
+c=IN IP4 203.0.113.1
+a=rtpmap:9 G722/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+is($cid, cid(), 'same call');
+
+create_answer('mixed sub manual w/ immediate audio player', {
+	'from-tag' => $ft,
+}, <<SDP);
+v=0
+o=- 111111111 22222222 IN IP4 203.0.113.1
+s=22222222
+t=0 0
+m=audio 4118 RTP/AVP 9
+c=IN IP4 198.51.100.4
+SDP
+
+
+# no media playback without subscriptions (XXX change this?)
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+snd($sock_a, $port_b, rtp (0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+snd($sock_b, $port_a, rtp (0, 8000, 10000, 0x2d8c, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 8000, 10000, 0x2d8c, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+snd($sock_c, $port_c, rtp (9, 8200, 10200, 0x2e54, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+
+rtpe_req('connect', 'mixed sub manual w/ immediate audio player', {
+		'from-tag' => ft(),
+		'to-tag' => $ft,
+		flags => [qw,directional,],
+});
+
+# player not active yet (no media)
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+# add media to start player
+snd($sock_a, $port_b, rtp (0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+($seq, $ts, $ssrc) = rcv($sock_c, $port_c, rtpm(9 | 0x80, -1, -1, -1, "\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\x2a\x84\x20\x84\x20\x84\x04\x8e\x16\x9d\x5d\xfe\xdb\xd8\xd1\xd3\xd9\xd9\x9b\xdc\xd9\xd7\xd7\xd8\xd6\xd9\xda\xdb\xd9\xd7\xda\xd7\x9a\xd9\xd8\xd8\xd6\xd9\xd7\xda\xd9\xd9\xd9\xd6\xda\xd7\xda\xda\xd9\xd9\xd6\xda\xd7\xdb\xda\xda\xd9\xd7\xdb\xd8\xd6\xda\xdb\xdb\xd8\xd6\xda\xd8\xd6\xdb\xdb\xdc\xd3\xdf\xd9\xd6\xd9\xd9\xdc\xd2\x9e\x1b\x96\x3f\x8b\x20\xb5\x0c\xba\x3f\xbe\xd5\x6d\xf0\xd5\xdb\x7b\xdf\xdc\xf6\xf1\xdd\xd8\xdd\xdf\xfd\xf8\xf1\xfc\xdd\xda\x9e\xff\x7d\xf2\xfc\xbb\xd8\xdb\xfc"));
+
+# untriggered media
+rcv($sock_c, $port_c, rtpm(9, $seq +  1, $ts +  160, $ssrc, "\xff\xf5\xfb\xbb\xdc\xd9\xfe\xdd\xf8\xf8\xf7\xdf\xdd\xfe\xdc\xfe\xfd\xf6\xff\xde\xfd\xfe\xde\xff\xf9\xfa\xdf\xfd\xfc\xff\xdf\xfb\xfb\xde\xfd\xfd\xfc\xff\xff\xfb\xdf\xfc\xfc\xfc\xfb\xdf\xfa\xfe\xdf\xfc\xfc\xf9\xff\xfd\xfd\xfe\xfe\xdf\xfa\xfc\xfc\xfc\xfc\xfc\xff\xfc\xfd\xfc\xfc\xfc\xfc\xfc\xfc\xfc\xfc\xfb\xdf\xfb\xff\xff\xff\xff\xfc\xfd\xfc\xfc\xfb\xfe\xdf\xfa\xfc\xfc\xfb\xfc\xfb\xdf\xfc\xfa\xfb\xdf\xf9\xf9\xfe\xdf\xfa\xf9\xfc\xfc\xfc\xfb\xdf\xf8\xfb\xfe\xfc\xfc\xfb\xfc\xfc\xfc\xfc\xfc\xfc\xfc\xfc\xfc\xfb\xdf\xf3\xfe\xfa\xfa\xfb\xdf\xf6\xfa\xf8\xf7\xde\xf4\xdf\xf6\xf8\xf7\xfb\xdf\xf7\xdd\xf9\xfb\xf9\xf7\xfb\xf9\xfb\xdf\xf7\xf9\xf9\xfb"));
+
+# catch up to delay caused by rcv_no above
+rcv($sock_c, $port_c, rtpm(9, $seq +  2, $ts +  320, $ssrc, "\xfb\xf9\xf9\xfb\xfb\xf9\xf9\xfb\xfb\xf8\xf8\xfb\xfb\xf8\xf8\xfa\xfa\xf8\xf8\xfa\xfa\xf8\xf8\xfa\xfa\xf7\xfa\xfa\xfa\xfa\xfa\xfa\xf7\xfa\xfa\xfa\xfa\xfa\xfa\xf7\xfa\xde\xf2\xde\xf2\xde\xf0\xfa\xdc\xf3\xdc\xf3\xdf\xf3\xfb\xfb\xfb\xfb\xfb\xfa\xf8\xf8\xfa\xfa\xf8\xf8\xfa\xde\xee\xde\xf5\xfb\xfa\xf8\xde\xf1\xdf\xf6\xf8\xf8\xf8\xfa\xf8\xfa\xde\xf1\xfa\xfa\xf8\xf8\xfa\xd9\xf3\xf8\xf8\xfa\xde\xf1\xdc\xf6\xf8\xf8\xf8\xde\xf3\xfb\xf8\xf8\xfa\xde\xf3\xf8\xf8\xfa\xde\xf1\xdf\xf6\xf8\xf8\xf8\xde\xf5\xf8\xf8\xf8\xf8\xf8\xde\xf5\xf5\xf8\xfa\xfa\xf8\xde\xf5\xf5\xf8\xfa\xde\xf1\xde\xf5\xf5\xf8\xfa\xdc\xf8\xf8\xf5\xf5\xf8\xfa\xd9\xf8\xf5\xf8\xf8\xf5"));
+rcv($sock_c, $port_c, rtpm(9, $seq +  3, $ts +  480, $ssrc, "\xf8\xdc\xde\xef\xfb\xdf\xf0\xfb\xd6\xf4\xf3\xdf\xf9\xf3\xf9\xd9\xfb\xf5\xfb\xdf\xf2\xf7\xdd\xdf\xf7\xdf\xf5\xf5\xf7\xdd\xdf\xf9\xfb\xf9\xf3\xfb\xdf\xf9\xdf\xf9\xf7\xf5\xf5\xdf\xfb\xdf\xf9\xf7\xf9\xf5\xfb\xdf\xf9\xfb\xfb\xf6\xf6\xf9\xdf\xfb\xfb\xfb\xf9\xf4\xf9\xdf\xf6\xdf\xf6\xf9\xf6\xf9\xfb\xdf\xf8\xf8\xfb\xf6\xf6\xfb\xdc\xfb\xdf\xf4\xf6\xfb\xf6\xdf\xf4\xdc\xdf\xf4\xf6\xfb\xf8\xf6\xdc\xdf\xf4\xf8\xfb\xfb\xf4\xfb\xda\xf2\xdf\xf6\xfb\xf8\xf8\xdf\xf4\xfb\xfb\xfb\xf8\xf8\xdf\xf3\xf8\xfb\xdf\xf2\xfb\xdc\xf8\xf6\xdc\xfb\xf4\xf8\xdf\xf8\xf5\xfb\xdf\xf1\xf6\xdc\xf8\xf8\xfb\xdf\xf4\xf6\xdf\xf6\xf8\xfb\xdc\xf8\xf5\xfb\xf8\xf5\xfb\xdc\xf5\xf8"));
+rcv($sock_c, $port_c, rtpm(9, $seq +  4, $ts +  640, $ssrc, "\xfa\xf5\xf8\xfa\xdc\xf8\xf5\xf5\xf8\xde\xf5\xf8\xf8\xf5\xf8\xfa\xdc\xf8\xf5\xf5\xf8\xfa\xdc\xf8\xf8\xf5\xf5\xf8\xfa\xd9\xf8\xf8\xf5\xf5\xf8\xfa\xd9\xf8\xfa\xfa\xf5\xf3\xde\xf8\xde\xf8\xf8\xf5\xf1\xfa\xde\xfa\xde\xf3\xf8\xf3\xf6\xdc\xfb\xda\xf6\xf8\xf4\xf6\xfb\xf8\xdc\xdf\xf6\xf8\xf6\xf8\xf6\xdf\xfb\xfb\xfb\xf8\xf6\xf8\xfb\xdc\xf8\xf8\xfa\xf5\xf3\xdf\xf8\xf8\xdc\xfa\xf8\xef\xdf\xf8\xf6\xdc\xf8\xdf\xf0\xf8\xfb\xf8\xfb\xfb\xdf\xf4\xf8\xf8\xfa\xfa\xf8\xfa\xde\xf1\xf8\xfa\xde\xf1\xf6\xda\xf4\xfb\xf6\xdf\xf6\xf6\xdd\xf8\xfb\xf8\xf8\xfb\xf8\xf8\xfa\xfa\xf8\xf8\xfa\xde\xf3\xf8\xf8\xfa\xde\xf3\xde\xf3\xf8\xf8\xfb\xdc\xf5\xfa\xf8\xf5\xf8\xfa"));
+rcv($sock_c, $port_c, rtpm(9, $seq +  5, $ts +  800, $ssrc, "\xd9\xf5\xf8\xfa\xfa\xf8\xf5\xde\xf5\xf8\xfa\xde\xf3\xf5\xfb\xdf\xf5\xf8\xdc\xf8\xf3\xf6\xdc\xf8\xf8\xdf\xf3\xf6\xfb\xdf\xf6\xfb\xfb\xf8\xf6\xdc\xfb\xf8\xf6\xfb\xfb\xf8\xfa\xdc\xf8\xf5\xf5\xf8\xfa\xde\xf5\xfa\xde\xf1\xf6\xfb\xdf\xf5\xf6\xd8\xf6\xf8\xf2\xdf\xf9\xf6\xda\xf4\xdf\xf3\xf7\xf9\xf7\xd9\xfb\xdf\xf3\xf7\xf7\xf9\xdd\xdb\xfb\xf7\xf2\xf4\xfa\xdb\xdf\xfb\xf9\xf3\xf6\xf6\xde\xde\xdf\xf4\xf6\xf6\xf5\xfa\xde\xfb\xde\xf4\xf8\xf6\xf8\xf9\xfb\xdd\xf9\xfb\xf9\xf7\xfb\xf9\xfb\xdd\xf9\xfb\xf9\xf6\xdf\xf3\xdf\xf9\xfb\xdf\xf4\xdf\xf4\xf7\xfb\xfb\xdf\xf6\xfb\xfb\xf9\xf6\xdf\xf9\xf9\xfb\xfb\xf6\xf9\xfb\xdf\xf6\xfb\xfb\xf8\xf6\xfb\xdf\xf6\xdf"));
+rcv($sock_c, $port_c, rtpm(9, $seq +  6, $ts +  960, $ssrc, "\xf6\xfb\xf6\xf8\xfb\xdf\xf8\xf8\xfa\xf8\xf3\xfb\xdc\xf8\xf8\xde\xf5\xf1\xf6\xda\xf0\xf9\xd8\xfb\xf6\xf4\xdf\xf4\xf6\xdd\xdf\xf6\xf9\xfb\xfb\xf9\xf9\xdf\xf4\xfb\xf9\xf8\xfb\xdf\xf4\xfb\xf8\xf8\xfb\xfb\xde\xf1\xfb\xfb\xfb\xfa\xf8\xde\xf3\xfb\xf8\xf8\xde\xf3\xda\xf0\xf9\xf6\xdf\xf9\xf6\xda\xf3\xfb\xf4\xfb\xdd\xf9\xdd\xf9\xf9\xf6\xf9\xf9\xfb\xdc\xf8\xf8\xf6\xdf\xf4\xf6\xdf\xf6\xdf\xf6\xdf\xf6\xf6\xfb\xfb\xdf\xf6\xfb\xfb\xf8\xf6\xfb\xdf\xf6\xf8\xfb\xfb\xf8\xf8\xde\xf3\xf8\xfb\xfb\xfa\xde\xf3\xf8\xfb\xfb\xfa\xfa\xde\xf1\xf8\xfa\xfa\xfa\xfa\xdc\xf5\xf5\xf8\xfa\xde\xf1\xfa\xdc\xf5\xf5\xf8\xde\xf3\xdf\xf6\xf6\xf6\xf8\xdc\xdf\xf8\xf8\xf6\xf4"));
+rcv($sock_c, $port_c, rtpm(9, $seq +  7, $ts + 1120, $ssrc, "\xf4\xdf\xdf\xfb\xdf\xf4\xf4\xf4\xf8\xdc\xdf\xfb\xfb\xf6\xf4\xf6\xdf\xfb\xdc\xfb\xfb\xf5\xf2\xfb\xf8\xdf\xf8\xdc\xfb\xf5\xf4\xf6\xdf\xf6\xfb\xdf\xf8\xfb\xfb\xfa\xf8\xf5\xfa\xdc\xf5\xf5\xf8\xfa\xf8\xf3\xda\xf6\xf6\xfb\xdf\xf6\xf6\xdc\xfb\xdf\xf2\xfb\xfb\xfb\xfb\xdf\xf6\xf6\xfb\xdf\xf6\xf8\xdf\xf8\xf8\xf8\xfa\xfa\xf8\xf8\xfa\xde\xf1\xf8\xfa\xde\xf1\xf8\xde\xf3\xfb\xf6\xdf\xf6\xfb\xdf\xf6\xfb\xf8\xfb\xde\xf1\xdf\xf6\xf8\xf8\xfb\xdf\xf3\xdf\xf4\xf8\xfb\xfb\xfb\xf8\xfa\xfa\xf8\xf8\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa"));
+rcv($sock_c, $port_c, rtpm(9, $seq +  8, $ts + 1280, $ssrc, "\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xde\xee\xd6\xef\xdc\xdf\xf4\xda\xec\xdd\xf6\xda\xf9\xf4\xdb\xef\xda\xf3\xd6\xf7\xfa\xd9\xf2\xfe\xf8\xda\xf7\xde\xfa\xf8\xf7\xfe\xd9\xf7\xdc\xfa\xfa\xf6\xfc\xdc\xfb\xd9\xf8\xf5\xf6\xfb\xd9\xfb\xd7\xf2\xf6\xfa\xfc\xfe\xd9\xd9\xf6\xf4\xf7\xde\xf6\xd8\xd8\xf7\xf6\xf7\xde\xf4\xdd\xd4\xfc\xf1\xf6\xdf\xf4\xfc\xd4\xdf\xf0\xf4\xfc\xf8\xf9\xd7\xdd\xf4\xf3\xfc\xf9\xfb\xd7\xdd\xf7\xf7\xfb\xf8\xf6\xd7\xdc"));
+rcv($sock_c, $port_c, rtpm(9, $seq +  9, $ts + 1440, $ssrc, "\xf8\xf7\xfb\xf7\xf8\xdb\xdd\xfe\xf9\xf8\xf5\xf8\xdd\xdd\xfe\xfe\xf9\xf7\xfc\xfc\xdc\xfe\xfe\xfa\xf8\xfa\xfb\xdc\xfb\xdc\xf9\xf6\xf9\xf7\xdb\xf5\xfb\xda\xf5\xf8\xfa\xde\xf6\xfa\xdb\xf5\xf8\xfb\xdb\xf3\xfb\xd9\xfa\xf6\xfa\xde\xf6\xfa\xde\xfa\xfa\xf9\xdf\xf6\xf7\xdd\xfb\xdd\xf9\xf9\xf5\xf7\xfb\xdf\xf9\xfb\xfb\xf7\xf7\xdf\xf9\xfb\xfb\xf9\xf6\xfb\xdf\xf6\xfb\xf9\xf9\xf9\xf9\xdf\xf4\xf9\xf9\xf8\xf8\xf8\xdf\xf4\xf8\xf8\xf8\xf8\xf8\xde\xf3\xfb\xfb\xfb\xfa\xfa\xdc\xf5\xf5\xf8\xfa\xde\xf1\xdf\xf6\xfb\xf8\xf5\xdf\xf4\xdf\xf6\xf8\xf6\xf8\xfb\xdf\xf8\xf8\xf8\xf5\xf5\xf8\xdc\xde\xf3\xf8\xf8\xf3\xfb\xdc\xdf\xf2\xdc\xfb\xf6\xf6\xdf\xf6\xf8\xdf\xf8"));
+rcv($sock_c, $port_c, rtpm(9, $seq + 10, $ts + 1600, $ssrc, "\xf8\xf6\xdc\xf6\xf8\xfb\xfb\xfb\xf5\xfb\xdc\xf5\xf8\xf8\xf8\xf8\xf5\xde\xf8\xf8\xf8\xf8\xf8\xf5\xfa\xdc\xf8\xf8\xf7\xfa\xf7\xf8\xde\xf7\xde\xf0\xf8\xf8\xf8\xde\xf3\xdc\xf5\xf3\xdf\xf8\xfa\xf5\xfb\xde\xf1\xf8\xdf\xf8\xf3\xf8\xdf\xf6\xf8\xfb\xfb\xf6\xfb\xdf\xf4\xfb\xdf\xf1\xf6\xdf\xfb\xf6\xf8\xdc\xf8\xf6\xdf\xf6\xf6\xf8\xfb\xdf\xf6\xdf\xf4\xf6\xf8\xfb\xdf\xf6\xdf\xf4\xf6\xf6\xfb\xdf\xf8\xdf\xf6\xf6\xf2\xfb\xdf\xfb\xdc\xfb\xf8\xf2\xf9\xf9\xdf\xfb\xfb\xfb\xf6\xf4\xf8\xdc\xdf\xf6\xf8\xf8\xf6\xf8\xfb\xdc\xf8\xf8\xfa\xfa\xf5\xf5\xde\xf5\xf5\xdf\xf8\xf3\xf8\xdf\xf4\xf6\xdc\xfb\xf6\xf6\xdf\xf6\xfb\xdf\xf6\xf8\xf6\xdc\xf8\xfb\xfb\xf8\xf8\xf8"));
+rcv($sock_c, $port_c, rtpm(9, $seq + 11, $ts + 1760, $ssrc, "\xfa\xde\xf1\xf8\xfa\xdc\xf5\xf5\xf8\xf8\xfa\xde\xf3\xf8\xf5\xfb\xdc\xfa\xfa\xf8\xf3\xfb\xdf\xf5\xfb\xde\xf3\xf6\xf6\xdc\xdf\xf8\xfb\xf8\xf4\xf4\xdf\xfb\xdf\xf4\xfb\xfb\xf6\xf8\xfb\xdc\xf8\xfa\xfa\xf8\xf3\xde\xf3\xda\xf4\xf6\xfb\xf8\xfb\xdf\xf8\xf8\xf8\xf8\xf8\xf5\xfa\xdc\xf5\xf5\xf8\xdc\xf8\xf3\xdf\xf0\xfb\xdf\xf8\xdc\xf4\xfb\xf6\xf6\xdf\xf8\xdc\xfb\xf8\xf5\xf6\xdf\xf2\xfb\xdc\xfb\xdf\xf4\xf8\xf6\xf8\xf8\xdf\xfb\xf8\xf8\xf8\xf5\xf8\xde\xf3\xf8\xfa\xde\xf1\xfb\xdf\xf6\xf6\xf8\xdf\xf8\xfb\xfa\xf8\xf3\xdf\xf6\xdf\xf6\xf8\xfb\xfb\xfa\xf8\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa"));
+rcv($sock_c, $port_c, rtpm(9, $seq + 12, $ts + 1920, $ssrc, "\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xde\xee\xd8\xf8\xf7\xdc\xf4\xdc\xef\xda\xf4\xfb\xda\xf0\xdd\xf3\xd8\xf6\xdf\xf9\xf4\xdf\xef\xd5\xf9\xf9\xf9\xf9\xf9\xf0\xdb\xf7\xda\xf3\xda\xf7\xf5\xde\xfa\xd9\xf5\xfc\xf8\xf6\xdc\xfb\xd7\xf1\xf7\xdc\xf7\xde\xfa\xd8\xf7\xf7\xde\xf7\xfe\xdc\xdb\xf4\xf4\xfe\xfa\xf7\xd8\xd7\xf2\xf3\xdc\xf9\xf5\xd9\xd5\xf5\xf1\xfb\xdc\xf8\xfc\xd6\xfb"));
+
+# push media
+snd($sock_a, $port_b, rtp (0, 1002, 3320, 0x1234, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3320, 0x1234, "\x44" x 160));
+snd($sock_b, $port_a, rtp (0, 8001, 10160, 0x2d8c, "\x55" x 160));
+rcv($sock_a, $port_b, rtpm(0, 8001, 10160, 0x2d8c, "\x55" x 160));
+rcv($sock_c, $port_c, rtpm(9, $seq + 13, $ts + 2080, $ssrc, "\xf1\xf6\xdb\xf8\xfc\xd7\xfb\xf3\xf6\xde\xfb\xdd\xd8\xfe\xf3\xf5\xfe\xdf\xfc\xda\xdf\xf1\xf4\xf8\xdf\xfc\xdc\xdd\xf5\xf6\xfb\xdf\xfb\xdf\xdf\xf8\xf4\xf6\xfe\xfe\x1e\x99\x2c\x87\x22\x84\x0b\xaf\xb5\xbb\x1f\xb9\x57\xd3\xfa\x74\xf6\xff\xff\xd9\xd3\x9f\x76\xf7\xfd\xfb\xdb\xd7\xda\xfb\xfc\xf8\xb6\x5e\xd8\xd6\xbe\x5e\xfc\xb6\x7d\xdd\xd8\xda\x9d\x5f\xf9\xbb\x5d\xdc\xda\xdd\x9b\x7c\xfb\x9d\x5e\xdf\xde\x9a\x5e\xfd\xfe\x9a\x7f\xdd\xda\xdc\xdd\xdf\xfe\xdb\x7c\x9d\xdb\xdf\xfe\x9b\x7e\x9b\xfc\x1e\x98\x36\x8a\x20\xa9\x4c\x99\x79\x7a\xd8\x7b\xf2\xff\xd9\xdf\xf9\xde\xfe\x79\xf8\xfd\xdf\xfc\xfd\xbe\x5f\xf8\x79\xfe\x9e\xfc\xfb\x5d\xff\xfb\xfe\xbe\xdf"));
+
+rtpe_req('delete', 'delete');
+
+
+
+
+($sock_a, $sock_b, $sock_c) = new_call([qw(198.51.100.4 4078)], [qw(198.51.100.4 4080)], [qw(198.51.100.4 4082)]);
+
+($port_a) = offer('mixed sub manual', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4078 RTP/AVP 0 8
+c=IN IP4 198.51.100.4
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('mixed sub manual', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4080 RTP/AVP 0
+c=IN IP4 198.51.100.4
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($cid, $ft, $port_c) = create('mixed sub manual', {
+	codec => { offer => ['G722'] },
+	'call-id' => cid(),
+}, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 203.0.113.1
+s=RTPE_VERSION
+t=0 0
+m=audio PORT RTP/AVP 9
+c=IN IP4 203.0.113.1
+a=rtpmap:9 G722/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+is($cid, cid(), 'same call');
+
+create_answer('mixed sub manual', {
+	'from-tag' => $ft,
+}, <<SDP);
+v=0
+o=- 111111111 22222222 IN IP4 203.0.113.1
+s=22222222
+t=0 0
+m=audio 4082 RTP/AVP 9
+c=IN IP4 198.51.100.4
+SDP
+
+
+# no media playback without subscriptions (XXX change this?)
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+snd($sock_a, $port_b, rtp (0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+snd($sock_b, $port_a, rtp (0, 8000, 10000, 0x2d8c, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 8000, 10000, 0x2d8c, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+snd($sock_c, $port_c, rtp (9, 8200, 10200, 0x2e54, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+
+rtpe_req('connect', 'mixed sub manual', {
+		'from-tag' => ft(),
+		'to-tag' => $ft,
+		flags => [qw,directional,],
+		'audio player' => 'force',
+});
+
+# player not active yet (no media)
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+# add media to start player
+snd($sock_a, $port_b, rtp (0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+($seq, $ts, $ssrc) = rcv($sock_c, $port_c, rtpm(9 | 0x80, -1, -1, -1, "\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\x2a\x84\x20\x84\x20\x84\x04\x8e\x16\x9d\x5d\xfe\xdb\xd8\xd1\xd3\xd9\xd9\x9b\xdc\xd9\xd7\xd7\xd8\xd6\xd9\xda\xdb\xd9\xd7\xda\xd7\x9a\xd9\xd8\xd8\xd6\xd9\xd7\xda\xd9\xd9\xd9\xd6\xda\xd7\xda\xda\xd9\xd9\xd6\xda\xd7\xdb\xda\xda\xd9\xd7\xdb\xd8\xd6\xda\xdb\xdb\xd8\xd6\xda\xd8\xd6\xdb\xdb\xdc\xd3\xdf\xd9\xd6\xd9\xd9\xdc\xd2\x9e\x1b\x96\x3f\x8b\x20\xb5\x0c\xba\x3f\xbe\xd5\x6d\xf0\xd5\xdb\x7b\xdf\xdc\xf6\xf1\xdd\xd8\xdd\xdf\xfd\xf8\xf1\xfc\xdd\xda\x9e\xff\x7d\xf2\xfc\xbb\xd8\xdb\xfc"));
+
+# untriggered media
+rcv($sock_c, $port_c, rtpm(9, $seq +  1, $ts +  160, $ssrc, "\xff\xf5\xfb\xbb\xdc\xd9\xfe\xdd\xf8\xf8\xf7\xdf\xdd\xfe\xdc\xfe\xfd\xf6\xff\xde\xfd\xfe\xde\xff\xf9\xfa\xdf\xfd\xfc\xff\xdf\xfb\xfb\xde\xfd\xfd\xfc\xff\xff\xfb\xdf\xfc\xfc\xfc\xfb\xdf\xfa\xfe\xdf\xfc\xfc\xf9\xff\xfd\xfd\xfe\xfe\xdf\xfa\xfc\xfc\xfc\xfc\xfc\xff\xfc\xfd\xfc\xfc\xfc\xfc\xfc\xfc\xfc\xfc\xfb\xdf\xfb\xff\xff\xff\xff\xfc\xfd\xfc\xfc\xfb\xfe\xdf\xfa\xfc\xfc\xfb\xfc\xfb\xdf\xfc\xfa\xfb\xdf\xf9\xf9\xfe\xdf\xfa\xf9\xfc\xfc\xfc\xfb\xdf\xf8\xfb\xfe\xfc\xfc\xfb\xfc\xfc\xfc\xfc\xfc\xfc\xfc\xfc\xfc\xfb\xdf\xf3\xfe\xfa\xfa\xfb\xdf\xf6\xfa\xf8\xf7\xde\xf4\xdf\xf6\xf8\xf7\xfb\xdf\xf7\xdd\xf9\xfb\xf9\xf7\xfb\xf9\xfb\xdf\xf7\xf9\xf9\xfb"));
+
+# catch up to delay caused by rcv_no above
+rcv($sock_c, $port_c, rtpm(9, $seq +  2, $ts +  320, $ssrc, "\xfb\xf9\xf9\xfb\xfb\xf9\xf9\xfb\xfb\xf8\xf8\xfb\xfb\xf8\xf8\xfa\xfa\xf8\xf8\xfa\xfa\xf8\xf8\xfa\xfa\xf7\xfa\xfa\xfa\xfa\xfa\xfa\xf7\xfa\xfa\xfa\xfa\xfa\xfa\xf7\xfa\xde\xf2\xde\xf2\xde\xf0\xfa\xdc\xf3\xdc\xf3\xdf\xf3\xfb\xfb\xfb\xfb\xfb\xfa\xf8\xf8\xfa\xfa\xf8\xf8\xfa\xde\xee\xde\xf5\xfb\xfa\xf8\xde\xf1\xdf\xf6\xf8\xf8\xf8\xfa\xf8\xfa\xde\xf1\xfa\xfa\xf8\xf8\xfa\xd9\xf3\xf8\xf8\xfa\xde\xf1\xdc\xf6\xf8\xf8\xf8\xde\xf3\xfb\xf8\xf8\xfa\xde\xf3\xf8\xf8\xfa\xde\xf1\xdf\xf6\xf8\xf8\xf8\xde\xf5\xf8\xf8\xf8\xf8\xf8\xde\xf5\xf5\xf8\xfa\xfa\xf8\xde\xf5\xf5\xf8\xfa\xde\xf1\xde\xf5\xf5\xf8\xfa\xdc\xf8\xf8\xf5\xf5\xf8\xfa\xd9\xf8\xf5\xf8\xf8\xf5"));
+rcv($sock_c, $port_c, rtpm(9, $seq +  3, $ts +  480, $ssrc, "\xf8\xdc\xde\xef\xfb\xdf\xf0\xfb\xd6\xf4\xf3\xdf\xf9\xf3\xf9\xd9\xfb\xf5\xfb\xdf\xf2\xf7\xdd\xdf\xf7\xdf\xf5\xf5\xf7\xdd\xdf\xf9\xfb\xf9\xf3\xfb\xdf\xf9\xdf\xf9\xf7\xf5\xf5\xdf\xfb\xdf\xf9\xf7\xf9\xf5\xfb\xdf\xf9\xfb\xfb\xf6\xf6\xf9\xdf\xfb\xfb\xfb\xf9\xf4\xf9\xdf\xf6\xdf\xf6\xf9\xf6\xf9\xfb\xdf\xf8\xf8\xfb\xf6\xf6\xfb\xdc\xfb\xdf\xf4\xf6\xfb\xf6\xdf\xf4\xdc\xdf\xf4\xf6\xfb\xf8\xf6\xdc\xdf\xf4\xf8\xfb\xfb\xf4\xfb\xda\xf2\xdf\xf6\xfb\xf8\xf8\xdf\xf4\xfb\xfb\xfb\xf8\xf8\xdf\xf3\xf8\xfb\xdf\xf2\xfb\xdc\xf8\xf6\xdc\xfb\xf4\xf8\xdf\xf8\xf5\xfb\xdf\xf1\xf6\xdc\xf8\xf8\xfb\xdf\xf4\xf6\xdf\xf6\xf8\xfb\xdc\xf8\xf5\xfb\xf8\xf5\xfb\xdc\xf5\xf8"));
+rcv($sock_c, $port_c, rtpm(9, $seq +  4, $ts +  640, $ssrc, "\xfa\xf5\xf8\xfa\xdc\xf8\xf5\xf5\xf8\xde\xf5\xf8\xf8\xf5\xf8\xfa\xdc\xf8\xf5\xf5\xf8\xfa\xdc\xf8\xf8\xf5\xf5\xf8\xfa\xd9\xf8\xf8\xf5\xf5\xf8\xfa\xd9\xf8\xfa\xfa\xf5\xf3\xde\xf8\xde\xf8\xf8\xf5\xf1\xfa\xde\xfa\xde\xf3\xf8\xf3\xf6\xdc\xfb\xda\xf6\xf8\xf4\xf6\xfb\xf8\xdc\xdf\xf6\xf8\xf6\xf8\xf6\xdf\xfb\xfb\xfb\xf8\xf6\xf8\xfb\xdc\xf8\xf8\xfa\xf5\xf3\xdf\xf8\xf8\xdc\xfa\xf8\xef\xdf\xf8\xf6\xdc\xf8\xdf\xf0\xf8\xfb\xf8\xfb\xfb\xdf\xf4\xf8\xf8\xfa\xfa\xf8\xfa\xde\xf1\xf8\xfa\xde\xf1\xf6\xda\xf4\xfb\xf6\xdf\xf6\xf6\xdd\xf8\xfb\xf8\xf8\xfb\xf8\xf8\xfa\xfa\xf8\xf8\xfa\xde\xf3\xf8\xf8\xfa\xde\xf3\xde\xf3\xf8\xf8\xfb\xdc\xf5\xfa\xf8\xf5\xf8\xfa"));
+rcv($sock_c, $port_c, rtpm(9, $seq +  5, $ts +  800, $ssrc, "\xd9\xf5\xf8\xfa\xfa\xf8\xf5\xde\xf5\xf8\xfa\xde\xf3\xf5\xfb\xdf\xf5\xf8\xdc\xf8\xf3\xf6\xdc\xf8\xf8\xdf\xf3\xf6\xfb\xdf\xf6\xfb\xfb\xf8\xf6\xdc\xfb\xf8\xf6\xfb\xfb\xf8\xfa\xdc\xf8\xf5\xf5\xf8\xfa\xde\xf5\xfa\xde\xf1\xf6\xfb\xdf\xf5\xf6\xd8\xf6\xf8\xf2\xdf\xf9\xf6\xda\xf4\xdf\xf3\xf7\xf9\xf7\xd9\xfb\xdf\xf3\xf7\xf7\xf9\xdd\xdb\xfb\xf7\xf2\xf4\xfa\xdb\xdf\xfb\xf9\xf3\xf6\xf6\xde\xde\xdf\xf4\xf6\xf6\xf5\xfa\xde\xfb\xde\xf4\xf8\xf6\xf8\xf9\xfb\xdd\xf9\xfb\xf9\xf7\xfb\xf9\xfb\xdd\xf9\xfb\xf9\xf6\xdf\xf3\xdf\xf9\xfb\xdf\xf4\xdf\xf4\xf7\xfb\xfb\xdf\xf6\xfb\xfb\xf9\xf6\xdf\xf9\xf9\xfb\xfb\xf6\xf9\xfb\xdf\xf6\xfb\xfb\xf8\xf6\xfb\xdf\xf6\xdf"));
+rcv($sock_c, $port_c, rtpm(9, $seq +  6, $ts +  960, $ssrc, "\xf6\xfb\xf6\xf8\xfb\xdf\xf8\xf8\xfa\xf8\xf3\xfb\xdc\xf8\xf8\xde\xf5\xf1\xf6\xda\xf0\xf9\xd8\xfb\xf6\xf4\xdf\xf4\xf6\xdd\xdf\xf6\xf9\xfb\xfb\xf9\xf9\xdf\xf4\xfb\xf9\xf8\xfb\xdf\xf4\xfb\xf8\xf8\xfb\xfb\xde\xf1\xfb\xfb\xfb\xfa\xf8\xde\xf3\xfb\xf8\xf8\xde\xf3\xda\xf0\xf9\xf6\xdf\xf9\xf6\xda\xf3\xfb\xf4\xfb\xdd\xf9\xdd\xf9\xf9\xf6\xf9\xf9\xfb\xdc\xf8\xf8\xf6\xdf\xf4\xf6\xdf\xf6\xdf\xf6\xdf\xf6\xf6\xfb\xfb\xdf\xf6\xfb\xfb\xf8\xf6\xfb\xdf\xf6\xf8\xfb\xfb\xf8\xf8\xde\xf3\xf8\xfb\xfb\xfa\xde\xf3\xf8\xfb\xfb\xfa\xfa\xde\xf1\xf8\xfa\xfa\xfa\xfa\xdc\xf5\xf5\xf8\xfa\xde\xf1\xfa\xdc\xf5\xf5\xf8\xde\xf3\xdf\xf6\xf6\xf6\xf8\xdc\xdf\xf8\xf8\xf6\xf4"));
+rcv($sock_c, $port_c, rtpm(9, $seq +  7, $ts + 1120, $ssrc, "\xf4\xdf\xdf\xfb\xdf\xf4\xf4\xf4\xf8\xdc\xdf\xfb\xfb\xf6\xf4\xf6\xdf\xfb\xdc\xfb\xfb\xf5\xf2\xfb\xf8\xdf\xf8\xdc\xfb\xf5\xf4\xf6\xdf\xf6\xfb\xdf\xf8\xfb\xfb\xfa\xf8\xf5\xfa\xdc\xf5\xf5\xf8\xfa\xf8\xf3\xda\xf6\xf6\xfb\xdf\xf6\xf6\xdc\xfb\xdf\xf2\xfb\xfb\xfb\xfb\xdf\xf6\xf6\xfb\xdf\xf6\xf8\xdf\xf8\xf8\xf8\xfa\xfa\xf8\xf8\xfa\xde\xf1\xf8\xfa\xde\xf1\xf8\xde\xf3\xfb\xf6\xdf\xf6\xfb\xdf\xf6\xfb\xf8\xfb\xde\xf1\xdf\xf6\xf8\xf8\xfb\xdf\xf3\xdf\xf4\xf8\xfb\xfb\xfb\xf8\xfa\xfa\xf8\xf8\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa"));
+rcv($sock_c, $port_c, rtpm(9, $seq +  8, $ts + 1280, $ssrc, "\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xde\xee\xd6\xef\xdc\xdf\xf4\xda\xec\xdd\xf6\xda\xf9\xf4\xdb\xef\xda\xf3\xd6\xf7\xfa\xd9\xf2\xfe\xf8\xda\xf7\xde\xfa\xf8\xf7\xfe\xd9\xf7\xdc\xfa\xfa\xf6\xfc\xdc\xfb\xd9\xf8\xf5\xf6\xfb\xd9\xfb\xd7\xf2\xf6\xfa\xfc\xfe\xd9\xd9\xf6\xf4\xf7\xde\xf6\xd8\xd8\xf7\xf6\xf7\xde\xf4\xdd\xd4\xfc\xf1\xf6\xdf\xf4\xfc\xd4\xdf\xf0\xf4\xfc\xf8\xf9\xd7\xdd\xf4\xf3\xfc\xf9\xfb\xd7\xdd\xf7\xf7\xfb\xf8\xf6\xd7\xdc"));
+rcv($sock_c, $port_c, rtpm(9, $seq +  9, $ts + 1440, $ssrc, "\xf8\xf7\xfb\xf7\xf8\xdb\xdd\xfe\xf9\xf8\xf5\xf8\xdd\xdd\xfe\xfe\xf9\xf7\xfc\xfc\xdc\xfe\xfe\xfa\xf8\xfa\xfb\xdc\xfb\xdc\xf9\xf6\xf9\xf7\xdb\xf5\xfb\xda\xf5\xf8\xfa\xde\xf6\xfa\xdb\xf5\xf8\xfb\xdb\xf3\xfb\xd9\xfa\xf6\xfa\xde\xf6\xfa\xde\xfa\xfa\xf9\xdf\xf6\xf7\xdd\xfb\xdd\xf9\xf9\xf5\xf7\xfb\xdf\xf9\xfb\xfb\xf7\xf7\xdf\xf9\xfb\xfb\xf9\xf6\xfb\xdf\xf6\xfb\xf9\xf9\xf9\xf9\xdf\xf4\xf9\xf9\xf8\xf8\xf8\xdf\xf4\xf8\xf8\xf8\xf8\xf8\xde\xf3\xfb\xfb\xfb\xfa\xfa\xdc\xf5\xf5\xf8\xfa\xde\xf1\xdf\xf6\xfb\xf8\xf5\xdf\xf4\xdf\xf6\xf8\xf6\xf8\xfb\xdf\xf8\xf8\xf8\xf5\xf5\xf8\xdc\xde\xf3\xf8\xf8\xf3\xfb\xdc\xdf\xf2\xdc\xfb\xf6\xf6\xdf\xf6\xf8\xdf\xf8"));
+rcv($sock_c, $port_c, rtpm(9, $seq + 10, $ts + 1600, $ssrc, "\xf8\xf6\xdc\xf6\xf8\xfb\xfb\xfb\xf5\xfb\xdc\xf5\xf8\xf8\xf8\xf8\xf5\xde\xf8\xf8\xf8\xf8\xf8\xf5\xfa\xdc\xf8\xf8\xf7\xfa\xf7\xf8\xde\xf7\xde\xf0\xf8\xf8\xf8\xde\xf3\xdc\xf5\xf3\xdf\xf8\xfa\xf5\xfb\xde\xf1\xf8\xdf\xf8\xf3\xf8\xdf\xf6\xf8\xfb\xfb\xf6\xfb\xdf\xf4\xfb\xdf\xf1\xf6\xdf\xfb\xf6\xf8\xdc\xf8\xf6\xdf\xf6\xf6\xf8\xfb\xdf\xf6\xdf\xf4\xf6\xf8\xfb\xdf\xf6\xdf\xf4\xf6\xf6\xfb\xdf\xf8\xdf\xf6\xf6\xf2\xfb\xdf\xfb\xdc\xfb\xf8\xf2\xf9\xf9\xdf\xfb\xfb\xfb\xf6\xf4\xf8\xdc\xdf\xf6\xf8\xf8\xf6\xf8\xfb\xdc\xf8\xf8\xfa\xfa\xf5\xf5\xde\xf5\xf5\xdf\xf8\xf3\xf8\xdf\xf4\xf6\xdc\xfb\xf6\xf6\xdf\xf6\xfb\xdf\xf6\xf8\xf6\xdc\xf8\xfb\xfb\xf8\xf8\xf8"));
+rcv($sock_c, $port_c, rtpm(9, $seq + 11, $ts + 1760, $ssrc, "\xfa\xde\xf1\xf8\xfa\xdc\xf5\xf5\xf8\xf8\xfa\xde\xf3\xf8\xf5\xfb\xdc\xfa\xfa\xf8\xf3\xfb\xdf\xf5\xfb\xde\xf3\xf6\xf6\xdc\xdf\xf8\xfb\xf8\xf4\xf4\xdf\xfb\xdf\xf4\xfb\xfb\xf6\xf8\xfb\xdc\xf8\xfa\xfa\xf8\xf3\xde\xf3\xda\xf4\xf6\xfb\xf8\xfb\xdf\xf8\xf8\xf8\xf8\xf8\xf5\xfa\xdc\xf5\xf5\xf8\xdc\xf8\xf3\xdf\xf0\xfb\xdf\xf8\xdc\xf4\xfb\xf6\xf6\xdf\xf8\xdc\xfb\xf8\xf5\xf6\xdf\xf2\xfb\xdc\xfb\xdf\xf4\xf8\xf6\xf8\xf8\xdf\xfb\xf8\xf8\xf8\xf5\xf8\xde\xf3\xf8\xfa\xde\xf1\xfb\xdf\xf6\xf6\xf8\xdf\xf8\xfb\xfa\xf8\xf3\xdf\xf6\xdf\xf6\xf8\xfb\xfb\xfa\xf8\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa"));
+rcv($sock_c, $port_c, rtpm(9, $seq + 12, $ts + 1920, $ssrc, "\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xde\xee\xd8\xf8\xf7\xdc\xf4\xdc\xef\xda\xf4\xfb\xda\xf0\xdd\xf3\xd8\xf6\xdf\xf9\xf4\xdf\xef\xd5\xf9\xf9\xf9\xf9\xf9\xf0\xdb\xf7\xda\xf3\xda\xf7\xf5\xde\xfa\xd9\xf5\xfc\xf8\xf6\xdc\xfb\xd7\xf1\xf7\xdc\xf7\xde\xfa\xd8\xf7\xf7\xde\xf7\xfe\xdc\xdb\xf4\xf4\xfe\xfa\xf7\xd8\xd7\xf2\xf3\xdc\xf9\xf5\xd9\xd5\xf5\xf1\xfb\xdc\xf8\xfc\xd6\xfb"));
+
+# push media
+snd($sock_a, $port_b, rtp (0, 1002, 3320, 0x1234, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3320, 0x1234, "\x44" x 160));
+snd($sock_b, $port_a, rtp (0, 8001, 10160, 0x2d8c, "\x55" x 160));
+rcv($sock_a, $port_b, rtpm(0, 8001, 10160, 0x2d8c, "\x55" x 160));
+rcv($sock_c, $port_c, rtpm(9, $seq + 13, $ts + 2080, $ssrc, "\xf1\xf6\xdb\xf8\xfc\xd7\xfb\xf3\xf6\xde\xfb\xdd\xd8\xfe\xf3\xf5\xfe\xdf\xfc\xda\xdf\xf1\xf4\xf8\xdf\xfc\xdc\xdd\xf5\xf6\xfb\xdf\xfb\xdf\xdf\xf8\xf4\xf6\xfe\xfe\x1e\x99\x2c\x87\x22\x84\x0b\xaf\xb5\xbb\x1f\xb9\x57\xd3\xfa\x74\xf6\xff\xff\xd9\xd3\x9f\x76\xf7\xfd\xfb\xdb\xd7\xda\xfb\xfc\xf8\xb6\x5e\xd8\xd6\xbe\x5e\xfc\xb6\x7d\xdd\xd8\xda\x9d\x5f\xf9\xbb\x5d\xdc\xda\xdd\x9b\x7c\xfb\x9d\x5e\xdf\xde\x9a\x5e\xfd\xfe\x9a\x7f\xdd\xda\xdc\xdd\xdf\xfe\xdb\x7c\x9d\xdb\xdf\xfe\x9b\x7e\x9b\xfc\x1e\x98\x36\x8a\x20\xa9\x4c\x99\x79\x7a\xd8\x7b\xf2\xff\xd9\xdf\xf9\xde\xfe\x79\xf8\xfd\xdf\xfc\xfd\xbe\x5f\xf8\x79\xfe\x9e\xfc\xfb\x5d\xff\xfb\xfe\xbe\xdf"));
+
+rtpe_req('delete', 'delete');
+
+
+
+
+($sock_a, $sock_b, $sock_c) = new_call([qw(198.51.100.4 4090)], [qw(198.51.100.4 4092)], [qw(198.51.100.4 4094)]);
+
+($port_a) = offer('mixed sub manual PCM', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4090 RTP/AVP 0 8
+c=IN IP4 198.51.100.4
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('mixed sub manual PCM', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4092 RTP/AVP 0
+c=IN IP4 198.51.100.4
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($cid, $ft, $port_c) = create('mixed sub manual', {
+	'audio player' => 'force',
+	'call-id' => cid(),
+}, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 203.0.113.1
+s=RTPE_VERSION
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+is($cid, cid(), 'same call');
+
+create_answer('mixed sub manual PCM', { 'from-tag' => $ft, 'audio player' => 'force', }, <<SDP);
+v=0
+o=- 111111111 22222222 IN IP4 203.0.113.1
+s=22222222
+t=0 0
+m=audio 4094 RTP/AVP 0
+c=IN IP4 198.51.100.4
+SDP
+
+
+# no media playback without subscriptions (XXX change this?)
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+snd($sock_a, $port_b, rtp (0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+snd($sock_b, $port_a, rtp (0, 8000, 10000, 0x2d8c, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 8000, 10000, 0x2d8c, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+snd($sock_c, $port_c, rtp (9, 8200, 10200, 0x2e54, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+
+# connect A side
+rtpe_req('connect', 'mixed sub manual PCM', {
+		'from-tag' => ft(),
+		'to-tag' => $ft,
+		flags => [qw,directional,],
+		'audio player' => 'force',
+});
+
+# player not active yet (no media)
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+# add media to start player
+snd($sock_a, $port_b, rtp (0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+($seq, $ts, $ssrc) = rcv($sock_c, $port_c, rtpm(0 | 0x80, -1, -1, -1, "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11"));
+
+# untriggered media
+rcv($sock_c, $port_c, rtpm(0, $seq +  1, $ts +  160, $ssrc, "\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\x11\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"));
+
+# catch up to the delay caused by rcv_no above
+rcv($sock_c, $port_c, rtpm(0, $seq +  2, $ts +  320, $ssrc, "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"));
+rcv($sock_c, $port_c, rtpm(0, $seq +  3, $ts +  480, $ssrc, "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"));
+rcv($sock_c, $port_c, rtpm(0, $seq +  4, $ts +  640, $ssrc, "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"));
+rcv($sock_c, $port_c, rtpm(0, $seq +  5, $ts +  800, $ssrc, "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"));
+rcv($sock_c, $port_c, rtpm(0, $seq +  6, $ts +  960, $ssrc, "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"));
+rcv($sock_c, $port_c, rtpm(0, $seq +  7, $ts + 1120, $ssrc, "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"));
+rcv($sock_c, $port_c, rtpm(0, $seq +  8, $ts + 1280, $ssrc, "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"));
+rcv($sock_c, $port_c, rtpm(0, $seq +  9, $ts + 1440, $ssrc, "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"));
+rcv($sock_c, $port_c, rtpm(0, $seq + 10, $ts + 1600, $ssrc, "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"));
+rcv($sock_c, $port_c, rtpm(0, $seq + 11, $ts + 1760, $ssrc, "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"));
+rcv($sock_c, $port_c, rtpm(0, $seq + 12, $ts + 1920, $ssrc, "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"));
+
+# push media
+snd($sock_a, $port_b, rtp (0, 1002, 3320, 0x1234, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3320, 0x1234, "\x44" x 160));
+snd($sock_b, $port_a, rtp (0, 8001, 10160, 0x2d8c, "\x55" x 160));
+rcv($sock_a, $port_b, rtpm(0, 8001, 10160, 0x2d8c, "\x55" x 160));
+rcv($sock_c, $port_c, rtpm(0, $seq + 13, $ts + 2080, $ssrc, "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44"));
+
+snd($sock_a, $port_b, rtp (0, 1003, 3480, 0x1234, "\x77" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1003, 3480, 0x1234, "\x77" x 160));
+snd($sock_b, $port_a, rtp (0, 8002, 10320, 0x2d8c, "\x99" x 160));
+rcv($sock_a, $port_b, rtpm(0, 8002, 10320, 0x2d8c, "\x99" x 160));
+rcv($sock_c, $port_c, rtpm(0, $seq + 14, $ts + 2240, $ssrc, "\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x44\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77"));
+
+# connect in B side
+rtpe_req('connect', 'mixed sub manual PCM', {
+		'from-tag' => tt(),
+		'to-tag' => $ft,
+		flags => [qw,directional,],
+		'audio player' => 'force',
+});
+
+snd($sock_a, $port_b, rtp (0, 1004, 3640, 0x1234, "\xbb" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1004, 3640, 0x1234, "\xbb" x 160));
+snd($sock_b, $port_a, rtp (0, 8003, 10480, 0x2d8c, "\x99" x 160));
+rcv($sock_a, $port_b, rtpm(0, 8003, 10480, 0x2d8c, "\x99" x 160));
+rcv($sock_c, $port_c, rtpm(0, $seq + 15, $ts + 2400, $ssrc, "\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x77\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94"));
+
+snd($sock_a, $port_b, rtp (0, 1005, 3800, 0x1234, "\xcc" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1005, 3800, 0x1234, "\xcc" x 160));
+snd($sock_b, $port_a, rtp (0, 8004, 10640, 0x2d8c, "\x99" x 160));
+rcv($sock_a, $port_b, rtpm(0, 8004, 10640, 0x2d8c, "\x99" x 160));
+rcv($sock_c, $port_c, rtpm(0, $seq + 16, $ts + 2560, $ssrc, "\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x94\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97"));
+
+snd($sock_a, $port_b, rtp (0, 1006, 3960, 0x1234, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1006, 3960, 0x1234, "\x44" x 160));
+snd($sock_b, $port_a, rtp (0, 8005, 10800, 0x2d8c, "\x99" x 160));
+rcv($sock_a, $port_b, rtpm(0, 8005, 10800, 0x2d8c, "\x99" x 160));
+rcv($sock_c, $port_c, rtpm(0, $seq + 17, $ts + 2720, $ssrc, "\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x97\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c"));
+
+snd($sock_a, $port_b, rtp (0, 1007, 4120, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1007, 4120, 0x1234, "\x11" x 160));
+snd($sock_b, $port_a, rtp (0, 8006, 10960, 0x2d8c, "\x99" x 160));
+rcv($sock_a, $port_b, rtpm(0, 8006, 10960, 0x2d8c, "\x99" x 160));
+rcv($sock_c, $port_c, rtpm(0, $seq +  18, $ts + 2880, $ssrc, "\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x9c\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f"));
+
+
+rtpe_req('delete', 'delete');
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.4 4070)], [qw(198.51.100.4 4072)]);
+
+($port_a) = offer('extended connect bidirectional', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4070 RTP/AVP 0 8
+c=IN IP4 198.51.100.4
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('extended connect bidirectional', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4072 RTP/AVP 0 8
+c=IN IP4 198.51.100.4
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$cid1 = cid();
+$ft = ft();
+$tt = tt();
+
+($sock_c, $sock_d) = new_call_nc([qw(198.51.100.4 4074)], [qw(198.51.100.4 4076)]);
+
+($port_c) = offer('extended connect bidirectional', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4074 RTP/AVP 0 8
+c=IN IP4 198.51.100.4
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_d) = answer('extended connect bidirectional', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4076 RTP/AVP 0 8
+c=IN IP4 198.51.100.4
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_a, $port_b, rtp (0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3000, 5000, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3000, 5000, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5000, 7000, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5000, 7000, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7000, 9000, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7000, 9000, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('connect', 'extended connect bidirectional', {
+		'from-tag' => ft(),
+		'to-tag' => $tt,
+		'to-call-id' => $cid1,
+		flags => [qw,directional bidirectional,],
+});
+
+
+snd($sock_a, $port_b, rtp (0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('connect', 'extended connect bidirectional', {
+		'from-tag' => ft(),
+		'to-tag' => $ft,
+		'to-call-id' => $cid1,
+		flags => [qw,directional bidirectional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1002, 3320, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3320, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1002, 3320, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3002, 5320, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3002, 5320, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3002, 5320, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5002, 7320, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5002, 7320, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5002, 7320, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5002, 7320, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7002, 9320, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7002, 9320, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('connect', 'extended connect bidirectional', {
+		'from-tag' => tt(),
+		'to-tag' => $ft,
+		'to-call-id' => $cid1,
+		flags => [qw,directional bidirectional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1003, 3480, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1003, 3480, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1003, 3480, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1003, 3480, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3003, 5480, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3003, 5480, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3003, 5480, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5003, 7480, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5003, 7480, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5003, 7480, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5003, 7480, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7003, 9480, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7003, 9480, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7003, 9480, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('connect', 'extended connect bidirectional', {
+		'from-tag' => tt(),
+		'to-tag' => $tt,
+		'to-call-id' => $cid1,
+		flags => [qw,directional bidirectional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1004, 3640, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1004, 3640, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1004, 3640, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1004, 3640, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3004, 5640, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3004, 5640, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3004, 5640, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3004, 5640, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5004, 7640, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5004, 7640, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5004, 7640, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5004, 7640, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7004, 9640, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7004, 9640, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7004, 9640, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7004, 9640, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+rtpe_req('connect', 'extended connect bidirectional', {
+		'from-tag' => $ft,
+		'to-tag' => ft(),
+		'to-call-id' => $cid1,
+		flags => [qw,directional bidirectional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1006, 3800, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1006, 3800, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1006, 3800, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1006, 3800, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3006, 5800, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3006, 5800, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3006, 5800, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3006, 5800, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5006, 7800, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5006, 7800, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5006, 7800, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5006, 7800, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7006, 9800, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7006, 9800, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7006, 9800, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7006, 9800, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+rtpe_req('connect', 'extended connect bidirectional', {
+		'from-tag' => $ft,
+		'to-tag' => tt(),
+		'to-call-id' => $cid1,
+		flags => [qw,directional bidirectional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1007, 3960, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1007, 3960, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1007, 3960, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1007, 3960, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3007, 5960, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3007, 5960, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3007, 5960, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3007, 5960, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5007, 7960, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5007, 7960, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5007, 7960, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5007, 7960, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7007, 9960, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7007, 9960, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7007, 9960, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7007, 9960, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('connect', 'extended connect bidirectional', {
+		'from-tag' => $tt,
+		'to-tag' => ft(),
+		'to-call-id' => $cid1,
+		flags => [qw,directional bidirectional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1008, 4120, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1008, 4120, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1008, 4120, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1008, 4120, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3008, 6120, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3008, 6120, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3008, 6120, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3008, 6120, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5008, 8120, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5008, 8120, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5008, 8120, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5008, 8120, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7008, 10120, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7008, 10120, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7008, 10120, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7008, 10120, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+rtpe_req('connect', 'extended connect bidirectional', {
+		'from-tag' => $tt,
+		'to-tag' => tt(),
+		'to-call-id' => $cid1,
+		flags => [qw,directional bidirectional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1009, 4440, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1009, 4440, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1009, 4440, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1009, 4440, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3009, 6440, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3009, 6440, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3009, 6440, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3009, 6440, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5009, 8440, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5009, 8440, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5009, 8440, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5009, 8440, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7009, 10440, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7009, 10440, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7009, 10440, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7009, 10440, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('unsubscribe', 'extended connect bidirectional', {
+		'from-tag' => tt(),
+		'to-tag' => $tt,
+		flags => [qw,directional bidirectional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1010, 4600, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1010, 4600, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1010, 4600, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1010, 4600, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3010, 6600, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3010, 6600, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3010, 6600, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5010, 8600, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5010, 8600, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5010, 8600, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5010, 8600, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7010, 10600, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7010, 10600, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7010, 10600, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+rtpe_req('unsubscribe', 'extended connect bidirectional', {
+		'from-tag' => ft(),
+		'to-tag' => $ft,
+		flags => [],
+});
+
+snd($sock_a, $port_b, rtp (0, 1011, 4760, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3011, 6760, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3011, 6760, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5011, 8760, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5011, 8760, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5011, 8760, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7011, 10760, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7011, 10760, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.4 4052)], [qw(198.51.100.4 4054)]);
+
+($port_a) = offer('extended connect', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4052 RTP/AVP 0 8
+c=IN IP4 198.51.100.4
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('extended connect', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4054 RTP/AVP 0 8
+c=IN IP4 198.51.100.4
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$cid1 = cid();
+$ft = ft();
+$tt = tt();
+
+($sock_c, $sock_d) = new_call_nc([qw(198.51.100.4 4056)], [qw(198.51.100.4 4058)]);
+
+($port_c) = offer('extended connect', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4056 RTP/AVP 0 8
+c=IN IP4 198.51.100.4
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_d) = answer('extended connect', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4058 RTP/AVP 0 8
+c=IN IP4 198.51.100.4
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_a, $port_b, rtp (0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3000, 5000, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3000, 5000, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5000, 7000, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5000, 7000, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7000, 9000, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7000, 9000, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('connect', 'extended connect', {
+		'from-tag' => ft(),
+		'to-tag' => $tt,
+		'to-call-id' => $cid1,
+		flags => [qw,directional,],
+});
+
+
+snd($sock_a, $port_b, rtp (0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('connect', 'extended connect', {
+		'from-tag' => ft(),
+		'to-tag' => $ft,
+		'to-call-id' => $cid1,
+		flags => [qw,directional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1002, 3320, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3320, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3002, 5320, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3002, 5320, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5002, 7320, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5002, 7320, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5002, 7320, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5002, 7320, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7002, 9320, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7002, 9320, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('connect', 'extended connect', {
+		'from-tag' => tt(),
+		'to-tag' => $ft,
+		'to-call-id' => $cid1,
+		flags => [qw,directional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1003, 3480, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1003, 3480, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3003, 5480, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3003, 5480, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5003, 7480, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5003, 7480, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5003, 7480, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5003, 7480, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7003, 9480, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7003, 9480, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7003, 9480, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('connect', 'extended connect', {
+		'from-tag' => tt(),
+		'to-tag' => $tt,
+		'to-call-id' => $cid1,
+		flags => [qw,directional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1004, 3640, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1004, 3640, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3004, 5640, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3004, 5640, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5004, 7640, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5004, 7640, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5004, 7640, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5004, 7640, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7004, 9640, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7004, 9640, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7004, 9640, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7004, 9640, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+rtpe_req('connect', 'extended connect', {
+		'from-tag' => $ft,
+		'to-tag' => ft(),
+		'to-call-id' => $cid1,
+		flags => [qw,directional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1006, 3800, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1006, 3800, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1006, 3800, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3006, 5800, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3006, 5800, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5006, 7800, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5006, 7800, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5006, 7800, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5006, 7800, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7006, 9800, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7006, 9800, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7006, 9800, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7006, 9800, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+rtpe_req('connect', 'extended connect', {
+		'from-tag' => $ft,
+		'to-tag' => tt(),
+		'to-call-id' => $cid1,
+		flags => [qw,directional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1007, 3960, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1007, 3960, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1007, 3960, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1007, 3960, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3007, 5960, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3007, 5960, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5007, 7960, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5007, 7960, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5007, 7960, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5007, 7960, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7007, 9960, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7007, 9960, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7007, 9960, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7007, 9960, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('connect', 'extended connect', {
+		'from-tag' => $tt,
+		'to-tag' => ft(),
+		'to-call-id' => $cid1,
+		flags => [qw,directional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1008, 4120, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1008, 4120, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1008, 4120, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1008, 4120, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3008, 6120, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3008, 6120, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3008, 6120, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5008, 8120, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5008, 8120, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5008, 8120, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5008, 8120, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7008, 10120, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7008, 10120, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7008, 10120, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7008, 10120, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+rtpe_req('connect', 'extended connect', {
+		'from-tag' => $tt,
+		'to-tag' => tt(),
+		'to-call-id' => $cid1,
+		flags => [qw,directional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1009, 4440, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1009, 4440, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1009, 4440, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1009, 4440, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3009, 6440, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3009, 6440, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3009, 6440, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3009, 6440, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5009, 8440, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5009, 8440, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5009, 8440, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5009, 8440, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7009, 10440, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7009, 10440, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7009, 10440, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7009, 10440, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+rtpe_req('unsubscribe', 'extended connect', {
+		'from-tag' => tt(),
+		'to-tag' => $tt,
+		flags => [qw,directional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1010, 4600, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1010, 4600, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1010, 4600, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1010, 4600, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3010, 6600, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3010, 6600, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3010, 6600, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3010, 6600, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5010, 8600, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5010, 8600, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5010, 8600, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5010, 8600, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7010, 10600, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7010, 10600, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7010, 10600, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+rtpe_req('unsubscribe', 'extended connect', {
+		'from-tag' => ft(),
+		'to-tag' => $ft,
+		flags => [],
+});
+
+snd($sock_a, $port_b, rtp (0, 1011, 4760, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3011, 6760, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3011, 6760, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3011, 6760, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5011, 8760, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5011, 8760, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5011, 8760, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7011, 10760, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7011, 10760, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.4 4036)], [qw(198.51.100.4 4038)]);
+
+($port_a) = offer('extended connect control', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4036 RTP/AVP 0 8
+c=IN IP4 198.51.100.4
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('extended connect control', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4038 RTP/AVP 0 8
+c=IN IP4 198.51.100.4
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$cid1 = cid();
+$ft = ft();
+$tt = tt();
+
+($sock_c, $sock_d) = new_call_nc([qw(198.51.100.4 4040)], [qw(198.51.100.4 4042)]);
+
+($port_c) = offer('extended connect control', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4040 RTP/AVP 0 8
+c=IN IP4 198.51.100.4
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_d) = answer('extended connect control', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4042 RTP/AVP 0 8
+c=IN IP4 198.51.100.4
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_a, $port_b, rtp (0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3000, 5000, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3000, 5000, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5000, 7000, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5000, 7000, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7000, 9000, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7000, 9000, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('connect', 'extended connect control', { 'from-tag' => ft(), 'to-tag' => $tt, 'to-call-id' => $cid1 });
+
+
+snd($sock_a, $port_b, rtp (0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+
+
 ($sock_a) = new_call([qw(198.51.100.16 5000)]);
 
 ($cid, $ft, $port_a) = create('basic', { }, <<SDP);
