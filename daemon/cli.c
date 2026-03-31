@@ -690,7 +690,13 @@ static void cli_list_call_info(struct cli_writer *cw, call_t *c) {
 
 	cw->cw_printf(cw,
 			 "\n"
-			 "callid: %s\n"
+			 "callid: " STR_FORMAT "\n",
+			 STR_FMT(&c->callid));
+
+	for (auto_iter(l, c->callid_aliases.head); l; l = l->next)
+		cw->cw_printf(cw, "alias: " STR_FORMAT "\n", STR_FMT(l->data));
+
+	cw->cw_printf(cw,
 			 "deletionmark: %s\n"
 			 "created: %" PRId64 "\n"
 			 "proxy: " STR_FORMAT "\n"
@@ -701,7 +707,7 @@ static void cli_list_call_info(struct cli_writer *cw, call_t *c) {
 			 "foreign: %s\n"
 			 "recording: %s\n"
 			 "\n",
-			 c->callid.s, c->ml_deleted_us ? "yes" : "no", c->created / 1000000,
+			 c->ml_deleted_us ? "yes" : "no", c->created / 1000000,
 			 STR_FMT(&c->created_from),
 			 (unsigned int) c->tos, c->last_signal_us / 1000000L, c->redis_hosted_db,
 			 atomic64_get_na(&c->last_redis_update_us),
