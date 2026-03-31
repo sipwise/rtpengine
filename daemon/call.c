@@ -4876,10 +4876,10 @@ void dialogue_connect(struct call_monologue *src_ml, struct call_monologue *dst_
 
 		media_set_audio_player(dst_media, flags);
 
-		codec_handlers_update(src_media, dst_media,
-				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
-		codec_handlers_update(dst_media, src_media,
-				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
+		codec_update_media_source_handlers(dst_media);
+		codec_update_media_source_handlers(src_media);
+		codec_update_media_handlers(src_media);
+		codec_update_media_handlers(dst_media);
 
 		update_init_subscribers(src_media, NULL, NULL, flags->opmode);
 		__update_init_medias(&medias, flags->opmode);
