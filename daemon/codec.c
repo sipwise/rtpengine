@@ -1502,13 +1502,7 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	bool use_audio_player = !!MEDIA_ISSET(sink, AUDIO_PLAYER);
 	bool implicit_audio_player = false;
 
-	if (a.flags && a.flags->audio_player == AP_FORCE)
-		use_audio_player = true;
-	else if (a.flags && a.flags->audio_player == AP_OFF)
-		use_audio_player = false;
-	else if (rtpe_config.use_audio_player == UAP_ALWAYS)
-		use_audio_player = true;
-	else if (rtpe_config.use_audio_player == UAP_PLAY_MEDIA) {
+	if (rtpe_config.use_audio_player == UAP_PLAY_MEDIA) {
 		// check for implicitly enabled player
 		if ((a.flags && a.flags->opmode == OP_PLAY_MEDIA) || (media_player_is_active(other_monologue))) {
 			use_audio_player = true;

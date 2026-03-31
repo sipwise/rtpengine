@@ -3095,6 +3095,14 @@ static void media_set_extmap(struct call_media *media, const extmap_q *emq,
 }
 
 __attribute__((nonnull(1, 2)))
+static void media_set_audio_player(struct call_media *media, sdp_ng_flags *flags) {
+	if (flags->audio_player == AP_FORCE || rtpe_config.use_audio_player == UAP_ALWAYS)
+		MEDIA_SET(media, AUDIO_PLAYER);
+	else if (flags->audio_player == AP_OFF)
+		MEDIA_CLEAR(media, AUDIO_PLAYER);
+}
+
+__attribute__((nonnull(1, 2)))
 static void media_init_from_flags(struct call_media *media, sdp_ng_flags *flags) {
 	if (flags->opmode == OP_OFFER && flags->reset) {
 		MEDIA_CLEAR(media, INITIALIZED);
@@ -3870,6 +3878,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 
 		media_init_from_flags(sender_media, flags);
 		media_init_from_flags(receiver_media, flags);
+		media_set_audio_player(sender_media, flags);
 		media_set_echo(sender_media, flags);
 		media_set_echo_reverse(receiver_media, flags);
 		if (media_update_type(sender_media, sp))
@@ -4318,6 +4327,7 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		struct call_media *media = __get_media(ml, sp, flags, 0, mid_tracker);
 
 		media_init_from_flags(media, flags);
+		media_set_audio_player(media, flags);
 		media_update_type(media, sp);
 		media_update_protocol(media, sp);
 		media_update_media_id(media, sp);
@@ -4425,6 +4435,7 @@ static int monologue_subscribe_request1(struct call_media *src_media, struct cal
 
 	media_init_from_flags(src_media, flags);
 	media_init_from_flags(dst_media, flags);
+	media_set_audio_player(dst_media, flags);
 	media_set_echo(src_media, flags);
 	media_set_echo_reverse(dst_media, flags);
 	media_set_siprec_label(dst_media, flags, src_media->unique_id);
@@ -4536,6 +4547,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 			rev_ms->attrs.transcoding = false;
 
 		media_init_from_flags(dst_media, flags);
+		media_set_audio_player(dst_media, flags);
 		media_update_protocol(dst_media, sp);
 		media_answer_media_id(dst_media, sp);
 		media_loop_protect(sp, dst_media);
@@ -4861,6 +4873,8 @@ void dialogue_connect(struct call_monologue *src_ml, struct call_monologue *dst_
 		__subscribe_medias_both_ways(src_media, dst_media, false, &medias);
 
 		__medias_unconfirm(&medias, "connect");
+
+		media_set_audio_player(dst_media, flags);
 
 		codec_handlers_update(src_media, dst_media,
 				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
