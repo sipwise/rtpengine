@@ -251,6 +251,9 @@ void __codec_update_all_source_handlers(struct call_monologue *ml, struct chu_ar
 #define codec_update_all_source_handlers(r, ...) \
 	__codec_update_all_source_handlers(r, (struct chu_args) {__VA_ARGS__})
 
+__attribute__((nonnull(1)))
+void codec_update_medias_handlers(const medias_q *);
+
 bool codec_handler_transform(struct call_media *r, ng_codecs_q *);
 
 #ifdef WITH_TRANSCODING

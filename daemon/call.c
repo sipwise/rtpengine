@@ -4873,6 +4873,7 @@ void dialogue_connect(struct call_monologue *src_ml, struct call_monologue *dst_
 		__subscribe_medias_both_ways(src_media, dst_media, false, &medias);
 
 		__medias_unconfirm(&medias, "connect");
+		codec_update_medias_handlers(&medias);
 
 		media_set_audio_player(dst_media, flags);
 

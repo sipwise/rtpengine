@@ -4964,6 +4964,13 @@ void __codec_update_all_source_handlers(struct call_monologue *ml, struct chu_ar
 	}
 }
 
+void codec_update_medias_handlers(const medias_q *medias) {
+	for (auto_iter(l, medias->head); l; l = l->next) {
+		codec_update_media_source_handlers(l->data);
+		codec_update_media_handlers(l->data);
+	}
+}
+
 
 void codec_calc_jitter(struct ssrc_entry_call *ssrc, unsigned long ts, unsigned int clockrate, int64_t tv) {
 	if (!ssrc || !clockrate)
