@@ -159,8 +159,6 @@ struct codec_handler *codec_handler_make_media_player(const rtp_payload_type *sr
 struct codec_handler *codec_handler_make_dummy(const rtp_payload_type *dst_pt, struct call_media *media,
 		str_case_value_ht codec_set);
 void codec_calc_jitter(struct ssrc_entry_call *, unsigned long ts, unsigned int clockrate, int64_t);
-void codec_update_all_handlers(struct call_monologue *ml);
-void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_flags *flags, bool clear_delay_buffer);
 
 struct codec_store_args {
 	str_case_value_ht codec_set;
@@ -238,6 +236,20 @@ struct chu_args {
 };
 #define codec_handlers_update(r, s, ...) \
 	__codec_handlers_update(r, s, (struct chu_args) {__VA_ARGS__})
+
+__attribute__((nonnull(1)))
+void codec_update_media_handlers(struct call_media *);
+__attribute__((nonnull(1)))
+void __codec_update_media_source_handlers(struct call_media *, struct chu_args);
+__attribute__((nonnull(1)))
+void codec_update_all_handlers(struct call_monologue *ml);
+__attribute__((nonnull(1)))
+void __codec_update_all_source_handlers(struct call_monologue *ml, struct chu_args);
+
+#define codec_update_media_source_handlers(r, ...) \
+	__codec_update_media_source_handlers(r, (struct chu_args) {__VA_ARGS__})
+#define codec_update_all_source_handlers(r, ...) \
+	__codec_update_all_source_handlers(r, (struct chu_args) {__VA_ARGS__})
 
 bool codec_handler_transform(struct call_media *r, ng_codecs_q *);
 

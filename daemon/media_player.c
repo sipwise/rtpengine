@@ -1673,7 +1673,7 @@ const char * call_play_media_for_ml(struct call_monologue *ml,
 {
 #ifdef WITH_TRANSCODING
 	/* if mixing is enabled, codec handlers of all sources must be updated */
-	codec_update_all_source_handlers(ml, flags, true);
+	codec_update_all_source_handlers(ml, .flags = flags, .clear_delay_buffer = true);
 
 	/* this starts the audio player if needed */
 	update_init_monologue_subscribers(ml, OP_PLAY_MEDIA);
@@ -1706,7 +1706,7 @@ long long call_stop_media_for_ml(struct call_monologue *ml)
 #ifdef WITH_TRANSCODING
 	long long ret = media_player_stop(ml->player);
 	/* restore to non-mixing if needed */
-	codec_update_all_source_handlers(ml, NULL, false);
+	codec_update_all_source_handlers(ml);
 	update_init_monologue_subscribers(ml, OP_STOP_MEDIA);
 	/* mark MoH as already not used (it can be unset now) */
 	ml->player->opts.moh = 0;
@@ -2052,7 +2052,7 @@ static void media_player_run(void *ptr) {
 		if (mp->opts.block_egress)
 			MEDIA_CLEAR(mp->media, BLOCK_EGRESS);
 
-		codec_update_all_source_handlers(mp->media->monologue, NULL, false);
+		codec_update_all_source_handlers(mp->media->monologue);
 		update_init_monologue_subscribers(mp->media->monologue, OP_PLAY_MEDIA);
 
 		rwlock_unlock_w(&call->master_lock);

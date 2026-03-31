@@ -4919,44 +4919,55 @@ static void __buffer_delay_raw(struct delay_buffer *dbuf, struct codec_handler *
 #endif
 
 
-void codec_update_all_handlers(struct call_monologue *ml) {
-	for (int i = 0; i < ml->medias->len; i++)
-	{
-		struct call_media * source_media = ml->medias->pdata[i];
-		if (!source_media)
-			continue;
+void codec_update_media_handlers(struct call_media *source_media) {
+	IQUEUE_FOREACH(&source_media->media_subscribers, ms) {
+		struct call_media *sink_media = ms->media;
 
-		IQUEUE_FOREACH(&source_media->media_subscribers, ms) {
-			struct call_media *sink_media = ms->media;
-
-			if (!sink_media)
-				continue;
-
-			codec_handlers_update(source_media, sink_media);
-		}
-	}
-
-	dialogue_unconfirm(ml, "updating codec handlers");
-}
-void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_flags *flags, bool clear_delay_buffer) {
-
-	for (int i = 0; i < ml->medias->len; i++)
-	{
-		struct call_media * sink_media = ml->medias->pdata[i];
 		if (!sink_media)
 			continue;
 
-		IQUEUE_FOREACH(&sink_media->media_subscriptions, ms) {
-			struct call_media *source_media = ms->media;
+		codec_handlers_update(source_media, sink_media);
 
-			if (!source_media)
-				continue;
-
-			codec_handlers_update(source_media, sink_media, .flags = flags, .clear_delay_buffer = clear_delay_buffer);
-		}
+		__media_unconfirm(sink_media, "updating codec handlers");
 	}
 
-	dialogue_unconfirm(ml, "updating codec source handlers");
+	__media_unconfirm(source_media, "updating codec handlers");
+}
+
+void codec_update_all_handlers(struct call_monologue *ml) {
+	for (int i = 0; i < ml->medias->len; i++)
+	{
+		struct call_media *source_media = ml->medias->pdata[i];
+		if (!source_media)
+			continue;
+
+		codec_update_media_handlers(source_media);
+	}
+}
+
+void __codec_update_media_source_handlers(struct call_media *sink_media, struct chu_args a) {
+	IQUEUE_FOREACH(&sink_media->media_subscriptions, ms) {
+		struct call_media *source_media = ms->media;
+
+		if (!source_media)
+			continue;
+
+		__codec_handlers_update(source_media, sink_media, a);
+		__media_unconfirm(source_media, "updating codec source handlers");
+	}
+
+	__media_unconfirm(sink_media, "updating codec source handlers");
+}
+
+void __codec_update_all_source_handlers(struct call_monologue *ml, struct chu_args a) {
+	for (int i = 0; i < ml->medias->len; i++)
+	{
+		struct call_media *sink_media = ml->medias->pdata[i];
+		if (!sink_media)
+			continue;
+
+		__codec_update_media_source_handlers(sink_media, a);
+	}
 }
 
 
