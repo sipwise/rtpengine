@@ -758,8 +758,8 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 			if (!sub_media)
 				continue;
 
-			cw->cw_printf(cw, "---     subscribed to media with monologue tag '" STR_FORMAT_M "' (index: %d)\n",
-					STR_FMT_M(&ms->monologue->tag), sub_media->index);
+			cw->cw_printf(cw, "---     subscribed to media with monologue tag '" STR_FORMAT "' (index: %d)\n",
+					STR_FMT(&ms->monologue->tag), sub_media->index);
 		}
 
 		IQUEUE_FOREACH(&media->media_subscribers, ms) {
@@ -767,8 +767,8 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 			if (!sub_media)
 				continue;
 
-			cw->cw_printf(cw, "---     subscription of media with monologue tag '" STR_FORMAT_M "' (index: %d)\n",
-					STR_FMT_M(&ms->monologue->tag), sub_media->index);
+			cw->cw_printf(cw, "---     subscription of media with monologue tag '" STR_FORMAT "' (index: %d)\n",
+					STR_FMT(&ms->monologue->tag), sub_media->index);
 		}
 	}
 
