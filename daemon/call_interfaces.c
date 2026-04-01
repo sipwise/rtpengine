@@ -4423,18 +4423,13 @@ static const char *call_inject_ng(ng_command_ctx_t *ctx, bool start) {
 	if (!parser->dict_get_str(input, "source-call-id", &source_call_id))
 		source_call_id = flags.call_id;
 
-	if (str_cmp_str(&source_call_id, &flags.call_id)) {
-		call_get2_ret_t ret = call_get2(&call, &call2, &flags.call_id, &source_call_id);
-		if (ret == CG2_NF1)
-			return "Unknown call-ID";
-		if (ret == CG2_NF2)
-			return "Unknown source call-ID";
-	}
-	else {
-		call = call_get(&flags.call_id);
-		if (!call)
-			return "Unknown call-ID";
-	}
+	call = call_get(&flags.call_id);
+	if (!call)
+		return "Unknown call-ID";
+
+	call2 = call_get2(call, &source_call_id);
+	if (!call2)
+		return "Unknown source call-ID";
 
 	struct call_monologue *dst_ml = call_get_monologue(call, &flags.to_tag);
 	if (!dst_ml)
@@ -4447,10 +4442,9 @@ static const char *call_inject_ng(ng_command_ctx_t *ctx, bool start) {
 	if (src_ml == dst_ml)
 		return "Trying to inject to self";
 
-	if (call2) {
-		if (!call_merge(call, &call2))
-			return "Failed to merge two calls into one";
-	}
+	if (!call_merge(call, call2))
+		return "Failed to merge two calls into one";
+	call2 = NULL;
 
 	int ret = start
 		? monologue_inject_start(src_ml, dst_ml, &flags)
@@ -4485,34 +4479,32 @@ const char *call_connect_ng(ng_command_ctx_t *ctx) {
 	if (!flags.to_tag.s)
 		return "No to-tag in message";
 
-	if (flags.to_call_id.s) {
-		call_get2_ret_t ret = call_get2(&call, &call2, &flags.call_id, &flags.to_call_id);
-		if (ret == CG2_NF1)
-			return "Unknown call-ID";
-		if (ret == CG2_NF2)
+	call = call_get(&flags.call_id);
+	if (!call)
+		return "Unknown call-ID";
+
+	if (flags.to_call_id.len) {
+		call2 = call_get2(call, &flags.to_call_id);
+		if (!call2)
 			return "Unknown to-tag call-ID";
 	}
-	else {
-		call = call_get(&flags.call_id);
-		if (!call)
-			return "Unknown call-ID";
-	}
+	else
+		call2 = obj_get(call);
 
 	struct call_monologue *src_ml = call_get_or_create_monologue(call, &flags.from_tag);
 	if (!src_ml)
 		return "From-tag not found";
 
-	struct call_monologue *dest_ml = call_get_or_create_monologue(call2 ?: call, &flags.to_tag);
+	struct call_monologue *dest_ml = call_get_or_create_monologue(call2, &flags.to_tag);
 	if (!dest_ml)
 		return "To-tag not found";
 
 	if (src_ml == dest_ml)
 		return "Trying to connect to self"; // XXX should this be allowed?
 
-	if (call2) {
-		if (!call_merge(call, &call2))
-			return "Failed to merge two calls into one";
-	}
+	if (!call_merge(call, call2))
+		return "Failed to merge two calls into one";
+	call2 = NULL; // reference released
 
 	dialogue_connect(src_ml, dest_ml, &flags);
 

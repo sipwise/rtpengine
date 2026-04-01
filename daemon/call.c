@@ -5501,44 +5501,33 @@ call_t *call_get(const str *callid) {
 	return ret;
 }
 
-// special version of call_get() to get two calls while avoiding deadlock
-call_get2_ret_t call_get2(call_t **ret1, call_t **ret2, const str *callid1, const str *callid2) {
-	call_get2_ret_t ret;
+// obtain a reference to a second call while holding a lock to another call
+// may intermittently release lock on the first call!
+// return return another reference to the same call
+call_t *call_get2(call_t *call1, const str *callid2) {
+	call_t *ret;
 
 	while (true) {
 		RWLOCK_R(&rtpe_callhash_lock);
 
-		*ret1 = t_hash_table_lookup(rtpe_callhash, callid1);
-		if (!*ret1)
-			return CG2_NF1;
-		*ret2 = t_hash_table_lookup(rtpe_callhash, callid2);
-		if (!*ret2)
-			return CG2_NF2;
+		ret = t_hash_table_lookup(rtpe_callhash, callid2);
+		if (!ret)
+			return NULL;
 
-		if (*ret1 == *ret2) {
-			*ret2 = NULL;
-			ret = CG2_SAME;
-			rwlock_lock_w(&(*ret1)->master_lock);
-			obj_hold(*ret1);
-		}
-		else {
-			rwlock_lock_w(&(*ret1)->master_lock);
-			if (rwlock_trylock_w(&(*ret2)->master_lock)) {
-				// try again
-				rwlock_unlock_w(&(*ret1)->master_lock);
-				continue;
-			}
-
-			ret = CG2_OK;
-			obj_hold(*ret1);
-			obj_hold(*ret2);
+		if (ret == call1) {
+			obj_hold(ret);
+			return ret;
 		}
 
-		break;
+		if (!rwlock_trylock_w(&ret->master_lock)) {
+			obj_hold(ret);
+			return ret;
+		}
+
+		// try again after releasing lock
+		rwlock_unlock_w(&call1->master_lock);
+		rwlock_lock_w(&call1->master_lock);
 	}
-
-	log_info_call(*ret1);
-	return ret;
 }
 
 static gboolean fragment_move(str *key, fragment_q *q, void *c) {
@@ -5547,9 +5536,15 @@ static gboolean fragment_move(str *key, fragment_q *q, void *c) {
 	return TRUE;
 }
 
-// both calls must be locked and a reference held. call2 will be released and set to NULL upon return
-bool call_merge(call_t *call, call_t **call2p) {
-	call_t *call2 = *call2p;
+// both calls must be locked and a reference held. call2 reference will be released if successful
+bool call_merge(call_t *call, call_t *call2) {
+	if (!call2)
+		return true;
+
+	if (call == call2) {
+		obj_put(call2);
+		return true;
+	}
 
 	// chcek for tag collisions: duplicate tags are a failure
 	for (auto_iter(l, call2->monologues.head); l; l = l->next) {
@@ -5650,7 +5645,6 @@ bool call_merge(call_t *call, call_t **call2p) {
 
 	rwlock_unlock_w(&call2->master_lock);
 	obj_release(call2);
-	*call2p = NULL;
 
 	return true;
 }

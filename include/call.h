@@ -881,11 +881,10 @@ struct call_media *call_make_transform_media(struct call_monologue *ml, const st
 		const str *media_id, const endpoint_t *remote, const str *interface);
 __attribute__((nonnull(1)))
 call_t *call_get(const str *callid);
-typedef enum { CG2_OK, CG2_NF1, CG2_NF2, CG2_SAME } call_get2_ret_t;
-__attribute__((nonnull(1, 2, 3, 4)))
-call_get2_ret_t call_get2(call_t **, call_t **, const str *, const str *);
 __attribute__((nonnull(1, 2)))
-bool call_merge(call_t *, call_t **);
+call_t *call_get2(call_t *, const str *);
+__attribute__((nonnull(1)))
+bool call_merge(call_t *, call_t *);
 __attribute__((nonnull(2, 3)))
 int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *streams, sdp_ng_flags *flags);
 __attribute__((nonnull(1, 2, 3, 4)))
