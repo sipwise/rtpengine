@@ -1073,6 +1073,8 @@ static rtp_payload_type *__supp_payload_type(GHashTable *supplemental_sinks, int
 	return pt;
 }
 
+#endif
+
 static int __unused_pt_number(struct call_media *media, struct call_media *other_media,
 		struct codec_store *extra_cs,
 		rtp_payload_type *pt)
@@ -1110,6 +1112,8 @@ next:
 	}
 	return num;
 }
+
+#ifdef WITH_TRANSCODING
 
 static void __check_dtmf_injector(struct call_media *receiver, struct call_media *sink,
 		struct codec_handler *parent,
@@ -5164,7 +5168,6 @@ err2:
 }
 
 
-#ifdef WITH_TRANSCODING
 
 static rtp_payload_type *codec_add_payload_type_pt(rtp_payload_type *pt, struct call_media *media,
 		struct call_media *other_media, struct codec_store *extra_cs)
@@ -5183,6 +5186,9 @@ static rtp_payload_type *codec_add_payload_type_pt(rtp_payload_type *pt, struct 
 
 	return pt;
 }
+
+#ifdef WITH_TRANSCODING
+
 static rtp_payload_type *codec_add_payload_type(const str *codec, struct call_media *media,
 		struct call_media *other_media, struct codec_store *extra_cs)
 {
@@ -5190,11 +5196,7 @@ static rtp_payload_type *codec_add_payload_type(const str *codec, struct call_me
 	return codec_add_payload_type_pt(pt, media, other_media, extra_cs);
 }
 
-
-
 #endif
-
-
 
 
 
@@ -6096,14 +6098,15 @@ void codec_store_track(struct codec_store *cs, const str_q *q) {
 #endif
 }
 
-void codec_store_transcode(struct codec_store *cs, const str_q *offer, struct codec_store *orig) {
-#ifdef WITH_TRANSCODING
+__attribute__((nonnull(1, 2)))
+static void codec_store_add_q(struct codec_store *cs, const str_q *offer, struct codec_store *orig,
+		struct rtp_payload_type *(*make_pt)(const str *codec_str, struct call_media *media))
+{
 	// special case of codec_store_offer(): synthesise codecs that were not already present
-	for (__auto_type l = offer->head; l; l = l->next) {
+	for (auto_iter(l, offer->head); l; l = l->next) {
 		str *codec = l->data;
 		// parse out given codec string
-		g_autoptr(rtp_payload_type) pt
-			= codec_make_payload_type_sup(codec, cs->media);
+		g_autoptr(rtp_payload_type) pt = make_pt(codec, cs->media);
 
 		// find matching existing PT if one exists
 		rtp_payload_type *pt_match = NULL;
@@ -6114,7 +6117,7 @@ void codec_store_transcode(struct codec_store *cs, const str_q *offer, struct co
 					STR_FMT(codec), pt_match->payload_type);
 			continue;
 		}
-		GQueue *orig_list = t_hash_table_lookup(orig->codec_names, codec);
+		GQueue *orig_list = orig ? t_hash_table_lookup(orig->codec_names, codec) : NULL;
 		if (!orig_list || !orig_list->length || cs->strip_full) {
 			ilogs(codec, LOG_DEBUG, "Adding codec " STR_FORMAT
 					" for transcoding",
@@ -6146,8 +6149,8 @@ void codec_store_transcode(struct codec_store *cs, const str_q *offer, struct co
 		// XXX duplicate code
 		for (GList *k = orig_list->head; k; k = k->next) {
 			int pt_num = GPOINTER_TO_INT(k->data);
-			rtp_payload_type *orig_pt = t_hash_table_lookup(orig->codecs,
-					GINT_TO_POINTER(pt_num));
+			rtp_payload_type *orig_pt = orig ? t_hash_table_lookup(orig->codecs,
+					GINT_TO_POINTER(pt_num)) : NULL;
 			if (!orig_pt) {
 				ilogs(codec, LOG_DEBUG, "PT %i missing for offering " STR_FORMAT, pt_num,
 						STR_FMT(codec));
@@ -6175,6 +6178,11 @@ void codec_store_transcode(struct codec_store *cs, const str_q *offer, struct co
 			codec_store_add_order(cs, orig_pt);
 		}
 	}
+}
+
+void codec_store_transcode(struct codec_store *cs, const str_q *offer, struct codec_store *orig) {
+#ifdef WITH_TRANSCODING
+	codec_store_add_q(cs, offer, orig, codec_make_payload_type_sup);
 #endif
 }
 
