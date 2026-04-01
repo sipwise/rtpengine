@@ -1050,6 +1050,9 @@ Spaces in each string may be replaced by hyphens.
     For `publish` messages, support bidirectional media flow, i.e. don't
     respond with `recvonly` media but instead respond with `sendrecv`.
 
+    For `connect` messages, in addition to `directional` sets up media flow in
+    both directions.
+
 * `block DTMF`
 
     Useful in `offer` or `answer` messages to immdiately enable DTMF blocking
@@ -1087,6 +1090,9 @@ Spaces in each string may be replaced by hyphens.
     ignore a given `from-tag` by default, in order to support easy operation
     against controlling agents which always insert one. Adding this flags makes
     *rtpengine* honour the `from-tag`.
+
+    For `connect` messages, sets up additional media subscriptions instead of
+    doing a full transfer.
 
 * `discard recording`
 
@@ -2691,9 +2697,9 @@ Example:
 This message makes it possible to directly connect the media of two call parties
 without the need for a full offer/answer exchange. The required keys are
 `call-id` to identify the call, and `from-tag and `to-tag` to identify the two
-call parties to connect. The media will be connected in the same way as it
-would through an offer/answer exchange. Transcoding will automatically be
-engaged if needed.
+call parties to connect. By default, the media will be connected in the same
+way as it would through an offer/answer exchange. Transcoding will
+automatically be engaged if needed.
 
 It's also possible to connect two call parties from two different calls
 (different call IDs). To do so, the second call ID must be given as
@@ -2702,6 +2708,12 @@ that second call. Internally, both calls will be merged into a single call
 object, with both call IDs then corresponding to the same call. This will be
 visible in certain statistics (e.g. two call IDs appearing in the list, but
 only one call being counted).
+
+Adding the flag `directional` changes the behaviour from doing a full call transfer (similar to an offer/answer) to only setting up additional media subscriptions. In this mode, `connect` instructs *rtpengine* that (a copy of the) media received from the call party identified by the `from-tag` shall also be delivered to the call party identified by the `to-tag`. Other existing media subscriptions are not affected.
+
+In addition to `directional`, the flag `bidirectional` can be set to set up
+subscriptions not just from the `from-tag` to the `to-tag`, but also in the
+other direction at the same time.
 
 ## `create` and `create answer` Messages
 
