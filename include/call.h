@@ -891,16 +891,21 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 __attribute__((nonnull(1, 2, 3, 4)))
 void codecs_offer_answer(struct call_media *media, struct call_media *other_media,
 		struct stream_params *sp, sdp_ng_flags *flags);
+__attribute__((nonnull(1, 2, 3)))
 int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_flags *flags);
+__attribute__((nonnull(1, 2, 3)))
 int monologue_subscribe_request(const subscription_q *srms, struct call_monologue *dst, sdp_ng_flags *flags);
+__attribute__((nonnull(1, 2, 3)))
 int monologue_subscribe_answer(struct call_monologue *dst, sdp_ng_flags *flags,
 		sdp_streams_q *streams);
+__attribute__((nonnull(1, 2)))
 int monologue_unsubscribe(struct call_monologue *dst, sdp_ng_flags *);
 int monologue_inject_start(struct call_monologue *src, struct call_monologue *dst,
 		sdp_ng_flags *flags);
 int monologue_inject_stop(struct call_monologue *src, struct call_monologue *dst,
 		sdp_ng_flags *flags);
 void dialogue_connect(struct call_monologue *, struct call_monologue *, sdp_ng_flags *);
+__attribute__((nonnull(1, 2, 3)))
 bool monologue_transform(struct call_monologue *, sdp_ng_flags *, medias_q *);
 void monologue_destroy(struct call_monologue *ml);
 int call_delete_branch_by_id(const str *callid, const str *branch,

@@ -183,19 +183,19 @@ __attribute__((nonnull(1, 2)))
 void codec_store_copy(struct codec_store *, struct codec_store *);
 void codec_store_add_raw(struct codec_store *cs, rtp_payload_type *pt);
 __attribute__((nonnull(1, 2)))
-void codec_store_strip(struct codec_store *, str_q *strip, str_case_ht except);
+void codec_store_strip(struct codec_store *, const str_q *strip, str_case_ht except);
 __attribute__((nonnull(1, 2, 3)))
-void codec_store_offer(struct codec_store *, str_q *, struct codec_store *);
+void codec_store_offer(struct codec_store *, const str_q *, struct codec_store *);
 __attribute__((nonnull(1, 2, 3)))
 void codec_store_check_empty(struct codec_store *, struct codec_store *, sdp_ng_flags *);
 __attribute__((nonnull(1, 2)))
-void codec_store_accept(struct codec_store *, str_q *, struct codec_store *);
+void codec_store_accept(struct codec_store *, const str_q *, struct codec_store *);
 __attribute__((nonnull(1, 2)))
-int codec_store_accept_one(struct codec_store *, str_q *, bool accept_any);
+int codec_store_accept_one(struct codec_store *, const str_q *, bool accept_any);
 __attribute__((nonnull(1, 2)))
-void codec_store_track(struct codec_store *, str_q *);
+void codec_store_track(struct codec_store *, const str_q *);
 __attribute__((nonnull(1, 2, 3)))
-void codec_store_transcode(struct codec_store *, str_q *, struct codec_store *);
+void codec_store_transcode(struct codec_store *, const str_q *, struct codec_store *);
 __attribute__((nonnull(1, 2, 3)))
 void __codec_store_answer(struct codec_store *dst, struct codec_store *src, sdp_ng_flags *flags,
 		struct codec_store_args);
