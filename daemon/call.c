@@ -1706,7 +1706,8 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 		assert(num_crypto_suites <= sizeof(types_offered) * 8);
 
 		/* always consider by default that offerer doesn't need re-ordering */
-		MEDIA_CLEAR(other, REORDER_FORCED);
+		if (other)
+			MEDIA_CLEAR(other, REORDER_FORCED);
 
 		/* add offered crypto parameters */
 		for (__auto_type l = offered_cpq ? offered_cpq->head : NULL; l; l = l->next) {
@@ -1832,7 +1833,8 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 		if (reorder_sdes_preferences(offered_cpq, offered_order)) {
 			/* affects a proper handling of crypto suites ordering,
 			 * when sending processed answer to the media session originator */
-			MEDIA_SET(other, REORDER_FORCED);
+			if (other)
+				MEDIA_SET(other, REORDER_FORCED);
 		}
 	}
 
