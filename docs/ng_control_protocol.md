@@ -66,6 +66,8 @@ Currently the following commands are defined:
 * inject start
 * inject stop
 * connect
+* create
+* create answer
 
 The response dictionary must contain at least one key called `result`.
 The value can be either `ok` or `error`.
@@ -2700,3 +2702,33 @@ that second call. Internally, both calls will be merged into a single call
 object, with both call IDs then corresponding to the same call. This will be
 visible in certain statistics (e.g. two call IDs appearing in the list, but
 only one call being counted).
+
+## `create` and `create answer` Messages
+
+The `create` message can be used to create a new call, a new party to a call,
+or produce an offer SDP that corresponds to an existing call party. It returns
+an SDP body that can be used to make an "offer" to a remote party.
+
+The keys `call-id` and `from-tag` may be included to identify an existing call
+and/or call party. If the call or call party doesn't yet exist, a new one will
+be created. If these keys are absent, a random string will be generated and
+will be returned in the response message.
+
+If the call party already exists, then an SDP body with attributes
+corresponding to that call party will be returned, i.e. with all established
+media sections, transport protocols, codecs, etc.
+
+A newly created call party will receive a set of standard attributes: one audio
+media, plain RTP, and PCMA and PCMU codecs. These attributes can be adjusted
+with the usual flags described above (e.g. `transport-protocol`, `ICE`, etc). A
+list of audio codecs can be given as `codecs-offer`.
+
+If multiple media sections are needed (e.g. audio and video), a list can be
+given as `medias=[...]`. Each entry in the list should contain a string `type`
+and a list of codec strings in `codecs`. For example: `medias=[[type=audio
+codecs=[G722 PCMA]] [type=video codecs=[VP8 VP9]]]`
+
+The corresponding answer SDP (i.e. the answer received to the SDP returned by
+`create`) can then be passed to *rtpengine* as a `create answer` message. The
+SDP must be placed as `sdp` in the message, and the keys `call-id` and
+`from-tag` must be filled appropriated.
