@@ -894,7 +894,7 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 __attribute__((nonnull(1, 2, 3)))
 int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_flags *flags);
 __attribute__((nonnull(1, 2, 3)))
-int monologue_subscribe_request(const subscription_q *srms, struct call_monologue *dst, sdp_ng_flags *flags);
+int monologue_subscribe_request(const medias_q *medias, struct call_monologue *dst, sdp_ng_flags *flags);
 __attribute__((nonnull(1, 2, 3)))
 int monologue_subscribe_answer(struct call_monologue *dst, sdp_ng_flags *flags,
 		sdp_streams_q *streams);

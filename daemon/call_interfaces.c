@@ -3445,6 +3445,7 @@ found:
 		__monologue_unconfirm(*monologue, "media blocking signalling event");
 	return NULL;
 }
+
 static const char *media_block_match(call_t **call, struct call_monologue **monologue,
 		sdp_ng_flags *flags, ng_command_ctx_t *ctx)
 {
@@ -3475,13 +3476,8 @@ static const char *media_block_match(call_t **call, struct call_monologue **mono
 
 	return NULL;
 }
-void add_media_to_sub_list(subscription_q *q, struct call_media *media, struct call_monologue *ml) {
-	struct media_subscription *ms = g_new0(__typeof(*ms), 1);
-	ms->media = media;
-	ms->monologue = ml;
-	i_queue_push_tail(q, ms);
-}
-static const char *media_block_match_mult(call_t **call, subscription_q *medias,
+
+static const char *medias_match(call_t **call, medias_q *medias,
 		sdp_ng_flags *flags, ng_command_ctx_t *ctx)
 {
 	call_ng_process_flags(flags, ctx);
@@ -3501,7 +3497,7 @@ static const char *media_block_match_mult(call_t **call, subscription_q *medias,
 
 				continue;
 			}
-			add_media_to_sub_list(medias, media, media->monologue);
+			t_queue_push_tail(medias, media);
 		}
 		return NULL;
 	}
@@ -3514,10 +3510,10 @@ static const char *media_block_match_mult(call_t **call, subscription_q *medias,
 	if (ml) {
 		for (int i = 0; i < ml->medias->len; i++)
 		{
-			struct call_media * media = ml->medias->pdata[i];
+			struct call_media *media = ml->medias->pdata[i];
 			if (!media)
 				continue;
-			add_media_to_sub_list(medias, media, ml);
+			t_queue_push_tail(medias, media);
 		}
 		return NULL;
 	}
@@ -3531,10 +3527,10 @@ static const char *media_block_match_mult(call_t **call, subscription_q *medias,
 		} else {
 			for (int i = 0; i < mlf->medias->len; i++)
 			{
-				struct call_media * media = mlf->medias->pdata[i];
+				struct call_media *media = mlf->medias->pdata[i];
 				if (!media)
 					continue;
-				add_media_to_sub_list(medias, media, mlf);
+				t_queue_push_tail(medias, media);
 			}
 		}
 	}
@@ -4208,20 +4204,20 @@ const char *call_subscribe_request_ng(ng_command_ctx_t *ctx) {
 	g_auto(sdp_ng_flags) flags;
 	char rand_buf[65];
 	g_autoptr(call_t) call = NULL;
-	g_auto(subscription_q) srms = IQUEUE_INIT;
+	g_auto(medias_q) mq = TYPED_GQUEUE_INIT;
 	g_auto(str) sdp_out = STR_NULL;
 	parser_arg output = ctx->resp;
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
 	/* get source monologue */
-	err = media_block_match_mult(&call, &srms, &flags, ctx);
+	err = medias_match(&call, &mq, &flags, ctx);
 	if (err)
 		return err;
 
 	if (flags.sdp.len)
 		ilog(LOG_INFO, "Subscribe-request with SDP received - ignoring SDP");
 
-	if (!srms.length)
+	if (!mq.length)
 		return "No call participants specified (no medias found)";
 
 	/* the `label=` option was possibly used above to select the from-tag --
@@ -4241,7 +4237,7 @@ const char *call_subscribe_request_ng(ng_command_ctx_t *ctx) {
 
 	struct call_monologue *dest_ml = call_get_or_create_monologue(call, &flags.to_tag);
 
-	int ret = monologue_subscribe_request(&srms, dest_ml, &flags);
+	int ret = monologue_subscribe_request(&mq, dest_ml, &flags);
 	if (ret)
 		return "Failed to request subscription";
 
@@ -4258,9 +4254,9 @@ const char *call_subscribe_request_ng(ng_command_ctx_t *ctx) {
 	/* add single response ml tag if there's just one, but always add a list
 	 * TODO: deprecate it, since initially added for monologue subscriptions.
 	 */
-	if (srms.length == 1) {
-		struct media_subscription *ms = srms.head;
-		struct call_monologue *source_ml = ms->monologue;
+	if (mq.length == 1) {
+		struct call_media *media = mq.head->data;
+		struct call_monologue *source_ml = media->monologue;
 		parser->dict_add_str_dup(output, "from-tag", &source_ml->tag);
 	}
 	parser_arg tag_medias = {0}, media_labels = {0};

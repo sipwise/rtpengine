@@ -4502,14 +4502,14 @@ static int monologue_subscribe_request1(struct call_media *src_media, struct cal
 
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
-int monologue_subscribe_request(const subscription_q *srms, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
+int monologue_subscribe_request(const medias_q *medias, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
 	g_auto(subscription_store_ht) ht = subscription_store_ht_new();
 
 	__unsubscribe_medias_from_all(dst_ml, ht);
 	__call_monologue_init_from_flags(dst_ml, NULL, flags);
 
-	IQUEUE_FOREACH(srms, ms) {
-		struct call_media *src_media = ms->media;
+	for (auto_iter(l, medias->head); l; l = l->next) {
+		struct call_media *src_media = l->data;
 		if (!src_media)
 			continue;
 

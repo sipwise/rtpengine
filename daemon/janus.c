@@ -424,7 +424,7 @@ static void janus_publishers_list(JsonBuilder *builder, call_t *call, struct jan
 
 // global janus_lock is held
 static const char *janus_videoroom_join_sub(struct janus_handle *handle, struct janus_room *room, int *retcode,
-		uint64_t feed_id, call_t *call, subscription_q *medias)
+		uint64_t feed_id, call_t *call, medias_q *medias)
 {
 	// does the feed actually exist? get the feed handle
 	*retcode = 512;
@@ -444,10 +444,10 @@ static const char *janus_videoroom_join_sub(struct janus_handle *handle, struct 
 
 	for (int i = 0; i < source_ml->medias->len; i++)
 	{
-		struct call_media * media = source_ml->medias->pdata[i];
+		struct call_media *media = source_ml->medias->pdata[i];
 		if (!media)
 			continue;
-		add_media_to_sub_list(medias, media, source_ml);
+		t_queue_push_tail(medias, media);
 	}
 	return NULL;
 }
@@ -553,7 +553,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 	else {
 		// subscriber
 
-		g_auto(subscription_q) srms = IQUEUE_INIT;
+		g_auto(medias_q) medias = TYPED_GQUEUE_INIT;
 
 		// get single feed ID if there is one
 		if (json_reader_read_member(reader, "feed")) {
@@ -562,7 +562,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 			if (!feed_id)
 				return "JSON object contains invalid 'message.feed' key";
 			const char *ret = janus_videoroom_join_sub(handle, room, retcode, feed_id,
-					call, &srms);
+					call, &medias);
 			if (ret)
 				return ret;
 		}
@@ -596,7 +596,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 
 				if (!t_queue_find_custom(&ret_streams, &fid, int64_cmp)) {
 					const char *ret = janus_videoroom_join_sub(handle, room, retcode, fid,
-						call, &srms);
+						call, &medias);
 					if (ret)
 						return ret;
 
@@ -614,7 +614,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 		json_reader_end_member(reader);
 
 		*retcode = 456;
-		if (!srms.length)
+		if (!medias.length)
 			return "No feeds to subscribe to given";
 
 		struct call_monologue *dest_ml = janus_get_monologue(handle->id, call,
@@ -635,7 +635,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 			flags.rtcp_mux_demux = 1;
 		}
 
-		int ret = monologue_subscribe_request(&srms, dest_ml, &flags);
+		int ret = monologue_subscribe_request(&medias, dest_ml, &flags);
 		if (ret)
 			return "Subscribe error";
 
