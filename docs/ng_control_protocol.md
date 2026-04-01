@@ -1079,6 +1079,13 @@ Spaces in each string may be replaced by hyphens.
 	the DSP to detect in-band DTMF audio tones even when it
 	wouldn't otherwise be necessary.
 
+* `directional`
+
+    Directional methods (block/unblock media/DTMF, and start/stop forwarding)
+    ignore a given `from-tag` by default, in order to support easy operation
+    against controlling agents which always insert one. Adding this flags makes
+    *rtpengine* honour the `from-tag`.
+
 * `discard recording`
 
     When file recording is in use, instructs the recording daemon to discard
@@ -2171,31 +2178,36 @@ Alternatively the `stop recording` message can be used if either the string
 
 ## `block DTMF` and `unblock DTMF` Messages
 
-These message types must include the key `call-id` in the message. They enable and disable blocking of DTMF
-events (RFC 4733 type packets), respectively.
+These message types must include the key `call-id` in the message. They enable
+and disable blocking of DTMF events (RFC 4733 type packets), respectively.
 
-Packets can be blocked for an entire call if only the `call-id` key is present in the message, or can be blocked
-directionally for individual participants. Participants can be selected by their SIP tag if the `from-tag` key
-is included in the message, they can be selected by their SDP media address if the `address` key is included
-in the message, or they can be selected by the user-provided `label` if the `label` key is included in the
-message. For an address, it can be an IPv4 or IPv6 address, and any participant that is
-found to have a matching address advertised as their SDP media address will have their originating RTP
-packets blocked (or unblocked).
+Packets can be blocked for an entire call if only the `call-id` key is present
+in the message, or can be blocked directionally for individual participants.
+Participants can be selected by their SIP tag if both the `from-tag` key is
+included in the message and the flag `directional` is present, they can be
+selected by their SDP media address if the `address` key is included in the
+message, or they can be selected by the user-provided `label` if the `label`
+key is included in the message. For an address, it can be an IPv4 or IPv6
+address, and any participant that is found to have a matching address
+advertised as their SDP media address will have their originating RTP packets
+blocked (or unblocked).
 
 Unblocking packets for the entire call (i.e. only `call-id` is given) does not
 automatically unblock packets for participants which had their packets blocked
 directionally, unless the string `all` (equivalent to setting `all=all`) is
 included in the `flags` section of the message.
 
-When DTMF blocking is enabled, DTMF event packets will not be forwarded to the receiving peer.
-If DTMF logging is enabled, DTMF events will still be logged to syslog while blocking is enabled. Blocking
-of DTMF events can be enabled and disabled at any time during call runtime.
+When DTMF blocking is enabled, DTMF event packets will not be forwarded to the
+receiving peer.  If DTMF logging is enabled, DTMF events will still be logged
+to syslog while blocking is enabled. Blocking of DTMF events can be enabled and
+disabled at any time during call runtime.
 
 ## `block media` and `unblock media` Messages
 
-Analogous to `block DTMF` and `unblock DTMF` but blocks media packets instead of DTMF packets. DTMF packets
-can still pass through when media blocking is enabled. Media packets can be blocked for an entire call, or
-directionally for individual participants. See `block DTMF` above for details.
+Analogous to `block DTMF` and `unblock DTMF` but blocks media packets instead
+of DTMF packets. DTMF packets can still pass through when media blocking is
+enabled. Media packets can be blocked for an entire call, or directionally for
+individual participants. See `block DTMF` above for details.
 
 In addition to blocking media for just one call participant, it's possible to
 block media for just a single media flow. This is relevant to scenarios that
