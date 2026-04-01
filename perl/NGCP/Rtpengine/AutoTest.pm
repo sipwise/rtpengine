@@ -202,7 +202,7 @@ sub subscribe_request {
 sub subscribe_answer {
 	my ($name, $req, $sdp) = @_;
 	$req->{sdp} = $sdp;
-	my $resp = rtpe_req('subscribe answer', $name, $req);
+	return rtpe_req('subscribe answer', $name, $req);
 }
 sub publish {
 	return offer_answer('publish', @_);
