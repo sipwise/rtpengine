@@ -4128,11 +4128,17 @@ const char *call_publish_ng(ng_command_ctx_t *ctx, const char *addr) {
 	int ret;
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
 	struct recording *recording = NULL;
+	char rand_call_id[65];
+	char rand_from_tag[65];
 
 	call_ng_process_flags(&flags, ctx);
 
-	if ((ret = call_ng_basic_checks(&flags)) > 0)
-		return _ng_basic_errors[ret];
+	if (!flags.sdp.len)
+		return "No SDP body in message";
+	if (!flags.call_id.len)
+		flags.call_id = STR_LEN(rand_hex_str(rand_call_id, 32), 64);
+	if (!flags.from_tag.len)
+		flags.from_tag = STR_LEN(rand_hex_str(rand_from_tag, 32), 64);
 
 	call = call_get_or_create(&flags.call_id, false);
 
@@ -4163,6 +4169,9 @@ const char *call_publish_ng(ng_command_ctx_t *ctx, const char *addr) {
 	bool ok = sdp_create(&sdp_out, ml, &flags);
 	if (!ok)
 		return "Failed to create SDP";
+
+	parser->dict_add_str_dup(ctx->resp, "call-id", &call->callid);
+	parser->dict_add_str_dup(ctx->resp, "from-tag", &ml->tag);
 
 	ctx->ngbuf->sdp_out = sdp_out.s;
 	parser->dict_add_str(ctx->resp, "sdp", &sdp_out);
