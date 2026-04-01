@@ -25,7 +25,8 @@ BEGIN {
 	@ISA = qw(Exporter);
 	our @EXPORT = qw(autotest_start new_call new_call_nc offer answer ft tt cid snd srtp_snd rtp rcv srtp_rcv rcv_no rcv_maybe
 		srtp_dec escape rtpm rtpmre reverse_tags new_ft new_tt crlf sdp_split rtpe_req offer_answer
-		autotest_init subscribe_request subscribe_answer publish use_json rtpe_raw_req);
+		autotest_init subscribe_request subscribe_answer publish create create_answer
+		use_json rtpe_raw_req);
 };
 
 
@@ -206,6 +207,17 @@ sub subscribe_answer {
 }
 sub publish {
 	return offer_answer('publish', @_);
+}
+sub create {
+	my ($name, $req, $sdp_exp) = @_;
+	my $resp = rtpe_req('create', $name, $req);
+	my @matches = sdp_match('create', $name, $resp->{sdp}, $sdp_exp);
+	return ($resp->{'call-id'}, $resp->{'from-tag'}, @matches);
+}
+sub create_answer {
+	my ($name, $req, $sdp) = @_;
+	$req->{sdp} = $sdp;
+	return rtpe_req('create answer', $name, $req);
 }
 sub snd {
 	my ($sock, $dest, $packet, $addr) = @_;
