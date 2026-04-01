@@ -130,7 +130,7 @@ static void bencode_list_iter(const ng_parser_t *parser, bencode_item_t *list,
 	str s;
 	unsigned int idx = 0;
 	for (bencode_item_t *it = list->child; it; it = it->sibling) {
-		if (bencode_get_str(it, &s))
+		if (bencode_get_str(it, &s) && str_callback)
 			str_callback(&s, idx, arg);
 		else if (item_callback)
 			item_callback(parser, it, arg);

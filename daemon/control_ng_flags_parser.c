@@ -182,6 +182,8 @@ static void rtpp_list_iter(const ng_parser_t *parser, rtpp_pos *pos,
 
 		if (str_callback)
 			str_callback(&pos->cur, idx++, arg);
+		else if (item_callback)
+			item_callback(parser, pos, arg);
 		if (end)
 			break;
 		goto next;
