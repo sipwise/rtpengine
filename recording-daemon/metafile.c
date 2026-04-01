@@ -398,21 +398,27 @@ void metafile_change(char *name) {
 	close(fd);
 
 	// process contents of metadata file
-	// XXX use "str" type?
+	// Track the byte offset in the buffer that corresponds to successfully parsed data
 	char *head = s->str;
 	char *endp = s->str + s->len;
+	char *last_good_pos = head;  // Track last successfully parsed position
+
 	while (head < endp) {
-		char *section_start = head;
 		// section header
 		char *nl = memchr(head, '\n', endp - head);
 		if (!nl || nl == head) {
-			ilog(LOG_WARN, "Missing section header in %s%s%s", FMT_M(name));
+			// Incomplete data - this is expected when file is being written
+			// Log only at DEBUG level as this is a normal race condition
+			if (head < endp) {
+				dbg("Incomplete section header in %s%s%s (waiting for more data, %ld bytes remain)",
+				    FMT_M(name), (long)(endp - head));
+			}
 			break;
 		}
 		if (memchr(head, '\0', nl - head)) {
 			ilog(LOG_WARN, "NUL character in section header in %s%s%s", FMT_M(name));
 			// jump to the end of the read so we don't continually try and process this bad data
-			mf->pos += (endp - section_start);
+			last_good_pos = endp;
 			break;
 		}
 		*(nl++) = '\0';
@@ -423,12 +429,14 @@ void metafile_change(char *name) {
 		// content length
 		nl = memchr(head, ':', endp - head);
 		if (!nl || nl == head) {
-			ilog(LOG_WARN, "Content length for section %s missing in %s%s%s", section, FMT_M(name));
+			dbg("Incomplete content length for section %s in %s%s%s (waiting for more data)",
+			    section, FMT_M(name));
 			break;
 		}
 		*(nl++) = '\0';
 		if (*(nl++) != '\n') {
-			ilog(LOG_WARN, "Unterminated content length for section %s in %s%s%s", section, FMT_M(name));
+			dbg("Unterminated content length for section %s in %s%s%s (waiting for more data)",
+			    section, FMT_M(name));
 			break;
 		}
 		char *errp;
@@ -442,19 +450,25 @@ void metafile_change(char *name) {
 
 		// content
 		if (endp - head < slen) {
-			ilog(LOG_WARN, "Content truncated in section %s in %s%s%s", section, FMT_M(name));
+			dbg("Content truncated in section %s in %s%s%s (have %ld, need %lu, waiting for more data)",
+			    section, FMT_M(name), (long)(endp - head), slen);
 			break;
 		}
 		char *content = head;
 		if (memchr(content, '\0', slen)) {
 			ilog(LOG_WARN, "NUL character in content in section %s in %s%s%s", section, FMT_M(name));
 			// jump to the end of the read so we don't continually try and process this bad data
-			mf->pos += (endp - section_start);
+			last_good_pos = endp;
 			break;
 		}
 
 		// double newline separator
 		head += slen;
+		if (endp - head < 2) {
+			dbg("Missing separator after section %s in %s%s%s (waiting for more data)",
+			    section, FMT_M(name));
+			break;
+		}
 		if (*head != '\n' || *(head + 1) != '\n') {
 			ilog(LOG_WARN, "Separator missing after section %s in %s%s%s", section, FMT_M(name));
 			break;
@@ -462,11 +476,19 @@ void metafile_change(char *name) {
 		*head = '\0';
 		head += 2;
 
+		// Successfully parsed complete section - process it and update position
 		meta_section(mf, section, content, slen);
-		// update read position by the amount of data we processed
-		// so that any issues causing a break above will resume at the
-		// correct position on the next inotify event
-		mf->pos += (head - section_start);
+		last_good_pos = head;  // Mark this position as successfully parsed
+	}
+
+	// Only update file position to reflect successfully parsed data
+	// Calculate how many bytes from the buffer we successfully processed
+	off_t bytes_parsed = last_good_pos - s->str;
+	mf->pos += bytes_parsed;
+
+	if (bytes_parsed < s->len) {
+		dbg("Parsed %ld of %ld bytes for %s%s%s, will retry remaining %ld bytes on next event",
+		    (long)bytes_parsed, (long)s->len, FMT_M(name), (long)(s->len - bytes_parsed));
 	}
 
 	g_string_free(s, TRUE);
