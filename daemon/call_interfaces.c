@@ -1732,6 +1732,7 @@ static void call_ng_media(const ng_parser_t *parser, str *key, parser_arg value,
 	parser->get_str(value, &s);
 	switch (__csh_lookup(key)) {
 		case CSH_LOOKUP("codec"):
+		case CSH_LOOKUP("codecs"):
 			parser->list_iter(parser, value, NULL, call_ng_codec_iter, media);
 			break;
 		case CSH_LOOKUP("destination"):
@@ -2100,6 +2101,7 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 				ilog(LOG_WARN, "Could not parse 'media-address'");
 			break;
 		case CSH_LOOKUP("media"):
+		case CSH_LOOKUP("medias"):
 			parser->list_iter(parser, value, NULL, call_ng_media_iter, out);
 			break;
 		case CSH_LOOKUP("media echo"):
