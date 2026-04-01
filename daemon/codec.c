@@ -6343,37 +6343,42 @@ out:
 	codec_store_cleanup(&orig_dst);
 }
 
+void codec_store_synthesise_basic(struct codec_store *dst, const char *reason) {
+	if (!dst->codec_prefs.length) {
+		// no codecs given: add defaults
+		static const str PCMU_str = STR_CONST("PCMU");
+		static const str PCMA_str = STR_CONST("PCMA");
+		codec_store_add_raw_order(dst, codec_make_payload_type(&PCMU_str, MT_AUDIO));
+		codec_store_add_raw_order(dst, codec_make_payload_type(&PCMA_str, MT_AUDIO));
+
+		ilogs(codec, LOG_DEBUG, "Using default codecs PCMU and PCMA for %s", reason);
+	}
+	else {
+		// we already have a list of codecs - make sure they're all supported by us
+		for (__auto_type l = dst->codec_prefs.head; l;) {
+			rtp_payload_type *pt = l->data;
+			if (codec_def_supported(pt->codec_def)) {
+				l = l->next;
+				continue;
+			}
+			ilogs(codec, LOG_DEBUG, "Eliminating unsupported codec " STR_FORMAT
+					"/" STR_FORMAT " for %s",
+					STR_FMT(&pt->encoding_with_params),
+					STR_FMT0(&pt->format_parameters),
+					reason);
+			codec_touched(dst, pt);
+			l = __codec_store_delete_link(l, dst);
+		}
+	}
+}
+
 // offer codecs for non-RTP transcoding scenarios
 void codec_store_synthesise(struct codec_store *dst, struct codec_store *opposite) {
 	if (!dst->media || !opposite->media)
 		return;
 	if (dst->media->type_id == MT_AUDIO && opposite->media->type_id == MT_IMAGE) {
 		// audio <> T.38 transcoder
-		if (!dst->codec_prefs.length) {
-			// no codecs given: add defaults
-			static const str PCMU_str = STR_CONST("PCMU");
-			static const str PCMA_str = STR_CONST("PCMA");
-			codec_store_add_raw_order(dst, codec_make_payload_type(&PCMU_str, MT_AUDIO));
-			codec_store_add_raw_order(dst, codec_make_payload_type(&PCMA_str, MT_AUDIO));
-
-			ilogs(codec, LOG_DEBUG, "Using default codecs PCMU and PCMA for T.38 gateway");
-		}
-		else {
-			// we already have a list of codecs - make sure they're all supported by us
-			for (__auto_type l = dst->codec_prefs.head; l;) {
-				rtp_payload_type *pt = l->data;
-				if (codec_def_supported(pt->codec_def)) {
-					l = l->next;
-					continue;
-				}
-				ilogs(codec, LOG_DEBUG, "Eliminating unsupported codec " STR_FORMAT
-						"/" STR_FORMAT " for T.38 transcoding",
-						STR_FMT(&pt->encoding_with_params),
-						STR_FMT0(&pt->format_parameters));
-				codec_touched(dst, pt);
-				l = __codec_store_delete_link(l, dst);
-			}
-		}
+		codec_store_synthesise_basic(dst, "T.38 gateway");
 	}
 }
 

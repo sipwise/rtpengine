@@ -201,6 +201,8 @@ void __codec_store_answer(struct codec_store *dst, struct codec_store *src, sdp_
 		struct codec_store_args);
 #define codec_store_answer(dst, src, flags, ...) \
 	__codec_store_answer(dst, src, flags, (struct codec_store_args) {__VA_ARGS__})
+__attribute__((nonnull(1)))
+void codec_store_synthesise_basic(struct codec_store *dst, const char *reason);
 __attribute__((nonnull(1, 2)))
 void codec_store_synthesise(struct codec_store *dst, struct codec_store *opposite);
 __attribute__((nonnull(1, 2)))
