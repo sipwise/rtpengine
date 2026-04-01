@@ -2837,6 +2837,7 @@ static struct packet_stream *print_rtcp(GString *s, struct call_media *media, pa
 		if (MEDIA_ISSET(media, RTCP_MUX) &&
 					(flags->opmode == OP_ANSWER ||
 						flags->opmode == OP_PUBLISH ||
+						flags->opmode == OP_CREATE ||
 						((flags->opmode == OP_OFFER || flags->opmode == OP_SUBSCRIBE_REQ) && flags->rtcp_mux_require) ||
 						IS_OP_OTHER(flags->opmode)))
 		{

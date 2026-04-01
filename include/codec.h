@@ -196,6 +196,8 @@ __attribute__((nonnull(1, 2)))
 void codec_store_track(struct codec_store *, const str_q *);
 __attribute__((nonnull(1, 2, 3)))
 void codec_store_transcode(struct codec_store *, const str_q *, struct codec_store *);
+__attribute__((nonnull(1, 2)))
+void codec_store_create(struct codec_store *, const str_q *);
 __attribute__((nonnull(1, 2, 3)))
 void __codec_store_answer(struct codec_store *dst, struct codec_store *src, sdp_ng_flags *flags,
 		struct codec_store_args);

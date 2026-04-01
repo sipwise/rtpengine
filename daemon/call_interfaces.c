@@ -1695,6 +1695,16 @@ static void call_ng_codec(const ng_parser_t *parser, str *key, parser_arg value,
 }
 
 static void call_ng_codec_iter(const ng_parser_t *parser, parser_arg item, struct ng_media *media) {
+	// we support two types here:
+	// the "transform" method supplies an extended list of codecs, as a list of dicts
+	// the "create" method uses a list of strings, similar to codec->offer
+	if (!parser->is_dict(item)) {
+		str s;
+		parser->get_str(item, &s);
+		call_ng_flags_esc_str_list(&s, 0, &media->codec_list);
+		return;
+	}
+
 	__auto_type codec = g_new0(struct ng_codec, 1);
 	t_queue_push_tail(&media->codecs, codec);
 
@@ -2494,6 +2504,7 @@ static void ng_codecs_free(struct ng_codec *c) {
 
 static void ng_media_free(struct ng_media *m) {
 	t_queue_clear_full(&m->codecs, ng_codecs_free);
+	t_queue_clear_full(&m->codec_list, str_free);
 	g_free(m);
 }
 
@@ -4582,6 +4593,77 @@ const char *call_transform_ng(ng_command_ctx_t *ctx) {
 		parser->dict_add_str_dup(dict, "address", STR_PTR(sockaddr_print_buf(&sfd->socket.local.address)));
 		parser->dict_add_int(dict, "port", sfd->socket.local.port);
 	}
+
+	call_unlock_release_update(&call);
+	return NULL;
+}
+
+const char *call_create_ng(ng_command_ctx_t *ctx) {
+	g_auto(sdp_ng_flags) flags;
+	g_autoptr(call_t) call = NULL;
+	char rand_call_id[65];
+	char rand_from_tag[65];
+	g_auto(str) sdp = STR_NULL;
+
+	call_ng_process_flags(&flags, ctx);
+
+	if (!flags.call_id.len)
+		flags.call_id = STR_LEN(rand_hex_str(rand_call_id, 32), 64);
+	if (!flags.from_tag.len)
+		flags.from_tag = STR_LEN(rand_hex_str(rand_from_tag, 32), 64);
+
+	call = call_get_or_create(&flags.call_id, false);
+	struct call_monologue *ml = call_get_or_create_monologue(call, &flags.from_tag);
+	if (!monologue_call_create(ml, &flags))
+		return "failed to set up call/monologue";
+
+	if (!sdp_create(&sdp, ml, &flags))
+		return "failed to create SDP";
+
+	const ng_parser_t *parser = ctx->parser_ctx.parser;
+	parser->dict_add_str_dup(ctx->resp, "call-id", &call->callid);
+	parser->dict_add_str_dup(ctx->resp, "from-tag", &ml->tag);
+
+	ctx->ngbuf->sdp_out = sdp.s;
+	parser->dict_add_str_dup(ctx->resp, "sdp", &sdp);
+	sdp = STR_NULL; // ownership passed to output
+
+	call_unlock_release_update(&call);
+	return NULL;
+}
+
+
+const char *call_create_answer_ng(ng_command_ctx_t *ctx) {
+	g_auto(sdp_ng_flags) flags;
+	g_autoptr(call_t) call = NULL;
+	g_auto(sdp_sessions_q) parsed = TYPED_GQUEUE_INIT;
+	g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
+
+	call_ng_process_flags(&flags, ctx);
+
+	enum basic_errors ret;
+	if ((ret = call_ng_basic_checks(&flags)) > 0)
+		return _ng_basic_errors[ret];
+
+	call = call_get(&flags.call_id);
+	if (!call)
+		return "unknown call-ID";
+
+	if (!sdp_parse(&flags.sdp, &parsed, &flags))
+		return "Failed to parse SDP";
+
+	if (!sdp_streams(&parsed, &streams, &flags))
+		return "Incomplete SDP specification";
+
+	if (trickle_ice_update(ctx->ngbuf, call, &flags, &streams))
+		return NULL;
+
+	struct call_monologue *ml = call_get_monologue(call, &flags.from_tag);
+	if (!ml)
+		return "from-tag not found";
+
+	if (!monologue_call_create_answer(ml, &flags, &streams))
+		return "failed to perform answer";
 
 	call_unlock_release_update(&call);
 	return NULL;

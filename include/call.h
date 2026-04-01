@@ -907,6 +907,10 @@ int monologue_inject_stop(struct call_monologue *src, struct call_monologue *dst
 void dialogue_connect(struct call_monologue *, struct call_monologue *, sdp_ng_flags *);
 __attribute__((nonnull(1, 2, 3)))
 bool monologue_transform(struct call_monologue *, sdp_ng_flags *, medias_q *);
+__attribute__((nonnull(1, 2)))
+bool monologue_call_create(struct call_monologue *, sdp_ng_flags *);
+__attribute__((nonnull(1, 2)))
+bool monologue_call_create_answer(struct call_monologue *, sdp_ng_flags *, sdp_streams_q *streams);
 void monologue_destroy(struct call_monologue *ml);
 int call_delete_branch_by_id(const str *callid, const str *branch,
 	const str *fromtag, const str *totag, ng_command_ctx_t *, int64_t delete_delay);

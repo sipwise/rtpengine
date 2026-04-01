@@ -48,7 +48,8 @@ const char *ng_command_strings[OP_COUNT] = {
 	"publish", "subscribe request",
 	"subscribe answer", "unsubscribe",
 	"inject start", "inject stop",
-	"connect", "cli", "transform"
+	"connect", "cli", "transform",
+	"create", "create answer",
 };
 const char *ng_command_strings_esc[OP_COUNT] = {
 	"ping", "offer", "answer", "delete", "query", "list",
@@ -60,7 +61,8 @@ const char *ng_command_strings_esc[OP_COUNT] = {
 	"publish", "subscribe_request",
 	"subscribe_answer", "unsubscribe",
 	"inject_start", "inject_stop",
-	"connect", "cli", "transform"
+	"connect", "cli", "transform",
+	"create", "create_answer",
 };
 const char *ng_command_strings_short[OP_COUNT] = {
 	"Ping", "Offer", "Answer", "Delete", "Query", "List",
@@ -71,7 +73,8 @@ const char *ng_command_strings_short[OP_COUNT] = {
 	"BlkSlnMedia", "UnblkSlnMedia",
 	"Pub", "SubReq", "SubAns", "Unsub",
 	"InjStart", "InjStop",
-	"Conn", "CLI", "Trnsfm"
+	"Conn", "CLI", "Trnsfm",
+	"Create", "CrtAnsw",
 };
 
 typedef struct ng_ctx {
@@ -867,6 +870,14 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 		case CSH_LOOKUP("transform"):
 			command_ctx.opmode = OP_TRANSFORM;
 			errstr = call_transform_ng(&command_ctx);
+			break;
+		case CSH_LOOKUP("create"):
+			command_ctx.opmode = OP_CREATE;
+			errstr = call_create_ng(&command_ctx);
+			break;
+		case CSH_LOOKUP("create answer"):
+			command_ctx.opmode = OP_CREATE_ANSWER;
+			errstr = call_create_answer_ng(&command_ctx);
 			break;
 		default:
 			errstr = "Unrecognized command";

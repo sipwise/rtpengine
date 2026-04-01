@@ -22,6 +22,7 @@ struct ng_media {
 	str id;
 	str type;
 	ng_codecs_q codecs;
+	str_q codec_list;
 	str destination_address;
 	endpoint_t destination;
 
@@ -357,6 +358,8 @@ const char *call_inject_start_ng(ng_command_ctx_t *);
 const char *call_inject_stop_ng(ng_command_ctx_t *);
 const char *call_connect_ng(ng_command_ctx_t *);
 const char *call_transform_ng(ng_command_ctx_t *);
+const char *call_create_ng(ng_command_ctx_t *);
+const char *call_create_answer_ng(ng_command_ctx_t *);
 
 void add_media_to_sub_list(subscription_q *q, struct call_media *media, struct call_monologue *ml);
 

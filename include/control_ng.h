@@ -34,6 +34,8 @@ enum ng_opmode {
 	OP_CONNECT,
 	OP_CLI,
 	OP_TRANSFORM,
+	OP_CREATE,
+	OP_CREATE_ANSWER,
 
 	OP_COUNT,		// last, number of elements
 	OP_OTHER = OP_COUNT	// alias to above

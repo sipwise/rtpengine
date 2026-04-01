@@ -6186,6 +6186,14 @@ void codec_store_transcode(struct codec_store *cs, const str_q *offer, struct co
 #endif
 }
 
+static rtp_payload_type *codec_make_payload_type_any(const str *codec_str, struct call_media *media) {
+	return codec_make_payload_type(codec_str, media->type_id);
+}
+
+void codec_store_create(struct codec_store *cs, const str_q *offer) {
+	codec_store_add_q(cs, offer, NULL, codec_make_payload_type_any);
+}
+
 void __codec_store_answer(struct codec_store *dst, struct codec_store *src, sdp_ng_flags *flags,
 		struct codec_store_args a)
 {

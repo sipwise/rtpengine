@@ -1618,7 +1618,8 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 	/* preferred crypto suites for the offerer - generated answer */
 	const str_q *offered_order = &flags->sdes_offerer_pref;
 
-	bool is_offer = (flags->opmode == OP_OFFER || flags->opmode == OP_SUBSCRIBE_REQ);
+	bool is_offer = (flags->opmode == OP_OFFER || flags->opmode == OP_SUBSCRIBE_REQ
+			|| flags->opmode == OP_CREATE);
 
 	if (!this->protocol || !this->protocol->srtp || MEDIA_ISSET(this, PASSTHRU)) {
 		crypto_params_sdes_queue_clear(cpq);
@@ -6431,6 +6432,129 @@ bool monologue_transform(struct call_monologue *ml, sdp_ng_flags *flags, medias_
 
 		if (!__init_streams(m, NULL, flags))
 			return false;
+	}
+
+	return true;
+}
+
+__attribute__((nonnull(1, 2, 3)))
+static bool monologue_call_create_media(struct call_monologue *ml, sdp_ng_flags *flags,
+		const str *type, unsigned int idx, const str_q *codecs)
+{
+	__auto_type m = call_get_media(ml, type, codec_get_type(type), NULL, false, idx, str_ht_null());
+	if (!m)
+		return false;
+
+	m->protocol = flags->transport_protocol ?: &transport_protocols[PROTO_RTP_AVP];
+	bf_set(&m->media_flags, MEDIA_FLAG_SEND | MEDIA_FLAG_RECV
+			| MEDIA_FLAG_SETUP_ACTIVE | MEDIA_FLAG_SETUP_PASSIVE
+			| MEDIA_FLAG_DTLS | MEDIA_FLAG_SDES);
+
+	__rtcp_mux_set(flags, m);
+	media_init_from_flags(m, flags);
+	media_set_audio_player(m, flags);
+	media_gen_media_id(m, flags);
+	if (flags->ice_option == ICE_FORCE)
+		MEDIA_SET(m, ICE);
+	if (flags->trickle_ice)
+		MEDIA_SET(m, TRICKLE_ICE);
+	if (flags->ice_lite_option == ICE_LITE_FWD)
+		MEDIA_SET(m, ICE_LITE_SELF);
+
+	m->desired_family = flags->address_family;
+
+	if (!codecs || !codecs->length)
+		codecs = &flags->codec_offer;
+
+	codec_store_create(&m->codecs, codecs);
+	codec_store_strip(&m->codecs, &flags->codec_strip, flags->codec_except);
+
+	if (m->type_id == MT_AUDIO)
+		codec_store_synthesise_basic(&m->codecs, "create media");
+
+	__generate_crypto(flags, m, NULL);
+
+	int num_ports = (flags->rtcp_mux_require || !m->protocol->rtp) ? 1 : 2;
+	__init_interface(m, &flags->interface, num_ports);
+	MEDIA_SET(m, INITIALIZED);
+
+	if (!__get_endpoint_map(m, num_ports, NULL, NULL, true))
+		return false;
+	__num_media_streams(m, num_ports);
+
+	if (!__init_streams(m, NULL, flags))
+		return false;
+	__ice_init(m);
+
+	monologue_open_ports(ml);
+	monologue_media_start(ml);
+
+	return true;
+}
+
+bool monologue_call_create(struct call_monologue *ml, sdp_ng_flags *flags) {
+	if (!flags->medias.length) // default: one audio media
+		return monologue_call_create_media(ml, flags, STR_PTR("audio"), 1, NULL);
+
+	unsigned int idx = 1;
+
+	for (auto_iter(l, flags->medias.head); l; l = l->next) {
+		__auto_type m = l->data;
+		bool ok = monologue_call_create_media(ml, flags, &m->type, idx++, &m->codec_list);
+		if (!ok)
+			return false;
+	}
+
+	return true;
+}
+
+
+bool monologue_call_create_answer(struct call_monologue *ml, sdp_ng_flags *flags, sdp_streams_q *streams) {
+	g_auto(str_ht) mid_tracker = str_ht_new();
+
+	for (__auto_type l = streams->head; l; l = l->next)
+	{
+		struct stream_params *sp = l->data;
+		struct call_media *media = __get_media(ml, sp, flags, 0, mid_tracker);
+
+		if (!media)
+			continue;
+
+		media_init_from_flags(media, flags);
+		media_set_audio_player(media, flags);
+		media_update_protocol(media, sp);
+		media_answer_media_id(media, sp);
+		media_loop_protect(sp, media);
+		media_update_flags(media, sp);
+		media_update_crypto(media, sp, flags);
+		media_update_format(media, sp);
+		media_set_ptime(media, sp, flags->ptime, 0);
+		media_update_extmap(media, sp, NULL, flags);
+
+		codec_store_populate(&media->codecs, &sp->codecs,
+				.codec_set = flags->codec_set,
+				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
+		codec_store_strip(&media->codecs, &flags->codec_strip, flags->codec_except);
+		codec_store_offer(&media->codecs, &flags->codec_offer, &sp->codecs);
+
+		__dtls_logic(flags, media, sp);
+
+		if (!__init_streams(media, sp, flags))
+			return -1;
+
+		bf_copy(&media->media_flags, MEDIA_FLAG_RECV, &sp->sp_flags, SP_FLAG_SEND);
+		bf_copy(&media->media_flags, MEDIA_FLAG_SEND, &sp->sp_flags, SP_FLAG_RECV);
+
+		MEDIA_SET(media, INITIALIZED);
+
+		codec_update_media_source_handlers(media, .flags = flags);
+		codec_update_media_handlers(media);
+
+		update_init_subscribers(media, sp, flags, flags->opmode);
+
+		__media_unconfirm(media, "create answer event");
+
+		sdp_sp_move(&media->sp, sp);
 	}
 
 	return true;
