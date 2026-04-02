@@ -154,7 +154,7 @@ struct metafile_s {
 	char *output_dest;
 	char *output_path;
 	char *output_pattern;
-	off_t pos;
+	size_t pos;
 	unsigned long long db_id;
 	unsigned int db_streams;
 	int64_t start_time_us;

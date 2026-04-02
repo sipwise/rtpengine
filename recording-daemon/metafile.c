@@ -410,8 +410,8 @@ void metafile_change(char *name) {
 			// Incomplete data - this is expected when file is being written
 			// Log only at DEBUG level as this is a normal race condition
 			if (head < endp) {
-				dbg("Incomplete section header in %s%s%s (waiting for more data, %ld bytes remain)",
-				    FMT_M(name), (long)(endp - head));
+				dbg("Incomplete section header in %s%s%s (waiting for more data, %zu bytes remain)",
+				    FMT_M(name), endp - head);
 			}
 			break;
 		}
@@ -450,8 +450,8 @@ void metafile_change(char *name) {
 
 		// content
 		if (endp - head < slen) {
-			dbg("Content truncated in section %s in %s%s%s (have %ld, need %lu, waiting for more data)",
-			    section, FMT_M(name), (long)(endp - head), slen);
+			dbg("Content truncated in section %s in %s%s%s (have %zu, need %lu, waiting for more data)",
+			    section, FMT_M(name), endp - head, slen);
 			break;
 		}
 		char *content = head;
@@ -483,12 +483,12 @@ void metafile_change(char *name) {
 
 	// Only update file position to reflect successfully parsed data
 	// Calculate how many bytes from the buffer we successfully processed
-	off_t bytes_parsed = last_good_pos - s->str;
+	size_t bytes_parsed = last_good_pos - s->str;
 	mf->pos += bytes_parsed;
 
 	if (bytes_parsed < s->len) {
-		dbg("Parsed %ld of %ld bytes for %s%s%s, will retry remaining %ld bytes on next event",
-		    (long)bytes_parsed, (long)s->len, FMT_M(name), (long)(s->len - bytes_parsed));
+		dbg("Parsed %zu of %zu bytes for %s%s%s, will retry remaining %zu bytes on next event",
+		    bytes_parsed, s->len, FMT_M(name), s->len - bytes_parsed);
 	}
 
 	g_string_free(s, TRUE);
