@@ -2696,7 +2696,7 @@ Example:
 
 This message makes it possible to directly connect the media of two call parties
 without the need for a full offer/answer exchange. The required keys are
-`call-id` to identify the call, and `from-tag and `to-tag` to identify the two
+`call-id` to identify the call, and `from-tag` and `to-tag` to identify the two
 call parties to connect. By default, the media will be connected in the same
 way as it would through an offer/answer exchange. Transcoding will
 automatically be engaged if needed.
@@ -2709,11 +2709,27 @@ object, with both call IDs then corresponding to the same call. This will be
 visible in certain statistics (e.g. two call IDs appearing in the list, but
 only one call being counted).
 
-Adding the flag `directional` changes the behaviour from doing a full call transfer (similar to an offer/answer) to only setting up additional media subscriptions. In this mode, `connect` instructs *rtpengine* that (a copy of the) media received from the call party identified by the `from-tag` shall also be delivered to the call party identified by the `to-tag`. Other existing media subscriptions are not affected.
+Adding the flag `directional` changes the behaviour from doing a full call
+transfer (similar to an offer/answer) to only setting up additional media
+subscriptions. In this mode, `connect` instructs *rtpengine* that (a copy of
+the) media received from the call party identified by the `from-tag` shall also
+be delivered to the call party identified by the `to-tag`. Other existing media
+subscriptions are not affected.
+
+Directional mode also makes it possible to specify not just one `from-tag` but
+multiple call parties in order to create multiple new subscriptions with a
+single call. This can be done either with a list of tags in `from-tags` or
+using the `all` flag described elsewhere.
 
 In addition to `directional`, the flag `bidirectional` can be set to set up
 subscriptions not just from the `from-tag` to the `to-tag`, but also in the
 other direction at the same time.
+
+Note that creating multiple source subscriptions for a single destination
+doesn't automatically create a typical "conference" scenario. Specifically, by
+default the destination would get multiple RTP streams delivered, which may be
+acceptable for some clients, but isn't what is usually expected. The `audio
+player` feature described elsewhere is a useful option for this.
 
 ## `create` and `create answer` Messages
 
