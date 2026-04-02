@@ -497,6 +497,1151 @@ rtpe_req('delete', 'delete');
 
 
 
+($sock_a, $sock_b) = new_call([qw(198.51.100.10 4070)], [qw(198.51.100.10 4072)]);
+
+($port_a) = offer('extended connect w "all" bidirectional', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 4070 RTP/AVP 0 8
+c=IN IP4 198.51.100.10
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('extended connect w "all" bidirectional', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 4072 RTP/AVP 0 8
+c=IN IP4 198.51.100.10
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$cid1 = cid();
+$ft = ft();
+$tt = tt();
+
+($sock_c, $sock_d) = new_call_nc([qw(198.51.100.10 4074)], [qw(198.51.100.10 4076)]);
+
+($port_c) = offer('extended connect w "all" bidirectional', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 4074 RTP/AVP 0 8
+c=IN IP4 198.51.100.10
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_d) = answer('extended connect w "all" bidirectional', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 4076 RTP/AVP 0 8
+c=IN IP4 198.51.100.10
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_a, $port_b, rtp (0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3000, 5000, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3000, 5000, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5000, 7000, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5000, 7000, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7000, 9000, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7000, 9000, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('connect', 'extended connect w "all" bidirectional', {
+		'to-tag' => $tt,
+		'to-call-id' => $cid1,
+		flags => [qw,directional bidirectional all,],
+});
+
+
+snd($sock_a, $port_b, rtp (0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+# calls are merged now
+
+rtpe_req('connect', 'extended connect w "all" bidirectional', {
+		'to-tag' => $ft,
+		'to-call-id' => $cid1,
+		flags => [qw,directional bidirectional all,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1002, 3320, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3320, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1002, 3320, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1002, 3320, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3002, 5320, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3002, 5320, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3002, 5320, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3002, 5320, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5002, 7320, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5002, 7320, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5002, 7320, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5002, 7320, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7002, 9320, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7002, 9320, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7002, 9320, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7002, 9320, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('connect', 'extended connect w "all" bidirectional', {
+		'to-tag' => ft(),
+		'to-call-id' => cid(),
+		flags => [qw,directional bidirectional all,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1006, 3800, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1006, 3800, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1006, 3800, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1006, 3800, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3006, 5800, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3006, 5800, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3006, 5800, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3006, 5800, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5006, 7800, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5006, 7800, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5006, 7800, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5006, 7800, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7006, 9800, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7006, 9800, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7006, 9800, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7006, 9800, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+rtpe_req('connect', 'extended connect w "all" bidirectional', {
+		'to-tag' => tt(),
+		'to-call-id' => $cid1,
+		flags => [qw,directional bidirectional all,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1007, 3960, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1007, 3960, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1007, 3960, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1007, 3960, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3007, 5960, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3007, 5960, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3007, 5960, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3007, 5960, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5007, 7960, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5007, 7960, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5007, 7960, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5007, 7960, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7007, 9960, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7007, 9960, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7007, 9960, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7007, 9960, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('unsubscribe', 'extended connect w "all" bidirectional', {
+		'from-tag' => tt(),
+		'to-tag' => $tt,
+		flags => [qw,directional bidirectional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1010, 4600, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1010, 4600, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1010, 4600, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1010, 4600, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3010, 6600, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3010, 6600, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3010, 6600, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5010, 8600, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5010, 8600, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5010, 8600, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5010, 8600, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7010, 10600, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7010, 10600, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7010, 10600, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+rtpe_req('unsubscribe', 'extended connect w "all" bidirectional', {
+		'from-tag' => ft(),
+		'to-tag' => $ft,
+		flags => [],
+});
+
+snd($sock_a, $port_b, rtp (0, 1011, 4760, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3011, 6760, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3011, 6760, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5011, 8760, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5011, 8760, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5011, 8760, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7011, 10760, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7011, 10760, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.8 4070)], [qw(198.51.100.8 4072)]);
+
+($port_a) = offer('extended connect w from-tags bidirectional', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio 4070 RTP/AVP 0 8
+c=IN IP4 198.51.100.8
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('extended connect w from-tags bidirectional', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio 4072 RTP/AVP 0 8
+c=IN IP4 198.51.100.8
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$cid1 = cid();
+$ft = ft();
+$tt = tt();
+
+($sock_c, $sock_d) = new_call_nc([qw(198.51.100.8 4074)], [qw(198.51.100.8 4076)]);
+
+($port_c) = offer('extended connect w from-tags bidirectional', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio 4074 RTP/AVP 0 8
+c=IN IP4 198.51.100.8
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_d) = answer('extended connect w from-tags bidirectional', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio 4076 RTP/AVP 0 8
+c=IN IP4 198.51.100.8
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_a, $port_b, rtp (0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3000, 5000, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3000, 5000, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5000, 7000, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5000, 7000, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7000, 9000, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7000, 9000, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('connect', 'extended connect w from-tags bidirectional', {
+		'from-tags' => [ft(), tt()],
+		'to-tag' => $tt,
+		'to-call-id' => $cid1,
+		flags => [qw,directional bidirectional,],
+});
+
+
+snd($sock_a, $port_b, rtp (0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('connect', 'extended connect w from-tags bidirectional', {
+		'from-tags' => [ft(), tt()],
+		'to-tag' => $ft,
+		'to-call-id' => $cid1,
+		flags => [qw,directional bidirectional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1002, 3320, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3320, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1002, 3320, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1002, 3320, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3002, 5320, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3002, 5320, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3002, 5320, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3002, 5320, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5002, 7320, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5002, 7320, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5002, 7320, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5002, 7320, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7002, 9320, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7002, 9320, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7002, 9320, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7002, 9320, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+# calls are merged now, so can connect all tags
+
+rtpe_req('connect', 'extended connect w from-tags bidirectional', {
+		'from-tags' => [$ft, $tt, tt()],
+		'to-tag' => ft(),
+		'to-call-id' => cid(),
+		flags => [qw,directional bidirectional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1006, 3800, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1006, 3800, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1006, 3800, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1006, 3800, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3006, 5800, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3006, 5800, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3006, 5800, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3006, 5800, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5006, 7800, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5006, 7800, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5006, 7800, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5006, 7800, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7006, 9800, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7006, 9800, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7006, 9800, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7006, 9800, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+rtpe_req('connect', 'extended connect w from-tags bidirectional', {
+		'from-tags' => [$ft, $tt, ft()],
+		'to-tag' => tt(),
+		'to-call-id' => $cid1,
+		flags => [qw,directional bidirectional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1007, 3960, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1007, 3960, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1007, 3960, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1007, 3960, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3007, 5960, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3007, 5960, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3007, 5960, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3007, 5960, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5007, 7960, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5007, 7960, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5007, 7960, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5007, 7960, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7007, 9960, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7007, 9960, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7007, 9960, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7007, 9960, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('unsubscribe', 'extended connect w from-tags bidirectional', {
+		'from-tag' => tt(),
+		'to-tag' => $tt,
+		flags => [qw,directional bidirectional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1010, 4600, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1010, 4600, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1010, 4600, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1010, 4600, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3010, 6600, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3010, 6600, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3010, 6600, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5010, 8600, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5010, 8600, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5010, 8600, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5010, 8600, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7010, 10600, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7010, 10600, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7010, 10600, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+rtpe_req('unsubscribe', 'extended connect w from-tags bidirectional', {
+		'from-tag' => ft(),
+		'to-tag' => $ft,
+		flags => [],
+});
+
+snd($sock_a, $port_b, rtp (0, 1011, 4760, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3011, 6760, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3011, 6760, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5011, 8760, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5011, 8760, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5011, 8760, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7011, 10760, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7011, 10760, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.8 4052)], [qw(198.51.100.8 4054)]);
+
+($port_a) = offer('extended connect w from-tags', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio 4052 RTP/AVP 0 8
+c=IN IP4 198.51.100.8
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('extended connect w from-tags', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio 4054 RTP/AVP 0 8
+c=IN IP4 198.51.100.8
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$cid1 = cid();
+$ft = ft();
+$tt = tt();
+
+($sock_c, $sock_d) = new_call_nc([qw(198.51.100.8 4056)], [qw(198.51.100.8 4058)]);
+
+($port_c) = offer('extended connect w from-tags', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio 4056 RTP/AVP 0 8
+c=IN IP4 198.51.100.8
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_d) = answer('extended connect w from-tags', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio 4058 RTP/AVP 0 8
+c=IN IP4 198.51.100.8
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_a, $port_b, rtp (0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3000, 5000, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3000, 5000, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5000, 7000, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5000, 7000, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7000, 9000, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7000, 9000, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('connect', 'extended connect w from-tags', {
+		'from-tags' => [ft(), tt()],
+		'to-tag' => $tt,
+		'to-call-id' => $cid1,
+		flags => [qw,directional,],
+});
+
+
+snd($sock_a, $port_b, rtp (0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+# calls are merged now
+
+rtpe_req('connect', 'extended connect w from-tags', {
+		'from-tags' => [ft(), tt(), $tt],
+		'to-tag' => $ft,
+		'to-call-id' => $cid1,
+		flags => [qw,directional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1002, 3320, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3320, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3002, 5320, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3002, 5320, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5002, 7320, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5002, 7320, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5002, 7320, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5002, 7320, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7002, 9320, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7002, 9320, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7002, 9320, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7002, 9320, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('connect', 'extended connect w from-tags', {
+		'from-tags' => [$ft, $tt, tt()],
+		'to-tag' => ft(),
+		'to-call-id' => $cid1,
+		flags => [qw,directional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1006, 3800, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1006, 3800, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1006, 3800, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3006, 5800, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3006, 5800, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3006, 5800, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5006, 7800, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5006, 7800, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5006, 7800, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5006, 7800, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7006, 9800, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7006, 9800, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7006, 9800, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7006, 9800, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+rtpe_req('connect', 'extended connect w from-tags', {
+		'from-tags' => [$ft, $tt, ft()],
+		'to-tag' => tt(),
+		'to-call-id' => $cid1,
+		flags => [qw,directional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1007, 3960, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1007, 3960, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1007, 3960, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1007, 3960, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3007, 5960, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3007, 5960, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3007, 5960, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3007, 5960, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5007, 7960, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5007, 7960, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5007, 7960, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5007, 7960, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7007, 9960, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7007, 9960, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7007, 9960, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7007, 9960, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('unsubscribe', 'extended connect w from-tags', {
+		'from-tag' => tt(),
+		'to-tag' => $tt,
+		flags => [qw,directional,],
+});
+
+snd($sock_a, $port_b, rtp (0, 1010, 4600, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1010, 4600, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1010, 4600, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1010, 4600, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3010, 6600, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3010, 6600, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3010, 6600, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3010, 6600, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5010, 8600, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5010, 8600, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5010, 8600, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5010, 8600, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7010, 10600, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7010, 10600, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7010, 10600, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+rtpe_req('unsubscribe', 'extended connect w from-tags', {
+		'from-tag' => ft(),
+		'to-tag' => $ft,
+		flags => [],
+});
+
+snd($sock_a, $port_b, rtp (0, 1011, 4760, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3011, 6760, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3011, 6760, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3011, 6760, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5011, 8760, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5011, 8760, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5011, 8760, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7011, 10760, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7011, 10760, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+
+
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.4 4070)], [qw(198.51.100.4 4072)]);
 
