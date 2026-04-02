@@ -1907,8 +1907,6 @@ next:
 			audio_player_setup(sink, pref_dest_codec, rtpe_config.audio_buffer_length,
 					rtpe_config.audio_buffer_delay,
 					a.flags ? a.flags->codec_set : str_case_value_ht_null());
-			if (a.flags && (a.flags->early_media || a.flags->opmode == OP_ANSWER))
-				audio_player_activate(sink);
 		}
 	}
 

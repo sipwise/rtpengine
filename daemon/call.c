@@ -2538,6 +2538,9 @@ static void codecs_offer(struct call_media *receiver, struct call_media *sender,
 	// keep a copy of the final list of what was offered
 	codec_store_copy(&sender->offered_codecs, &sender->codecs);
 	codec_store_copy(&receiver->offered_codecs, &receiver->codecs);
+
+	if (flags->early_media)
+		audio_player_activate(sender);
 }
 
 __attribute__((nonnull(1, 2, 3, 4)))
@@ -2604,6 +2607,7 @@ static void codecs_answer(struct call_media *receiver, struct call_media *sender
 			.reset_transcoding = true);
 
 	// activate audio player if needed (not done by codec_handlers_update without `flags`)
+	audio_player_activate(sender);
 	audio_player_activate(receiver);
 }
 
@@ -4580,6 +4584,9 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 		codec_handlers_update(dst_media, src_media, .flags = flags, .sp = sp,
 				.allow_asymmetric = !!flags->allow_asymmetric_codecs,
 				.reset_transcoding = true);
+
+		if (flags->early_media)
+			audio_player_activate(dst_media);
 
 		__dtls_logic(flags, dst_media, sp);
 
