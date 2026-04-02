@@ -4845,11 +4845,13 @@ int monologue_inject_stop(struct call_monologue *src_ml, struct call_monologue *
 
 
 __attribute__((nonnull(1, 2, 3)))
-void dialogue_connect(struct call_monologue *src_ml, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
+void dialogue_connect(const medias_q *src_medias, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
 	// for each source media, find a usable destination media
-	for (unsigned int i = 0; i < src_ml->medias->len; i++) {
-		__auto_type src_media = src_ml->medias->pdata[i];
-		if (!src_media)
+	for (auto_iter(l, src_medias->head); l; l = l->next) {
+		__auto_type src_media = l->data;
+
+		// avoid connect to self XXX allow in some cases?
+		if (src_media->monologue == dst_ml)
 			continue;
 
 		struct call_media *dst_media = NULL;
@@ -4865,10 +4867,11 @@ void dialogue_connect(struct call_monologue *src_ml, struct call_monologue *dst_
 		// otherwise try by index
 		if (!dst_media) {
 			for (unsigned int j = 0; j < dst_ml->medias->len; j++) {
-				unsigned int dx = (j + i) % dst_ml->medias->len;
+				unsigned int dx = (j + src_media->index - 1) % dst_ml->medias->len;
 				dst_media = dst_ml->medias->pdata[dx];
 				if (!dst_media)
 					continue;
+				// XXX avoid duplicate dst_media from same src_ml?
 				// if type matches, we can connect
 				if (!str_cmp_str(&dst_media->type, &src_media->type))
 					break;

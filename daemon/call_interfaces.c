@@ -4466,19 +4466,14 @@ const char *call_connect_ng(ng_command_ctx_t *ctx) {
 	g_auto(sdp_ng_flags) flags;
 	g_autoptr(call_t) call = NULL;
 	g_autoptr(call_t) call2 = NULL;
+	g_auto(medias_q) medias = TYPED_GQUEUE_INIT;
 
-	call_ng_process_flags(&flags, ctx);
+	const char *err = medias_match(&call, &medias, &flags, ctx);
+	if (err)
+		return err;
 
-	if (!flags.call_id.s)
-		return "No call-id in message";
-	if (!flags.from_tag.s)
-		return "No from-tag in message";
 	if (!flags.to_tag.s)
 		return "No to-tag in message";
-
-	call = call_get(&flags.call_id);
-	if (!call)
-		return "Unknown call-ID";
 
 	if (flags.to_call_id.len) {
 		call2 = call_get2(call, &flags.to_call_id);
@@ -4488,22 +4483,15 @@ const char *call_connect_ng(ng_command_ctx_t *ctx) {
 	else
 		call2 = obj_get(call);
 
-	struct call_monologue *src_ml = call_get_or_create_monologue(call, &flags.from_tag);
-	if (!src_ml)
-		return "From-tag not found";
-
 	struct call_monologue *dest_ml = call_get_or_create_monologue(call2, &flags.to_tag);
 	if (!dest_ml)
 		return "To-tag not found";
 
-	if (src_ml == dest_ml)
-		return "Trying to connect to self"; // XXX should this be allowed?
-
 	if (!call_merge(call, call2))
-		return "Failed to merge two calls into one";
+		return "Failed to merge two calls into one (tag collision)";
 	call2 = NULL; // reference released
 
-	dialogue_connect(src_ml, dest_ml, &flags);
+	dialogue_connect(&medias, dest_ml, &flags);
 
 	call_unlock_release_update(&call);
 
