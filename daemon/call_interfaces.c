@@ -3400,7 +3400,7 @@ const char *call_stop_recording_ng(ng_command_ctx_t *ctx) {
 }
 
 
-static const char *media_block_match1(call_t *call, struct call_monologue **monologue,
+static const char *media_match(call_t *call, struct call_monologue **monologue,
 		sdp_ng_flags *flags)
 {
 	if (flags->label.s) {
@@ -3464,7 +3464,7 @@ static const char *media_block_match(call_t **call, struct call_monologue **mono
 	if (flags->all == ALL_ALL) // explicitly non-directional, so skip the rest
 		return NULL;
 
-	const char *err = media_block_match1(*call, monologue, flags);
+	const char *err = media_match(*call, monologue, flags);
 	if (err)
 		return err;
 
@@ -3504,7 +3504,7 @@ static const char *medias_match(call_t **call, medias_q *medias,
 
 	/* is a single ml given? */
 	struct call_monologue *ml = NULL;
-	const char *err = media_block_match1(*call, &ml, flags);
+	const char *err = media_match(*call, &ml, flags);
 	if (err)
 		return err;
 	if (ml) {
@@ -4216,9 +4216,6 @@ const char *call_subscribe_request_ng(ng_command_ctx_t *ctx) {
 
 	if (flags.sdp.len)
 		ilog(LOG_INFO, "Subscribe-request with SDP received - ignoring SDP");
-
-	if (!mq.length)
-		return "No call participants specified (no medias found)";
 
 	/* the `label=` option was possibly used above to select the from-tag --
 	 * switch it out with `to-label=` or `set-label=` for monologue_subscribe_request
