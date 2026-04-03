@@ -1487,6 +1487,87 @@ static mp_cached_code __media_player_add_file(struct media_player *mp,
 	return MPC_OK;
 }
 
+struct rtp_payload_data{
+    int pt;                     // RTP payload type
+    const char ffmpeg_codec_name[6];     // Codec name (case-sensitive)
+    enum AVMediaType codec_type;// Media type
+    enum AVCodecID codec_id;    // FFmpeg codec ID
+    int sample_rate;             // Sample rate
+	int channels;                // Default channels
+};
+
+const struct rtp_payload_data rtp_payload_types[] = {
+    {0,  "mulaw",  AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_PCM_MULAW, 8000, 1},
+    {8,  "alaw",  AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_PCM_ALAW,   8000, 1},
+	{9,  "g722",  AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_ADPCM_G722, 8000, 1},
+	{18, "g729",  AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_G729,      8000, 1},
+    {-1, "",      AVMEDIA_TYPE_UNKNOWN, AV_CODEC_ID_NONE,     -1,  -1}
+};
+
+// Helper function to find codec configuration
+static const struct rtp_payload_data *find_rtp_payload_data(const str *codec_str) {
+    // Check static payload types
+    for (int i = 0; rtp_payload_types[i].pt != -1; i++) {
+        if (str_cmp(codec_str, rtp_payload_types[i].ffmpeg_codec_name) == 0) {
+            return &rtp_payload_types[i];
+        }
+    }
+    ilog(LOG_ERR, "Unsupported codec: '" STR_FORMAT "'", STR_FMT(codec_str));
+    return NULL;
+}
+
+static bool __media_player_open_audio_raw_rtp_file(struct media_player *mp, media_player_opts_t opts) {
+    // Validate codec
+    if (!opts.audio_raw_rtp_codec.len) {
+        ilog(LOG_ERR, "Raw RTP playback requires codec specification");
+        return false;
+    }
+    
+	// Find codec configuration
+   const struct rtp_payload_data *payload_data = find_rtp_payload_data(&opts.audio_raw_rtp_codec);
+    if (!payload_data || payload_data->codec_id == AV_CODEC_ID_NONE) {
+        ilog(LOG_ERR, "Codec '" STR_FORMAT "' is not supported by FFmpeg", STR_FMT(&opts.audio_raw_rtp_codec));
+        return false;
+    }
+
+	// Convert file path
+    char file_path[PATH_MAX];
+    snprintf(file_path, sizeof(file_path), STR_FORMAT, STR_FMT(&opts.audio_raw_rtp_file));
+    
+	AVInputFormat *iformat = av_find_input_format(opts.audio_raw_rtp_codec.s);
+	if (!iformat) {
+        ilog(LOG_ERR, "Failed to find input format:'" STR_FORMAT "'", STR_FMT(&opts.audio_raw_rtp_codec));
+        return false;
+    }
+
+	int ret = avformat_open_input(&mp->coder.fmtctx, file_path, iformat , NULL);
+    if (ret < 0) {
+		ilog(LOG_ERR, "Raw RTP playback failing in avformat_open_input");
+		return false;
+	}
+
+    if (!mp->coder.fmtctx->streams || !mp->coder.fmtctx->streams[0]) {
+        ilog(LOG_ERR, "No streams found in input file");
+        return false;
+    }
+	mp->coder.fmtctx->streams[0]->time_base = (AVRational){1, payload_data->sample_rate > 0 ? payload_data->sample_rate : 8000}; // Default for 8kHz audio;
+	mp->coder.fmtctx->streams[0]->codecpar->sample_rate = payload_data->sample_rate;
+	
+    return true;
+}
+
+static bool media_player_play_audio_raw_rtp_file(struct media_player *mp, media_player_opts_t opts) {
+    const rtp_payload_type *dst_pt = media_player_play_init(mp);
+    if (!dst_pt)
+        return false;
+
+    if (!__media_player_open_audio_raw_rtp_file(mp, opts))
+        return false;    
+
+    mp->coder.audio_raw_rtp_mode = true;
+    return media_player_play_start(mp, dst_pt, opts.codec_set);
+}
+
 // call->master_lock held in W
 static bool media_player_play_file(struct media_player *mp, media_player_opts_t opts) {
 	const rtp_payload_type *dst_pt = media_player_play_init(mp);
@@ -1693,6 +1774,10 @@ const char * call_play_media_for_ml(struct call_monologue *ml,
 		if (!media_player_play_db(ml->player, opts))
 			return "Failed to start media playback from database";
 	}
+	else if (opts.audio_raw_rtp_file.len ) {
+        if (!media_player_play_audio_raw_rtp_file(ml->player, opts))
+            return "Failed to start audio raw RTP file playback";
+    }
 	else
 		return "No media file specified";
 	return NULL;
