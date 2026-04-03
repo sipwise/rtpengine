@@ -4992,6 +4992,14 @@ static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struc
 	 * throttle code path which can tail-call into TC_ACT_SHOT when the
 	 * aggregate slot is uninitialised. */
 	skb->queue_mapping = 0;
+	/* Zero skb->tstamp: skb_copy_expand() preserves the receive timestamp
+	 * (a REALTIME ktime ~1.77e18 ns, i.e. Unix epoch).  The fq qdisc
+	 * compares skb->tstamp against the monotonic clock (seconds since boot)
+	 * without checking tstamp_type; a REALTIME timestamp is billions of
+	 * nanoseconds ahead of monotonic_now and exceeds the 2-second horizon,
+	 * causing fq_packet_beyond_horizon() to silently drop every packet.
+	 * Clearing tstamp tells fq to transmit immediately. */
+	skb->tstamp = 0;
 	ip_local_out(net, skb->sk, skb);
 
 	return 0;
@@ -5087,9 +5095,10 @@ static int send_proxy_packet6(struct sk_buff *skb, struct re_address *src, struc
 		skb->ip_summed = CHECKSUM_COMPLETE;
 	}
 
-	/* Same reasoning as send_proxy_packet4: zero queue_mapping before
-	 * handing the packet to the egress TC BPF program. */
+	/* Same reasoning as send_proxy_packet4: clear the inherited REALTIME
+	 * receive timestamp to prevent fq horizon drops. */
 	skb->queue_mapping = 0;
+	skb->tstamp = 0;
 	ip6_local_out(net, skb->sk, skb);
 
 	return 0;
