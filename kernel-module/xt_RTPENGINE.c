@@ -4900,6 +4900,12 @@ static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struc
 	};
 
 	skb->protocol = htons(ETH_P_IP);
+	/* Clear any mark inherited from the received packet.  On Cilium/GKE
+	 * DPv2 nodes, ingress BPF stamps identity/decrypt marks on incoming
+	 * skbs; leaving them in place can match an ip rule (e.g.
+	 * "fwmark 0x200/0xf00 → table 2004") and send forwarded packets into
+	 * a Cilium-internal routing table that has no default gateway. */
+	skb->mark = 0;
 
 	net = NULL;
 	if (par)
@@ -4992,6 +4998,9 @@ static int send_proxy_packet6(struct sk_buff *skb, struct re_address *src, struc
 	memcpy(&ih->daddr, dst->u.ipv6, sizeof(ih->daddr));
 
 	skb->protocol = htons(ETH_P_IPV6);
+	/* Same reasoning as send_proxy_packet4: clear inherited Cilium ingress
+	 * marks to avoid misrouting via Cilium-internal tables. */
+	skb->mark = 0;
 
 	net = NULL;
 	if (par)
