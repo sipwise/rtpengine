@@ -5017,6 +5017,13 @@ static int send_proxy_packet4(struct sk_buff *skb, const struct re_address *src,
 	}
 
 	ip_select_ident(net, skb, NULL);
+	/* Zero queue_mapping: the skb is a copy of the received packet and
+	 * inherits the NIC RX queue index.  On Cilium/GKE DPv2 nodes the
+	 * egress TC BPF program (cil_to_netdev) uses queue_mapping as an EDT
+	 * bandwidth-throttle aggregate key; a non-zero value enters the
+	 * throttle code path which can tail-call into TC_ACT_SHOT when the
+	 * aggregate slot is uninitialised. */
+	skb->queue_mapping = 0;
 	ip_local_out(net, skb->sk, skb);
 
 	return 0;
@@ -5107,6 +5114,9 @@ static int send_proxy_packet6(struct sk_buff *skb, const struct re_address *src,
 		skb->ip_summed = CHECKSUM_COMPLETE;
 	}
 
+	/* Same reasoning as send_proxy_packet4: zero queue_mapping before
+	 * handing the packet to the egress TC BPF program. */
+	skb->queue_mapping = 0;
 	ip6_local_out(net, skb->sk, skb);
 
 	return 0;
