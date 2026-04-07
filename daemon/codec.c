@@ -1435,52 +1435,52 @@ static GTree *codec_make_prefs_tree(rtp_payload_type *pt, struct codec_store *cs
  * receiver - media / sink - other_media
  * call must be locked in W
  */
-void __codec_handlers_update(struct call_media *receiver, struct call_media *sink,
+void __codec_handlers_update(struct call_media *source, struct call_media *sink,
 		struct chu_args a)
 {
-	struct call_monologue *monologue = receiver->monologue;
-	struct call_monologue *other_monologue = sink->monologue;
+	struct call_monologue *source_ml = source->monologue;
+	struct call_monologue *sink_ml = sink->monologue;
 
-	if (!monologue || !other_monologue)
+	if (!source_ml || !sink_ml)
 		return;
 
 	/* required for updating the transcoding attrs of subscriber */
-	struct media_subscription *ms = call_get_media_subscription(receiver->media_subscribers_ht, sink);
+	struct media_subscription *ms = call_get_media_subscription(source->media_subscribers_ht, sink);
 
 	ilogs(codec, LOG_DEBUG, "Setting up codec handlers for " STR_FORMAT_M " #%u -> " STR_FORMAT_M " #%u",
-			STR_FMT_M(&monologue->tag), receiver->index,
-			STR_FMT_M(&other_monologue->tag), sink->index);
+			STR_FMT_M(&source_ml->tag), source->index,
+			STR_FMT_M(&sink_ml->tag), sink->index);
 
 	if (a.reset_transcoding && ms)
 		ms->attrs.transcoding = false;
 
-	MEDIA_CLEAR(receiver, GENERATOR);
+	MEDIA_CLEAR(source, GENERATOR);
 	MEDIA_CLEAR(sink, GENERATOR);
 
-	if (!t_hash_table_is_set(receiver->codec_handlers))
-		receiver->codec_handlers = codec_handlers_ht_new();
+	if (!t_hash_table_is_set(source->codec_handlers))
+		source->codec_handlers = codec_handlers_ht_new();
 	if (!t_hash_table_is_set(sink->codec_handlers))
 		sink->codec_handlers = codec_handlers_ht_new();
 
 	// non-RTP protocol?
-	if (proto_is(receiver->protocol, PROTO_UDPTL)) {
-		if (codec_handler_udptl_update(receiver, sink, a.flags)) {
+	if (proto_is(source->protocol, PROTO_UDPTL)) {
+		if (codec_handler_udptl_update(source, sink, a.flags)) {
 			if (a.reset_transcoding && ms)
 				ms->attrs.transcoding = true;
 			return;
 		}
 	}
 	// everything else is unsupported: pass through
-	if (proto_is_not_rtp(receiver->protocol)) {
-		__generator_stop_all(receiver);
+	if (proto_is_not_rtp(source->protocol)) {
+		__generator_stop_all(source);
 		__generator_stop_all(sink);
-		codec_handlers_stop(&receiver->codec_handlers_store, sink, a.clear_delay_buffer);
+		codec_handlers_stop(&source->codec_handlers_store, sink, a.clear_delay_buffer);
 		return;
 	}
 
 	// should we transcode to a non-RTP protocol?
 	if (proto_is_not_rtp(sink->protocol)) {
-		if (codec_handler_non_rtp_update(receiver, sink, a.flags, a.sp)) {
+		if (codec_handler_non_rtp_update(source, sink, a.flags, a.sp)) {
 			if (a.reset_transcoding && ms)
 				ms->attrs.transcoding = true;
 			return;
@@ -1488,17 +1488,17 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	}
 
 	// we're doing some kind of media passthrough - shut down local generators
-	__generator_stop(receiver);
+	__generator_stop(source);
 	__generator_stop(sink);
 
 	// clear_delay_buffer is enabled by play-media to ensure media packets don't get scheduled
 	// alongside the delay buffer packets resulting in choppy audio
-	codec_handlers_stop(&receiver->codec_handlers_store, sink, a.clear_delay_buffer);
+	codec_handlers_stop(&source->codec_handlers_store, sink, a.clear_delay_buffer);
 	// XXX this can cause unnecessary shutdown/resets of codec handlers
 
 	bool is_transcoding = false;
-	receiver->rtcp_handler = NULL;
-	receiver->dtmf_count = 0;
+	source->rtcp_handler = NULL;
+	source->dtmf_count = 0;
 	GSList *passthrough_handlers = NULL;
 
 	// default choice of audio player usage is based on whether it was in use previously,
@@ -1508,7 +1508,7 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 
 	if (rtpe_config.use_audio_player == UAP_PLAY_MEDIA) {
 		// check for implicitly enabled player
-		if ((a.flags && a.flags->opmode == OP_PLAY_MEDIA) || (media_player_is_active(other_monologue))) {
+		if ((a.flags && a.flags->opmode == OP_PLAY_MEDIA) || (media_player_is_active(sink_ml))) {
 			use_audio_player = true;
 			implicit_audio_player = true;
 		}
@@ -1520,50 +1520,50 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	__check_codec_list(&supplemental_sinks, &pref_dest_codec, sink, &sink->codecs.codec_prefs);
 
 	// then do the same with what we can receive
-	g_autoptr(GHashTable) supplemental_recvs = NULL;
-	__check_codec_list(&supplemental_recvs, NULL, receiver, &receiver->codecs.codec_prefs);
+	g_autoptr(GHashTable) supplemental_srcs = NULL;
+	__check_codec_list(&supplemental_srcs, NULL, source, &source->codecs.codec_prefs);
 
 	// if multiple input codecs transcode to the same output codec, we want to make sure
 	// that all the decoders output their media to the same encoder. we use the destination
 	// payload type to keep track of this.
 	g_autoptr(GHashTable) output_transcoders = g_hash_table_new(g_direct_hash, g_direct_equal);
 
-	enum block_dtmf_mode dtmf_block_mode = dtmf_get_block_mode(NULL, monologue);
+	enum block_dtmf_mode dtmf_block_mode = dtmf_get_block_mode(NULL, source_ml);
 	bool do_pcm_dtmf_blocking = is_pcm_dtmf_block_mode(dtmf_block_mode);
 	bool do_dtmf_blocking = is_dtmf_replace_mode(dtmf_block_mode);
 
-	if (monologue->dtmf_delay) // received DTMF must be replaced by silence initially, therefore:
+	if (source_ml->dtmf_delay) // received DTMF must be replaced by silence initially, therefore:
 		do_pcm_dtmf_blocking = true;
 
 	bool do_dtmf_detect = false;
-	if (monologue->num_dtmf_triggers)
+	if (source_ml->num_dtmf_triggers)
 		do_dtmf_detect = true;
 
 	if (a.flags && a.flags->inject_dtmf)
-		ML_SET(other_monologue, INJECT_DTMF);
+		ML_SET(sink_ml, INJECT_DTMF);
 
-	bool use_ssrc_passthrough = MEDIA_ISSET(receiver, ECHO) || ML_ISSET(other_monologue, INJECT_DTMF);
+	bool use_ssrc_passthrough = MEDIA_ISSET(source, ECHO) || ML_ISSET(sink_ml, INJECT_DTMF);
 
 	// do we have to force everything through the transcoding engine even if codecs match?
 	bool force_transcoding = do_pcm_dtmf_blocking || do_dtmf_blocking || use_audio_player;
-	if ( (a.flags && a.flags->force_transcoding) || ML_ISSET(other_monologue, FORCE_TRANSCODING)) {
+	if ( (a.flags && a.flags->force_transcoding) || ML_ISSET(sink_ml, FORCE_TRANSCODING)) {
 		ilogs(codec, LOG_DEBUG, "Flag force-transcoding exist");
 		force_transcoding = true;
-		ML_SET(other_monologue, FORCE_TRANSCODING);
+		ML_SET(sink_ml, FORCE_TRANSCODING);
 	}
 
-	for (__auto_type l = receiver->codecs.codec_prefs.head; l; ) {
+	for (__auto_type l = source->codecs.codec_prefs.head; l; ) {
 		rtp_payload_type *pt = l->data;
 		rtp_payload_type *sink_pt = NULL;
 
 		g_autoptr(GTree) codec_preferences = codec_make_prefs_tree(pt, &sink->codecs);
 
-		ilogs(codec, LOG_DEBUG, "Checking receiver codec " STR_FORMAT "/" STR_FORMAT " (%i)",
+		ilogs(codec, LOG_DEBUG, "Checking source codec " STR_FORMAT "/" STR_FORMAT " (%i)",
 				STR_FMT(&pt->encoding_with_full_params),
 				STR_FMT0(&pt->format_parameters),
 				pt->payload_type);
 
-		struct codec_handler *handler = __get_pt_handler(receiver, pt, sink);
+		struct codec_handler *handler = __get_pt_handler(source, pt, sink);
 
 		// check our own support for this codec
 		if (!codec_def_supported(pt->codec_def)) {
@@ -1576,9 +1576,9 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 		}
 
 		// fill matching supp codecs
-		rtp_payload_type *recv_dtmf_pt = __supp_payload_type(supplemental_recvs, pt->clock_rate,
+		rtp_payload_type *src_dtmf_pt = __supp_payload_type(supplemental_srcs, pt->clock_rate,
 				"telephone-event");
-		rtp_payload_type *recv_cn_pt = __supp_payload_type(supplemental_recvs, pt->clock_rate,
+		rtp_payload_type *src_cn_pt = __supp_payload_type(supplemental_srcs, pt->clock_rate,
 				"CN");
 		bool pcm_dtmf_detect = false;
 
@@ -1629,7 +1629,7 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 			ilogs(codec, LOG_DEBUG, "No suitable output codec for " STR_FORMAT "/" STR_FORMAT,
 					STR_FMT(&pt->encoding_with_params),
 					STR_FMT0(&pt->format_parameters));
-			__make_passthrough_gsl(handler, &passthrough_handlers, recv_dtmf_pt, recv_cn_pt,
+			__make_passthrough_gsl(handler, &passthrough_handlers, src_dtmf_pt, src_cn_pt,
 					use_ssrc_passthrough);
 			goto next;
 		}
@@ -1651,10 +1651,10 @@ sink_pt_fixed:;
 		rtp_payload_type *sink_cn_pt = __supp_payload_type(supplemental_sinks,
 				sink_pt->clock_rate, "CN");
 		if (a.allow_asymmetric) {
-			if (!sink_dtmf_pt || (recv_dtmf_pt && !rtp_payload_type_fmt_cmp(sink_dtmf_pt, recv_dtmf_pt)))
-				sink_dtmf_pt = recv_dtmf_pt;
-			if (!sink_cn_pt || (recv_cn_pt && !rtp_payload_type_fmt_cmp(sink_cn_pt, recv_cn_pt)))
-				sink_cn_pt = recv_cn_pt;
+			if (!sink_dtmf_pt || (src_dtmf_pt && !rtp_payload_type_fmt_cmp(sink_dtmf_pt, src_dtmf_pt)))
+				sink_dtmf_pt = src_dtmf_pt;
+			if (!sink_cn_pt || (src_cn_pt && !rtp_payload_type_fmt_cmp(sink_cn_pt, src_cn_pt)))
+				sink_cn_pt = src_cn_pt;
 		}
 		rtp_payload_type *real_sink_dtmf_pt = NULL; // for DTMF delay
 
@@ -1664,18 +1664,18 @@ sink_pt_fixed:;
 			// second pass going through the offerer codecs during an answer:
 			// if an answer rejected a supplemental codec that isn't marked for transcoding,
 			// reject it on the sink side as well
-			if (sink_dtmf_pt && !recv_dtmf_pt && !sink_dtmf_pt->for_transcoding)
+			if (sink_dtmf_pt && !src_dtmf_pt && !sink_dtmf_pt->for_transcoding)
 				sink_dtmf_pt = NULL;
-			if (sink_cn_pt && !recv_cn_pt && !sink_cn_pt->for_transcoding)
+			if (sink_cn_pt && !src_cn_pt && !sink_cn_pt->for_transcoding)
 				sink_cn_pt = NULL;
 		}
 
 		// do we need DTMF detection?
-		if (!pt->codec_def->supplemental && !recv_dtmf_pt && sink_dtmf_pt
+		if (!pt->codec_def->supplemental && !src_dtmf_pt && sink_dtmf_pt
 				&& sink_dtmf_pt->for_transcoding)
 			pcm_dtmf_detect = true;
 
-		if (ML_ISSET(monologue, DETECT_DTMF))
+		if (ML_ISSET(source_ml, DETECT_DTMF))
 			pcm_dtmf_detect = true;
 
 		// special mode for DTMF blocking
@@ -1684,19 +1684,19 @@ sink_pt_fixed:;
 			sink_dtmf_pt = NULL; // always transcode DTMF to PCM
 
 			// enable DSP if we expect DTMF to be carried as PCM
-			if (!recv_dtmf_pt)
+			if (!src_dtmf_pt)
 				pcm_dtmf_detect = true;
 		}
 		else if (do_dtmf_blocking && !pcm_dtmf_detect) {
 			// we only need the DSP if there's no DTMF payload present, as otherwise
 			// we expect DTMF event packets
-			if (!recv_dtmf_pt)
+			if (!src_dtmf_pt)
 				pcm_dtmf_detect = true;
 		}
 
 		// same logic if we need to detect DTMF
 		if (do_dtmf_detect && !pcm_dtmf_detect) {
-			if (!recv_dtmf_pt)
+			if (!src_dtmf_pt)
 				pcm_dtmf_detect = true;
 		}
 
@@ -1733,7 +1733,7 @@ sink_pt_fixed:;
 		if (!pt->codec_def->supplemental) {
 			// different ptime?
 			if (sink_pt->ptime && pt->ptime && sink_pt->ptime != pt->ptime) {
-				if (MEDIA_ISSET(sink, PTIME_OVERRIDE) || MEDIA_ISSET(receiver, PTIME_OVERRIDE)) {
+				if (MEDIA_ISSET(sink, PTIME_OVERRIDE) || MEDIA_ISSET(source, PTIME_OVERRIDE)) {
 					ilogs(codec, LOG_DEBUG, "Mismatched ptime between source and sink (%i <> %i), "
 							"enabling transcoding",
 						sink_pt->ptime, pt->ptime);
@@ -1751,7 +1751,7 @@ sink_pt_fixed:;
 			// DTMF
 			if (pcm_dtmf_detect)
 				goto transcode;
-			if (recv_dtmf_pt && (recv_dtmf_pt->for_transcoding || do_pcm_dtmf_blocking) && !sink_dtmf_pt) {
+			if (src_dtmf_pt && (src_dtmf_pt->for_transcoding || do_pcm_dtmf_blocking) && !sink_dtmf_pt) {
 				ilogs(codec, LOG_DEBUG, "Transcoding DTMF events to PCM from " STR_FORMAT
 					"/" STR_FORMAT " to " STR_FORMAT "/" STR_FORMAT,
 						STR_FMT(&pt->encoding_with_params),
@@ -1761,7 +1761,7 @@ sink_pt_fixed:;
 				goto transcode;
 			}
 			// CN
-			if (!recv_cn_pt && sink_cn_pt && sink_cn_pt->for_transcoding) {
+			if (!src_cn_pt && sink_cn_pt && sink_cn_pt->for_transcoding) {
 				ilogs(codec, LOG_DEBUG, "Enabling CN silence detection from " STR_FORMAT
 					"/" STR_FORMAT " to " STR_FORMAT
 					"/" STR_FORMAT "/" STR_FORMAT "/" STR_FORMAT,
@@ -1773,7 +1773,7 @@ sink_pt_fixed:;
 						STR_FMT0(&sink_cn_pt->format_parameters));
 				goto transcode;
 			}
-			if (recv_cn_pt && recv_cn_pt->for_transcoding && !sink_cn_pt) {
+			if (src_cn_pt && src_cn_pt->for_transcoding && !sink_cn_pt) {
 				ilogs(codec, LOG_DEBUG, "Transcoding CN packets to PCM from " STR_FORMAT
 					"/" STR_FORMAT " to " STR_FORMAT "/" STR_FORMAT,
 						STR_FMT(&pt->encoding_with_params),
@@ -1785,7 +1785,7 @@ sink_pt_fixed:;
 		}
 
 		// force transcoding if we want DTMF injection and there's no DTMF PT
-		if (!sink_dtmf_pt && ML_ISSET(other_monologue, INJECT_DTMF))
+		if (!sink_dtmf_pt && ML_ISSET(sink_ml, INJECT_DTMF))
 			goto transcode;
 
 		// everything matches - we can do passthrough
@@ -1845,7 +1845,7 @@ transcode:
 		// to output DTMF event packets when we can though, so we need to remember the DTMF payload
 		// type here.
 		handler->real_dtmf_payload_type = real_sink_dtmf_pt ? real_sink_dtmf_pt->payload_type : -1;
-		__check_dtmf_injector(receiver, sink, handler, output_transcoders);
+		__check_dtmf_injector(source, sink, handler, output_transcoders);
 
 next:
 		l = l->next;
@@ -1862,7 +1862,7 @@ next:
 		if (a.reset_transcoding && ms)
 			ms->attrs.transcoding = true;
 
-		for (__auto_type l = receiver->codecs.codec_prefs.head; l; ) {
+		for (__auto_type l = source->codecs.codec_prefs.head; l; ) {
 			rtp_payload_type *pt = l->data;
 
 			if (codec_def_supported(pt->codec_def)) {
@@ -1874,13 +1874,13 @@ next:
 			ilogs(codec, LOG_DEBUG, "Stripping unsupported codec " STR_FORMAT
 					" due to active transcoding",
 					STR_FMT(&pt->encoding));
-			codec_touched(&receiver->codecs, pt);
-			l = __codec_store_delete_link(l, &receiver->codecs);
+			codec_touched(&source->codecs, pt);
+			l = __codec_store_delete_link(l, &source->codecs);
 		}
 
 		if (!use_audio_player) {
 			// we have to translate RTCP packets
-			receiver->rtcp_handler = rtcp_transcode_handler;
+			source->rtcp_handler = rtcp_transcode_handler;
 
 			// at least some payload types will be transcoded, which will result in SSRC
 			// change. for payload types which we don't actually transcode, we still
@@ -1893,8 +1893,8 @@ next:
 			}
 		}
 		else {
-			receiver->rtcp_handler = rtcp_sink_handler;
-			MEDIA_CLEAR(receiver, RTCP_GEN);
+			source->rtcp_handler = rtcp_sink_handler;
+			MEDIA_CLEAR(source, RTCP_GEN);
 
 			// change all passthrough handlers also to transcoders
 			while (passthrough_handlers) {
@@ -1916,9 +1916,9 @@ next:
 
 	g_slist_free(passthrough_handlers);
 
-	if (MEDIA_ISSET(receiver, RTCP_GEN)) {
-		receiver->rtcp_handler = rtcp_sink_handler;
-		__codec_rtcp_timer(receiver);
+	if (MEDIA_ISSET(source, RTCP_GEN)) {
+		source->rtcp_handler = rtcp_sink_handler;
+		__codec_rtcp_timer(source);
 	}
 	if (MEDIA_ISSET(sink, RTCP_GEN)) {
 		sink->rtcp_handler = rtcp_sink_handler;
