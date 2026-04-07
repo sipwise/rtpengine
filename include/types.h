@@ -109,4 +109,6 @@ TYPED_GQUEUE(ng_medias, struct ng_media)
 TYPED_GQUEUE(medias, struct call_media)
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(medias_q, medias_q_clear)
 
+TYPED_GHASHTABLE(codecs_ht, void, rtp_payload_type, g_direct_hash, g_direct_equal, NULL, NULL)
+
 #endif

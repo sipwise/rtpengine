@@ -330,7 +330,6 @@ struct media_subscription;
 
 
 
-TYPED_GHASHTABLE(codecs_ht, void, rtp_payload_type, g_direct_hash, g_direct_equal, NULL, NULL)
 TYPED_GHASHTABLE(codec_names_ht, str, GQueue, str_case_hash, str_case_equal, str_free, g_queue_free)
 TYPED_GHASHTABLE_LOOKUP_INSERT(codec_names_ht, str_free, g_queue_new)
 TYPED_DIRECT_FUNCS(media_direct_hash, media_direct_eq, struct call_media)
