@@ -2468,153 +2468,153 @@ static void media_set_protocol(struct call_media *media, struct call_media *othe
 }
 
 __attribute__((nonnull(1, 2, 3, 4)))
-static void codecs_offer(struct call_media *media, struct call_media *other_media,
+static void codecs_offer(struct call_media *receiver, struct call_media *sender,
 		struct stream_params *sp, sdp_ng_flags *flags)
 {
 	ilogs(codec, LOG_DEBUG, "Updating codecs for offerer " STR_FORMAT " #%u",
-			STR_FMT(&other_media->monologue->tag),
-			other_media->index);
+			STR_FMT(&sender->monologue->tag),
+			sender->index);
 
 	if (flags->reuse_codec)
-		codec_store_populate_reuse(&other_media->codecs, &sp->codecs,
+		codec_store_populate_reuse(&sender->codecs, &sp->codecs,
 				.codec_set = flags->codec_set);
 	else
-		codec_store_populate(&other_media->codecs, &sp->codecs,
+		codec_store_populate(&sender->codecs, &sp->codecs,
 				.codec_set = flags->codec_set,
 				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
-	codec_store_strip(&other_media->codecs, &flags->codec_ignore, flags->codec_except);
-	codec_store_check_empty(&other_media->codecs, &sp->codecs, flags);
-	codec_store_accept(&other_media->codecs, &flags->codec_accept, NULL);
-	codec_store_accept(&other_media->codecs, &flags->codec_consume, &sp->codecs);
-	codec_store_track(&other_media->codecs, &flags->codec_mask);
+	codec_store_strip(&sender->codecs, &flags->codec_ignore, flags->codec_except);
+	codec_store_check_empty(&sender->codecs, &sp->codecs, flags);
+	codec_store_accept(&sender->codecs, &flags->codec_accept, NULL);
+	codec_store_accept(&sender->codecs, &flags->codec_consume, &sp->codecs);
+	codec_store_track(&sender->codecs, &flags->codec_mask);
 
 	// we don't update the answerer side if the offer is not RTP but is going
 	// to RTP (i.e. T.38 transcoding) - instead we leave the existing codec list
 	// intact
 	bool update_answerer = true;
-	if (proto_is_rtp(media->protocol) && !proto_is_rtp(other_media->protocol))
+	if (proto_is_rtp(receiver->protocol) && !proto_is_rtp(sender->protocol))
 		update_answerer = false;
 
 	if (update_answerer) {
 		// update/create answer/receiver side
 		ilogs(codec, LOG_DEBUG, "Updating offer codecs for answerer " STR_FORMAT " #%u",
-				STR_FMT(&media->monologue->tag),
-				media->index);
-		if ((flags->static_codecs) && media->codecs.codec_prefs.length)
+				STR_FMT(&receiver->monologue->tag),
+				receiver->index);
+		if ((flags->static_codecs) && receiver->codecs.codec_prefs.length)
 			ilogs(codec, LOG_DEBUG, "Leaving answerer codecs alone");
 		else if (flags->reuse_codec)
-			codec_store_populate_reuse(&media->codecs, &sp->codecs,
+			codec_store_populate_reuse(&receiver->codecs, &sp->codecs,
 					.merge_cs = &sp->codecs);
 		else
-			codec_store_populate(&media->codecs, &sp->codecs,
+			codec_store_populate(&receiver->codecs, &sp->codecs,
 					.allow_asymmetric = !!(flags->allow_asymmetric_codecs),
 					.merge_cs = &sp->codecs);
 	}
 
-	codec_store_strip(&media->codecs, &flags->codec_strip, flags->codec_except);
-	codec_store_strip(&media->codecs, &flags->codec_consume, flags->codec_except);
-	codec_store_strip(&media->codecs, &flags->codec_mask, flags->codec_except);
-	codec_store_offer(&media->codecs, &flags->codec_offer, &sp->codecs);
-	codec_store_transcode(&media->codecs, &flags->codec_transcode, &sp->codecs);
-	codec_store_check_empty(&media->codecs, &sp->codecs, flags);
-	codec_store_synthesise(&media->codecs, &other_media->codecs);
+	codec_store_strip(&receiver->codecs, &flags->codec_strip, flags->codec_except);
+	codec_store_strip(&receiver->codecs, &flags->codec_consume, flags->codec_except);
+	codec_store_strip(&receiver->codecs, &flags->codec_mask, flags->codec_except);
+	codec_store_offer(&receiver->codecs, &flags->codec_offer, &sp->codecs);
+	codec_store_transcode(&receiver->codecs, &flags->codec_transcode, &sp->codecs);
+	codec_store_check_empty(&receiver->codecs, &sp->codecs, flags);
+	codec_store_synthesise(&receiver->codecs, &sender->codecs);
 
 	// update supp codecs based on actions so far
-	codec_tracker_update(&media->codecs, &sp->codecs);
+	codec_tracker_update(&receiver->codecs, &sp->codecs);
 
 	// set up handlers
-	codec_handlers_update(media, other_media, .flags = flags, .sp = sp,
+	codec_handlers_update(receiver, sender, .flags = flags, .sp = sp,
 			.allow_asymmetric = !!(flags->allow_asymmetric_codecs));
 
 	// updating the handlers may have removed some codecs, so run update the supp codecs again
-	codec_tracker_update(&media->codecs, &sp->codecs);
+	codec_tracker_update(&receiver->codecs, &sp->codecs);
 
 	// finally set up handlers again based on final results
 
-	codec_handlers_update(media, other_media, .flags = flags, .sp = sp, 
+	codec_handlers_update(receiver, sender, .flags = flags, .sp = sp, 
 			.allow_asymmetric = !!(flags->allow_asymmetric_codecs),
 			.reset_transcoding = true);
 
 	// keep a copy of the final list of what was offered
-	codec_store_copy(&other_media->offered_codecs, &other_media->codecs);
-	codec_store_copy(&media->offered_codecs, &media->codecs);
+	codec_store_copy(&sender->offered_codecs, &sender->codecs);
+	codec_store_copy(&receiver->offered_codecs, &receiver->codecs);
 }
 
 __attribute__((nonnull(1, 2, 3, 4)))
-static void codecs_answer(struct call_media *media, struct call_media *other_media,
+static void codecs_answer(struct call_media *receiver, struct call_media *sender,
 		struct stream_params *sp, sdp_ng_flags *flags)
 {
 	ilogs(codec, LOG_DEBUG, "Updating codecs for answerer " STR_FORMAT " #%u",
-			STR_FMT(&other_media->monologue->tag),
-			other_media->index);
+			STR_FMT(&sender->monologue->tag),
+			sender->index);
 
 	// reset to codecs that were offered
-	codec_store_copy(&other_media->codecs, &other_media->offered_codecs);
+	codec_store_copy(&sender->codecs, &sender->offered_codecs);
 
-	const struct codec_store *answer_cs = &media->offered_codecs;
+	const struct codec_store *answer_cs = &receiver->offered_codecs;
 	// don't do codec answer for a rejected media section
-	if (other_media->streams.length == 0)
+	if (sender->streams.length == 0)
 		answer_cs = NULL;
 	else if (sp->rtp_endpoint.port == 0)
 		answer_cs = NULL;
 
 	if (flags->reuse_codec)
-		codec_store_populate_reuse(&other_media->codecs, &sp->codecs,
+		codec_store_populate_reuse(&sender->codecs, &sp->codecs,
 				.codec_set = flags->codec_set,
 				.answer_cs = answer_cs);
 	else
-		codec_store_populate(&other_media->codecs, &sp->codecs,
+		codec_store_populate(&sender->codecs, &sp->codecs,
 				.codec_set = flags->codec_set,
 				.answer_cs = answer_cs,
 				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
-	codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
-	codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
-	codec_store_check_empty(&other_media->codecs, &sp->codecs, flags);
+	codec_store_strip(&sender->codecs, &flags->codec_strip, flags->codec_except);
+	codec_store_offer(&sender->codecs, &flags->codec_offer, &sp->codecs);
+	codec_store_check_empty(&sender->codecs, &sp->codecs, flags);
 
 	// restore list of originally offered codecs
-	codec_store_copy(&media->codecs, &media->offered_codecs);
+	codec_store_copy(&receiver->codecs, &receiver->offered_codecs);
 
 	// update callee side codec handlers again (second pass after the offer) as we
 	// might need to update some handlers, e.g. when supplemental codecs have been
 	// rejected
-	codec_handlers_update(other_media, media, .allow_asymmetric = !!flags->allow_asymmetric_codecs);
+	codec_handlers_update(sender, receiver, .allow_asymmetric = !!flags->allow_asymmetric_codecs);
 
 	// finally set up our caller side codecs
 	ilogs(codec, LOG_DEBUG, "Codec answer for " STR_FORMAT " #%u",
-			STR_FMT(&other_media->monologue->tag),
-			other_media->index);
-	codec_store_answer(&media->codecs, &other_media->codecs, flags,
+			STR_FMT(&sender->monologue->tag),
+			sender->index);
+	codec_store_answer(&receiver->codecs, &sender->codecs, flags,
 			.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 
 	// set up handlers
-	codec_handlers_update(media, other_media, .flags = flags, .sp = sp,
+	codec_handlers_update(receiver, sender, .flags = flags, .sp = sp,
 			.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 
 	// updating the handlers may have removed some codecs, so run update the supp codecs again
-	codec_tracker_update(&media->codecs, NULL);
-	codec_tracker_update(&other_media->codecs, NULL);
+	codec_tracker_update(&receiver->codecs, NULL);
+	codec_tracker_update(&sender->codecs, NULL);
 
 	// finally set up handlers again based on final results
 
-	codec_handlers_update(media, other_media, .flags = flags, .sp = sp,
+	codec_handlers_update(receiver, sender, .flags = flags, .sp = sp,
 			.allow_asymmetric = !!flags->allow_asymmetric_codecs,
 			.reset_transcoding = true);
-	codec_handlers_update(other_media, media,
+	codec_handlers_update(sender, receiver,
 			.allow_asymmetric = !!flags->allow_asymmetric_codecs,
 			.reset_transcoding = true);
 
 	// activate audio player if needed (not done by codec_handlers_update without `flags`)
-	audio_player_activate(media);
+	audio_player_activate(receiver);
 }
 
-void codecs_offer_answer(struct call_media *media, struct call_media *other_media,
+void codecs_offer_answer(struct call_media *receiver, struct call_media *sender,
 		struct stream_params *sp,
 		sdp_ng_flags *flags)
 {
 	if (flags->opmode != OP_ANSWER)
-		codecs_offer(media, other_media, sp, flags);
+		codecs_offer(receiver, sender, sp, flags);
 	else
-		codecs_answer(media, other_media, sp, flags);
+		codecs_answer(receiver, sender, sp, flags);
 }
 
 __attribute__((nonnull(1)))
