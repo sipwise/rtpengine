@@ -1501,8 +1501,10 @@ void __codec_handlers_update(struct call_media *source, struct call_media *sink,
 
 	// default choice of audio player usage is based on whether it was in use previously,
 	// overridden by signalling flags, overridden by global option
-	bool use_audio_player = !!MEDIA_ISSET(sink, AUDIO_PLAYER);
+	bool use_audio_player = !!MEDIA_ISSET(sink, AUDIO_PLAYER) && !MEDIA_ISSET(sink, AUDIO_PLAYER_IMPLICIT);
+
 	bool implicit_audio_player = false;
+	MEDIA_CLEAR(sink, AUDIO_PLAYER_IMPLICIT);
 
 	if (rtpe_config.use_audio_player == UAP_PLAY_MEDIA) {
 		// check for implicitly enabled player
@@ -1799,10 +1801,13 @@ sink_pt_fixed:;
 
 transcode:
 		// enable audio player if not explicitly disabled
-		if (rtpe_config.use_audio_player == UAP_TRANSCODING && (!a.flags || a.flags->audio_player != AP_OFF))
+		if ((rtpe_config.use_audio_player == UAP_TRANSCODING
+					&& (!a.flags || a.flags->audio_player != AP_OFF))
+				|| (a.flags && a.flags->audio_player == AP_TRANSCODING))
+		{
 			use_audio_player = true;
-		else if (a.flags && a.flags->audio_player == AP_TRANSCODING)
-			use_audio_player = true;
+			implicit_audio_player = true;
+		}
 
 		if (use_audio_player) {
 			// when using the audio player, everything must decode to the same
@@ -1853,8 +1858,8 @@ next:
 		MEDIA_CLEAR(sink, AUDIO_PLAYER);
 		audio_player_stop(sink);
 	}
-	else if (!implicit_audio_player)
-		MEDIA_SET(sink, AUDIO_PLAYER);
+	else if (implicit_audio_player)
+		MEDIA_SET(sink, AUDIO_PLAYER_IMPLICIT);
 
 	if (is_transcoding) {
 		if (a.reset_transcoding && ms)
