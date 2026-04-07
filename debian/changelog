@@ -1,3 +1,134 @@
+ngcp-rtpengine (26.1.0.0+0~mr26.1.0.0) unstable; urgency=medium
+
+  [ Guillem Jover ]
+  * [59b859a] MT#62763 perl: Do not mix low and high boolean operators
+  * [061b556] MT#62763 Fix pycodestyle issues
+
+  [ Denys Pozniak ]
+  * [1542f8f] MT#55283 Add no-tls-id flag to disable a=tls-id SDP attribute generation
+
+  [ Tom Briden ]
+  * [4c8e226] MT#55283 streambuf: check pointer isn't NULL before trying to free it
+  * [92da915] MT#55283 recording: align metafile cursor with parsed metadata bytes
+
+  [ Richard Fuchs ]
+  * [e015250] MT#55283 fix handing of sub-ans with extra media
+  * [43c3b10] MT#55283 add test for I35761075c2
+  * [a6f2039] MT#55283 add more iqueue methods
+  * [cdba96c] MT#55283 switch subscriptions to intrusive list
+  * [a255e84] MT#55283 be more selective for sub unkernel
+  * [62f5076] MT#55283 save per-media stream_params
+  * [764368c] MT#55283 subscribe requests per media
+  * [027768f] MT#55283 combine sub-ans logic
+  * [c576286] MT#55283 remove redundant loop
+  * [ba8c0fa] MT#55283 allow null media_id
+  * [bc85945] MT#55283 split out media_gen_media_id
+  * [05268aa] MT#55283 don't look up dst media by src media_id
+  * [0b82e17] MT#55283 don't copy media_id from src to dst
+  * [8f0af25] MT#55283 add test for a=mid collision
+  * [4ea7873] MT#55283 update memory arena logic
+  * [ce02900] MT#55283 duplicate cache PTs into cache arena
+  * [23203d9] MT#55283 add some const qualifiers
+  * [cfe9a58] MT#55283 extend "answer only" logic
+  * [8a54eb9] MT#55283 tests for I7e2efc4347
+  * [1469e06] MT#55283 also use offered_codecs for the answerer
+  * [22a567b] MT#55283 tests for I1f9a15763
+  * [f332066] MT#55283 some more tests
+  * [cb3edfb] MT#55283 modernise t_hash_table_iter
+  * [1f7d9e5] MT#55283 improvements for clang
+  * [5926aac] MT#55283 combine identical HT types
+  * [8866c42] MT#55283 extend arena strcpy/ref usage
+  * [f307c32] MT#55283 fix buffer merge logic
+  * [68c6bf6] MT#55283 update GH build actions
+  * [2ab345c] MT#55283 move call components into arena
+  * [76d5e6d] MT#55283 support from-tag aliases
+  * [b9c24cb] MT#55283 rename macro
+  * [6a7cba0] MT#55283 simplify macro
+  * [c27ecf4] MT#55283 facilitate media reuse for updated subs
+  * [14fbc4f] MT#55283 tests for I410c6af17e
+  * [d2f7291] MT#55283 honour RPC callback also for final t/out
+  * [c2f71fa] MT#55283 add RPC URL to logging
+  * [db1307d] MT#55283 fix incorrect substituted RPC URL
+  * [9a3f33a] MT#55283 fix stream close race condition
+  * [b7dbc4b] MT#55283 rework info printing for sub-req
+  * [0f7774d] MT#55283 set media label only for out direction
+  * [9a65ab0] MT#55283 parse a=label
+  * [63a1c8e] MT#55283 tests for I021f44ba2
+  * [d8915ab] MT#55283 rename SDP origin fields
+  * [e948e5a] MT#55283 move setting sdp_orig_out
+  * [52b19f4] MT#55283 decouple SDP origin settings
+  * [aa5413d] MT#55283 remove RELEASE_DATE
+  * [12f935d] MT#55283 support bidirectional publish
+  * [4d417cd] MT#55283 add a/a/c flag to client script
+  * [e519ef4] MT#55283 add missing lock for subscribe streams
+  * [f2d34f3] MT#55283 add empty .release-version tag file
+  * [33bcd6a] MT#55283 use .release-version info while building
+  * [02916e7] MT#55283 honour .release-version also for .ko
+  * [502e0b7] MT#55283 improve asymmetric codec logic
+  * [24d033d] MT#55283 test for Ie401db500
+  * [14769ec] MT#55283 fix refcount release
+  * [7e6c2c3] MT#55283 improve version handling
+  * [11dea69] MT#55283 make eof flag atomic
+  * [ff0cdf8] MT#55283 store ref to stream object in priv data
+  * [3536c4a] MT#55283 support anonymous publish
+  * [50874b2] MT#55283 amend publish docs
+  * [5a88605] MT#55283 document directional flag
+  * [62ac250] MT#55283 remove privacy markers from CLI
+  * [59432f0] MT#55283 add aliases to output
+  * [0a9e85e] MT#55283 refactor update_all functions
+  * [fd48c1f] MT#55283 move type definition
+  * [b157683] MT#55283 move enabling of audio player
+  * [f6a5087] MT#55283 fuller sub update
+  * [e59ee48] MT#55283 update unsubscribed subs as well
+  * [c17a48d] MT#55283 annotate functions & const qualify
+  * [14dde79] MT#55283 better tolerate flags parsing
+  * [b89f1f5] MT#55283 fix test return value
+  * [07c0613] MT#55283 refactor c_s_synth
+  * [b83f520] MT#55283 add alternative spellings
+  * [dd3b4ea] MT#55283 handle possible null
+  * [b121f38] MT#55283 refactor c_s_transcode
+  * [320b293] MT#55283 add "create" method
+  * [4aaa498] MT#55283 docs for "create"
+  * [812bf1a] MT#55283 tests for "create"
+  * [61c4cf8] MT#55283 add new connect options
+  * [dfa161c] MT#55283 docs for Ic175e5d7cd
+  * [ef817fc] MT#55283 support individual unsubscribe action
+  * [b170b2a] MT#55283 add audio-player alternative spelling
+  * [fd992d5] MT#55283 support bidirectional unsubscribe
+  * [3fb608b] MT#55283 fuller init of subs on connect
+  * [e1f5341] MT#55283 extended connect tests
+  * [959bd66] MT#55283 switch from off_t to size_t
+  * [a5d067f] MT#55283 use medias_q instead of subscriptions
+  * [9491a81] MT#55283 simplify call2_get
+  * [0efd1b1] MT#55283 rename media_match
+  * [19e2aa2] MT#55283 extended "connect" matching
+  * [3a92294] MT#55283 tests for If751f1373
+  * [896a34f] MT#55283 docs for If751f137
+
+  [ Orgad Shaneh ]
+  * [c40357c] MT#55283 Add g729 package to docker build
+
+  [ Hossein Yavari ]
+  * [0b72687] MT#55283 Add configurable HTTP idle (keepalive) timeout
+
+  [ Michael Prokop ]
+  * [e9fc1b1] MT#55283 GH: automate GitHub releases for mr* tags, build Debian packages for PRs + update to trixie
+
+  [ Morten Tryfoss ]
+  * [14919df] MT#55283 Make sure modprobe params are set for kernel module when using systemd, the same way as done in init.d scripts.
+
+  [ Nikolay Feshenko ]
+  * [352bda7] MT#55283 add inject start/stop commands for one-way audio injection
+
+  [ Sean Ferguson ]
+  * [ff07591] MT#55283 Fix segfault in play media with record-egress enabled
+  * [b916bdc] MT#55283 Fix recording-file parameter ignores for pcap recording method
+
+  [ Andrew Yager ]
+  * [b1aec46] MT#55283 kernel-module: detect nft_expr_ops.validate signature via compile test
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 07 Apr 2026 12:58:59 +0200
+
 ngcp-rtpengine (14.2.0.0+0~mr14.2.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
