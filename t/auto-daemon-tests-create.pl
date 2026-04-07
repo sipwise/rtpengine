@@ -33,6 +33,41 @@ is length($wav_file), 1644, 'embedded binary wav file';
 
 if ($extended_tests) {
 
+($sock_a) = new_call([qw(198.51.100.4 4110)]);
+
+($cid, $ft, $port_a) = create('early media', {
+		'audio player' => 'force',
+}, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 203.0.113.1
+s=RTPE_VERSION
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+rcv_no($sock_a);
+
+create_answer('early media', {
+		'from-tag' => $ft,
+		flags => ['early media'],
+}, <<SDP);
+v=0
+o=- 111111111 22222222 IN IP4 203.0.113.1
+s=22222222
+t=0 0
+m=audio 4110 RTP/AVP 8
+c=IN IP4 198.51.100.4
+SDP
+
+rcv($sock_a, $port_a, rtpm(8 | 0x80, -1, -1, -1, "\xd5" x 160));
+
+
+
 ($sock_a, $sock_b, $sock_c) = new_call([qw(198.51.100.4 4114)], [qw(198.51.100.4 4116)], [qw(198.51.100.4 4118)]);
 
 ($port_a) = offer('mixed sub manual w/ immediate audio player', { }, <<SDP);
