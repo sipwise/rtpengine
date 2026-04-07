@@ -998,27 +998,25 @@ static void __make_passthrough_gsl(struct codec_handler *handler, GSList **handl
 }
 
 
-static void __track_supp_codec(GHashTable *supplemental_sinks, rtp_payload_type *pt) {
+static void __track_supp_codec(supp_ht supplemental_sinks, rtp_payload_type *pt) {
 	if (!pt->codec_def || !pt->codec_def->supplemental)
 		return;
 
-	GHashTable *supp_sinks = g_hash_table_lookup(supplemental_sinks, pt->codec_def->rtpname);
-	if (!supp_sinks)
+	codecs_ht supp_sinks = {.self = t_hash_table_lookup(supplemental_sinks, pt->codec_def->rtpname)};
+	if (!t_hash_table_is_set(supp_sinks))
 		return;
-	if (!g_hash_table_lookup(supp_sinks, GUINT_TO_POINTER(pt->clock_rate)))
-		g_hash_table_insert(supp_sinks, GUINT_TO_POINTER(pt->clock_rate), pt);
+	if (!t_hash_table_lookup(supp_sinks, GUINT_TO_POINTER(pt->clock_rate)))
+		t_hash_table_insert(supp_sinks, GUINT_TO_POINTER(pt->clock_rate), pt);
 }
 
-static void __check_codec_list(GHashTable **supplemental_sinks, rtp_payload_type **pref_dest_codec,
-		struct call_media *sink, rtp_pt_q *sink_list)
+void check_codec_list(supp_ht *supplemental_sinks, rtp_payload_type **pref_dest_codec,
+		struct call_media *sink)
 {
 	// first initialise and populate the list of supp sinks
-	GHashTable *ss = *supplemental_sinks = g_hash_table_new_full(g_str_hash, g_str_equal, NULL,
-			(GDestroyNotify) g_hash_table_destroy);
+	supp_ht ss = *supplemental_sinks = supp_ht_new();
 	for (GList *l = codec_supplemental_codecs->head; l; l = l->next) {
 		codec_def_t *def = l->data;
-		g_hash_table_replace(ss, (void *) def->rtpname,
-				g_hash_table_new(g_direct_hash, g_direct_equal));
+		t_hash_table_replace(ss, (char *) def->rtpname, codecs_ht_new().self);
 	}
 
 	rtp_payload_type *pdc = NULL;
@@ -1058,17 +1056,17 @@ static void __check_codec_list(GHashTable **supplemental_sinks, rtp_payload_type
 	}
 }
 
-static rtp_payload_type *__supp_payload_type(GHashTable *supplemental_sinks, int clockrate,
+static rtp_payload_type *__supp_payload_type(supp_ht supplemental_sinks, int clockrate,
 		const char *codec)
 {
-	GHashTable *supp_sinks = g_hash_table_lookup(supplemental_sinks, codec);
-	if (!supp_sinks)
+	codecs_ht supp_sinks = {.self = t_hash_table_lookup(supplemental_sinks, codec)};
+	if (!t_hash_table_is_set(supp_sinks))
 		return NULL;
-	if (!g_hash_table_size(supp_sinks))
+	if (!t_hash_table_size(supp_sinks))
 		return NULL;
 
 	// find the codec entry with a matching clock rate
-	rtp_payload_type *pt = g_hash_table_lookup(supp_sinks,
+	rtp_payload_type *pt = t_hash_table_lookup(supp_sinks,
 			GUINT_TO_POINTER(clockrate));
 	return pt;
 }
@@ -1515,13 +1513,13 @@ void __codec_handlers_update(struct call_media *source, struct call_media *sink,
 	}
 
 	// first gather info about what we can send
-	g_autoptr(GHashTable) supplemental_sinks = NULL;
+	g_auto(supp_ht) supplemental_sinks = {0};
 	rtp_payload_type *pref_dest_codec = NULL;
-	__check_codec_list(&supplemental_sinks, &pref_dest_codec, sink, &sink->codecs.codec_prefs);
+	check_codec_list(&supplemental_sinks, &pref_dest_codec, sink);
 
 	// then do the same with what we can receive
-	g_autoptr(GHashTable) supplemental_srcs = NULL;
-	__check_codec_list(&supplemental_srcs, NULL, source, &source->codecs.codec_prefs);
+	g_auto(supp_ht) supplemental_srcs = {0};
+	check_codec_list(&supplemental_srcs, NULL, source);
 
 	// if multiple input codecs transcode to the same output codec, we want to make sure
 	// that all the decoders output their media to the same encoder. we use the destination

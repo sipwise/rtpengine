@@ -229,6 +229,9 @@ void codec_init_payload_type(rtp_payload_type *, enum media_type);
 void payload_type_clear(rtp_payload_type *p);
 
 
+TYPED_GHASHTABLE(supp_ht, char, codecs_ht, g_str_hash, g_str_equal, NULL, codecs_ht_destroy_self);
+
+
 struct chu_args {
 	const sdp_ng_flags *flags;
 	const struct stream_params *sp;
@@ -273,7 +276,8 @@ void codec_decoder_skip_pts(struct codec_ssrc_handler *ch, uint64_t);
 uint64_t codec_decoder_unskip_pts(struct codec_ssrc_handler *ch);
 void codec_tracker_update(struct codec_store *, struct codec_store *);
 void codec_handlers_stop(codec_handlers_q *, struct call_media *sink, bool clear_delay_buffer);
-
+void check_codec_list(supp_ht *supplemental_sinks, rtp_payload_type **pref_dest_codec,
+		struct call_media *sink);
 
 void packet_encoded_packetize(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
 		packetizer_f pkt_f, void *pkt_f_data, const struct fraction *cr_fact,
