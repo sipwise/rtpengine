@@ -891,7 +891,7 @@ void (*codeclib_thread_loop)(void);
 TYPED_GHASHTABLE(codecs_by_name, str, struct codec_def_s, str_case_hash, str_case_equal, NULL, NULL)
 TYPED_GHASHTABLE(codecs_by_id_alloc, void, struct codec_def_s, g_direct_hash, g_direct_equal, NULL, g_free)
 
-static codecs_by_name codecs_ht;
+static codecs_by_name codecs_by_name_ht;
 
 static rwlock_t generic_ffmpeg_codecs_lock = RWLOCK_STATIC_INIT;
 static codecs_by_id_alloc generic_ffmpeg_codecs;
@@ -899,7 +899,7 @@ static codecs_by_id_alloc generic_ffmpeg_codecs;
 
 
 codec_def_t *codec_find(const str *name, enum media_type type) {
-	codec_def_t *ret = t_hash_table_lookup(codecs_ht, name);
+	codec_def_t *ret = t_hash_table_lookup(codecs_by_name_ht, name);
 	if (!ret)
 		return NULL;
 	if (type && type != ret->media_type)
@@ -1366,7 +1366,7 @@ static void avc_def_init(struct codec_def_s *def) {
 static void cc_cleanup(void);
 
 void codeclib_free(void) {
-	t_hash_table_destroy(codecs_ht);
+	t_hash_table_destroy(codecs_by_name_ht);
 	t_hash_table_destroy(generic_ffmpeg_codecs);
 	avformat_network_deinit();
 	cc_cleanup();
@@ -1581,7 +1581,7 @@ void codeclib_init(int print) {
 	avformat_network_init();
 	av_log_set_callback(avlog_ilog);
 
-	codecs_ht = codecs_by_name_new();
+	codecs_by_name_ht = codecs_by_name_new();
 	generic_ffmpeg_codecs = codecs_by_id_alloc_new();
 
 	cc_init();
@@ -1590,8 +1590,8 @@ void codeclib_init(int print) {
 		// add to hash table
 		struct codec_def_s *def = &__codec_defs[i];
 		def->rtpname_str = STR(def->rtpname);
-		assert(t_hash_table_lookup(codecs_ht, &def->rtpname_str) == NULL);
-		t_hash_table_insert(codecs_ht, &def->rtpname_str, def);
+		assert(t_hash_table_lookup(codecs_by_name_ht, &def->rtpname_str) == NULL);
+		t_hash_table_insert(codecs_by_name_ht, &def->rtpname_str, def);
 
 		// init undefined member vars
 		if (!def->default_clockrate_fact.mult)
