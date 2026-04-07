@@ -1515,12 +1515,16 @@ void __codec_handlers_update(struct call_media *source, struct call_media *sink,
 	}
 
 	// first gather info about what we can send
-	g_auto(supp_ht) supplemental_sinks = {0};
-	rtp_payload_type *pref_dest_codec = NULL;
-	check_codec_list(&supplemental_sinks, &pref_dest_codec, sink);
+	g_auto(supp_ht) supplemental_sinks_store = {0};
+	supp_ht supplemental_sinks = a.supp_sinks;
+	rtp_payload_type *pref_dest_codec = a.pref_dest_codec;
+	if (!pref_dest_codec && !t_hash_table_is_set(supplemental_sinks)) {
+		check_codec_list(&supplemental_sinks_store, &pref_dest_codec, sink);
+		supplemental_sinks = supplemental_sinks_store;
+	}
 
 	// then do the same with what we can receive
-	g_auto(supp_ht) supplemental_srcs = {0};
+	g_auto(supp_ht) supplemental_srcs;
 	check_codec_list(&supplemental_srcs, NULL, source);
 
 	// if multiple input codecs transcode to the same output codec, we want to make sure
@@ -4945,6 +4949,12 @@ void codec_update_all_handlers(struct call_monologue *ml) {
 }
 
 void __codec_update_media_source_handlers(struct call_media *sink_media, struct chu_args a) {
+	g_auto(supp_ht) supplemental_sinks = {0};
+	if (!a.pref_dest_codec && !t_hash_table_is_set(a.supp_sinks)) {
+		check_codec_list(&supplemental_sinks, &a.pref_dest_codec, sink_media);
+		a.supp_sinks = supplemental_sinks;
+	}
+
 	IQUEUE_FOREACH(&sink_media->media_subscriptions, ms) {
 		struct call_media *source_media = ms->media;
 

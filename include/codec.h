@@ -235,6 +235,8 @@ TYPED_GHASHTABLE(supp_ht, char, codecs_ht, g_str_hash, g_str_equal, NULL, codecs
 struct chu_args {
 	const sdp_ng_flags *flags;
 	const struct stream_params *sp;
+	rtp_payload_type *pref_dest_codec;
+	supp_ht supp_sinks;
 	bool allow_asymmetric;
 	bool reset_transcoding;
 	// when false (default if not passed) the delay buffer is flushed as normal
@@ -320,6 +322,11 @@ INLINE void codec_handler_free(struct codec_handler **handler) { }
 INLINE void codec_tracker_update(struct codec_store *cs, struct codec_store *ocs) { }
 INLINE void codec_handlers_stop(codec_handlers_q *q, struct call_media *sink, bool clear_delay_buffer) { }
 INLINE void ensure_codec_def(rtp_payload_type *pt, struct call_media *media) { }
+INLINE void check_codec_list(supp_ht *supplemental_sinks, rtp_payload_type **pref_dest_codec,
+		struct call_media *sink)
+{
+	*supplemental_sinks = supp_ht_null();
+}
 
 #endif
 
