@@ -3109,6 +3109,18 @@ static void media_set_audio_player(struct call_media *media, sdp_ng_flags *flags
 		MEDIA_CLEAR(media, AUDIO_PLAYER);
 }
 
+static void media_make_audio_player(struct call_media *media, rtp_payload_type *pref_dest_codec,
+		sdp_ng_flags *flags)
+{
+	if (!MEDIA_ISSET(media, AUDIO_PLAYER))
+		return;
+
+	audio_player_setup(media, pref_dest_codec, rtpe_config.audio_buffer_length,
+			rtpe_config.audio_buffer_delay,
+			flags->codec_set);
+
+}
+
 __attribute__((nonnull(1, 2)))
 static void media_init_from_flags(struct call_media *media, sdp_ng_flags *flags) {
 	if (flags->opmode == OP_OFFER && flags->reset) {
@@ -6581,12 +6593,22 @@ bool monologue_call_create_answer(struct call_monologue *ml, sdp_ng_flags *flags
 
 		MEDIA_SET(media, INITIALIZED);
 
-		codec_update_media_source_handlers(media, .flags = flags);
+		rtp_payload_type *pref_dest_codec = NULL;
+		g_auto(supp_ht) supplemental_sinks;
+		check_codec_list(&supplemental_sinks, &pref_dest_codec, media);
+
+		codec_update_media_source_handlers(media, .flags = flags,
+				.pref_dest_codec = pref_dest_codec, .supp_sinks = supplemental_sinks);
 		codec_update_media_handlers(media);
+
+		media_make_audio_player(media, pref_dest_codec, flags);
 
 		update_init_subscribers(media, sp, flags, flags->opmode);
 
 		__media_unconfirm(media, "create answer event");
+
+		if (flags->early_media)
+			audio_player_activate(media);
 
 		sdp_sp_move(&media->sp, sp);
 	}

@@ -34,6 +34,8 @@ void audio_player_add_frame(struct audio_player *, uint32_t ssrc, AVFrame *);
 
 #else
 
+INLINE void audio_player_setup(struct call_media *m, const rtp_payload_type *,
+		unsigned int size_ms, unsigned int delay_ms, str_case_value_ht codec_set) { }
 INLINE void audio_player_start(struct call_media *m) { }
 INLINE void audio_player_free(struct call_media *m) { }
 INLINE void audio_player_stop(struct call_media *m) { }
