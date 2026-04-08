@@ -4432,7 +4432,7 @@ static const char *call_inject_ng(ng_command_ctx_t *ctx, bool start) {
 	if (!dst_ml)
 		return "To-tag not found";
 
-	struct call_monologue *src_ml = call_get_monologue(call2 ?: call, &source_tag);
+	struct call_monologue *src_ml = call_get_monologue(call2, &source_tag);
 	if (!src_ml)
 		return "Source-tag not found";
 

@@ -6160,8 +6160,7 @@ static void codec_store_add_q(struct codec_store *cs, const str_q *offer, struct
 		// XXX duplicate code
 		for (GList *k = orig_list->head; k; k = k->next) {
 			int pt_num = GPOINTER_TO_INT(k->data);
-			rtp_payload_type *orig_pt = orig ? t_hash_table_lookup(orig->codecs,
-					GINT_TO_POINTER(pt_num)) : NULL;
+			rtp_payload_type *orig_pt = t_hash_table_lookup(orig->codecs, GINT_TO_POINTER(pt_num));
 			if (!orig_pt) {
 				ilogs(codec, LOG_DEBUG, "PT %i missing for offering " STR_FORMAT, pt_num,
 						STR_FMT(codec));
