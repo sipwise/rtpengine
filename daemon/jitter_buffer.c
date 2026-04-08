@@ -440,6 +440,7 @@ int buffer_packet(struct media_packet *mp, const str *s) {
 		jb->dtmf_mult_factor=0;
 	}
 
+	unsigned long ts = ntohl(mp->rtp->timestamp);
 
 	if (jb->first_send) {
 		if(rtpe_config.jb_clock_drift) {
@@ -450,7 +451,6 @@ int buffer_packet(struct media_packet *mp, const str *s) {
 	}
 	else {
 		// store data from first packet and use for successive packets and queue the first packet
-		unsigned long ts = ntohl(mp->rtp->timestamp);
 		payload_type =  (mp->rtp->m_pt & 0x7f);
 		int clockrate = get_clock_rate(mp, payload_type);
 		if(!clockrate){
@@ -472,12 +472,13 @@ int buffer_packet(struct media_packet *mp, const str *s) {
 	}
 
 	// packet consumed?
-	if (ret == 0)
+	if (ret == 0) {
 		p = NULL;
+		mp = NULL;
+	}
 	
 	// Update adaptive jitter buffer statistics
 	if (rtpe_config.jb_adaptive && jb->first_send && jb->rtptime_delta && jb->clock_rate) {
-		unsigned long ts = ntohl(mp->rtp->timestamp);
 		long ts_diff = (uint32_t)ts - (uint32_t)jb->first_send_ts;
 		int64_t expected_arrival = jb->first_send + (ts_diff * 1000000LL / jb->clock_rate);
 		
