@@ -223,6 +223,7 @@ RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 	             bundle_strict:1,
 		     ice_reject:1,
 		     rtcp_mirror:1,
+		     mix:1,
 		     trickle_ice:1,
 	             no_rtcp_attr:1,
 	             no_tls_id:1,

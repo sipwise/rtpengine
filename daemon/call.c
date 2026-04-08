@@ -4434,9 +4434,25 @@ static int monologue_subscribe_request1(struct call_media *src_media, struct cal
 	if (ms)
 		dst_media = ms->media;
 	if (!dst_media) {
-		// new media needed
-		dst_media = call_get_media(dst_ml, &src_media->type, src_media->type_id,
-				NULL, false, dst_ml->medias->len + 1, mid_tracker_dst);
+		if (flags->mix) {
+			// find existing matching media
+			for (unsigned int i = 0; i < dst_ml->medias->len; i++) {
+				struct call_media *m = dst_ml->medias->pdata[i];
+				if (!m)
+					continue;
+				if (m->type_id != src_media->type_id)
+					continue;
+				if (str_cmp_str(&m->type, &src_media->type))
+					continue;
+				dst_media = m;
+				break;
+			}
+		}
+		if (!dst_media) {
+			// new media needed
+			dst_media = call_get_media(dst_ml, &src_media->type, src_media->type_id,
+					NULL, false, dst_ml->medias->len + 1, mid_tracker_dst);
+		}
 	}
 
 	/* subscribe dst_ml (subscriber) to src_ml, don't forget to carry the egress flag, if required */

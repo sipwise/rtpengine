@@ -1168,6 +1168,19 @@ Spaces in each string may be replaced by hyphens.
 	this opens a security hole and potentially allows RTP streams to be hijacked, either partly or
 	in whole.
 
+* `mix`
+
+    For a subscribe request to subscribe to multiple source medias (e.g.
+    subscribe to the audio of both parties to a regular call), instead of
+    producing one output media per source media (e.g. two output audio media),
+    produce one output media for each type of source media (e.g. just one
+    output audio media). All affected RTP flows will then be sent as part of
+    the same output media.
+
+    Not that this doesn't enable actual audio mixing. The `audio player`
+    feature can be used to produce a single mixed output audio stream which
+    combines all audio input into one.
+
 * `NAT-wait`
 
 	Prevents forwarding media packets to the respective endpoint

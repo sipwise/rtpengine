@@ -1218,6 +1218,10 @@ void call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 		case CSH_LOOKUP("rtcp mirror"):
 			out->rtcp_mirror = true;
 			break;
+		case CSH_LOOKUP("mix"):
+		case CSH_LOOKUP("mixed"):
+			out->mix = true;
+			break;
 		case CSH_LOOKUP("NAT-wait"):
 		case CSH_LOOKUP("nat-wait"):
 		case CSH_LOOKUP("NAT wait"):
