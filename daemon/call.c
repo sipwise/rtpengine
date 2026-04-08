@@ -4621,6 +4621,11 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 
 		media_update_transcoding_flag(dst_media);
 		media_update_transcoding_flag(src_media);
+
+		codec_update_media_source_handlers(dst_media, .flags = flags);
+		codec_update_media_source_handlers(src_media);
+		codec_update_media_handlers(src_media);
+		codec_update_media_handlers(dst_media);
 	}
 
 	monologue_media_start(dst_ml);
