@@ -21,12 +21,336 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $port_c, $ssrc_a, $ssr
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev, $ufrag_a, $ufrag_b,
 	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq, $tag_medias, $media_labels,
 	$ftr, $ttr, $fts, $ttr2, $sock_f, $sock_g, $sock_h, $port_f, $port_g, $port_h,
-	$port_cx, $port_dx, $port_gx, $port_hx);
+	$port_dx, $port_gx, $port_hx, $ssrc);
 
 
 
 use_json(1);
 
+
+
+
+if ($ENV{RTPENGINE_EXTENDED_TESTS}) {
+
+($sock_a, $sock_b, $sock_c, $sock_d) =
+	new_call(
+		[qw(198.51.100.43 6000)],
+		[qw(198.51.100.43 6002)],
+		[qw(198.51.100.43 6004)],
+		[qw(198.51.100.43 6006)],
+	);
+
+($port_a) = offer('mixed sub control',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6000 RTP/AVP 0
+c=IN IP4 198.51.100.43
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('mixed sub control',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6002 RTP/AVP 0
+c=IN IP4 198.51.100.43
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x11" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x11" x 160));
+snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x22" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+(undef, $ttr, undef, undef, undef, $port_c, undef, $port_d) = subscribe_request('mixed sub control',
+	{ flags => ['all'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+subscribe_answer('mixed sub control',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6004 RTP/AVP 0
+c=IN IP4 198.51.100.43
+a=recvonly
+m=audio 6006 RTP/AVP 0
+c=IN IP4 198.51.100.43
+a=recvonly
+SDP
+
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x3456, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x3456, "\x33" x 160));
+rcv($sock_d, $port_d, rtpm(0, 2001, 4160, 0x3456, "\x33" x 160));
+snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4001, 7160, 0x6543, "\x44" x 160));
+rcv($sock_c, $port_c, rtpm(0, 4001, 7160, 0x6543, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+
+
+
+($sock_a, $sock_b, $sock_c, $sock_d) =
+	new_call(
+		[qw(198.51.100.44 6000)],
+		[qw(198.51.100.44 6002)],
+		[qw(198.51.100.44 6004)],
+	);
+
+($port_a) = offer('mixed sub',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6000 RTP/AVP 0
+c=IN IP4 198.51.100.44
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('mixed sub',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6002 RTP/AVP 0
+c=IN IP4 198.51.100.44
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x11" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x11" x 160));
+snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x22" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+(undef, $ttr, undef, undef, undef, $port_c) = subscribe_request('mixed sub',
+	{ flags => ['all', 'mix'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+subscribe_answer('mixed sub',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6004 RTP/AVP 0
+c=IN IP4 198.51.100.44
+a=recvonly
+SDP
+
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x3456, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x3456, "\x33" x 160));
+rcv($sock_c, $port_c, rtpm(0, 2001, 4160, 0x3456, "\x33" x 160));
+snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4001, 7160, 0x6543, "\x44" x 160));
+rcv($sock_c, $port_c, rtpm(0, 4001, 7160, 0x6543, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+
+
+
+
+
+($sock_a, $sock_b, $sock_c, $sock_d) =
+	new_call(
+		[qw(198.51.100.45 6000)],
+		[qw(198.51.100.45 6002)],
+		[qw(198.51.100.45 6004)],
+	);
+
+($port_a) = offer('mixed sub w audio player',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6000 RTP/AVP 0
+c=IN IP4 198.51.100.45
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('mixed sub w audio player',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6002 RTP/AVP 0
+c=IN IP4 198.51.100.45
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x11" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x11" x 160));
+snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x22" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+(undef, $ttr, undef, undef, undef, $port_c) = subscribe_request('mixed sub w audio player',
+	{ flags => ['all', 'mix'], 'audio player' => 'force' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+subscribe_answer('mixed sub w audio player',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6004 RTP/AVP 0
+c=IN IP4 198.51.100.45
+a=recvonly
+SDP
+
+# no player yet
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+# start player
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x3456, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x3456, "\x33" x 160));
+($seq, $ts, $ssrc) = rcv($sock_c, $port_c, rtpm(0 | 0x80, -1, -1, -1, "\xff" x 40 . "\x33" x 120));
+
+# wait for next pkt
+rcv($sock_c, $port_c, rtpm(0, $seq + 1, $ts + 160, $ssrc, "\x33" x 40 . "\xff" x 120));
+
+# now sync
+snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4001, 7160, 0x6543, "\x44" x 160));
+snd($sock_b, $port_a, rtp(0, 2002, 4320, 0x3456, "\x55" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2002, 4320, 0x3456, "\x55" x 160));
+rcv($sock_c, $port_c, rtpm(0, $seq + 2, $ts + 320, $ssrc, "\xff" x 40 . "\x3c" x 120));
+
+snd($sock_a, $port_b, rtp(0, 4002, 7320, 0x6543, "\x66" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4002, 7320, 0x6543, "\x66" x 160));
+snd($sock_b, $port_a, rtp(0, 2003, 4480, 0x3456, "\x77" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2003, 4480, 0x3456, "\x77" x 160));
+rcv($sock_c, $port_c, rtpm(0, $seq + 3, $ts + 480, $ssrc, "\x3c" x 40 . "\x62" x 120));
+
+rcv_no($sock_a);
+rcv_no($sock_b);
+
+rtpe_req('delete', 'delete');
+
+}
 
 
 
@@ -4332,7 +4656,7 @@ $resp = decode_json($resp->{response});
 
 is($resp->{interfaces}[0]{name}, 'default', 'intf found');
 is($resp->{interfaces}[0]{address}, '203.0.113.1', 'address found');
-is($resp->{interfaces}[0]{ports}{used}, 228, 'port usage');
+is($resp->{interfaces}[0]{ports}{used}, $ENV{RTPENGINE_EXTENDED_TESTS} ? 248 : 228, 'port usage');
 is($resp->{interfaces}[1]{name}, 'default', 'intf found');
 is($resp->{interfaces}[1]{address}, '2001:db8:4321::1', 'address found');
 is($resp->{interfaces}[1]{ports}{used}, 2, 'port usage');
