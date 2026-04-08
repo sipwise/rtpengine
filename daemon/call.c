@@ -5524,32 +5524,40 @@ call_t *call_get(const str *callid) {
 }
 
 // obtain a reference to a second call while holding a lock to another call
-// may intermittently release lock on the first call!
+// intermittently releases lock on the first call!
 // return return another reference to the same call
 call_t *call_get2(call_t *call1, const str *callid2) {
-	call_t *ret;
+	call_t *ret = NULL;
+
+	rwlock_unlock_w(&call1->master_lock);
 
 	while (true) {
 		RWLOCK_R(&rtpe_callhash_lock);
 
 		ret = t_hash_table_lookup(rtpe_callhash, callid2);
 		if (!ret)
-			return NULL;
+			goto out;
 
 		if (ret == call1) {
 			obj_hold(ret);
-			return ret;
+			goto out;
 		}
+
+		rwlock_lock_w(&call1->master_lock);
 
 		if (!rwlock_trylock_w(&ret->master_lock)) {
 			obj_hold(ret);
 			return ret;
 		}
 
-		// try again after releasing lock
 		rwlock_unlock_w(&call1->master_lock);
-		rwlock_lock_w(&call1->master_lock);
+		// try again
 	}
+
+out:
+	rwlock_lock_w(&call1->master_lock);
+
+	return ret;
 }
 
 static gboolean fragment_move(str *key, fragment_q *q, void *c) {
