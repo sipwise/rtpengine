@@ -1885,7 +1885,7 @@ next:
 			l = __codec_store_delete_link(l, &source->codecs);
 		}
 
-		if (!use_audio_player) {
+		if (!use_audio_player || !pref_dest_codec) {
 			// we have to translate RTCP packets
 			source->rtcp_handler = rtcp_transcode_handler;
 
