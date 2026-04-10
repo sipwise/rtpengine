@@ -16,10 +16,11 @@ concurrency:
 jobs:
   build-debian:
     if: github.event_name != 'schedule' || github.repository == 'sipwise/rtpengine'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         dist: [trixie, sid]
+        os: [ubuntu-latest, ubuntu-24.04-arm]
     steps:
       - uses: actions/checkout@v6
       - name: Packaging backports
@@ -53,6 +54,7 @@ jobs:
         with:
           docker-image: debian:${{ matrix.dist }}
       - name: Archive build result
+        if: matrix.os != 'ubuntu-24.04-arm'
         uses: actions/upload-artifact@v6
         with:
           name: packages-${{ matrix.dist }}
@@ -63,6 +65,14 @@ jobs:
             debian/artifacts/*.tar.*
             debian/artifacts/*.changes
             debian/artifacts/*.buildinfo
+      - name: Archive arm64 build result
+        if: matrix.os == 'ubuntu-24.04-arm'
+        uses: actions/upload-artifact@v6
+        with:
+          name: packages-${{ matrix.dist }}-arm64
+          if-no-files-found: error
+          retention-days: 14
+          path: debian/artifacts/*_arm64.deb
 
   comment-pr:
     if: github.event_name == 'pull_request'
