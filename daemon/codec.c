@@ -1655,10 +1655,16 @@ sink_pt_fixed:;
 		rtp_payload_type *sink_cn_pt = __supp_payload_type(supplemental_sinks,
 				sink_pt->clock_rate, "CN");
 		if (a.allow_asymmetric) {
-			if (!sink_dtmf_pt || (src_dtmf_pt && !rtp_payload_type_fmt_cmp(sink_dtmf_pt, src_dtmf_pt)))
-				sink_dtmf_pt = src_dtmf_pt;
-			if (!sink_cn_pt || (src_cn_pt && !rtp_payload_type_fmt_cmp(sink_cn_pt, src_cn_pt)))
-				sink_cn_pt = src_cn_pt;
+			if (src_dtmf_pt && (!sink_dtmf_pt || !rtp_payload_type_fmt_cmp(sink_dtmf_pt, src_dtmf_pt))) {
+				rtp_payload_type *compat = codec_store_find_compatible(&sink->codecs, src_dtmf_pt);
+				if (compat)
+					sink_dtmf_pt = src_dtmf_pt;
+			}
+			if (src_cn_pt && (!sink_cn_pt || !rtp_payload_type_fmt_cmp(sink_cn_pt, src_cn_pt))) {
+				rtp_payload_type *compat = codec_store_find_compatible(&sink->codecs, src_cn_pt);
+				if (compat)
+					sink_cn_pt = src_cn_pt;
+			}
 		}
 		rtp_payload_type *real_sink_dtmf_pt = NULL; // for DTMF delay
 
