@@ -13,20 +13,17 @@ RUN apt-get update \
   gcc \
   git \
   gperf \
-  iproute2 \
-  iptables \
   libavcodec-extra \
   libavfilter-dev \
   libbcg729-dev \
   libcurl4-openssl-dev \
   libevent-dev \
+  libglib2.0-dev \
   libhiredis-dev \
   libiptc-dev \
   libjson-glib-dev \
   libjwt-dev \
-  libmnl-dev \
   libncursesw5-dev \
-  libnftnl-dev \
   libopus-dev \
   libpcap-dev \
   libpcre2-dev \
@@ -61,23 +58,19 @@ EXPOSE 23000-65535/udp 22222/udp
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   curl \
-  iproute2 \
-  iptables \
-  libglib2.0-0 \
   libavcodec-extra \
   libavfilter10 \
   libbcg729-0 \
   libcurl4 \
   libevent-2.1-7 \
   libevent-pthreads-2.1-7 \
+  libglib2.0-0 \
   libhiredis1.1.0 \
   libip6tc2 \
   libjson-glib-1.0-0 \
   libjwt2 \
   libmariadb3 \
-  libmnl0 \
   libncursesw6 \
-  libnftnl11 \
   libopus0 \
   libpcap0.8 \
   libpcre2-8-0 \
