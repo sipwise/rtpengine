@@ -6646,3 +6646,9 @@ bool monologue_call_create_answer(struct call_monologue *ml, sdp_ng_flags *flags
 
 	return true;
 }
+
+
+void call_unlock_release(call_t *c) {
+	rwlock_unlock_w(&c->master_lock);
+	obj_put(c);
+}

@@ -943,6 +943,11 @@ TYPED_GHASHTABLE(subscription_store_ht, struct call_media, struct media_subscrip
 		media_direct_hash, media_direct_eq, NULL, media_subscription_free)
 
 
+void call_unlock_release(call_t *c);
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(call_t, call_unlock_release)
+
+
+
 #include "str.h"
 #include "rtp.h"
 
