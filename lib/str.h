@@ -22,6 +22,7 @@ typedef struct _str str;
 
 TYPED_GQUEUE(charp, char)
 TYPED_GQUEUE(str, str)
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(str_q, str_q_clear)
 
 
 

@@ -881,10 +881,10 @@ struct call_media *call_make_transform_media(struct call_monologue *ml, const st
 		const str *media_id, const endpoint_t *remote, const str *interface);
 __attribute__((nonnull(1)))
 call_t *call_get(const str *callid);
-__attribute__((nonnull(1, 2)))
-call_t *call_get2(call_t *, const str *);
 __attribute__((nonnull(1)))
-bool call_merge(call_t *, call_t *);
+call_q calls_get(const str_q *);
+__attribute__((nonnull(1)))
+call_t *calls_merge(call_q *);
 __attribute__((nonnull(2, 3)))
 int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *streams, sdp_ng_flags *flags);
 __attribute__((nonnull(1, 2, 3, 4)))
@@ -943,8 +943,13 @@ TYPED_GHASHTABLE(subscription_store_ht, struct call_media, struct media_subscrip
 		media_direct_hash, media_direct_eq, NULL, media_subscription_free)
 
 
+__attribute__((nonnull(1)))
 void call_unlock_release(call_t *c);
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(call_t, call_unlock_release)
+
+__attribute__((nonnull(1)))
+void call_q_unlock_release(call_q *);
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(call_q, call_q_unlock_release);
 
 
 

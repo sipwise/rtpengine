@@ -1451,19 +1451,29 @@ static const char *media_block_match(call_t **call, struct call_monologue **mono
 	return NULL;
 }
 
-static const char *medias_match(call_t **call, medias_q *medias,
+static const char *medias_match(call_q *calls, medias_q *medias,
 		sdp_ng_flags *flags, ng_command_ctx_t *ctx)
 {
 	call_ng_process_flags(flags, ctx);
 
 	if (!flags->call_id.s)
 		return "No call-id in message";
-	*call = call_get(&flags->call_id);
-	if (!*call)
-		return "Unknown call-ID";
+
+	g_auto(str_q) call_ids = TYPED_GQUEUE_INIT;
+	t_queue_push_tail(&call_ids, &flags->call_id);
+
+	if (flags->to_call_id.len)
+		t_queue_push_tail(&call_ids, &flags->to_call_id);
+
+	*calls = calls_get(&call_ids);
+	if (!calls->length)
+		return "Unknown call-ID(s)";
+
+
+	call_t *call = calls->head->data;
 
 	if (flags->all == ALL_ALL) {
-		for (__auto_type l = (*call)->medias.head; l; l = l->next) {
+		for (__auto_type l = call->medias.head; l; l = l->next) {
 			struct call_media *media = l->data;
 			if (!media || (media->monologue->tagtype != FROM_TAG &&
 				media->monologue->tagtype != TO_TAG))
@@ -1478,7 +1488,7 @@ static const char *medias_match(call_t **call, medias_q *medias,
 
 	/* is a single ml given? */
 	struct call_monologue *ml = NULL;
-	const char *err = media_match(*call, &ml, flags);
+	const char *err = media_match(call, &ml, flags);
 	if (err)
 		return err;
 	if (ml) {
@@ -1495,7 +1505,7 @@ static const char *medias_match(call_t **call, medias_q *medias,
 	/* handle from-tag list */
 	for (__auto_type l = flags->from_tags.head; l; l = l->next) {
 		str *s = l->data;
-		struct call_monologue *mlf = call_get_monologue(*call, s);
+		struct call_monologue *mlf = call_get_monologue(call, s);
 		if (!mlf) {
 			ilog(LOG_WARN, "Given from-tag " STR_FORMAT_M " not found", STR_FMT_M(s));
 		} else {
@@ -2177,14 +2187,14 @@ const char *call_subscribe_request_ng(ng_command_ctx_t *ctx) {
 	const char *err = NULL;
 	g_auto(sdp_ng_flags) flags;
 	char rand_buf[65];
-	g_autoptr(call_t) call = NULL;
+	g_auto(call_q) calls = TYPED_GQUEUE_INIT;
 	g_auto(medias_q) mq = TYPED_GQUEUE_INIT;
 	g_auto(str) sdp_out = STR_NULL;
 	parser_arg output = ctx->resp;
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
 	/* get source monologue */
-	err = medias_match(&call, &mq, &flags, ctx);
+	err = medias_match(&calls, &mq, &flags, ctx);
 	if (err)
 		return err;
 
@@ -2205,6 +2215,8 @@ const char *call_subscribe_request_ng(ng_command_ctx_t *ctx) {
 		flags.to_tag = STR_CONST(rand_buf);
 		rand_hex_str(flags.to_tag.s, flags.to_tag.len / 2);
 	}
+
+	g_autoptr(call_t) call = t_queue_pop_head(&calls);
 
 	struct call_monologue *dest_ml = call_get_or_create_monologue(call, &flags.to_tag);
 
@@ -2372,8 +2384,6 @@ const char *call_unsubscribe_ng(ng_command_ctx_t *ctx) {
 
 static const char *call_inject_ng(ng_command_ctx_t *ctx, bool start) {
 	g_auto(sdp_ng_flags) flags;
-	g_autoptr(call_t) call = NULL;
-	g_autoptr(call_t) call2 = NULL;
 	parser_arg input = ctx->req;
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
@@ -2394,28 +2404,28 @@ static const char *call_inject_ng(ng_command_ctx_t *ctx, bool start) {
 	if (!parser->dict_get_str(input, "source-call-id", &source_call_id))
 		source_call_id = flags.call_id;
 
-	call = call_get(&flags.call_id);
-	if (!call)
-		return "Unknown call-ID";
+	g_auto(str_q) call_ids = TYPED_GQUEUE_INIT;
+	t_queue_push_tail(&call_ids, &flags.call_id);
+	t_queue_push_tail(&call_ids, &source_call_id);
 
-	call2 = call_get2(call, &source_call_id);
-	if (!call2)
-		return "Unknown source call-ID";
+	g_auto(call_q) calls = calls_get(&call_ids);
+	if (!calls.length)
+		return "Unknown call-ID(s)";
+
+	g_autoptr(call_t) call = calls_merge(&calls);
+	if (!call)
+		return "Failed to merge two calls into one";
 
 	struct call_monologue *dst_ml = call_get_monologue(call, &flags.to_tag);
 	if (!dst_ml)
 		return "To-tag not found";
 
-	struct call_monologue *src_ml = call_get_monologue(call2, &source_tag);
+	struct call_monologue *src_ml = call_get_monologue(call, &source_tag);
 	if (!src_ml)
 		return "Source-tag not found";
 
 	if (src_ml == dst_ml)
 		return "Trying to inject to self";
-
-	if (!call_merge(call, call2))
-		return "Failed to merge two calls into one";
-	call2 = NULL;
 
 	int ret = start
 		? monologue_inject_start(src_ml, dst_ml, &flags)
@@ -2438,32 +2448,23 @@ const char *call_inject_stop_ng(ng_command_ctx_t *ctx) {
 
 const char *call_connect_ng(ng_command_ctx_t *ctx) {
 	g_auto(sdp_ng_flags) flags;
-	g_autoptr(call_t) call = NULL;
-	g_autoptr(call_t) call2 = NULL;
+	g_auto(call_q) calls = TYPED_GQUEUE_INIT;
 	g_auto(medias_q) medias = TYPED_GQUEUE_INIT;
 
-	const char *err = medias_match(&call, &medias, &flags, ctx);
+	const char *err = medias_match(&calls, &medias, &flags, ctx);
 	if (err)
 		return err;
 
 	if (!flags.to_tag.s)
 		return "No to-tag in message";
 
-	if (flags.to_call_id.len) {
-		call2 = call_get2(call, &flags.to_call_id);
-		if (!call2)
-			return "Unknown to-tag call-ID";
-	}
-	else
-		call2 = obj_get(call);
+	g_autoptr(call_t) call = calls_merge(&calls);
+	if (!call)
+		return "Failed to merge two calls into one (tag collision)";
 
-	struct call_monologue *dest_ml = call_get_or_create_monologue(call2, &flags.to_tag);
+	struct call_monologue *dest_ml = call_get_or_create_monologue(call, &flags.to_tag);
 	if (!dest_ml)
 		return "To-tag not found";
-
-	if (!call_merge(call, call2))
-		return "Failed to merge two calls into one (tag collision)";
-	call2 = NULL; // reference released
 
 	dialogue_connect(&medias, dest_ml, &flags);
 

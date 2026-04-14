@@ -5544,42 +5544,55 @@ call_t *call_get(const str *callid) {
 	return ret;
 }
 
-// obtain a reference to a second call while holding a lock to another call
-// intermittently releases lock on the first call!
-// return return another reference to the same call
-call_t *call_get2(call_t *call1, const str *callid2) {
-	call_t *ret = NULL;
 
-	rwlock_unlock_w(&call1->master_lock);
+// list of call IDs must be non empty
+// returns all calls with lock and reference held
+// returns empty list on failure
+// returned list might be shorter if duplicate objects were found
+// log info and memory arena point to the first call in the list
+call_q calls_get(const str_q *call_ids) {
+	call_q ret = TYPED_GQUEUE_INIT;
+
+	if (!call_ids->length)
+		return ret; // empty queue
 
 	while (true) {
 		RWLOCK_R(&rtpe_callhash_lock);
 
-		ret = t_hash_table_lookup(rtpe_callhash, callid2);
-		if (!ret)
-			goto out;
+		for (auto_iter(l, call_ids->head); l; l = l->next) {
+			const str *callid = l->data;
 
-		if (ret == call1) {
-			obj_hold(ret);
-			goto out;
+			__auto_type call = t_hash_table_lookup(rtpe_callhash, callid);
+			if (!call)
+				goto err;
+
+			// O(n^2)
+			if (t_queue_find(&ret, call))
+				continue;
+
+			if (rwlock_trylock_w(&call->master_lock))
+				goto retry;
+
+			obj_hold(call);
+			t_queue_push_tail(&ret, call);
 		}
 
-		rwlock_lock_w(&call1->master_lock);
+		// success
+		break;
 
-		if (!rwlock_trylock_w(&ret->master_lock)) {
-			obj_hold(ret);
-			return ret;
-		}
-
-		rwlock_unlock_w(&call1->master_lock);
-		// try again
+retry:
+		call_q_unlock_release(&ret);
 	}
 
-out:
-	rwlock_lock_w(&call1->master_lock);
+	log_info_call(ret.head->data);
 
 	return ret;
+
+err:
+	call_q_unlock_release(&ret);
+	return ret; // empty queue
 }
+
 
 static gboolean fragment_move(str *key, fragment_q *q, void *c) {
 	call_t *call = c;
@@ -5588,15 +5601,8 @@ static gboolean fragment_move(str *key, fragment_q *q, void *c) {
 }
 
 // both calls must be locked and a reference held. call2 reference will be released if successful
-bool call_merge(call_t *call, call_t *call2) {
-	if (!call2)
-		return true;
-
-	if (call == call2) {
-		obj_put(call2);
-		return true;
-	}
-
+__attribute__((nonnull(1, 2)))
+static bool call_merge(call_t *call, call_t *call2) {
 	// chcek for tag collisions: duplicate tags are a failure
 	for (auto_iter(l, call2->monologues.head); l; l = l->next) {
 		if (t_hash_table_lookup(call->tags, &l->data->tag))
@@ -5701,6 +5707,29 @@ bool call_merge(call_t *call, call_t *call2) {
 
 	return true;
 }
+
+
+// all calls must be unique, locked, with a reference held
+// returns a single merged call on success, with the list having been cleared out
+call_t *calls_merge(call_q *calls) {
+	__auto_type ret = t_queue_pop_head(calls);
+	if (!ret)
+		return NULL;
+
+	while (calls->length) {
+		__auto_type call = t_queue_pop_head(calls);
+		bool ok = call_merge(ret, call);
+		if (!ok) {
+			// return to list and bail
+			t_queue_push_head(calls, call);
+			t_queue_push_head(calls, ret);
+			return NULL;
+		}
+	}
+
+	return ret;
+}
+
 
 /* returns call with master_lock held in W, or possibly NULL iff opmode == OP_ANSWER */
 call_t *call_get_opmode(const str *callid, enum ng_opmode opmode) {
@@ -6651,4 +6680,14 @@ bool monologue_call_create_answer(struct call_monologue *ml, sdp_ng_flags *flags
 void call_unlock_release(call_t *c) {
 	rwlock_unlock_w(&c->master_lock);
 	obj_put(c);
+}
+
+
+void call_q_unlock_release(call_q *calls) {
+	while (calls->length) {
+		__auto_type call = t_queue_pop_head(calls);
+		if (!call)
+			continue;
+		call_unlock_release(call);
+	}
 }
