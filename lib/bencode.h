@@ -309,9 +309,9 @@ bencode_item_t *bencode_dictionary_get_len(bencode_item_t *dict, const char *key
  * valid pointer. The returned string will be valid until dict's bencode_buffer_t object is destroyed. */
 INLINE char *bencode_dictionary_get_string(bencode_item_t *dict, const char *key, size_t *len);
 
-/* Identical to bencode_dictionary_get_string() but fills in a "str" struct. Returns str->s, which
- * may be NULL. */
-INLINE char *bencode_dictionary_get_str(bencode_item_t *dict, const char *key, str *str);
+/* Identical to bencode_dictionary_get_string() but returns in a "str" struct.
+ * Returns NULL str on error. */
+INLINE str bencode_dictionary_get_str(bencode_item_t *dict, const char *key);
 
 /* Looks up the given key in the dictionary and compares the corresponding value to the given
  * null-terminated string. Returns 2 if the key isn't found or if the value isn't a string, otherwise
@@ -482,12 +482,12 @@ INLINE char *bencode_dictionary_get_string(bencode_item_t *dict, const char *key
 	return val->iov[1].iov_base;
 }
 
-INLINE char *bencode_dictionary_get_str(bencode_item_t *dict, const char *key, str *s) {
-	*s = STR_NULL;
-	s->s = bencode_dictionary_get_string(dict, key, &s->len);
-	if (!s->s)
-		s->len = 0;
-	return s->s;
+INLINE str bencode_dictionary_get_str(bencode_item_t *dict, const char *key) {
+	str s = STR_NULL;
+	s.s = bencode_dictionary_get_string(dict, key, &s.len);
+	if (!s.s)
+		s.len = 0;
+	return s;
 }
 
 INLINE char *bencode_dictionary_get_string_dup(bencode_item_t *dict, const char *key, size_t *len) {

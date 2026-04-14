@@ -116,7 +116,7 @@ struct ng_parser {
 	long long (*get_int)(parser_arg);
 	bool (*is_dict)(parser_arg);
 	parser_arg (*dict)(ng_parser_ctx_t *);
-	char *(*dict_get_str)(parser_arg, const char *, str *);
+	str (*dict_get_str)(parser_arg, const char *);
 	long long (*dict_get_int_str)(parser_arg, const char *, long long def);
 	parser_arg (*dict_get_expect)(parser_arg, const char *, bencode_type_t);
 	bool (*dict_contains)(parser_arg, const char *);

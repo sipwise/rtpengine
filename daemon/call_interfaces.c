@@ -1198,18 +1198,18 @@ static void ng_list_calls(ng_command_ctx_t *ctx, parser_arg output, long long in
 
 
 const char *call_query_ng(ng_command_ctx_t *ctx) {
-	str callid, fromtag, totag;
 	call_t *call;
 	parser_arg input = ctx->req;
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
-	if (!parser->dict_get_str(input, "call-id", &callid))
+	str callid = parser->dict_get_str(input, "call-id");
+	if (!callid.len)
 		return "No call-id in message";
 	call = call_get(&callid);
 	if (!call)
 		return "Unknown call-id";
-	parser->dict_get_str(input, "from-tag", &fromtag);
-	parser->dict_get_str(input, "to-tag", &totag);
+	str fromtag = parser->dict_get_str(input, "from-tag");
+	str totag = parser->dict_get_str(input, "to-tag");
 
 	ng_call_stats(ctx, call, &fromtag, &totag, NULL);
 	rwlock_unlock_w(&call->master_lock);
@@ -1301,12 +1301,10 @@ static void stop_recording_fn(ng_command_ctx_t *ctx, call_t *call) {
 	// support alternative usage for "pause" call: either `pause=yes` ...
 	parser_arg input = ctx->req;
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
-	str pause;
-	if (parser->dict_get_str(input, "pause", &pause)) {
-		if (!str_cmp(&pause, "yes") || !str_cmp(&pause, "on") || !str_cmp(&pause, "true")) {
-			pause_recording_fn(ctx, call);
-			return;
-		}
+	str pause = parser->dict_get_str(input, "pause");
+	if (!str_cmp(&pause, "yes") || !str_cmp(&pause, "on") || !str_cmp(&pause, "true")) {
+		pause_recording_fn(ctx, call);
+		return;
 	}
 	// ... or `flags=[pause]`
 	parser_arg item = parser->dict_get_expect(input, "flags", BENCODE_LIST);

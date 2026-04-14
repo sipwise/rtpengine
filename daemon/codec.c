@@ -430,7 +430,7 @@ static void __transform_handler_destroy(struct transform_handler *tfh) {
 
 		str result;
 		__auto_type ret = ng_client_request(&tcc->transform, &STR_LEN(req->str, req->len), memory_arena);
-		if (!ret || !bencode_dictionary_get_str(ret, "result", &result) || str_cmp(&result, "ok"))
+		if (!ret || !(result = bencode_dictionary_get_str(ret, "result")).len || str_cmp(&result, "ok"))
 			ilog(LOG_WARN, "Failed to delete remote 'transform' session");
 	}
 }
@@ -708,19 +708,17 @@ static const char *__make_transform_handler(struct codec_handler *handler) {
 		return "'transform' request to remote peer failed";
 
 	// process response
-	str result;
-	if (!bencode_dictionary_get_str(ret, "result", &result))
-		return "'transform' response didn't contain 'result'";
+	str result = bencode_dictionary_get_str(ret, "result");
 	if (str_cmp(&result, "ok"))
 		return "'transform' response didn't indicate success";
 
-	str s;
-
-	if (!bencode_dictionary_get_str(ret, "call-id", &s))
+	str s = bencode_dictionary_get_str(ret, "call-id");
+	if (!s.len)
 		return "'transform' response didn't contain 'call-id'";
 	tfh->call_id = call_str_cpy(&s);
 
-	if (!bencode_dictionary_get_str(ret, "from-tag", &s))
+	s = bencode_dictionary_get_str(ret, "from-tag");
+	if (!s.len)
 		return "'transform' response didn't contain 'from-tag'";
 	tfh->tag = call_str_cpy(&s);
 
@@ -734,13 +732,14 @@ static const char *__make_transform_handler(struct codec_handler *handler) {
 
 	if (rm->type != BENCODE_DICTIONARY)
 		return "incorrect type contained in 'media'";
-	str family, address;
 	int port = bencode_dictionary_get_integer(rm, "port", 0);
 	if (port <= 0 || port > 65535)
 		return "invalid port";
-	if (!bencode_dictionary_get_str(rm, "family", &family))
+	str family = bencode_dictionary_get_str(rm, "family");
+	if (!family.len)
 		return "'transform' response media didn't contain 'family'";
-	if (!bencode_dictionary_get_str(rm, "address", &address))
+	str address = bencode_dictionary_get_str(rm, "address");
+	if (!address.len)
 		return "'transform' response media didn't contain 'address'";
 	__auto_type fam = get_socket_family_rfc(&family);
 	if (!fam)

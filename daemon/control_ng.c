@@ -220,7 +220,7 @@ static bool json_is_int(JsonNode *n) {
 	}
 	return false;
 }
-static char *json_dict_get_str(JsonNode *dict, const char *entry, str *out) {
+static str json_dict_get_str(JsonNode *dict, const char *entry) {
 	JsonObject *o = json_node_get_object(dict);
 	if (!o)
 		goto out;
@@ -230,11 +230,9 @@ static char *json_dict_get_str(JsonNode *dict, const char *entry, str *out) {
 	const char *s = json_node_get_string(n);
 	if (!s)
 		goto out;
-	*out = STR(s);
-	return out->s;
+	return STR(s);
 out:
-	*out = STR_NULL;
-	return NULL;
+	return STR_NULL;
 }
 static void json_pretty_print(JsonNode *a, GString *out) {
 	JsonGenerator *g = json_generator_new();
@@ -675,7 +673,7 @@ ng_buffer *ng_buffer_new(struct obj *ref) {
 static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, const endpoint_t *sin, char *addr, struct obj *ref,
 		struct ng_buffer **ngbufp)
 {
-	str cmd = STR_NULL, callid;
+	str cmd = STR_NULL;
 	const char *errstr, *resultstr;
 	GString *log_str;
 	int64_t cmd_start, cmd_stop, cmd_process_time = {0};
@@ -723,12 +721,12 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	command_ctx.resp = parser->dict(&command_ctx.parser_ctx);
 	assert(command_ctx.resp.gen != NULL);
 
-	parser->dict_get_str(command_ctx.req, "command", &cmd);
+	cmd = parser->dict_get_str(command_ctx.req, "command");
 	errstr = "Dictionary contains no key \"command\"";
 	if (!cmd.s)
 		goto err_send;
 
-	parser->dict_get_str(command_ctx.req, "call-id", &callid);
+	str callid = parser->dict_get_str(command_ctx.req, "call-id");
 	log_info_str(&callid);
 
 	ilogs(control, LOG_INFO, "Received command '"STR_FORMAT"' from %s", STR_FMT(&cmd), addr);

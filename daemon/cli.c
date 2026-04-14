@@ -2133,8 +2133,8 @@ static size_t ng_printf(struct cli_writer *cw, const char *fmt, ...) {
 
 const char *cli_ng(ng_command_ctx_t *ctx) {
 	__auto_type parser = ctx->parser_ctx.parser;
-	str body;
-	if (!parser->dict_get_str(ctx->req, "body", &body))
+	str body = parser->dict_get_str(ctx->req, "body");
+	if (!body.len)
 		return "No 'body' in message";
 
 	g_autoptr(GString) response = g_string_new("");
