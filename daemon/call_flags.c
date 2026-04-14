@@ -1561,19 +1561,23 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			call_ng_flags_freqs(parser, value, out);
 			break;
 		case CSH_LOOKUP("from-interface"):
+		case CSH_LOOKUP("from interface"):
 			out->direction[0] = s;
 			break;
 		case CSH_LOOKUP("inbound-peer"):
 			call_ng_flags_peer_address(&s, &out->direction[0], "Inbound");
 			break;
 		case CSH_LOOKUP("from-label"):
+		case CSH_LOOKUP("from label"):
 		case CSH_LOOKUP("label"):
 			out->label = s;
 			break;
 		case CSH_LOOKUP("from-tag"):
+		case CSH_LOOKUP("from tag"):
 			out->from_tag = s;
 			break;
 		case CSH_LOOKUP("from-tags"):
+		case CSH_LOOKUP("from tags"):
 			call_ng_flags_str_list(parser, value, call_ng_flags_esc_str_list, &out->from_tags);
 			break;
 		case CSH_LOOKUP("flags"):
@@ -1802,9 +1806,11 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			out->recording_pattern = s;
 			break;
 		case CSH_LOOKUP("repeat-times"):
+		case CSH_LOOKUP("repeat times"):
 			out->repeat_times = parser->get_int_str(value, out->repeat_times);
 			break;
 		case CSH_LOOKUP("repeat-duration"):
+		case CSH_LOOKUP("repeat duration"):
 			out->repeat_duration = parser->get_int_str(value, out->repeat_duration);
 			break;
 		case CSH_LOOKUP("replace"):
@@ -1812,10 +1818,13 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			break;
 		case CSH_LOOKUP("rtcp-mux"):
 		case CSH_LOOKUP("RTCP-mux"):
+		case CSH_LOOKUP("rtcp mux"):
+		case CSH_LOOKUP("RTCP mux"):
 			call_ng_flags_str_list(parser, value, call_ng_flags_rtcp_mux, out);
 			break;
 		case CSH_LOOKUP("rtpp-flags"):
 		case CSH_LOOKUP("rtpp_flags"):;
+		case CSH_LOOKUP("rtpp flags"):;
 			/* s - list of rtpp flags */
 			out->rtpp_flags = true;
 			parse_rtpp_flags(&s, out);
@@ -1830,15 +1839,20 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			break;
 		case CSH_LOOKUP("sdp-attr"):
 		case CSH_LOOKUP("SDP-attr"):
+		case CSH_LOOKUP("sdp attr"):
+		case CSH_LOOKUP("SDP attr"):
 			ng_sdp_attr_manipulations(parser, out, value);
 			break;
 		case CSH_LOOKUP("sdp-media-remove"):
 		case CSH_LOOKUP("SDP-media-remove"):
 		case CSH_LOOKUP("sdp_media_remove"):
 		case CSH_LOOKUP("SDP_media_remove"):
+		case CSH_LOOKUP("sdp media remove"):
+		case CSH_LOOKUP("SDP media remove"):
 			ng_sdp_media_remove(parser, out, value);
 			break;
 		case CSH_LOOKUP("set-label"):
+		case CSH_LOOKUP("set label"):
 			out->set_label = s;
 			break;
 		case CSH_LOOKUP("sip-code"):
@@ -1849,18 +1863,26 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 		case CSH_LOOKUP("sip_response_code"):
 		case CSH_LOOKUP("SIP-response-code"):
 		case CSH_LOOKUP("SIP_response_code"):
+		case CSH_LOOKUP("sip code"):
+		case CSH_LOOKUP("SIP code"):
+		case CSH_LOOKUP("sip response code"):
+		case CSH_LOOKUP("SIP response code"):
 			out->code = parser->get_int_str(value, out->code);
 			break;
 		case CSH_LOOKUP("sip-message-type"):
 		case CSH_LOOKUP("sip_message_type"):
 		case CSH_LOOKUP("SIP-message-type"):
 		case CSH_LOOKUP("SIP_message_type"):
+		case CSH_LOOKUP("sip message type"):
+		case CSH_LOOKUP("SIP message type"):
 			switch (__csh_lookup_n(1, &s)) {
 				case CSH_LOOKUP_N(1, "request"):
 				case CSH_LOOKUP_N(1, "sip-request"):
 				case CSH_LOOKUP_N(1, "sip_request"):
 				case CSH_LOOKUP_N(1, "SIP-request"):
 				case CSH_LOOKUP_N(1, "SIP_request"):
+				case CSH_LOOKUP_N(1, "sip request"):
+				case CSH_LOOKUP_N(1, "SIP request"):
 					out->message_type = SIP_REQUEST;
 					break;
 				case CSH_LOOKUP_N(1, "reply"):
@@ -1872,6 +1894,10 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 				case CSH_LOOKUP_N(1, "sip_reply"):
 				case CSH_LOOKUP_N(1, "SIP-reply"):
 				case CSH_LOOKUP_N(1, "SIP_reply"):
+				case CSH_LOOKUP_N(1, "sip response"):
+				case CSH_LOOKUP_N(1, "SIP response"):
+				case CSH_LOOKUP_N(1, "sip reply"):
+				case CSH_LOOKUP_N(1, "SIP reply"):
 					out->message_type = SIP_REPLY;
 					break;
 				default:
@@ -1880,6 +1906,7 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			}
 			break;
 		case CSH_LOOKUP("start-pos"):
+		case CSH_LOOKUP("start pos"):
 			out->start_pos = parser->get_int_str(value, out->start_pos);
 			break;
 		case CSH_LOOKUP("supports"):
@@ -1917,15 +1944,18 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			parse_rtpp_flags(tplate, out);
 			break;
 		case CSH_LOOKUP("to-interface"):
+		case CSH_LOOKUP("to interface"):
 			out->direction[1] = s;
 			break;
 		case CSH_LOOKUP("outbound-peer"):
 			call_ng_flags_peer_address(&s, &out->direction[1], "Outbound");
 			break;
 		case CSH_LOOKUP("to-label"):
+		case CSH_LOOKUP("to label"):
 			out->to_label = s;
 			break;
 		case CSH_LOOKUP("to-call-id"):
+		case CSH_LOOKUP("to call id"):
 			out->to_call_id = s;
 			break;
 		case CSH_LOOKUP("to-tag"):
