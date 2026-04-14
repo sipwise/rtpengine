@@ -5606,6 +5606,8 @@ bool call_merge(call_t *call, call_t *call2) {
 	ilog(LOG_DEBUG, "Merging call " STR_FORMAT_M " into " STR_FORMAT_M,
 			STR_FMT_M(&call2->callid), STR_FMT_M(&call->callid));
 
+	call_memory_arena_set(call);
+
 	// move buffers
 	bencode_buffer_merge(&call->buffer, &call2->buffer);
 
