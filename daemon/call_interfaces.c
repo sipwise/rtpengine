@@ -1244,12 +1244,10 @@ static const char *call_recording_common_ng(ng_command_ctx_t *ctx,
 {
 	g_auto(sdp_ng_flags) flags;
 	g_autoptr(call_t) call = NULL;
-	parser_arg input = ctx->req;
-	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
 	call_ng_process_flags(&flags, ctx);
 
-	if (!parser->dict_get_str(input, "call-id", &flags.call_id))
+	if (!flags.call_id.len)
 		return "No call-id in message";
 	call = call_get(&flags.call_id);
 	if (!call)
@@ -1257,13 +1255,11 @@ static const char *call_recording_common_ng(ng_command_ctx_t *ctx,
 
 	struct call_monologue *ml = NULL;
 
-	if (parser->dict_get_str(input, "from-tag", &flags.from_tag)) {
-		if (flags.from_tag.s) {
-			ml = call_get_monologue(call, &flags.from_tag);
-			if (!ml)
-				ilog(LOG_WARN, "Given from-tag " STR_FORMAT_M " not found",
-						STR_FMT_M(&flags.from_tag));
-		}
+	if (flags.from_tag.len) {
+		ml = call_get_monologue(call, &flags.from_tag);
+		if (!ml)
+			ilog(LOG_WARN, "Given from-tag " STR_FORMAT_M " not found",
+					STR_FMT_M(&flags.from_tag));
 	}
 
 	if (ml)
@@ -2335,29 +2331,23 @@ const char *call_unsubscribe_ng(ng_command_ctx_t *ctx) {
 
 static const char *call_inject_ng(ng_command_ctx_t *ctx, bool start) {
 	g_auto(sdp_ng_flags) flags;
-	parser_arg input = ctx->req;
-	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
 	call_ng_process_flags(&flags, ctx);
-
-	str source_call_id = STR_NULL;
-	str source_tag = STR_NULL;
 
 	if (!flags.call_id.s)
 		return "No call-id in message";
 	if (!flags.to_tag.s)
 		return "No to-tag in message";
 
-	parser->dict_get_str(input, "source-tag", &source_tag);
-	if (!source_tag.s)
+	if (!flags.source_tag.len)
 		return "No source-tag in message";
 
-	if (!parser->dict_get_str(input, "source-call-id", &source_call_id))
-		source_call_id = flags.call_id;
+	if (!flags.source_call_id.len)
+		flags.source_call_id = flags.call_id;
 
 	g_auto(str_q) call_ids = TYPED_GQUEUE_INIT;
 	t_queue_push_tail(&call_ids, &flags.call_id);
-	t_queue_push_tail(&call_ids, &source_call_id);
+	t_queue_push_tail(&call_ids, &flags.source_call_id);
 
 	g_auto(call_q) calls = calls_get(&call_ids);
 	if (!calls.length)
@@ -2371,7 +2361,7 @@ static const char *call_inject_ng(ng_command_ctx_t *ctx, bool start) {
 	if (!dst_ml)
 		return "To-tag not found";
 
-	struct call_monologue *src_ml = call_get_monologue(call, &source_tag);
+	struct call_monologue *src_ml = call_get_monologue(call, &flags.source_tag);
 	if (!src_ml)
 		return "Source-tag not found";
 

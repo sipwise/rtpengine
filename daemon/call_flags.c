@@ -1910,6 +1910,16 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 							STR_FMT(&s));
 			}
 			break;
+		case CSH_LOOKUP("source-tag"):
+		case CSH_LOOKUP("source tag"):
+			out->source_tag = s;
+			break;
+		case CSH_LOOKUP("source-call-id"):
+		case CSH_LOOKUP("source call id"):
+		case CSH_LOOKUP("source-call-ID"):
+		case CSH_LOOKUP("source call ID"):
+			out->source_call_id = s;
+			break;
 		case CSH_LOOKUP("start-pos"):
 		case CSH_LOOKUP("start pos"):
 			out->start_pos = parser->get_int_str(value, out->start_pos);
