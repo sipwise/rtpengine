@@ -2092,7 +2092,7 @@ void mqtt_timer_start(struct mqtt_timer **mqtp, call_t *call, struct call_media 
 static void codec_timer_stop(struct codec_timer **ctp) {
 	if (!ctp)
 		return;
-	obj_release_o(*ctp);
+	obj_release(*ctp);
 }
 // master lock held in W
 void rtcp_timer_stop(struct rtcp_timer **rtp) {

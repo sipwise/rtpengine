@@ -5069,7 +5069,7 @@ static void __call_cleanup(call_t *c) {
 		media_player_put(&ml->rec_player);
 		if (ml->tone_freqs)
 			g_array_free(ml->tone_freqs, true);
-		obj_release_o(ml->janus_session);
+		obj_release(ml->janus_session);
 	}
 
 	while (c->stream_fds.head) {

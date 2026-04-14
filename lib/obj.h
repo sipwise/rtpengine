@@ -109,8 +109,15 @@ INLINE void __obj_put(struct obj *o);
 #define obj_alloc(t,f) obj_alloc_full(t, f, g_malloc, (void (*)(t *)) g_free)
 #define obj_alloc0(t,f) obj_alloc_full(t, f, g_malloc0, (void (*)(t *)) g_free)
 
-#define obj_release_o(op) do { if (op) obj_put_o((struct obj *) op); op = NULL; } while (0)
-#define obj_release(op) do { if (op) obj_put(op); op = NULL; } while (0)
+INLINE void __obj_release(struct obj **o) {
+	if (!*o)
+		return;
+	obj_put_o(*o);
+	*o = NULL;
+}
+
+#define obj_release_o(op) __obj_release(&(op))
+#define obj_release(op) __obj_release((struct obj **) &(op))
 
 INLINE void obj_put_gen(struct obj *o) {
 	obj_put_o(o);
