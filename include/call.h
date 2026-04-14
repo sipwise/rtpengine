@@ -668,8 +668,6 @@ struct call_monologue {
 	atomic64		ml_flags;
 };
 
-TYPED_GQUEUE(monologues, struct call_monologue)
-G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(monologues_q, monologues_q_clear)
 TYPED_GHASHTABLE(str_ml_ht, str, struct call_monologue, str_hash, str_equal, NULL, NULL)
 
 struct sdp_fragment;

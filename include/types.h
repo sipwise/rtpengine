@@ -111,4 +111,7 @@ G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(medias_q, medias_q_clear)
 
 TYPED_GHASHTABLE(codecs_ht, void, rtp_payload_type, g_direct_hash, g_direct_equal, NULL, NULL)
 
+TYPED_GQUEUE(monologues, struct call_monologue)
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(monologues_q, monologues_q_clear)
+
 #endif
