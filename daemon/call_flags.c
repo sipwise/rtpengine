@@ -9,41 +9,41 @@ bool dtls_passive_def;
 
 
 INLINE int call_ng_flags_prefix(str *s_ori, const char *prefix,
-		void (*cb)(str *, unsigned int, helper_arg), helper_arg);
+		const char *(*cb)(str *, unsigned int, helper_arg), helper_arg);
 
 
-static void call_ng_flags_str_ht(str *s, unsigned int, helper_arg);
-static void call_ng_flags_str_q_multi(str *s, unsigned int, helper_arg);
-static void call_ng_flags_str_list(const ng_parser_t *, parser_arg list,
-		void (*callback)(str *, unsigned int, helper_arg), helper_arg);
-static void call_ng_flags_list(const ng_parser_t *, parser_arg list,
-		void (*str_callback)(str *, unsigned int, helper_arg),
+static const char *call_ng_flags_str_ht(str *s, unsigned int, helper_arg);
+static const char *call_ng_flags_str_q_multi(str *s, unsigned int, helper_arg);
+static const char *call_ng_flags_str_list(const ng_parser_t *, parser_arg list,
+		const char *(*callback)(str *, unsigned int, helper_arg), helper_arg);
+static const char *call_ng_flags_list(const ng_parser_t *, parser_arg list,
+		const char *(*str_callback)(str *, unsigned int, helper_arg),
 		const char *(*item_callback)(const ng_parser_t *, parser_arg, helper_arg),
 		helper_arg);
-static void call_ng_flags_esc_str_list(str *s, unsigned int, helper_arg);
+static const char *call_ng_flags_esc_str_list(str *s, unsigned int, helper_arg);
 
 static str *str_dup_escape(const str *s);
 
 
-INLINE void ng_sdes_option(str *s, unsigned int idx, helper_arg arg) {
+static const char *ng_sdes_option(str *s, unsigned int idx, helper_arg arg) {
 	sdp_ng_flags *out = arg.flags;
 
 	/* Accept only certain individual crypto suites */
 	if (call_ng_flags_prefix(s, "only-", call_ng_flags_str_ht, &out->sdes_only))
-		return;
+		return NULL;
 
 	/* Exclude individual crypto suites */
 	if (call_ng_flags_prefix(s, "no-", call_ng_flags_str_ht, &out->sdes_no))
-		return;
+		return NULL;
 
 	/* Order individual crypto suites */
 	if (call_ng_flags_prefix(s, "order:", call_ng_flags_str_q_multi, &out->sdes_order))
-		return;
+		return NULL;
 
 	/* Crypto suite preferences for the offerer */
 	if (call_ng_flags_prefix(s, "offerer_pref:", call_ng_flags_str_q_multi,
 					&out->sdes_offerer_pref))
-		return;
+		return NULL;
 
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("no"):
@@ -96,9 +96,11 @@ INLINE void ng_sdes_option(str *s, unsigned int idx, helper_arg arg) {
 			ilog(LOG_WARN, "Unknown 'SDES' flag encountered: '"STR_FORMAT"'",
 					STR_FMT(s));
 	}
+
+	return NULL;
 }
 
-INLINE void ng_osrtp_option(str *s, unsigned int idx, helper_arg arg) {
+static const char *ng_osrtp_option(str *s, unsigned int idx, helper_arg arg) {
 	sdp_ng_flags *out = arg.flags;
 
 	switch (__csh_lookup(s)) {
@@ -125,28 +127,32 @@ INLINE void ng_osrtp_option(str *s, unsigned int idx, helper_arg arg) {
 			ilog(LOG_WARN, "Unknown 'OSRTP' flag encountered: '" STR_FORMAT "'",
 					STR_FMT(s));
 	}
+
+	return NULL;
 }
 
-static void call_ng_flags_str_pair_ht(str *s, unsigned int idx, helper_arg arg) {
+static const char *call_ng_flags_str_pair_ht(str *s, unsigned int idx, helper_arg arg) {
 	str *s_copy = str_dup_escape(s);
 	str token;
 	if (!str_token(&token, s_copy, '>')) {
 		ilog(LOG_WARN, "SDP manipulations: Ignoring invalid token '" STR_FORMAT "'", STR_FMT(s));
 		free(s_copy);
-		return;
+		return NULL; // return error?
 	}
 	str_case_value_ht *ht = arg.svt;
 	if (!t_hash_table_is_set(*ht))
 		*ht = str_case_value_ht_new();
 	t_hash_table_replace(*ht, str_dup(&token), s_copy);
+	return NULL;
 }
 
-static void call_ng_flags_item_pair_ht_iter(str *key, unsigned int idx, helper_arg arg) {
+static const char *call_ng_flags_item_pair_ht_iter(str *key, unsigned int idx, helper_arg arg) {
 	str *from_to = arg.strs;
 	if (from_to[0].len == 0)
 		from_to[0] = *key;
 	else if (from_to[1].len == 0)
 		from_to[1] = *key;
+	return NULL;
 }
 
 static const char *call_ng_flags_item_pair_ht(const ng_parser_t *parser, parser_arg it, helper_arg arg) {
@@ -221,7 +227,7 @@ INLINE void ng_sdp_attr_manipulations(const ng_parser_t *parser, sdp_ng_flags *f
 /**
  * SDP media section manipulation parser helpers.
  */
-static void ng_sdp_media_remove_iter(str *media_type, unsigned int i, helper_arg arg)
+static const char *ng_sdp_media_remove_iter(str *media_type, unsigned int i, helper_arg arg)
 {
 	enum media_type id = codec_get_type(media_type);
 	if (id == MT_UNKNOWN || (id == MT_OTHER && str_cmp(media_type, "other")))
@@ -229,9 +235,10 @@ static void ng_sdp_media_remove_iter(str *media_type, unsigned int i, helper_arg
 		ilog(LOG_WARN, "SDP manipulations: unsupported SDP section '" STR_FORMAT "' targeted.",
 				STR_FMT(media_type));
 		/* only known media types are supported */
-		return;
+		return NULL; // return error?
 	}
 	arg.flags->sdp_media_remove[id] = true;
+	return NULL;
 }
 INLINE void ng_sdp_media_remove(const ng_parser_t *parser, sdp_ng_flags *flags, parser_arg value) {
 	if (!parser->is_list(value))
@@ -239,7 +246,7 @@ INLINE void ng_sdp_media_remove(const ng_parser_t *parser, sdp_ng_flags *flags, 
 	parser->list_iter(parser, value, ng_sdp_media_remove_iter, NULL, flags);
 }
 
-INLINE void ng_el_option(str *s, unsigned int idx, helper_arg arg) {
+static const char *ng_el_option(str *s, unsigned int idx, helper_arg arg) {
 	sdp_ng_flags *out = arg.flags;
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("off"):
@@ -258,10 +265,12 @@ INLINE void ng_el_option(str *s, unsigned int idx, helper_arg arg) {
 			ilog(LOG_WARN, "Unknown 'endpoint-learning' flag encountered: '" STR_FORMAT "'",
 					STR_FMT(s));
 	}
+
+	return NULL;
 }
 
 #ifdef WITH_TRANSCODING
-INLINE void ng_t38_option(str *s, unsigned int idx, helper_arg arg) {
+static const char *ng_t38_option(str *s, unsigned int idx, helper_arg arg) {
 	sdp_ng_flags *out = arg.flags;
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("decode"):
@@ -333,12 +342,14 @@ INLINE void ng_t38_option(str *s, unsigned int idx, helper_arg arg) {
 			ilog(LOG_WARN, "Unknown 'T.38' flag encountered: '" STR_FORMAT "'",
 					STR_FMT(s));
 	}
+
+	return NULL;
 }
 #endif
 
 
-static void call_ng_flags_list(const ng_parser_t *parser, parser_arg list,
-		void (*str_callback)(str *, unsigned int, helper_arg),
+static const char *call_ng_flags_list(const ng_parser_t *parser, parser_arg list,
+		const char *(*str_callback)(str *, unsigned int, helper_arg),
 		const char *(*item_callback)(const ng_parser_t *, parser_arg, helper_arg),
 		helper_arg arg)
 {
@@ -346,22 +357,27 @@ static void call_ng_flags_list(const ng_parser_t *parser, parser_arg list,
 	if (!parser->is_list(list)) {
 		if (parser->get_str(list, &s)) {
 			str token;
-			while (str_token_sep(&token, &s, ','))
-				str_callback(&token, 0, arg);
+			while (str_token_sep(&token, &s, ',')) {
+				const char *err = str_callback(&token, 0, arg);
+				if (err)
+					return err;
+			}
 		}
 		else
 			ilog(LOG_DEBUG, "Ignoring non-list non-string value");
-		return;
+		return NULL;
 	}
 	parser->list_iter(parser, list, str_callback, item_callback, arg);
+
+	return NULL;
 }
-static void call_ng_flags_str_list(const ng_parser_t *parser, parser_arg list,
-		void (*callback)(str *, unsigned int, helper_arg), helper_arg arg)
+static const char *call_ng_flags_str_list(const ng_parser_t *parser, parser_arg list,
+		const char *(*callback)(str *, unsigned int, helper_arg), helper_arg arg)
 {
-	call_ng_flags_list(parser, list, callback, NULL, arg);
+	return call_ng_flags_list(parser, list, callback, NULL, arg);
 }
 
-static void call_ng_flags_rtcp_mux(str *s, unsigned int idx, helper_arg arg) {
+static const char *call_ng_flags_rtcp_mux(str *s, unsigned int idx, helper_arg arg) {
 	sdp_ng_flags *out = arg.flags;
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("accept"):
@@ -384,9 +400,11 @@ static void call_ng_flags_rtcp_mux(str *s, unsigned int idx, helper_arg arg) {
 			ilog(LOG_WARN, "Unknown 'rtcp-mux' flag encountered: '" STR_FORMAT "'",
 					STR_FMT(s));
 	}
+
+	return NULL;
 }
 
-static void call_ng_flags_bundle(str *s, unsigned int idx, helper_arg arg) {
+static const char *call_ng_flags_bundle(str *s, unsigned int idx, helper_arg arg) {
 	sdp_ng_flags *out = arg.flags;
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("accept"):
@@ -414,6 +432,8 @@ static void call_ng_flags_bundle(str *s, unsigned int idx, helper_arg arg) {
 			ilog(LOG_WARN, "Unknown 'BUNDLE' flag encountered: '" STR_FORMAT "'",
 					STR_FMT(s));
 	}
+
+	return NULL;
 }
 
 static void call_ng_flags_moh(const ng_parser_t *parser, str *key, parser_arg value, helper_arg arg) {
@@ -447,7 +467,8 @@ static void call_ng_flags_moh(const ng_parser_t *parser, str *key, parser_arg va
 					STR_FMT(key));
 	}
 }
-static void call_ng_flags_replace(str *s, unsigned int idx, helper_arg arg) {
+
+static const char *call_ng_flags_replace(str *s, unsigned int idx, helper_arg arg) {
 	sdp_ng_flags *out = arg.flags;
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("force-increment-sdp-ver"):
@@ -490,15 +511,21 @@ static void call_ng_flags_replace(str *s, unsigned int idx, helper_arg arg) {
 			ilog(LOG_WARN, "Unknown 'replace' flag encountered: '" STR_FORMAT "'",
 					STR_FMT(s));
 	}
+
+	return NULL;
 }
-static void call_ng_flags_supports(str *s, unsigned int idx, helper_arg arg) {
+
+static const char *call_ng_flags_supports(str *s, unsigned int idx, helper_arg arg) {
 	sdp_ng_flags *out = arg.flags;
 	if (!str_cmp(s, "load limit"))
 		out->supports_load_limit = true;
 	else
 		ilog(LOG_INFO | LOG_FLAG_LIMIT, "Optional feature '" STR_FORMAT "' not supported",
 				STR_FMT(s));
+
+	return NULL;
 }
+
 static str *str_dup_escape(const str *s) {
 	str *ret = str_dup(s);
 	int i;
@@ -514,25 +541,28 @@ static str *str_dup_escape(const str *s) {
 	}
 	return ret;
 }
-static void call_ng_flags_esc_str_list(str *s, unsigned int idx, helper_arg arg) {
+static const char *call_ng_flags_esc_str_list(str *s, unsigned int idx, helper_arg arg) {
 	str *s_copy = str_dup_escape(s);
 	t_queue_push_tail(arg.q, s_copy);
+	return NULL;
 }
 /**
  * Stores flag's value in the given GhashTable.
  */
-static void call_ng_flags_str_ht(str *s, unsigned int idx, helper_arg arg) {
+static const char *call_ng_flags_str_ht(str *s, unsigned int idx, helper_arg arg) {
 	str *s_copy = str_dup_escape(s);
 	str_case_ht *ht = arg.sct;
 	if (!t_hash_table_is_set(*ht))
 		*ht = str_case_ht_new();
 	t_hash_table_replace(*ht, s_copy, s_copy);
+
+	return NULL;
 }
 /**
  * Parses one-row flags separated by 'delimiter'.
  * Stores parsed flag's values then in the given GQueue.
  */
-static void call_ng_flags_str_q_multi(str *s, unsigned int idx, helper_arg arg) {
+static const char *call_ng_flags_str_q_multi(str *s, unsigned int idx, helper_arg arg) {
 	str *s_copy = str_dup_escape(s);
 	str token;
 	str_q *q = arg.q;
@@ -547,9 +577,11 @@ static void call_ng_flags_str_q_multi(str *s, unsigned int idx, helper_arg arg) 
 	}
 
 	free(s_copy);
+
+	return NULL;
 }
 #ifdef WITH_TRANSCODING
-static void call_ng_flags_str_ht_split(str *s, unsigned int idx, helper_arg arg) {
+static const char *call_ng_flags_str_ht_split(str *s, unsigned int idx, helper_arg arg) {
 	str_case_value_ht *ht = arg.svt;
 	if (!t_hash_table_is_set(*ht))
 		*ht = str_case_value_ht_new();
@@ -561,6 +593,8 @@ static void call_ng_flags_str_ht_split(str *s, unsigned int idx, helper_arg arg)
 			break;
 		splitter.len = c - splitter.s;
 	}
+
+	return NULL;
 }
 #endif
 
@@ -577,28 +611,28 @@ static struct sdp_manipulations *call_ng_flags_sdp_attr_helper(str *s, sdp_ng_fl
 	}
 	return sm;
 }
-static void call_ng_flags_sdp_attr_helper_add(str *s, unsigned int idx, helper_arg arg) {
+static const char *call_ng_flags_sdp_attr_helper_add(str *s, unsigned int idx, helper_arg arg) {
 	struct sdp_manipulations *sm = call_ng_flags_sdp_attr_helper(s, arg.flags);
-	if (!sm)
-		return;
-	call_ng_flags_esc_str_list(s, idx, &sm->add_commands);
+	if (sm)
+		call_ng_flags_esc_str_list(s, idx, &sm->add_commands);
+	return NULL;
 }
-static void call_ng_flags_sdp_attr_helper_remove(str *s, unsigned int idx, helper_arg arg) {
+static const char *call_ng_flags_sdp_attr_helper_remove(str *s, unsigned int idx, helper_arg arg) {
 	struct sdp_manipulations *sm = call_ng_flags_sdp_attr_helper(s, arg.flags);
-	if (!sm)
-		return;
-	call_ng_flags_str_ht(s, idx, &sm->rem_commands);
+	if (sm)
+		call_ng_flags_str_ht(s, idx, &sm->rem_commands);
+	return NULL;
 }
-static void call_ng_flags_sdp_attr_helper_subst(str *s, unsigned int idx, helper_arg arg) {
+static const char *call_ng_flags_sdp_attr_helper_subst(str *s, unsigned int idx, helper_arg arg) {
 	struct sdp_manipulations *sm = call_ng_flags_sdp_attr_helper(s, arg.flags);
-	if (!sm)
-		return;
-	call_ng_flags_str_pair_ht(s, idx, &sm->subst_commands);
+	if (sm)
+		call_ng_flags_str_pair_ht(s, idx, &sm->subst_commands);
+	return NULL;
 }
 
 // helper to alias values from other dictionaries into the "flags" dictionary
 INLINE int call_ng_flags_prefix(str *s_ori, const char *prefix,
-		void (*cb)(str *, unsigned int, helper_arg), helper_arg arg)
+		const char *(*cb)(str *, unsigned int, helper_arg), helper_arg arg)
 {
 	size_t len = strlen(prefix);
 	str s = *s_ori;
@@ -608,7 +642,7 @@ INLINE int call_ng_flags_prefix(str *s_ori, const char *prefix,
 	cb(&s, 0, arg);
 	return 1;
 }
-void call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
+const char *call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 	sdp_ng_flags *out = arg.flags;
 
 	switch (__csh_lookup(s)) {
@@ -933,61 +967,61 @@ void call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 			/* handle values aliases from other dictionaries */
 
 			if (call_ng_flags_prefix(s, "endpoint-learning-", ng_el_option, out))
-				return;
+				return NULL;
 			if (call_ng_flags_prefix(s, "from-tags-", call_ng_flags_esc_str_list,
 						&out->from_tags))
-				return;
+				return NULL;
 
 			/* OSRTP */
 			if (call_ng_flags_prefix(s, "OSRTP-", ng_osrtp_option, out))
-				return;
+				return NULL;
 			/* replacing SDP body parts */
 			if (call_ng_flags_prefix(s, "replace-", call_ng_flags_replace, out))
-				return;
+				return NULL;
 			/* rtcp-mux */
 			if (call_ng_flags_prefix(s, "rtcp-mux-", call_ng_flags_rtcp_mux, out))
-				return;
+				return NULL;
 			/* group:BUNDLE */
 			if (call_ng_flags_prefix(s, "BUNDLE-", call_ng_flags_bundle, out))
-				return;
+				return NULL;
 
 			/* codec manipulations */
 			{
 				if (call_ng_flags_prefix(s, "codec-except-", call_ng_flags_str_ht,
 							&out->codec_except))
-					return;
+					return NULL;
 				if (call_ng_flags_prefix(s, "codec-offer-", call_ng_flags_esc_str_list,
 							&out->codec_offer))
-					return;
+					return NULL;
 				if (call_ng_flags_prefix(s, "codec-strip-", call_ng_flags_esc_str_list,
 							&out->codec_strip))
-					return;
+					return NULL;
 				if (call_ng_flags_prefix(s, "codec-ignore-", call_ng_flags_esc_str_list,
 							&out->codec_ignore))
-					return;
+					return NULL;
 			}
 			/* SDES */
 			{
 				if (call_ng_flags_prefix(s, "SDES-", ng_sdes_option, out))
-					return;
+					return NULL;
 				if (call_ng_flags_prefix(s, "SDES-offerer_pref:", call_ng_flags_str_q_multi,
 								&out->sdes_offerer_pref))
-					return;
+					return NULL;
 				if (call_ng_flags_prefix(s, "SDES-no-", call_ng_flags_str_ht, &out->sdes_no))
-					return;
+					return NULL;
 				if (call_ng_flags_prefix(s, "SDES-only-", call_ng_flags_str_ht, &out->sdes_only))
-					return;
+					return NULL;
 				if (call_ng_flags_prefix(s, "SDES-order:", call_ng_flags_str_q_multi, &out->sdes_order))
-					return;
+					return NULL;
 			}
 			/* SDP attributes manipulations */
 			{
 				if (call_ng_flags_prefix(s, "sdp-attr-add-", call_ng_flags_sdp_attr_helper_add, out))
-					return;
+					return NULL;
 				if (call_ng_flags_prefix(s, "sdp-attr-remove-", call_ng_flags_sdp_attr_helper_remove, out))
-					return;
+					return NULL;
 				if (call_ng_flags_prefix(s, "sdp-attr-substitute-", call_ng_flags_sdp_attr_helper_subst, out))
-					return;
+					return NULL;
 			}
 #ifdef WITH_TRANSCODING
 			/* transcoding */
@@ -995,33 +1029,35 @@ void call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 				if (out->opmode == OP_OFFER || out->opmode == OP_SUBSCRIBE_REQ || out->opmode == OP_PUBLISH) {
 					if (call_ng_flags_prefix(s, "transcode-", call_ng_flags_esc_str_list,
 								&out->codec_transcode))
-						return;
+						return NULL;
 					if (call_ng_flags_prefix(s, "codec-transcode-", call_ng_flags_esc_str_list,
 								&out->codec_transcode))
-						return;
+						return NULL;
 					if (call_ng_flags_prefix(s, "codec-mask-", call_ng_flags_esc_str_list,
 								&out->codec_mask))
-						return;
+						return NULL;
 					if (call_ng_flags_prefix(s, "T38-", ng_t38_option, out))
-						return;
+						return NULL;
 					if (call_ng_flags_prefix(s, "T.38-", ng_t38_option, out))
-						return;
+						return NULL;
 				}
 				if (call_ng_flags_prefix(s, "codec-accept-", call_ng_flags_esc_str_list,
 							&out->codec_accept))
-					return;
+					return NULL;
 				if (call_ng_flags_prefix(s, "codec-consume-", call_ng_flags_esc_str_list,
 							&out->codec_consume))
-					return;
+					return NULL;
 				if (call_ng_flags_prefix(s, "codec-set-", call_ng_flags_str_ht_split,
 							&out->codec_set))
-					return;
+					return NULL;
 			}
 #endif
 
 			ilog(LOG_WARN, "Unknown flag encountered: '" STR_FORMAT "'",
 					STR_FMT(s));
 	}
+
+	return NULL;
 }
 
 void call_ng_flags_init(sdp_ng_flags *out, enum ng_opmode opmode) {
@@ -1044,10 +1080,10 @@ void call_ng_flags_init(sdp_ng_flags *out, enum ng_opmode opmode) {
 	out->t38_version = -1;
 }
 
-static void call_ng_direction_flag_iter(str *s, unsigned int i, helper_arg arg) {
-	if (i >= 2)
-		return;
-	arg.flags->direction[i] = *s;
+static const char *call_ng_direction_flag_iter(str *s, unsigned int i, helper_arg arg) {
+	if (i < 2)
+		arg.flags->direction[i] = *s;
+	return NULL;
 }
 void call_ng_direction_flag(const ng_parser_t *parser, sdp_ng_flags *flags, parser_arg value)
 {
@@ -1192,7 +1228,7 @@ static void call_ng_received_from_string(sdp_ng_flags *flags, str *s) {
 	flags->received_from_family = STR_NULL;
 	flags->received_from_address = *s;
 }
-static void call_ng_received_from_iter(str *key, unsigned int i, helper_arg arg) {
+static const char *call_ng_received_from_iter(str *key, unsigned int i, helper_arg arg) {
 	switch (i) {
 		case 0:
 			arg.flags->received_from_family = *key;
@@ -1201,6 +1237,8 @@ static void call_ng_received_from_iter(str *key, unsigned int i, helper_arg arg)
 			arg.flags->received_from_address = *key;
 			break;
 	}
+
+	return NULL;
 }
 
 static void call_ng_payload_type(const ng_parser_t *parser, str *key, parser_arg value,

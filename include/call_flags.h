@@ -323,7 +323,7 @@ void call_ng_free_flags(sdp_ng_flags *flags);
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(sdp_ng_flags, call_ng_free_flags)
 
 
-void call_ng_flags_flags(str *s, unsigned int, helper_arg arg);
+const char *call_ng_flags_flags(str *s, unsigned int, helper_arg arg);
 void call_ng_main_flags(const ng_parser_t *, str *key, parser_arg value, helper_arg);
 void call_ng_codec_flags(const ng_parser_t *, str *key, parser_arg value, helper_arg);
 void call_ng_direction_flag(const ng_parser_t *, sdp_ng_flags *, parser_arg value);

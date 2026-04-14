@@ -124,7 +124,7 @@ static bool bencode_is_int(bencode_item_t *arg) {
 	return arg->type == BENCODE_INTEGER;
 }
 static const char *bencode_list_iter(const ng_parser_t *parser, bencode_item_t *list,
-		void (*str_callback)(str *key, unsigned int, helper_arg),
+		const char *(*str_callback)(str *key, unsigned int, helper_arg),
 		const char *(*item_callback)(const ng_parser_t *, bencode_item_t *, helper_arg),
 		helper_arg arg)
 {
@@ -133,15 +133,15 @@ static const char *bencode_list_iter(const ng_parser_t *parser, bencode_item_t *
 	str s;
 	unsigned int idx = 0;
 	for (bencode_item_t *it = list->child; it; it = it->sibling) {
+		const char *err = NULL;
 		if (bencode_get_str(it, &s) && str_callback)
-			str_callback(&s, idx, arg);
-		else if (item_callback) {
-			const char *err = item_callback(parser, it, arg);
-			if (err)
-				return err;
-		}
+			err = str_callback(&s, idx, arg);
+		else if (item_callback)
+			err = item_callback(parser, it, arg);
 		else
 			ilog(LOG_DEBUG, "Ignoring non-string value in list");
+		if (err)
+			return err;
 		idx++;
 	}
 	return NULL;
@@ -336,7 +336,7 @@ static bool json_dict_iter(const ng_parser_t *parser, JsonNode *input,
 	return true;
 }
 static const char *json_list_iter(const ng_parser_t *parser, JsonNode *list,
-		void (*str_callback)(str *key, unsigned int, helper_arg),
+		const char *(*str_callback)(str *key, unsigned int, helper_arg),
 		const char *(*item_callback)(const ng_parser_t *parser, JsonNode *, helper_arg),
 		helper_arg arg)
 {
@@ -350,18 +350,18 @@ static const char *json_list_iter(const ng_parser_t *parser, JsonNode *list,
 	unsigned int l = json_array_get_length(a);
 	for (unsigned int i = 0; i < l; i++) {
 		JsonNode *n = json_array_get_element(a, i);
+		const char *err = NULL;
 		if (json_node_get_node_type(n) == JSON_NODE_VALUE
 				&& json_node_get_value_type(n) == G_TYPE_STRING)
 		{
 			const char *s = json_node_get_string(n);
 			if (s)
-				str_callback(STR_PTR(s), i, arg);
+				err = str_callback(STR_PTR(s), i, arg);
 		}
-		else {
-			const char *err = item_callback(parser, n, arg);
-			if (err)
-				return err;
-		}
+		else
+			err = item_callback(parser, n, arg);
+		if (err)
+			return err;
 	}
 
 	return NULL;

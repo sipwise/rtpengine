@@ -1291,11 +1291,12 @@ const char *call_pause_recording_ng(ng_command_ctx_t *ctx) {
 }
 
 
-static void stop_recording_iter(str *key, unsigned int idx, helper_arg arg) {
+static const char *stop_recording_iter(str *key, unsigned int idx, helper_arg arg) {
 	if (str_cmp(key, "pause") == 0)
 		*arg.call_fn = recording_pause;
 	else if (str_cmp(key, "discard-recording") == 0)
 		*arg.call_fn = recording_discard;
+	return NULL;
 }
 static void stop_recording_fn(ng_command_ctx_t *ctx, call_t *call) {
 	// support alternative usage for "pause" call: either `pause=yes` ...

@@ -1283,11 +1283,12 @@ struct cb_iter_ptrs { // XXX remove this?
 	void *ptr;
 };
 
-static void json_build_list_cb_iter(str *val, unsigned int i, helper_arg arg) {
+static const char *json_build_list_cb_iter(str *val, unsigned int i, helper_arg arg) {
 	struct cb_iter_ptrs *args = arg.generic;
 	str *s = redis_parser->unescape(val->s, val->len);
 	args->cb(s, args->cb_arg, args->list, args->ptr);
 	g_free(s);
+	return NULL;
 }
 
 static int json_build_list_cb(callback_arg_t q, call_t *c, const char *key,

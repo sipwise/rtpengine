@@ -148,7 +148,7 @@ static bool rtpp_dict_list_closing(rtpp_pos *pos) {
 	return true;
 }
 static const char *rtpp_list_iter(const ng_parser_t *parser, rtpp_pos *pos,
-		void (*str_callback)(str *key, unsigned int, helper_arg),
+		const char *(*str_callback)(str *key, unsigned int, helper_arg),
 		const char *(*item_callback)(const ng_parser_t *, parser_arg, helper_arg), helper_arg arg)
 {
 	// list opener
@@ -183,13 +183,13 @@ static const char *rtpp_list_iter(const ng_parser_t *parser, rtpp_pos *pos,
 		if (pos->cur.len == 0)
 			break; // nothing left
 
+		const char *err = NULL;
 		if (str_callback)
-			str_callback(&pos->cur, idx++, arg);
-		else if (item_callback) {
-			const char *err = item_callback(parser, pos, arg);
-			if (err)
-				return err;
-		}
+			err = str_callback(&pos->cur, idx++, arg);
+		else if (item_callback)
+			err = item_callback(parser, pos, arg);
+		if (err)
+			return err;
 		if (end)
 			break;
 		goto next;
