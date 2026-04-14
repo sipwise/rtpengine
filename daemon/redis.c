@@ -2034,7 +2034,7 @@ static int json_link_maps(call_t *c, struct redis_list *maps,
 	return 0;
 }
 
-static void json_build_ssrc_iter(const ng_parser_t *parser, parser_arg dict, helper_arg arg) {
+static const char *json_build_ssrc_iter(const ng_parser_t *parser, parser_arg dict, helper_arg arg) {
 	struct call_media *md = arg.md;
 
 	uint32_t ssrc = parser_get_ll(dict, "ssrc");
@@ -2053,6 +2053,8 @@ static void json_build_ssrc_iter(const ng_parser_t *parser, parser_arg dict, hel
 		payload_tracker_add(&se_out->tracker, parser_get_ll(dict, "out_payload_type"));
 		obj_put(&se_out->h);
 	}
+
+	return NULL;
 }
 
 static int json_build_ssrc(struct call_media *md, parser_arg arg) {

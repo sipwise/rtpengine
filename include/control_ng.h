@@ -104,9 +104,9 @@ struct ng_parser {
 		void (*callback)(const ng_parser_t *, str *, parser_arg, helper_arg),
 		helper_arg);
 	bool (*is_list)(parser_arg);
-	void (*list_iter)(const ng_parser_t *, parser_arg input,
+	const char *(*list_iter)(const ng_parser_t *, parser_arg input,
 			void (*str_callback)(str *key, unsigned int, helper_arg),
-			void (*item_callback)(const ng_parser_t *, parser_arg, helper_arg),
+			const char *(*item_callback)(const ng_parser_t *, parser_arg, helper_arg),
 			helper_arg);
 	str *(*get_str)(parser_arg, str *s);
 	int (*strcmp)(parser_arg, const char *);

@@ -18,7 +18,7 @@ static void call_ng_flags_str_list(const ng_parser_t *, parser_arg list,
 		void (*callback)(str *, unsigned int, helper_arg), helper_arg);
 static void call_ng_flags_list(const ng_parser_t *, parser_arg list,
 		void (*str_callback)(str *, unsigned int, helper_arg),
-		void (*item_callback)(const ng_parser_t *, parser_arg, helper_arg),
+		const char *(*item_callback)(const ng_parser_t *, parser_arg, helper_arg),
 		helper_arg);
 static void call_ng_flags_esc_str_list(str *s, unsigned int, helper_arg);
 
@@ -149,7 +149,7 @@ static void call_ng_flags_item_pair_ht_iter(str *key, unsigned int idx, helper_a
 		from_to[1] = *key;
 }
 
-static void call_ng_flags_item_pair_ht(const ng_parser_t *parser, parser_arg it, helper_arg arg) {
+static const char *call_ng_flags_item_pair_ht(const ng_parser_t *parser, parser_arg it, helper_arg arg) {
 	str from_to[2] = {0};
 
 	if (!parser->is_list(it))
@@ -166,10 +166,11 @@ static void call_ng_flags_item_pair_ht(const ng_parser_t *parser, parser_arg it,
 		*ht = str_case_value_ht_new();
 	t_hash_table_replace(*ht, s_copy_from, s_copy_to);
 
-	return;
+	return NULL;
 
 err:
 	ilog(LOG_WARN, "SDP manipulations: Ignoring invalid contents of string-pair list");
+	return NULL;
 }
 
 /**
@@ -338,7 +339,7 @@ INLINE void ng_t38_option(str *s, unsigned int idx, helper_arg arg) {
 
 static void call_ng_flags_list(const ng_parser_t *parser, parser_arg list,
 		void (*str_callback)(str *, unsigned int, helper_arg),
-		void (*item_callback)(const ng_parser_t *, parser_arg, helper_arg),
+		const char *(*item_callback)(const ng_parser_t *, parser_arg, helper_arg),
 		helper_arg arg)
 {
 	str s;
@@ -1154,8 +1155,9 @@ static void call_ng_parse_block_mode(str *s, enum block_dtmf_mode *output) {
 #endif
 
 static void call_ng_flags_freqs(const ng_parser_t *parser, parser_arg value, sdp_ng_flags *out);
-static void call_ng_flags_freqs_iter(const ng_parser_t *parser, parser_arg item, helper_arg arg) {
+static const char *call_ng_flags_freqs_iter(const ng_parser_t *parser, parser_arg item, helper_arg arg) {
 	call_ng_flags_freqs(parser, item, arg.flags);
+	return NULL;
 }
 static void call_ng_flags_freqs(const ng_parser_t *parser, parser_arg value, sdp_ng_flags *out) {
 	unsigned int val;
@@ -1243,7 +1245,7 @@ static void call_ng_codec(const ng_parser_t *parser, str *key, parser_arg value,
 	}
 }
 
-static void call_ng_codec_iter(const ng_parser_t *parser, parser_arg item, struct ng_media *media) {
+static const char *call_ng_codec_iter(const ng_parser_t *parser, parser_arg item, struct ng_media *media) {
 	// we support two types here:
 	// the "transform" method supplies an extended list of codecs, as a list of dicts
 	// the "create" method uses a list of strings, similar to codec->offer
@@ -1251,7 +1253,7 @@ static void call_ng_codec_iter(const ng_parser_t *parser, parser_arg item, struc
 		str s;
 		parser->get_str(item, &s);
 		call_ng_flags_esc_str_list(&s, 0, &media->codec_list);
-		return;
+		return NULL;
 	}
 
 	__auto_type codec = g_new0(struct ng_codec, 1);
@@ -1264,6 +1266,8 @@ static void call_ng_codec_iter(const ng_parser_t *parser, parser_arg item, struc
 
 	if (codec->input.payload_type == -1 || codec->output.payload_type == -1)
 		ilog(LOG_WARN, "Incomplete codec definition");
+
+	return NULL;
 }
 
 static void call_ng_endpoint(const ng_parser_t *parser, str *key, parser_arg value, struct ng_media *media) {
@@ -1315,10 +1319,11 @@ static void call_ng_media(const ng_parser_t *parser, str *key, parser_arg value,
 	}
 }
 
-static void call_ng_media_iter(const ng_parser_t *parser, parser_arg item, sdp_ng_flags *out) {
+static const char *call_ng_media_iter(const ng_parser_t *parser, parser_arg item, sdp_ng_flags *out) {
 	__auto_type media = g_new0(struct ng_media, 1);
 	t_queue_push_tail(&out->medias, media);
 	parser->dict_iter(parser, item, call_ng_media, media);
+	return NULL;
 }
 
 void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, helper_arg arg) {

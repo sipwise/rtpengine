@@ -147,13 +147,13 @@ static bool rtpp_dict_list_closing(rtpp_pos *pos) {
 
 	return true;
 }
-static void rtpp_list_iter(const ng_parser_t *parser, rtpp_pos *pos,
+static const char *rtpp_list_iter(const ng_parser_t *parser, rtpp_pos *pos,
 		void (*str_callback)(str *key, unsigned int, helper_arg),
-		void (*item_callback)(const ng_parser_t *, parser_arg, helper_arg), helper_arg arg)
+		const char *(*item_callback)(const ng_parser_t *, parser_arg, helper_arg), helper_arg arg)
 {
 	// list opener
 	if (!skip_char(&pos->cur, '['))
-		return;
+		return NULL; // return error here?
 
 	unsigned int idx = 0;
 
@@ -168,8 +168,11 @@ static void rtpp_list_iter(const ng_parser_t *parser, rtpp_pos *pos,
 
 		// does it start another list or dict?
 		if (pos->cur.s[0] == '[') {
-			if (item_callback)
-				item_callback(parser, pos, arg);
+			if (item_callback) {
+				const char *err = item_callback(parser, pos, arg);
+				if (err)
+					return err;
+			}
 			goto next;
 		}
 
@@ -182,8 +185,11 @@ static void rtpp_list_iter(const ng_parser_t *parser, rtpp_pos *pos,
 
 		if (str_callback)
 			str_callback(&pos->cur, idx++, arg);
-		else if (item_callback)
-			item_callback(parser, pos, arg);
+		else if (item_callback) {
+			const char *err = item_callback(parser, pos, arg);
+			if (err)
+				return err;
+		}
 		if (end)
 			break;
 		goto next;
@@ -193,7 +199,10 @@ next:
 		if (!str_token_sep(&pos->cur, &pos->remainder, ' '))
 			break;
 	}
+
+	return NULL;
 }
+
 static bool rtpp_dict_iter(const ng_parser_t *parser, rtpp_pos *pos,
 		void (*callback)(const ng_parser_t *, str *, parser_arg, helper_arg),
 		helper_arg arg)
