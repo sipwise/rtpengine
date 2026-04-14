@@ -59,6 +59,7 @@ const char *call_connect_ng(ng_command_ctx_t *);
 const char *call_transform_ng(ng_command_ctx_t *);
 const char *call_create_ng(ng_command_ctx_t *);
 const char *call_create_answer_ng(ng_command_ctx_t *);
+const char *call_mesh_ng(ng_command_ctx_t *);
 
 int call_interfaces_init(charp_ht);
 void call_interfaces_free(void);

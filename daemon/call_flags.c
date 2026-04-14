@@ -962,6 +962,9 @@ const char *call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 		case CSH_LOOKUP("unidirectional"):
 			out->unidirectional = true;
 			break;
+		case CSH_LOOKUP("unsubscribe"):
+			out->unsubscribe = true;
+			break;
 		case CSH_LOOKUP("webrtc"):
 		case CSH_LOOKUP("webRTC"):
 		case CSH_LOOKUP("WebRTC"):
@@ -1368,6 +1371,31 @@ static const char *call_ng_media_iter(const ng_parser_t *parser, parser_arg item
 	return parser->dict_iter(parser, item, call_ng_media, media);
 }
 
+static const char *call_ng_tag(const ng_parser_t *parser, str *key, parser_arg value, struct ng_tag *tag) {
+	str s = STR_NULL;
+	parser->get_str(value, &s);
+	switch (__csh_lookup(key)) {
+		case CSH_LOOKUP("from"):
+			tag->from = s;
+			break;
+		case CSH_LOOKUP("to"):
+			return call_ng_flags_str_list(parser, value, call_ng_flags_esc_str_list, &tag->to);
+	}
+
+	return NULL;
+}
+
+static const char *call_ng_tags_iter(const ng_parser_t *parser, parser_arg item, sdp_ng_flags *out) {
+	__auto_type tag = g_new0(struct ng_tag, 1);
+	t_queue_push_tail(&out->tags, tag);
+	const char *err = parser->dict_iter(parser, item, call_ng_tag, tag);
+	if (err)
+		return err;
+	if (!tag->from.len)
+		return "Empty/missing from-tag";
+	return NULL;
+}
+
 const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, helper_arg arg) {
 	str s = STR_NULL;
 	sdp_ng_flags *out = arg.flags;
@@ -1472,6 +1500,9 @@ const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg v
 		case CSH_LOOKUP("call id"):
 		case CSH_LOOKUP("call ID"):
 			out->call_id = s;
+			break;
+		case CSH_LOOKUP("calls"):
+			call_ng_flags_str_list(parser, value, call_ng_flags_esc_str_list, &out->calls);
 			break;
 		case CSH_LOOKUP("code"):
 		case CSH_LOOKUP("digit"):
@@ -1980,6 +2011,8 @@ const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg v
 			out->t38_version = parser->get_int_str(value, out->t38_version);
 			break;
 #endif
+		case CSH_LOOKUP("tags"):
+			return parser->list_iter(parser, value, NULL, call_ng_tags_iter, out);
 		case CSH_LOOKUP("template"):;
 			str *tplate = t_hash_table_lookup(rtpe_signalling_templates, &s);
 			if (!tplate) {
@@ -2136,6 +2169,11 @@ static void ng_media_free(struct ng_media *m) {
 	g_free(m);
 }
 
+static void ng_tag_free(struct ng_tag *tag) {
+	t_queue_clear_full(&tag->to, str_free);
+	g_free(tag);
+}
+
 void call_ng_free_flags(sdp_ng_flags *flags) {
 	str_case_value_ht_destroy_ptr(&flags->codec_set);
 	if (flags->frequencies)
@@ -2158,4 +2196,6 @@ RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 
 	t_queue_clear_full(&flags->medias, ng_media_free);
 	t_queue_clear(&flags->groups_other);
+
+	t_queue_clear_full(&flags->tags, ng_tag_free);
 }

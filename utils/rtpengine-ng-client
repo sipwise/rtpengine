@@ -58,6 +58,7 @@ my @flags = qw(
 	allow-no-codec-media
 	bidirectional
 	mix
+	unsubscribe
 );
 
 my @string_opts = qw(

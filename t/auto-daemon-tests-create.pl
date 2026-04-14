@@ -3503,5 +3503,1256 @@ SDP
 
 
 
+($sock_a, $sock_b) = new_call([qw(198.51.100.11 4070)], [qw(198.51.100.11 4072)]);
+
+($port_a) = offer('full mesh', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio 4070 RTP/AVP 0 8
+c=IN IP4 198.51.100.11
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('full mesh', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio 4072 RTP/AVP 0 8
+c=IN IP4 198.51.100.11
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$cid1 = cid();
+$ft = ft();
+$tt = tt();
+
+($sock_c, $sock_d) = new_call_nc([qw(198.51.100.11 4074)], [qw(198.51.100.11 4076)]);
+
+($port_c) = offer('full mesh', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio 4074 RTP/AVP 0 8
+c=IN IP4 198.51.100.11
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_d) = answer('full mesh', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio 4076 RTP/AVP 0 8
+c=IN IP4 198.51.100.11
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_a, $port_b, rtp (0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3000, 5000, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3000, 5000, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5000, 7000, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5000, 7000, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7000, 9000, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7000, 9000, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('mesh', 'full mesh', {
+		flags => [],
+		calls => [cid(), $cid1],
+		tags => [
+			{
+				from => $ft,
+				to => [$tt, ft(), tt()],
+			},
+			{
+				from => $tt,
+				to => [$ft, ft(), tt()],
+			},
+			{
+				from => ft(),
+				to => [$ft, $tt, tt()],
+			},
+			{
+				from => tt(),
+				to => [$ft, $tt, ft()],
+			},
+		],
+});
+
+
+snd($sock_a, $port_b, rtp (0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('mesh', 'full mesh', {
+		flags => [],
+		calls => [cid(), $cid1],
+		tags => [
+			{
+				from => $ft,
+				to => [$tt, ft(), tt()],
+			},
+			{
+				from => $tt,
+				to => [$ft, ft(), tt()],
+			},
+			{
+				from => ft(),
+				to => [$ft, $tt, tt()],
+			},
+			{
+				from => tt(),
+				to => [$ft, $tt, ft()],
+			},
+		],
+});
+
+
+snd($sock_a, $port_b, rtp (0, 1002, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3160, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1002, 3160, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1002, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3002, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3002, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3002, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3002, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5002, 7160, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5002, 7160, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5002, 7160, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5002, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7002, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7002, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7002, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7002, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('mesh', 'full mesh', {
+		flags => ['unsubscribe'],
+		calls => [cid(), $cid1],
+		tags => [
+			{
+				from => $ft,
+				to => [$tt, ft(), tt()],
+			},
+			{
+				from => $tt,
+				to => [$ft, ft(), tt()],
+			},
+			{
+				from => ft(),
+				to => [$ft, $tt, tt()],
+			},
+			{
+				from => tt(),
+				to => [$ft, $tt, ft()],
+			},
+		],
+});
+
+
+snd($sock_a, $port_b, rtp (0, 1003, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1003, 3160, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1003, 3160, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1003, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3003, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3003, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3003, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3003, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5003, 7160, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5003, 7160, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5003, 7160, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5003, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7003, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7003, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7003, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7003, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('mesh', 'full mesh', {
+		flags => [],
+		calls => [cid(), $cid1],
+		tags => [
+			{
+				from => $ft,
+				to => [$tt],
+			},
+			{
+				from => $tt,
+				to => [$ft],
+			},
+			{
+				from => ft(),
+				to => [tt()],
+			},
+			{
+				from => tt(),
+				to => [ft()],
+			},
+		],
+});
+
+
+snd($sock_a, $port_b, rtp (0, 1004, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1004, 3160, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1004, 3160, 0x1234, "\x11" x 160));
+rcv($sock_d, $port_c, rtpm(0, 1004, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3004, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3004, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_c, $port_d, rtpm(0, 3004, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3004, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5004, 7160, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5004, 7160, 0x1234, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(0, 5004, 7160, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5004, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7004, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7004, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7004, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_a, $port_b, rtpm(0, 7004, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+# reset to original
+rtpe_req('mesh', 'full mesh', {
+		flags => ['unsubscribe'],
+		calls => [cid(), $cid1],
+		tags => [
+			{
+				from => $ft,
+				to => [$tt],
+			},
+			{
+				from => $tt,
+				to => [$ft],
+			},
+			{
+				from => ft(),
+				to => [tt()],
+			},
+			{
+				from => tt(),
+				to => [ft()],
+			},
+		],
+});
+
+
+snd($sock_a, $port_b, rtp (0, 1005, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1005, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3005, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3005, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5005, 7160, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5005, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7005, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7005, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.12 4070)], [qw(198.51.100.12 4072)]);
+
+($port_a) = offer('directional mesh', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio 4070 RTP/AVP 0 8
+c=IN IP4 198.51.100.12
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('directional mesh', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio 4072 RTP/AVP 0 8
+c=IN IP4 198.51.100.12
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$cid1 = cid();
+$ft = ft();
+$tt = tt();
+
+($sock_c, $sock_d) = new_call_nc([qw(198.51.100.12 4074)], [qw(198.51.100.12 4076)]);
+
+($port_c) = offer('directional mesh', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio 4074 RTP/AVP 0 8
+c=IN IP4 198.51.100.12
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_d) = answer('directional mesh', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio 4076 RTP/AVP 0 8
+c=IN IP4 198.51.100.12
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_a, $port_b, rtp (0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3000, 5000, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3000, 5000, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5000, 7000, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5000, 7000, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7000, 9000, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7000, 9000, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('mesh', 'directional mesh', {
+		flags => [],
+		calls => [cid(), $cid1],
+		tags => [
+			{
+				from => $ft,
+				to => [ft()],
+			},
+			{
+				from => $tt,
+				to => [tt()],
+			},
+			{
+				from => ft(),
+				to => [],
+			},
+			{
+				from => tt(),
+				to => [],
+			},
+		],
+});
+
+
+snd($sock_a, $port_b, rtp (0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('mesh', 'directional mesh', {
+		flags => [],
+		calls => [cid(), $cid1],
+		tags => [
+			{
+				from => $ft,
+				to => [ft()],
+			},
+			{
+				from => $tt,
+				to => [tt()],
+			},
+			{
+				from => ft(),
+				to => [],
+			},
+			{
+				from => tt(),
+				to => [],
+			},
+		],
+});
+
+
+snd($sock_a, $port_b, rtp (0, 1002, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3160, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1002, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3002, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3002, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3002, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5002, 7160, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5002, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7002, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7002, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('mesh', 'directional mesh', {
+		flags => ['unsubscribe'],
+		calls => [cid(), $cid1],
+		tags => [
+			{
+				from => $ft,
+				to => [ft()],
+			},
+			{
+				from => $tt,
+				to => [tt()],
+			},
+			{
+				from => ft(),
+				to => [],
+			},
+			{
+				from => tt(),
+				to => [],
+			},
+		],
+});
+
+
+snd($sock_a, $port_b, rtp (0, 1003, 3160, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1003, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3003, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3003, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5003, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7003, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('mesh', 'directional mesh', {
+		flags => [],
+		calls => [cid(), $cid1],
+		tags => [
+			{
+				from => $ft,
+				to => [$tt],
+			},
+			{
+				from => $tt,
+				to => [$ft],
+			},
+			{
+				from => ft(),
+				to => [tt()],
+			},
+			{
+				from => tt(),
+				to => [ft()],
+			},
+		],
+});
+
+
+snd($sock_a, $port_b, rtp (0, 1004, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1004, 3160, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1004, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3004, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3004, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3004, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5004, 7160, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5004, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7004, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7004, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+# reset to original
+rtpe_req('mesh', 'directional mesh', {
+		flags => ['unsubscribe'],
+		calls => [cid(), $cid1],
+		tags => [
+			{
+				from => $ft,
+				to => [$tt],
+			},
+			{
+				from => $tt,
+				to => [$ft],
+			},
+			{
+				from => ft(),
+				to => [tt()],
+			},
+			{
+				from => tt(),
+				to => [ft()],
+			},
+		],
+});
+
+
+snd($sock_a, $port_b, rtp (0, 1005, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1005, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3005, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3005, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5005, 7160, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5005, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7005, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7005, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.13 4070)], [qw(198.51.100.13 4072)]);
+
+($port_a) = offer('bidirectional mesh', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio 4070 RTP/AVP 0 8
+c=IN IP4 198.51.100.13
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('bidirectional mesh', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio 4072 RTP/AVP 0 8
+c=IN IP4 198.51.100.13
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$cid1 = cid();
+$ft = ft();
+$tt = tt();
+
+($sock_c, $sock_d) = new_call_nc([qw(198.51.100.13 4074)], [qw(198.51.100.13 4076)]);
+
+($port_c) = offer('bidirectional mesh', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio 4074 RTP/AVP 0 8
+c=IN IP4 198.51.100.13
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_d) = answer('bidirectional mesh', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio 4076 RTP/AVP 0 8
+c=IN IP4 198.51.100.13
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.8
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_a, $port_b, rtp (0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3000, 5000, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3000, 5000, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5000, 7000, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5000, 7000, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7000, 9000, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7000, 9000, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('mesh', 'bidirectional mesh', {
+		flags => ['bidirectional'],
+		calls => [cid(), $cid1],
+		tags => [
+			{
+				from => $ft,
+				to => [ft()],
+			},
+			{
+				from => $tt,
+				to => [tt()],
+			},
+			{
+				from => ft(),
+				to => [],
+			},
+			{
+				from => tt(),
+				to => [],
+			},
+		],
+});
+
+
+snd($sock_a, $port_b, rtp (0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1001, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3001, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5001, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7001, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('mesh', 'bidirectional mesh', {
+		flags => ['bidirectional'],
+		calls => [cid(), $cid1],
+		tags => [
+			{
+				from => $ft,
+				to => [ft()],
+			},
+			{
+				from => $tt,
+				to => [tt()],
+			},
+			{
+				from => ft(),
+				to => [],
+			},
+			{
+				from => tt(),
+				to => [],
+			},
+		],
+});
+
+
+snd($sock_a, $port_b, rtp (0, 1002, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3160, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1002, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3002, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3002, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3002, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5002, 7160, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5002, 7160, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5002, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7002, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7002, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7002, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('mesh', 'bidirectional mesh', {
+		flags => ['unsubscribe', 'bidirectional'],
+		calls => [cid(), $cid1],
+		tags => [
+			{
+				from => $ft,
+				to => [ft()],
+			},
+			{
+				from => $tt,
+				to => [tt()],
+			},
+			{
+				from => ft(),
+				to => [],
+			},
+			{
+				from => tt(),
+				to => [],
+			},
+		],
+});
+
+
+snd($sock_a, $port_b, rtp (0, 1003, 3160, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1003, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3003, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3003, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5003, 7160, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5003, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7003, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7003, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+rtpe_req('mesh', 'bidirectional mesh', {
+		flags => ['bidirectional'],
+		calls => [cid(), $cid1],
+		tags => [
+			{
+				from => $ft,
+				to => [$tt],
+			},
+			{
+				from => $tt,
+				to => [$ft],
+			},
+			{
+				from => ft(),
+				to => [tt()],
+			},
+			{
+				from => tt(),
+				to => [ft()],
+			},
+		],
+});
+
+
+snd($sock_a, $port_b, rtp (0, 1004, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1004, 3160, 0x1234, "\x11" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1004, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3004, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3004, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3004, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5004, 7160, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5004, 7160, 0x1234, "\x33" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5004, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7004, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7004, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_b, $port_a, rtpm(0, 7004, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+# reset to original
+rtpe_req('mesh', 'bidirectional mesh', {
+		flags => ['unsubscribe', 'bidirectional'],
+		calls => [cid(), $cid1],
+		tags => [
+			{
+				from => $ft,
+				to => [$tt],
+			},
+			{
+				from => $tt,
+				to => [],
+			},
+			{
+				from => ft(),
+				to => [tt()],
+			},
+			{
+				from => tt(),
+				to => [],
+			},
+		],
+});
+
+
+snd($sock_a, $port_b, rtp (0, 1005, 3160, 0x1234, "\x11" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1005, 3160, 0x1234, "\x11" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_b, $port_a, rtp (0, 3005, 5160, 0x1a04, "\x22" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3005, 5160, 0x1a04, "\x22" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+snd($sock_c, $port_d, rtp (0, 5005, 7160, 0x1234, "\x33" x 160));
+rcv($sock_d, $port_c, rtpm(0, 5005, 7160, 0x1234, "\x33" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+snd($sock_d, $port_c, rtp (0, 7005, 9160, 0x1a04, "\x44" x 160));
+rcv($sock_c, $port_d, rtpm(0, 7005, 9160, 0x1a04, "\x44" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+rcv_no($sock_d);
+
+
+
+
+
+
+
+
+
+
 done_testing();
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;

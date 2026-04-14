@@ -49,7 +49,7 @@ const char *ng_command_strings[OP_COUNT] = {
 	"subscribe answer", "unsubscribe",
 	"inject start", "inject stop",
 	"connect", "cli", "transform",
-	"create", "create answer",
+	"create", "create answer", "mesh",
 };
 const char *ng_command_strings_esc[OP_COUNT] = {
 	"ping", "offer", "answer", "delete", "query", "list",
@@ -62,7 +62,7 @@ const char *ng_command_strings_esc[OP_COUNT] = {
 	"subscribe_answer", "unsubscribe",
 	"inject_start", "inject_stop",
 	"connect", "cli", "transform",
-	"create", "create_answer",
+	"create", "create_answer", "mesh",
 };
 const char *ng_command_strings_short[OP_COUNT] = {
 	"Ping", "Offer", "Answer", "Delete", "Query", "List",
@@ -74,7 +74,7 @@ const char *ng_command_strings_short[OP_COUNT] = {
 	"Pub", "SubReq", "SubAns", "Unsub",
 	"InjStart", "InjStop",
 	"Conn", "CLI", "Trnsfm",
-	"Create", "CrtAnsw",
+	"Create", "CrtAnsw", "Mesh",
 };
 
 typedef struct ng_ctx {
@@ -892,6 +892,10 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 		case CSH_LOOKUP("create answer"):
 			command_ctx.opmode = OP_CREATE_ANSWER;
 			errstr = call_create_answer_ng(&command_ctx);
+			break;
+		case CSH_LOOKUP("mesh"):
+			command_ctx.opmode = OP_MESH;
+			errstr = call_mesh_ng(&command_ctx);
 			break;
 		default:
 			errstr = "Unrecognized command";

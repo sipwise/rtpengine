@@ -68,6 +68,7 @@ Currently the following commands are defined:
 * connect
 * create
 * create answer
+* mesh
 
 The response dictionary must contain at least one key called `result`.
 The value can be either `ok` or `error`.
@@ -2777,3 +2778,26 @@ The corresponding answer SDP (i.e. the answer received to the SDP returned by
 `create`) can then be passed to *rtpengine* as a `create answer` message. The
 SDP must be placed as `sdp` in the message, and the keys `call-id` and
 `from-tag` must be filled appropriated.
+
+## `mesh` Message
+
+This method can be used to merge an arbitrary number of separate calls into
+one, and/or to establish arbitrary media flows between parties to a call.
+
+The request dictionary must include the key `calls` containing a list of
+strings. Each string identifies an existing call by call ID. At least one call
+must be given. If multiple calls are given, they will be merged into one, and
+all call IDs will become aliases to that one call.
+
+The optional key `tags` contains a list of dictionary, each in the format of
+`{from=STRING, to=[STRING, STRING, ...]}`. Each string identifies a party to
+the (possibly merged) call by its tag. This establishes media flow from each
+given `from` call party to each one of the `to` call parties.
+
+Other dictionary keys and the `flags` list are honoured as usual. The flag
+`unsubscribe` can be given to reset the media subscriptions for each given
+`from` call party before establishing the new media flows. The flag
+`bidirectional` can be given to establish (and also reset) media flows in both
+directions for each given pair.
+
+To facilitate audio mixing, see the `audio player` options described above.

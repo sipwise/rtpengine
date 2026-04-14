@@ -36,6 +36,7 @@ enum ng_opmode {
 	OP_TRANSFORM,
 	OP_CREATE,
 	OP_CREATE_ANSWER,
+	OP_MESH,
 
 	OP_COUNT,		// last, number of elements
 	OP_OTHER = OP_COUNT	// alias to above
@@ -94,8 +95,10 @@ typedef union {
 	struct ng_media *media;
 	struct ng_codec *codec;
 	struct rtp_payload_type *pt;
+	struct ng_tag *tag;
 	void *generic;
 } helper_arg  __attribute__ ((__transparent_union__));
+
 
 struct ng_parser {
 	void (*init)(ng_parser_ctx_t *, bencode_buffer_t *);

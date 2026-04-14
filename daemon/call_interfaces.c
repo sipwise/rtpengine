@@ -1423,7 +1423,6 @@ static const char *medias_match(call_q *calls, medias_q *medias,
 	if (!calls->length)
 		return "Unknown call-ID(s)";
 
-
 	call_t *call = calls->head->data;
 
 	if (flags->all == ALL_ALL) {
@@ -2571,6 +2570,73 @@ const char *call_create_answer_ng(ng_command_ctx_t *ctx) {
 		return "failed to perform answer";
 
 	call_unlock_release_update(&call);
+	return NULL;
+}
+
+
+const char *call_mesh_ng(ng_command_ctx_t *ctx) {
+	g_auto(sdp_ng_flags) flags;
+
+	call_ng_process_flags_RETURN(&flags, ctx);
+
+	g_auto(call_q) calls = calls_get(&flags.calls);
+	if (!calls.length)
+		return "Unknown call ID(s)";
+
+	g_autoptr(call_t) call = calls_merge(&calls);
+	if (!call)
+		return "Failed to merge calls (tag collision)";
+
+	g_auto(medias_q) upd_src_medias = TYPED_GQUEUE_INIT;
+	g_auto(medias_q) upd_dst_medias = TYPED_GQUEUE_INIT;
+	g_auto(medias_q) unconf_medias = TYPED_GQUEUE_INIT;
+
+	if (!flags.tags.length)
+		goto out;
+
+	// first pass
+	for (auto_iter(l, flags.tags.head); l; l = l->next) {
+		__auto_type tag = l->data;
+		tag->from_ml = call_get_monologue(call, &tag->from);
+		if (!tag->from_ml)
+			return "Given from-tag not found";
+
+		if (flags.unsubscribe) {
+			unsubscribe_monologue_from_all(tag->from_ml);
+			if (flags.bidirectional)
+				unsubscribe_all_from_monologue(tag->from_ml);
+		}
+	}
+
+	// second pass
+	for (auto_iter(l, flags.tags.head); l; l = l->next) {
+		__auto_type tag = l->data;
+		__auto_type from_ml = tag->from_ml;
+		g_auto(medias_q) medias = TYPED_GQUEUE_INIT;
+
+		for (unsigned int i = 0; i < from_ml->medias->len; i++) {
+			__auto_type media = from_ml->medias->pdata[i];
+			if (!media)
+				continue;
+			t_queue_push_tail(&medias, media);
+		}
+
+		for (auto_iter(k, tag->to.head); k; k = k->next) {
+			__auto_type to_s = k->data;
+			__auto_type to_ml = call_get_monologue(call, to_s);
+			if (!to_ml)
+				return "Given to-tag not found";
+
+			subscriber_connect(&medias, to_ml, &flags, true, &upd_src_medias,
+			&upd_dst_medias, &unconf_medias);
+		}
+	}
+
+	subscriber_connect_finish(&upd_src_medias, &upd_dst_medias, &unconf_medias, &flags);
+
+out:
+	call_unlock_release_update(&call);
+
 	return NULL;
 }
 

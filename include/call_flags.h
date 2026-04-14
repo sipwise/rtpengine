@@ -23,9 +23,19 @@ struct ng_media {
 
 };
 
+struct ng_tag {
+	str from;
+	str_q to;
+
+	struct call_monologue *from_ml;
+};
+
+TYPED_GQUEUE(tags, struct ng_tag)
+
 
 #define RTPE_NG_FLAGS_STR_Q_PARAMS \
 	X(from_tags) \
+	X(calls) \
 	X(codec_strip) \
 	X(codec_ignore) \
 	X(codec_offer) \
@@ -181,6 +191,7 @@ struct sdp_ng_flags {
 	str vsc_pause_resume_rec;
 	str vsc_start_pause_resume_rec;
 	int t38_version;
+	tags_q tags;
 
 #define X(x) str_q x;
 RTPE_NG_FLAGS_STR_Q_PARAMS
@@ -299,6 +310,7 @@ RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 		     pierce_nat:1,
 		     directional:1,
 		     bidirectional:1,
+		     unsubscribe:1,
 		     fatal:1,
 		     new_branch:1,
 		     provisional:1,
