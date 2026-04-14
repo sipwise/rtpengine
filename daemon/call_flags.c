@@ -1564,9 +1564,6 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 		case CSH_LOOKUP("from interface"):
 			out->direction[0] = s;
 			break;
-		case CSH_LOOKUP("inbound-peer"):
-			call_ng_flags_peer_address(&s, &out->direction[0], "Inbound");
-			break;
 		case CSH_LOOKUP("from-label"):
 		case CSH_LOOKUP("from label"):
 		case CSH_LOOKUP("label"):
@@ -1650,6 +1647,10 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 							STR_FMT(&s));
 			}
 			break;
+		case CSH_LOOKUP("inbound-peer"):
+		case CSH_LOOKUP("inbound peer"):
+			call_ng_flags_peer_address(&s, &out->direction[0], "Inbound");
+			break;
 		case CSH_LOOKUP("interface"):
 			out->interface = s;
 			break;
@@ -1707,6 +1708,10 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 		case CSH_LOOKUP("OSRTP"):
 		case CSH_LOOKUP("osrtp"):
 			call_ng_flags_str_list(parser, value, ng_osrtp_option, out);
+			break;
+		case CSH_LOOKUP("outbound-peer"):
+		case CSH_LOOKUP("outbound peer"):
+			call_ng_flags_peer_address(&s, &out->direction[1], "Outbound");
 			break;
 		case CSH_LOOKUP("output-destination"):
 		case CSH_LOOKUP("output-dest"):
@@ -1946,9 +1951,6 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 		case CSH_LOOKUP("to-interface"):
 		case CSH_LOOKUP("to interface"):
 			out->direction[1] = s;
-			break;
-		case CSH_LOOKUP("outbound-peer"):
-			call_ng_flags_peer_address(&s, &out->direction[1], "Outbound");
 			break;
 		case CSH_LOOKUP("to-label"):
 		case CSH_LOOKUP("to label"):
