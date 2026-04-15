@@ -1819,7 +1819,7 @@ static int rbl_subs_cb(str *s, callback_arg_t dummy, struct redis_list *list, vo
 	if (!other_media)
 		return -1;
 
-	__add_media_subscription(media, other_media,
+	add_media_subscription(media, other_media,
 						&(struct sink_attrs) {
 						.offer_answer = offer_answer,
 						.rtcp_only = rtcp_only,

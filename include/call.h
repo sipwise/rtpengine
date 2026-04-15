@@ -844,10 +844,18 @@ void __monologue_free(struct call_monologue *m);
 void __monologue_tag(struct call_monologue *ml, const str *tag);
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
 struct packet_stream *__packet_stream_new(call_t *call);
+
 __attribute__((nonnull(1, 2)))
-struct media_subscription *__add_media_subscription(struct call_media * which, struct call_media * to,
+struct media_subscription *add_media_subscription(struct call_media * which, struct call_media * to,
 		const struct sink_attrs *attrs);
-bool __unsubscribe_media(struct call_media * which, struct call_media * from);
+
+__attribute__((nonnull(1, 2)))
+bool unsubscribe_media(struct call_media *which, struct call_media *from);
+__attribute__((nonnull(1)))
+void unsubscribe_monologue_from_all(struct call_monologue *ml);
+__attribute__((nonnull(1)))
+void unsubscribe_all_from_monologue(struct call_monologue *ml);
+
 struct media_subscription *call_ml_get_top_ms(struct call_monologue *ml);
 bool call_ml_sendonly_inactive(struct call_monologue *ml);
 struct media_subscription *call_media_get_top_ms(struct call_media *cm);

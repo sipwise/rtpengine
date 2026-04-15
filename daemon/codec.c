@@ -408,7 +408,7 @@ static void __transform_handler_shutdown(struct transform_handler *tfh) {
 	if (!tfh->call)
 		return;
 	obj_release(tfh->call);
-	__unsubscribe_media(tfh->transform_media, tfh->source_media);
+	unsubscribe_media(tfh->transform_media, tfh->source_media);
 }
 
 
@@ -584,10 +584,10 @@ static void __transform_subscriptions(struct codec_handler *handler) {
 	__auto_type tfh = handler->transform;
 
 	// subscribe source to destination: send media to the remote
-	__add_media_subscription(tfh->transform_media, tfh->source_media, NULL);
+	add_media_subscription(tfh->transform_media, tfh->source_media, NULL);
 
 	// subscribe destination to output: forward received media to output
-	__add_media_subscription(handler->i.sink, tfh->transform_media, NULL);
+	add_media_subscription(handler->i.sink, tfh->transform_media, NULL);
 }
 
 static void append_pt(GString *req, const rtp_payload_type *pt) {
