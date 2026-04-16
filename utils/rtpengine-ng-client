@@ -56,6 +56,8 @@ my @flags = qw(
 	block-egress
 	directional
 	allow-no-codec-media
+	bidirectional
+	mix
 );
 
 my @string_opts = qw(
