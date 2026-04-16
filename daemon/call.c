@@ -4930,8 +4930,9 @@ int monologue_inject_stop(struct call_monologue *src_ml, struct call_monologue *
 }
 
 
-__attribute__((nonnull(1, 2, 3)))
-void dialogue_connect(const medias_q *src_medias, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
+void subscriber_connect(const medias_q *src_medias, struct call_monologue *dst_ml, sdp_ng_flags *flags,
+		bool directional, medias_q *upd_src_medias, medias_q *upd_dst_medias, medias_q *unconf_medias)
+{
 	// for each source media, find a usable destination media
 	for (auto_iter(l, src_medias->head); l; l = l->next) {
 		__auto_type src_media = l->data;
@@ -4975,10 +4976,8 @@ void dialogue_connect(const medias_q *src_medias, struct call_monologue *dst_ml,
 		__media_unconfirm(src_media, "connect");
 		__media_unconfirm(dst_media, "connect");
 
-		g_auto(medias_q) medias = TYPED_GQUEUE_INIT;
-
-		if (!flags->directional)
-			__subscribe_medias_both_ways(src_media, dst_media, false, &medias);
+		if (!directional)
+			__subscribe_medias_both_ways(src_media, dst_media, false, unconf_medias);
 		else {
 			__auto_type ms = call_get_media_subscription(dst_media->media_subscriptions_ht,
 					src_media);
@@ -4993,23 +4992,47 @@ void dialogue_connect(const medias_q *src_medias, struct call_monologue *dst_ml,
 			}
 		}
 
-		__medias_unconfirm(&medias, "connect");
-		codec_update_medias_handlers(&medias);
-
-		media_set_audio_player(dst_media, flags);
-
-		codec_update_media_source_handlers(dst_media, .flags = flags);
-		codec_update_media_source_handlers(src_media);
-		codec_update_media_handlers(src_media);
-		codec_update_media_handlers(dst_media);
-
-		update_init_subscribers(src_media, NULL, NULL, flags->opmode);
-		update_init_subscribers(dst_media, NULL, NULL, flags->opmode);
-		__update_init_medias(&medias, flags->opmode);
+		t_queue_push_tail(upd_src_medias, src_media);
+		t_queue_push_tail(upd_dst_medias, dst_media);
 	}
 }
 
 
+void subscriber_connect_finish(medias_q *upd_src_medias, medias_q *upd_dst_medias, medias_q *unconf_medias,
+		sdp_ng_flags *flags)
+{
+	__medias_unconfirm(unconf_medias, "connect");
+	codec_update_medias_handlers(unconf_medias);
+
+	for (auto_iter(l, upd_src_medias->head); l; l = l->next) {
+		__auto_type src_media = l->data;
+		codec_update_media_source_handlers(src_media);
+		codec_update_media_handlers(src_media);
+		update_init_subscribers(src_media, NULL, NULL, flags->opmode);
+	}
+
+	for (auto_iter(l, upd_dst_medias->head); l; l = l->next) {
+		__auto_type dst_media = l->data;
+		media_set_audio_player(dst_media, flags);
+		codec_update_media_source_handlers(dst_media, .flags = flags);
+		codec_update_media_handlers(dst_media);
+		update_init_subscribers(dst_media, NULL, NULL, flags->opmode);
+	}
+
+	__update_init_medias(unconf_medias, flags->opmode);
+}
+
+
+void dialogue_connect(const medias_q *src_medias, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
+	g_auto(medias_q) upd_src_medias = TYPED_GQUEUE_INIT;
+	g_auto(medias_q) upd_dst_medias = TYPED_GQUEUE_INIT;
+	g_auto(medias_q) unconf_medias = TYPED_GQUEUE_INIT;
+
+	subscriber_connect(src_medias, dst_ml, flags, flags->directional, &upd_src_medias,
+			&upd_dst_medias, &unconf_medias);
+
+	subscriber_connect_finish(&upd_src_medias, &upd_dst_medias, &unconf_medias, flags);
+}
 
 
 static int __rtp_stats_sort(const struct rtp_stats *a, const struct rtp_stats *b) {
