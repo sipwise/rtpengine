@@ -4548,7 +4548,11 @@ static int monologue_subscribe_request1(struct call_media *src_media, struct cal
 		bf_copy(&dst_media->media_flags, MEDIA_FLAG_SEND, &src_media->media_flags, SP_FLAG_RECV);
 	else
 		MEDIA_CLEAR(dst_media, SEND);
-	MEDIA_CLEAR(dst_media, RECV);
+
+	if (flags->bidirectional)
+		bf_copy(&dst_media->media_flags, MEDIA_FLAG_RECV, &src_media->media_flags, SP_FLAG_SEND);
+	else
+		MEDIA_CLEAR(dst_media, RECV);
 
 	__rtcp_mux_set(flags, dst_media);
 	__generate_crypto(flags, dst_media, src_media);
