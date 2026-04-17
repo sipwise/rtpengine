@@ -327,7 +327,7 @@ const char *call_ng_flags_flags(str *s, unsigned int, helper_arg arg);
 const char *call_ng_main_flags(const ng_parser_t *, str *key, parser_arg value, helper_arg);
 const char *call_ng_codec_flags(const ng_parser_t *, str *key, parser_arg value, helper_arg);
 
-void call_ng_process_flags(sdp_ng_flags *out, ng_command_ctx_t *ctx);
+const char *call_ng_process_flags(sdp_ng_flags *out, ng_command_ctx_t *ctx);
 
 
 INLINE struct sdp_manipulations *sdp_manipulations_get_by_id(struct sdp_manipulations * const array[__MT_MAX],

@@ -2094,7 +2094,7 @@ const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg v
 	return NULL;
 }
 
-void call_ng_process_flags(sdp_ng_flags *out, ng_command_ctx_t *ctx) {
+const char *call_ng_process_flags(sdp_ng_flags *out, ng_command_ctx_t *ctx) {
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
 	call_ng_flags_init(out, ctx->opmode);
 	ctx->flags = out;
@@ -2106,7 +2106,7 @@ void call_ng_process_flags(sdp_ng_flags *out, ng_command_ctx_t *ctx) {
 	if (ctx->opmode != OP_OTHER && rtpe_default_signalling_templates[ctx->opmode].len)
 		parse_rtpp_flags(&rtpe_default_signalling_templates[ctx->opmode], out);
 
-	parser->dict_iter(parser, ctx->req, call_ng_main_flags, out);
+	return parser->dict_iter(parser, ctx->req, call_ng_main_flags, out);
 }
 
 

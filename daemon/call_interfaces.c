@@ -32,6 +32,14 @@
 #include "call_flags.h"
 
 
+#define call_ng_process_flags_RETURN(a, b) \
+	do { \
+		const char *__err = call_ng_process_flags(a, b); \
+		if (__err) \
+			return __err; \
+	} while (0)
+
+
 static pcre2_code *info_re;
 static pcre2_code *streams_re;
 
@@ -557,7 +565,7 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char *addr)
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
 	g_auto(str) sdp_out = STR_NULL;
 
-	call_ng_process_flags(&flags, ctx);
+	call_ng_process_flags_RETURN(&flags, ctx);
 
 	if ((ret = call_ng_basic_checks(&flags)) > 0)
 		return _ng_basic_errors[ret];
@@ -732,7 +740,7 @@ const char *call_delete_ng(ng_command_ctx_t *ctx) {
 	parser_arg output = ctx->resp;
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
-	call_ng_process_flags(&rtpp_flags, ctx);
+	call_ng_process_flags_RETURN(&rtpp_flags, ctx);
 
 	if (!rtpp_flags.call_id.len)
 		return "No call-id in message";
@@ -1245,7 +1253,7 @@ static const char *call_recording_common_ng(ng_command_ctx_t *ctx,
 	g_auto(sdp_ng_flags) flags;
 	g_autoptr(call_t) call = NULL;
 
-	call_ng_process_flags(&flags, ctx);
+	call_ng_process_flags_RETURN(&flags, ctx);
 
 	if (!flags.call_id.len)
 		return "No call-id in message";
@@ -1372,7 +1380,7 @@ static const char *media_block_match(call_t **call, struct call_monologue **mono
 	*call = NULL;
 	*monologue = NULL;
 
-	call_ng_process_flags(flags, ctx);
+	call_ng_process_flags_RETURN(flags, ctx);
 
 	if (!flags->call_id.s)
 		return "No call-id in message";
@@ -1400,7 +1408,7 @@ static const char *media_block_match(call_t **call, struct call_monologue **mono
 static const char *medias_match(call_q *calls, medias_q *medias,
 		sdp_ng_flags *flags, ng_command_ctx_t *ctx)
 {
-	call_ng_process_flags(flags, ctx);
+	call_ng_process_flags_RETURN(flags, ctx);
 
 	if (!flags->call_id.s)
 		return "No call-id in message";
@@ -2071,7 +2079,7 @@ const char *call_publish_ng(ng_command_ctx_t *ctx, const char *addr) {
 	char rand_call_id[65];
 	char rand_from_tag[65];
 
-	call_ng_process_flags(&flags, ctx);
+	call_ng_process_flags_RETURN(&flags, ctx);
 
 	if (!flags.sdp.len)
 		return "No SDP body in message";
@@ -2254,7 +2262,7 @@ const char *call_subscribe_answer_ng(ng_command_ctx_t *ctx) {
 	g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
 	g_autoptr(call_t) call = NULL;
 
-	call_ng_process_flags(&flags, ctx);
+	call_ng_process_flags_RETURN(&flags, ctx);
 
 	if (!flags.call_id.s)
 		return "No call-id in message";
@@ -2295,7 +2303,7 @@ const char *call_unsubscribe_ng(ng_command_ctx_t *ctx) {
 	g_auto(sdp_ng_flags) flags;
 	g_autoptr(call_t) call = NULL;
 
-	call_ng_process_flags(&flags, ctx);
+	call_ng_process_flags_RETURN(&flags, ctx);
 
 	if (!flags.call_id.s)
 		return "No call-id in message";
@@ -2331,7 +2339,7 @@ const char *call_unsubscribe_ng(ng_command_ctx_t *ctx) {
 static const char *call_inject_ng(ng_command_ctx_t *ctx, bool start) {
 	g_auto(sdp_ng_flags) flags;
 
-	call_ng_process_flags(&flags, ctx);
+	call_ng_process_flags_RETURN(&flags, ctx);
 
 	if (!flags.call_id.s)
 		return "No call-id in message";
@@ -2454,7 +2462,7 @@ const char *call_transform_ng(ng_command_ctx_t *ctx) {
 	 * }
 	 */
 
-	call_ng_process_flags(&flags, ctx);
+	call_ng_process_flags_RETURN(&flags, ctx);
 
 	if (flags.instance.len && !str_cmp_str(&rtpe_instance_id, &flags.instance))
 		return "Transform loop detected";
@@ -2502,7 +2510,7 @@ const char *call_create_ng(ng_command_ctx_t *ctx) {
 	char rand_from_tag[65];
 	g_auto(str) sdp = STR_NULL;
 
-	call_ng_process_flags(&flags, ctx);
+	call_ng_process_flags_RETURN(&flags, ctx);
 
 	if (!flags.call_id.len)
 		flags.call_id = STR_LEN(rand_hex_str(rand_call_id, 32), 64);
@@ -2536,7 +2544,7 @@ const char *call_create_answer_ng(ng_command_ctx_t *ctx) {
 	g_auto(sdp_sessions_q) parsed = TYPED_GQUEUE_INIT;
 	g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
 
-	call_ng_process_flags(&flags, ctx);
+	call_ng_process_flags_RETURN(&flags, ctx);
 
 	enum basic_errors ret;
 	if ((ret = call_ng_basic_checks(&flags)) > 0)
