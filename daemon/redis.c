@@ -1064,11 +1064,11 @@ INLINE long long parser_get_ll(parser_arg arg, const char *key) {
 	return redis_parser->dict_get_int_str(arg, key, -1);
 }
 
-static void json_get_hash_iter(const ng_parser_t *parser, str *key, parser_arg val_a, helper_arg arg) {
+static const char *json_get_hash_iter(const ng_parser_t *parser, str *key, parser_arg val_a, helper_arg arg) {
 	str val;
 	if (!parser->get_str(val_a, &val)) {
 		rlog(LOG_ERROR, "Could not read json member: " STR_FORMAT, STR_FMT(key));
-		return;
+		return NULL;
 	}
 
 	// XXX convert to proper str ht
@@ -1077,6 +1077,8 @@ static void json_get_hash_iter(const ng_parser_t *parser, str *key, parser_arg v
 	// XXX eliminate string dup? eliminate URI decode?
 	if (g_hash_table_insert(arg.ht, tmp, parser->unescape(val.s, val.len)) != TRUE)
 		rlog(LOG_WARNING,"Key %s already exists", tmp);
+
+	return NULL;
 }
 
 static int json_get_hash(struct redis_hash *out,

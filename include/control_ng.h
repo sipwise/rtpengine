@@ -100,8 +100,8 @@ typedef union {
 struct ng_parser {
 	void (*init)(ng_parser_ctx_t *, bencode_buffer_t *);
 	str (*collapse)(ng_parser_ctx_t *, parser_arg, void **);
-	bool (*dict_iter)(const ng_parser_t *, parser_arg,
-		void (*callback)(const ng_parser_t *, str *, parser_arg, helper_arg),
+	const char *(*dict_iter)(const ng_parser_t *, parser_arg,
+		const char *(*callback)(const ng_parser_t *, str *, parser_arg, helper_arg),
 		helper_arg);
 	bool (*is_list)(parser_arg);
 	const char *(*list_iter)(const ng_parser_t *, parser_arg input,

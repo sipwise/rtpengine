@@ -92,12 +92,12 @@ typedef struct ng_ctx {
 } while (0)
 
 
-static bool bencode_dict_iter(const ng_parser_t *parser, bencode_item_t *input,
-		void (*callback)(const ng_parser_t *, str *key, bencode_item_t *value, helper_arg),
+static const char *bencode_dict_iter(const ng_parser_t *parser, bencode_item_t *input,
+		const char *(*callback)(const ng_parser_t *, str *key, bencode_item_t *value, helper_arg),
 		helper_arg arg)
 {
 	if (input->type != BENCODE_DICTIONARY)
-		return false;
+		return NULL;
 
 	bencode_item_t *value = NULL;
 	for (bencode_item_t *key = input->child; key; key = value->sibling) {
@@ -109,10 +109,12 @@ static bool bencode_dict_iter(const ng_parser_t *parser, bencode_item_t *input,
 		if (!bencode_get_str(key, &k))
 			continue;
 
-		callback(parser, &k, value, arg);
+		const char *err = callback(parser, &k, value, arg);
+		if (err)
+			return err;
 	}
 
-	return true;
+	return NULL;
 }
 static bool bencode_is_dict(bencode_item_t *arg) {
 	return arg->type == BENCODE_DICTIONARY;
@@ -315,25 +317,30 @@ static bool json_dict_contains(JsonNode *on, const char *ele) {
 }
 static void json_dict_iter_fn(JsonObject *o, const char *key, JsonNode *val, void *arg) {
 	void **ptrs = arg;
-	void (*callback)(const ng_parser_t *, str *key, JsonNode *value, helper_arg) = ptrs[1];
-	callback(ptrs[0], STR_PTR(key), val, ptrs[2]);
+	const char *(*callback)(const ng_parser_t *, str *key, JsonNode *value, helper_arg) = ptrs[1];
+	const char *err = callback(ptrs[0], STR_PTR(key), val, ptrs[2]);
+	if (err)
+		ptrs[3] = (void *) err;
 }
 
-static bool json_dict_iter(const ng_parser_t *parser, JsonNode *input,
-		void (*callback)(const ng_parser_t *, str *key, JsonNode *value, helper_arg),
+static const char *json_dict_iter(const ng_parser_t *parser, JsonNode *input,
+		const char *(*callback)(const ng_parser_t *, str *key, JsonNode *value, helper_arg),
 		helper_arg arg)
 {
 	if (json_node_get_node_type(input) != JSON_NODE_OBJECT)
-		return false;
+		return NULL;
 
 	JsonObject *o = json_node_get_object(input);
 	if (!o)
 		return false;
 
-	const void *ptrs[3] = { parser, callback, arg.generic };
+	const void *ptrs[4] = { parser, callback, arg.generic };
 	json_object_foreach_member(o, json_dict_iter_fn, ptrs);
 
-	return true;
+	if (ptrs[3])
+		return ptrs[3];
+
+	return NULL;
 }
 static const char *json_list_iter(const ng_parser_t *parser, JsonNode *list,
 		const char *(*str_callback)(str *key, unsigned int, helper_arg),

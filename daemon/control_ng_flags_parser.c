@@ -203,13 +203,13 @@ next:
 	return NULL;
 }
 
-static bool rtpp_dict_iter(const ng_parser_t *parser, rtpp_pos *pos,
-		void (*callback)(const ng_parser_t *, str *, parser_arg, helper_arg),
+static const char *rtpp_dict_iter(const ng_parser_t *parser, rtpp_pos *pos,
+		const char *(*callback)(const ng_parser_t *, str *, parser_arg, helper_arg),
 		helper_arg arg)
 {
 	// list opener
 	if (!skip_char(&pos->cur, '['))
-		return false;
+		return NULL;
 
 	while (true) {
 		skip_chars(&pos->cur, ' ');
@@ -234,7 +234,10 @@ static bool rtpp_dict_iter(const ng_parser_t *parser, rtpp_pos *pos,
 		if (pos->cur.len == 0)
 			break; // nothing left
 
-		callback(parser, &key, pos, arg);
+		const char *err = callback(parser, &key, pos, arg);
+		if (err)
+			return err;
+
 		if (rtpp_is_dict_list(pos))
 			rtpp_list_iter(parser, pos, NULL, NULL, NULL);
 		if (end)
@@ -247,7 +250,7 @@ next:
 			break;
 	}
 
-	return true;
+	return NULL;
 }
 static bool rtpp_is_int(rtpp_pos *pos) {
 	return false;
