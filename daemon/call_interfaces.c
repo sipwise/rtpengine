@@ -457,55 +457,6 @@ INLINE void call_ngb_hold_ref(call_t *c, ng_buffer *ngb) {
 	ngb->call = obj_get(c);
 }
 
-static void ng_sdp_attr_manipulations_free(struct sdp_manipulations * array[__MT_MAX]) {
-	for (int i = 0; i < __MT_MAX; i++) {
-		struct sdp_manipulations *sdp_manipulations = array[i];
-		if (!sdp_manipulations)
-			continue;
-
-		str_case_ht_destroy_ptr(&sdp_manipulations->rem_commands);
-		str_case_value_ht_destroy_ptr(&sdp_manipulations->subst_commands);
-		t_queue_clear_full(&sdp_manipulations->add_commands, str_free);
-
-		g_free(sdp_manipulations);
-
-		array[i] = NULL;
-	}
-}
-
-static void ng_codecs_free(struct ng_codec *c) {
-	g_free(c);
-}
-
-static void ng_media_free(struct ng_media *m) {
-	t_queue_clear_full(&m->codecs, ng_codecs_free);
-	t_queue_clear_full(&m->codec_list, str_free);
-	g_free(m);
-}
-
-void call_ng_free_flags(sdp_ng_flags *flags) {
-	str_case_value_ht_destroy_ptr(&flags->codec_set);
-	if (flags->frequencies)
-		g_array_free(flags->frequencies, true);
-
-#define X(x) t_queue_clear_full(&flags->x, str_free);
-RTPE_NG_FLAGS_STR_Q_PARAMS
-#undef X
-
-#define X(x) t_queue_clear_full(&flags->x, sdp_attr_free);
-RTPE_NG_FLAGS_SDP_ATTR_Q_PARAMS
-#undef X
-
-#define X(x) str_case_ht_destroy_ptr(&flags->x);
-RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
-#undef X
-
-	str_ht_destroy_ptr(&flags->bundles);
-	ng_sdp_attr_manipulations_free(flags->sdp_manipulations);
-
-	t_queue_clear_full(&flags->medias, ng_media_free);
-	t_queue_clear(&flags->groups_other);
-}
 
 static enum load_limit_reasons call_offer_session_limit(void) {
 	enum load_limit_reasons ret = LOAD_LIMIT_NONE;
