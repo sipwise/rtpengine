@@ -1,3 +1,15 @@
+ngcp-rtpengine (26.0.1.0+0~mr26.0.1.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7d95417] MT#55283 fix possible UAF
+
+  [ Federico Cabiddu ]
+  * [14b9a64] MT#55283 kernel-module: clear skb->mark before forwarding to fix Cilium routing
+  * [e3ae44a] MT#55283 kernel-module: zero queue_mapping before forwarding to fix Cilium throttle drop
+  * [57c0a80] MT#55283 kernel-module: zero skb->tstamp before forwarding to fix fq horizon drop
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 20 Apr 2026 10:32:13 +0200
+
 ngcp-rtpengine (26.0.0.0+0~mr26.0.0.0) unstable; urgency=medium
 
   * New release.
