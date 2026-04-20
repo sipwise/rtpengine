@@ -1,9 +1,13 @@
 #include "gcs.h"
+
+#include <json-glib/json-glib.h>
+
 #include "notify.h"
 #include "main.h"
 #include "output.h"
 #include "http.h"
 #include "oauth.h"
+#include "db.h"
 
 
 static oauth_context_t auth_ctx;
@@ -24,6 +28,29 @@ static void gcs_failed(notif_req_t *req) {
 static void gcs_cleanup(notif_req_t *req) {
 	obj_release(req->content);
 	g_free(req->object_name);
+}
+
+
+static char *get_uri(const GString *response, const char *field) {
+	g_autoptr(JsonParser) parser = json_parser_new();
+	g_autoptr(GError) error = NULL;
+	json_parser_load_from_data(parser, response->str, response->len, &error);
+	if (error)
+		return NULL;
+
+	JsonNode *root = json_parser_get_root(parser);
+	if (!root)
+		return NULL;
+
+	JsonObject *o = json_node_get_object(root);
+	if (!o)
+		return NULL;
+
+	const char *s = json_object_get_string_member(o, field);
+	if (!s)
+		return NULL;
+
+	return g_strdup(s);
 }
 
 
@@ -56,6 +83,7 @@ static bool gcs_perform(notif_req_t *req) {
 	g_autoptr(GString) response = g_string_new("");
 
 	g_autoptr(char) uri;
+	g_autoptr(char) access_uri = NULL;
 
 	if (gcs_key && gcs_key[0])
 		uri = g_strdup_printf("%s?name=%s&uploadType=media&key=%s",
@@ -96,6 +124,16 @@ static bool gcs_perform(notif_req_t *req) {
 	}
 
 	ilog(LOG_DEBUG, "GCS upload for '%s%s%s' successful", FMT_M(req->name));
+
+	// extract access URI
+	if (gcs_medialink)
+		access_uri = get_uri(response, "mediaLink");
+	if (!access_uri)
+		access_uri = get_uri(response, "selfLink");
+	if (!access_uri)
+		access_uri = g_strdup_printf("%s/%s", gcs_uri, req->object_name);
+
+	db_set_gcs(req->db_id, access_uri);
 
 	return true;
 

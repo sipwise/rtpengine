@@ -4,6 +4,7 @@
 #include "notify.h"
 #include "http.h"
 #include "s3utils.h"
+#include "db.h"
 
 
 static void s3_setup(notif_req_t *req, output_t *o, metafile_t *mf, tag_t *tag) {
@@ -119,6 +120,8 @@ static bool s3_perform(notif_req_t *req) {
 	ilog(LOG_DEBUG, "S3 upload for '%s%s%s' successful", FMT_M(req->name));
 
 	curl_slist_free_all(headers);
+
+	db_set_s3(req->db_id, uri);
 
 	return true;
 

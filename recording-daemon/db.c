@@ -32,9 +32,9 @@ CREATE TABLE `recording_streams` (
   `full_filename` varchar(250) NOT NULL,
   `file_format` varchar(10) NOT NULL,
   `output_type` enum('mixed','single') NOT NULL,
+  `stream_id` int(10) unsigned NOT NULL,
   `start_time` timestamp NOT NULL DEFAULT current_timestamp(),
   `end_time` datetime DEFAULT NULL,
-  `stream_id` int(10) unsigned NOT NULL,
   `sample_rate` int(10) unsigned NOT NULL DEFAULT '0',
   `channels` int(10) unsigned NOT NULL DEFAULT '0',
   `ssrc` int(10) unsigned NOT NULL,
@@ -44,6 +44,12 @@ CREATE TABLE `recording_streams` (
   `stream` longblob NOT NULL DEFAULT '',
   `transcript_status` enum('none','pending','done') NOT NULL DEFAULT 'none',
   `transcript` text NOT NULL DEFAULT '',
+  `storage_file` tinyint(1) NOT NULL DEFAULT 1,
+  `storage_db` tinyint(1) NOT NULL DEFAULT 0,
+  `storage_s3` tinyint(1) NOT NULL DEFAULT 0,
+  `storage_gcs` tinyint(1) NOT NULL DEFAULT 0,
+  `s3_uri` varchar(255) NOT NULL DEFAULT '',
+  `gcs_uri` varchar(255) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`),
   KEY `call` (`call`),
   KEY `transcript_status_call_idx` (`transcript_status`,`call`),
@@ -74,6 +80,9 @@ struct db_conn {
 		*stm_close_stream,
 		*stm_delete_stream,
 		*stm_config_stream,
+		*stm_stream_rm_file,
+		*stm_stream_s3,
+		*stm_stream_gcs,
 		*stm_insert_metadata;
 };
 typedef struct db_conn db_conn_t;
@@ -111,6 +120,9 @@ static void reset_conn(db_conn_t *dbc) {
 		my_stmt_close(&dbc->stm_delete_stream);
 		my_stmt_close(&dbc->stm_config_stream);
 		my_stmt_close(&dbc->stm_insert_metadata);
+		my_stmt_close(&dbc->stm_stream_s3);
+		my_stmt_close(&dbc->stm_stream_gcs);
+		my_stmt_close(&dbc->stm_stream_rm_file);
 		mysql_close(dbc->mysql_conn);
 	}
 
@@ -188,7 +200,7 @@ static db_conn_t *check_conn(void) {
 		goto err;
 	if ((output_storage & OUTPUT_STORAGE_DB)) {
 		if (prep(dbc, &dbc->stm_close_stream, "update recording_streams set " \
-					"end_timestamp = ?, stream = ? where id = ?"))
+					"end_timestamp = ?, stream = ?, storage_db = 1 where id = ?"))
 			goto err;
 	}
 	else {
@@ -199,6 +211,12 @@ static db_conn_t *check_conn(void) {
 	if (prep(dbc, &dbc->stm_delete_stream, "delete from recording_streams where id = ?"))
 		goto err;
 	if (prep(dbc, &dbc->stm_config_stream, "update recording_streams set channels = ?, sample_rate = ? where id = ?"))
+		goto err;
+	if (prep(dbc, &dbc->stm_stream_rm_file, "update recording_streams set storage_file = 0 where id = ?"))
+		goto err;
+	if (prep(dbc, &dbc->stm_stream_s3, "update recording_streams set storage_s3 = 1, s3_uri = ? where id = ?"))
+		goto err;
+	if (prep(dbc, &dbc->stm_stream_gcs, "update recording_streams set storage_gcs = 1, gcs_uri = ? where id = ?"))
 		goto err;
 	if (prep(dbc, &dbc->stm_insert_metadata, "insert into recording_metakeys (`call`, `key`, `value`) values " \
 				"(?,?,?)"))
@@ -513,4 +531,42 @@ void db_config_stream(output_t *op) {
 	my_ull(&b[2], &op->db_id);
 
 	execute_wrap(stm_config_stream, b, NULL);
+}
+
+void db_set_s3(unsigned long long db_id, const char *uri) {
+	if (!db_wanted())
+		return;
+	if (db_id == 0)
+		return;
+
+	MYSQL_BIND b[2];
+	my_cstr(&b[0], uri);
+	my_ull(&b[1], &db_id);
+
+	execute_wrap(stm_stream_s3, b, NULL);
+}
+
+void db_set_gcs(unsigned long long db_id, const char *uri) {
+	if (!db_wanted())
+		return;
+	if (db_id == 0)
+		return;
+
+	MYSQL_BIND b[2];
+	my_cstr(&b[0], uri);
+	my_ull(&b[1], &db_id);
+
+	execute_wrap(stm_stream_gcs, b, NULL);
+}
+
+void db_rm_file(output_t *op) {
+	if (!db_wanted())
+		return;
+	if (op->db_id == 0)
+		return;
+
+	MYSQL_BIND b[1];
+	my_ull(&b[0], &op->db_id);
+
+	execute_wrap(stm_stream_rm_file, b, NULL);
 }

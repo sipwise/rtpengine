@@ -10,6 +10,9 @@ void db_do_stream(metafile_t *mf, output_t *op, stream_t *, unsigned long ssrc);
 void db_close_stream(output_t *op);
 void db_delete_stream(metafile_t *, output_t *op);
 void db_config_stream(output_t *op);
+void db_set_s3(unsigned long long, const char *uri);
+void db_set_gcs(unsigned long long, const char *uri);
+void db_rm_file(output_t *);
 
 
 #endif

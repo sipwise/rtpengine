@@ -692,6 +692,8 @@ void output_close(metafile_t *mf, output_t *output, tag_t *tag, bool discard) {
 		if (unlink(output->filename))
 			ilog(LOG_ERR, "Failed to delete file '%s%s%s': %s",
 					FMT_M(output->filename), strerror(errno));
+		else
+			db_rm_file(output);
 
 	}
 	g_clear_pointer(&output->full_filename, g_free);

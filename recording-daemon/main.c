@@ -83,6 +83,7 @@ char *gcs_key;
 char *gcs_service_account;
 char *gcs_scope;
 gboolean gcs_nverify;
+gboolean gcs_medialink;
 
 
 static GQueue threads = G_QUEUE_INIT; // only accessed from main thread
@@ -268,6 +269,7 @@ static void options(int *argc, char ***argv) {
 		{ "gcs-service-account", 0,   0, G_OPTION_ARG_FILENAME,	&gcs_service_account,"Service account JSON file for GCS JWT authentication","FILE"	},
 		{ "gcs-scope", 		0,   0, G_OPTION_ARG_STRING,	&gcs_scope,	"Scope for GCS JWT authentication",	"STRING"	},
 		{ "gcs-no-verify", 	0,   0, G_OPTION_ARG_NONE,	&gcs_nverify,	"Disable TLS verification for GCS",	NULL		},
+		{ "gcs-media-link", 	0,   0, G_OPTION_ARG_NONE,	&gcs_medialink,	"Store direct access URI",		NULL		},
 		{ NULL, }
 	};
 

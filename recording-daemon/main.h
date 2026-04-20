@@ -72,6 +72,7 @@ extern char *gcs_key;
 extern char *gcs_service_account;
 extern char *gcs_scope;
 extern gboolean gcs_nverify;
+extern gboolean gcs_medialink;
 
 extern struct rtpengine_common_config rtpe_common_config;
 
