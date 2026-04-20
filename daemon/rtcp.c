@@ -1444,6 +1444,13 @@ static GString *rtcp_sender_report(struct ssrc_sender_report *ssr,
 	int i = 0, n = 0;
 	while (rrs->length) {
 		struct ssrc_entry_call *s = t_queue_pop_head(rrs);
+
+		// don't send a receiver report for ourselves. prevents possible deadlock
+		if (s->h.ssrc == ssrc) {
+			ssrc_entry_release(s);
+			continue;
+		}
+
 		if (i < 30) {
 			g_string_set_size(ret, ret->len + sizeof(struct report_block));
 			struct report_block *rr = (void *) ret->str + ret->len - sizeof(struct report_block);
@@ -1560,6 +1567,7 @@ static void rtcp_receiver_reports(ssrc_q *out, struct ssrc_hash *hash) {
 
 // call must be locked in R
 // if a `ps` is locked, it must be passed as argument
+// ssrc_out may be locked
 void rtcp_send_report(struct call_media *media, struct ssrc_entry_call *ssrc_out,
 		const struct packet_stream *locked)
 {
