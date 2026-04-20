@@ -122,11 +122,14 @@ INLINE int prep(db_conn_t *dbc, MYSQL_STMT **st, const char *s) {
 }
 
 
+static bool db_wanted(void) {
+	return (c_mysql_host && c_mysql_db);
+}
+
+
 static db_conn_t *check_conn(void) {
 	if (db_conn)
 		return db_conn;
-	if (!c_mysql_host || !c_mysql_db)
-		return NULL;
 
 	dbg("connecting to MySQL");
 
@@ -239,15 +242,17 @@ INLINE void my_ts(MYSQL_BIND *b, int64_t ts, double *d) {
 }
 
 
-static bool execute_wrap(MYSQL_STMT **stmt, MYSQL_BIND *binds, unsigned long long *auto_id) {
+static bool __execute_wrap(size_t stmt_offset, MYSQL_BIND *binds, unsigned long long *auto_id) {
 	int retr = 0;
 	while (1) {
 		db_conn_t *dbc;
+		MYSQL_STMT *stmt = NULL;
 		if (!(dbc = check_conn()))
 			goto err;
-		if (mysql_stmt_bind_param(*stmt, binds))
+		stmt = G_STRUCT_MEMBER(MYSQL_STMT *, dbc, stmt_offset);
+		if (mysql_stmt_bind_param(stmt, binds))
 			goto err;
-		if (mysql_stmt_execute(*stmt))
+		if (mysql_stmt_execute(stmt))
 			goto err;
 		if (auto_id) {
 			*auto_id = mysql_insert_id(dbc->mysql_conn);
@@ -262,8 +267,9 @@ static bool execute_wrap(MYSQL_STMT **stmt, MYSQL_BIND *binds, unsigned long lon
 err:
 		if (retr > 5) {
 			// fatal
-			ilog(LOG_ERR, "Failed to bind or execute prepared statement: %s",
-					mysql_stmt_error(*stmt));
+			if (stmt)
+				ilog(LOG_ERR, "Failed to bind or execute prepared statement: %s",
+						mysql_stmt_error(stmt));
 			reset_conn(dbc);
 			return false;
 		}
@@ -278,7 +284,11 @@ err:
 }
 
 
-static void db_do_call_id(db_conn_t *dbc, metafile_t *mf) {
+#define execute_wrap(stmt, binds, auto_id) \
+	__execute_wrap(G_STRUCT_OFFSET(db_conn_t, stmt), binds, auto_id)
+
+
+static void db_do_call_id(metafile_t *mf) {
 	if (mf->db_id > 0)
 		return;
 	if (!mf->call_id)
@@ -293,9 +303,9 @@ static void db_do_call_id(db_conn_t *dbc, metafile_t *mf) {
 	double ts;
 	my_ts(&b[1], mf->start_time_us, &ts);
 
-	execute_wrap(&dbc->stm_insert_call, b, &mf->db_id);
+	execute_wrap(stm_insert_call, b, &mf->db_id);
 }
-static void db_do_call_metadata(db_conn_t *dbc, metafile_t *mf) {
+static void db_do_call_metadata(metafile_t *mf) {
 	if (mf->db_metadata_done)
 		return;
 	if (mf->db_id == 0)
@@ -314,7 +324,7 @@ static void db_do_call_metadata(db_conn_t *dbc, metafile_t *mf) {
 			my_str(&b[1], key);
 			my_str(&b[2], l->data);
 
-			execute_wrap(&dbc->stm_insert_metadata, b, NULL);
+			execute_wrap(stm_insert_metadata, b, NULL);
 		}
 	}
 
@@ -322,19 +332,17 @@ static void db_do_call_metadata(db_conn_t *dbc, metafile_t *mf) {
 }
 
 void db_do_call(metafile_t *mf) {
-	db_conn_t *dbc;
-	if (!(dbc = check_conn()))
+	if (!db_wanted())
 		return;
 
-	db_do_call_id(dbc, mf);
-	db_do_call_metadata(dbc, mf);
+	db_do_call_id(mf);
+	db_do_call_metadata(mf);
 }
 
 
 // mf is locked
 void db_do_stream(metafile_t *mf, output_t *op, stream_t *stream, unsigned long ssrc) {
-	db_conn_t *dbc;
-	if (!(dbc = check_conn()))
+	if (!db_wanted())
 		return;
 	if (mf->db_id == 0)
 		return;
@@ -374,15 +382,14 @@ void db_do_stream(metafile_t *mf, output_t *op, stream_t *stream, unsigned long 
 	double ts;
 	my_ts(&b[10], op->start_time_us, &ts);
 
-	execute_wrap(&dbc->stm_insert_stream, b, &op->db_id);
+	execute_wrap(stm_insert_stream, b, &op->db_id);
 
 	if (op->db_id > 0)
 		mf->db_streams++;
 }
 
 void db_close_call(metafile_t *mf) {
-	db_conn_t *dbc;
-	if (!(dbc = check_conn()))
+	if (!db_wanted())
 		return;
 	if (mf->db_id == 0)
 		return;
@@ -395,19 +402,18 @@ void db_close_call(metafile_t *mf) {
 		double ts;
 		my_ts(&b[0], now, &ts);
 		my_ull(&b[1], &mf->db_id);
-		execute_wrap(&dbc->stm_close_call, b, NULL);
+		execute_wrap(stm_close_call, b, NULL);
 	}
 	else {
 		my_ull(&b[0], &mf->db_id);
-		execute_wrap(&dbc->stm_delete_call, b, NULL);
+		execute_wrap(stm_delete_call, b, NULL);
 		mf->db_id = 0;
 	}
 }
 
 
 static bool do_notify(notif_req_t *req) {
-	db_conn_t *dbc;
-	if (!(dbc = check_conn()))
+	if (!db_wanted())
 		return false;
 
 	MYSQL_BIND b[3];
@@ -421,10 +427,10 @@ static bool do_notify(notif_req_t *req) {
 	}
 	my_ull(&b[par_idx++], &req->db_id);
 
-	bool ok = execute_wrap(&dbc->stm_close_stream, b, NULL);
+	bool ok = execute_wrap(stm_close_stream, b, NULL);
 
 	// running in a thread pool, don't leave connection behind
-	reset_conn(dbc);
+	reset_conn(db_conn);
 
 	return ok;
 }
@@ -466,8 +472,7 @@ void db_close_stream(output_t *op) {
 
 
 void db_delete_stream(metafile_t *mf, output_t *op) {
-	db_conn_t *dbc;
-	if (!(dbc = check_conn()))
+	if (!db_wanted())
 		return;
 	if (op->db_id == 0)
 		return;
@@ -475,14 +480,13 @@ void db_delete_stream(metafile_t *mf, output_t *op) {
         MYSQL_BIND b[1];
 	my_ull(&b[0], &op->db_id);
 
-	execute_wrap(&dbc->stm_delete_stream, b, NULL);
+	execute_wrap(stm_delete_stream, b, NULL);
 
 	mf->db_streams--;
 }
 
 void db_config_stream(output_t *op) {
-	db_conn_t *dbc;
-	if (!(dbc = check_conn()))
+	if (!db_wanted())
 		return;
 	if (op->db_id == 0)
 		return;
@@ -492,7 +496,7 @@ void db_config_stream(output_t *op) {
 	my_i(&b[1], &op->encoder->actual_format.clockrate);
 	my_ull(&b[2], &op->db_id);
 
-	execute_wrap(&dbc->stm_config_stream, b, NULL);
+	execute_wrap(stm_config_stream, b, NULL);
 }
 
 void db_thread_end(void) {
