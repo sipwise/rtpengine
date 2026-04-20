@@ -59,6 +59,9 @@ CURL *http_create_req(const char *uri,
 		err = "setting CURLOPT_SSL_VERIFYPEER";
 		if ((ret = curl_easy_setopt(c, CURLOPT_SSL_VERIFYPEER, 0L)) != CURLE_OK)
 			goto fail;
+		err = "setting CURLOPT_SSL_VERIFYHOST";
+		if ((ret = curl_easy_setopt(c, CURLOPT_SSL_VERIFYHOST, 0L)) != CURLE_OK)
+			goto fail;
 	}
 
 	// all ok
