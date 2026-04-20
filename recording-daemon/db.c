@@ -17,6 +17,8 @@
 CREATE TABLE `recording_calls` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `call_id` varchar(250) NOT NULL,
+  `start_time` timestamp NOT NULL DEFAULT current_timestamp(),
+  `end_time` datetime DEFAULT NULL,
   `start_timestamp` decimal(13,3) DEFAULT NULL,
   `end_timestamp` decimal(13,3) DEFAULT NULL,
   `status` enum('recording','completed','confirmed') DEFAULT 'recording',
@@ -29,8 +31,9 @@ CREATE TABLE `recording_streams` (
   `local_filename` varchar(250) NOT NULL,
   `full_filename` varchar(250) NOT NULL,
   `file_format` varchar(10) NOT NULL,
-  `stream` mediumblob,
   `output_type` enum('mixed','single') NOT NULL,
+  `start_time` timestamp NOT NULL DEFAULT current_timestamp(),
+  `end_time` datetime DEFAULT NULL,
   `stream_id` int(10) unsigned NOT NULL,
   `sample_rate` int(10) unsigned NOT NULL DEFAULT '0',
   `channels` int(10) unsigned NOT NULL DEFAULT '0',
@@ -38,8 +41,12 @@ CREATE TABLE `recording_streams` (
   `start_timestamp` decimal(13,3) DEFAULT NULL,
   `end_timestamp` decimal(13,3) DEFAULT NULL,
   `tag_label` varchar(255) NOT NULL DEFAULT '',
+  `stream` longblob NOT NULL DEFAULT '',
+  `transcript_status` enum('none','pending','done') NOT NULL DEFAULT 'none',
+  `transcript` text NOT NULL DEFAULT '',
   PRIMARY KEY (`id`),
   KEY `call` (`call`),
+  KEY `transcript_status_call_idx` (`transcript_status`,`call`),
   CONSTRAINT `fk_call_id` FOREIGN KEY (`call`) REFERENCES `recording_calls` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 );
 CREATE TABLE `recording_metakeys` (
