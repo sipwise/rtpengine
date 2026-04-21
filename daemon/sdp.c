@@ -2029,10 +2029,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 			}
 			if (attr->rtcp.port_num == sp->rtp_endpoint.port
 					&& !is_trickle_ice_address(&sp->rtp_endpoint))
-			{
 				SP_SET(sp, RTCP_MUX);
-				goto next;
-			}
 			errstr = "Invalid RTCP attribute";
 			if (fill_endpoint(&sp->rtcp_endpoint, media, flags, &attr->rtcp.address,
 						attr->rtcp.port_num))
