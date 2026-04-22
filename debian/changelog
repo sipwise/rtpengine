@@ -1,3 +1,17 @@
+ngcp-rtpengine (11.5.1.51+0~mr11.5.1.51) unstable; urgency=medium
+
+  [ Michael Prokop ]
+  * [0aa52e1] MT#55283 GH: automate GitHub releases for mr* tags, build Debian packages for PRs + update to trixie
+
+  [ Richard Fuchs ]
+  * [ea5bb6c] MT#55283 update GH build actions
+  * [cb90621] MT#55283 fill RTCP endpoint even if same
+
+  [ Orgad Shaneh ]
+  * [730fea1] MT#55283 CI: Build also arm64 debian packages
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 22 Apr 2026 19:00:22 +0200
+
 ngcp-rtpengine (11.5.1.50+0~mr11.5.1.50) unstable; urgency=medium
 
   [ Richard Fuchs ]
