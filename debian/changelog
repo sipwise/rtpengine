@@ -1,3 +1,13 @@
+ngcp-rtpengine (14.1.1.6+0~mr14.1.1.6) unstable; urgency=medium
+
+  [ Orgad Shaneh ]
+  * [af18d16] MT#55283 CI: Build also arm64 debian packages
+
+  [ Richard Fuchs ]
+  * [3614f61] MT#55283 fill RTCP endpoint even if same
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 22 Apr 2026 18:59:40 +0200
+
 ngcp-rtpengine (14.1.1.5+0~mr14.1.1.5) unstable; urgency=medium
 
   [ Richard Fuchs ]
