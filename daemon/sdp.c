@@ -2203,13 +2203,13 @@ bool sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_
 				SP_SET(sp, IMPLICIT_RTCP);
 				goto next;
 			}
-			if (attr->rtcp.port_num == sp->rtp_endpoint.port
-					&& !is_trickle_ice_address(&sp->rtp_endpoint))
-				SP_SET(sp, RTCP_MUX);
 			errstr = "Invalid RTCP attribute";
 			if (fill_endpoint(&sp->rtcp_endpoint, media, flags, &attr->rtcp.address,
 						attr->rtcp.port_num))
 				goto error;
+			if (endpoint_eq(&sp->rtcp_endpoint, &sp->rtp_endpoint)
+					&& !is_trickle_ice_address(&sp->rtp_endpoint))
+				SP_SET(sp, RTCP_MUX);
 
 next:
 			t_queue_push_tail(streams, sp);
