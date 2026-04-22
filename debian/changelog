@@ -1,3 +1,10 @@
+ngcp-rtpengine (26.0.1.2+0~mr26.0.1.2) unstable; urgency=medium
+
+  [ Orgad Shaneh ]
+  * [32a698c] MT#55283 CI: Build also arm64 debian packages
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 22 Apr 2026 14:58:51 +0200
+
 ngcp-rtpengine (26.0.1.0+0~mr26.0.1.0) unstable; urgency=medium
 
   * New release.
