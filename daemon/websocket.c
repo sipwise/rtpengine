@@ -548,22 +548,32 @@ static void websocket_ng_send_ws(str *cookie, str *body, const endpoint_t *sin, 
 		__websocket_write_done(wc);
 	}
 }
+
 static void websocket_ng_send_http(str *cookie, str *body, const endpoint_t *sin, const sockaddr_t *from,
+		struct websocket_conn *wc, const char *content_type)
+{
+	LOCK(&wc->lock);
+	__websocket_http_response(wc, 200, content_type,
+			(cookie ? (cookie->len + 1) : 0) + body->len);
+	if (cookie) {
+		__websocket_queue_raw(wc, cookie->s, cookie->len);
+		__websocket_queue_raw(wc, " ", 1);
+	}
+	__websocket_queue_raw(wc, body->s, body->len);
+	__websocket_write_http(wc, NULL);
+	__websocket_write_done(wc);
+}
+
+static void websocket_ng_send_http_ng(str *cookie, str *body, const endpoint_t *sin, const sockaddr_t *from,
 		void *p1)
 {
-	struct websocket_conn *wc = p1;
-	{
-		LOCK(&wc->lock);
-		__websocket_http_response(wc, 200, "application/x-rtpengine-ng",
-				(cookie ? (cookie->len + 1) : 0) + body->len);
-		if (cookie) {
-			__websocket_queue_raw(wc, cookie->s, cookie->len);
-			__websocket_queue_raw(wc, " ", 1);
-		}
-		__websocket_queue_raw(wc, body->s, body->len);
-		__websocket_write_http(wc, NULL);
-		__websocket_write_done(wc);
-	}
+	websocket_ng_send_http(cookie, body, sin, from, p1, "application/x-rtpengine-ng");
+}
+
+static void websocket_ng_send_http_json(str *cookie, str *body, const endpoint_t *sin, const sockaddr_t *from,
+		void *p1)
+{
+	websocket_ng_send_http(cookie, body, sin, from, p1, "application/json");
 }
 
 static void __ng_buf_free(struct websocket_ng_buf *buf) {
@@ -612,7 +622,10 @@ static const char *websocket_http_ng_generic(struct websocket_message *wm,
 	buf->cmd = STR_LEN(buf->body->str, buf->body->len);
 	buf->endpoint = wm->wc->endpoint;
 
-	if (cb(&buf->cmd, &buf->endpoint, buf->addr, NULL, websocket_ng_send_http, wm->wc,
+	if (cb(&buf->cmd, &buf->endpoint, buf->addr, NULL,
+				wm->content_type == CT_JSON
+				? websocket_ng_send_http_json
+				: websocket_ng_send_http_ng, wm->wc,
 				&buf->obj))
 		websocket_http_complete(wm->wc, 600, "text/plain", 6, "error\n");
 
