@@ -1637,7 +1637,11 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 	if (!handler->in->kernel)
 		return "protocol not supported by kernel module";
 
-	handler->in->kernel(&reti->decrypt, stream);
+	int ret = handler->in->kernel(&reti->decrypt, stream);
+	if (ret) {
+		ilog(LOG_NOTICE, "SRTP not yet negotiated");
+		return NULL;
+	}
 	if (!reti->decrypt.cipher || !reti->decrypt.hmac)
 		return "decryption cipher or HMAC not supported by kernel module";
 
