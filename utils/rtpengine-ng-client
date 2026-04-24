@@ -59,6 +59,7 @@ my @flags = qw(
 	bidirectional
 	mix
 	unsubscribe
+	strip-extmap
 );
 
 my @string_opts = qw(
