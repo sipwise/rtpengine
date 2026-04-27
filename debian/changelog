@@ -1,3 +1,14 @@
+ngcp-rtpengine (14.1.1.7+0~mr14.1.1.7) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [1325431] MT#55283 prevent SSRC deadlock
+  * [47d0ac4] MT#55283 defuse error message
+  * [89b8b6d] MT#55283 move check for destinations
+  * [5cad3e3] MT#55283 extend search for compatible codec
+  * [aea94bf] MT#55283 test for Ib1b9e08e65f
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 27 Apr 2026 17:45:37 +0200
+
 ngcp-rtpengine (14.1.1.6+0~mr14.1.1.6) unstable; urgency=medium
 
   [ Orgad Shaneh ]
