@@ -4448,11 +4448,7 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 
 		__num_media_streams(media, num_ports);
 
-		// XXX this should be covered by __update_init_subscribers ?
-		if (!__init_streams(media, sp, flags))
-			return -1;
-		__ice_init(media);
-		ice_update(media->ice_agent, sp, false);
+		update_init_subscribers(media, sp, flags, flags->opmode);
 
 		sdp_sp_move(&media->sp, sp);
 	}
