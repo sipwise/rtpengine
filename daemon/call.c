@@ -4448,7 +4448,18 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 
 		__num_media_streams(media, num_ports);
 
+		rtp_payload_type *pref_dest_codec = NULL;
+		g_auto(supp_ht) supplemental_sinks;
+		check_codec_list(&supplemental_sinks, &pref_dest_codec, media);
+
+		media_make_audio_player(media, pref_dest_codec, flags);
+
 		update_init_subscribers(media, sp, flags, flags->opmode);
+
+		codec_update_media_source_handlers(media, .flags = flags);
+		codec_update_media_handlers(media);
+
+		audio_player_activate(media);
 
 		sdp_sp_move(&media->sp, sp);
 	}
