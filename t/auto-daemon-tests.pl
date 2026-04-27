@@ -7948,11 +7948,11 @@ o=- 2405046764736097547 2405046764736097550 IN IP4 192.168.178.104
 s=SDP data
 c=IN IP4 192.168.178.104
 t=0 0
-m=audio 15028 RTP/AVP 0 8 97 98 96
+m=audio 15028 RTP/AVP 0 8 99 98 96
 a=rtpmap:0 PCMU/8000
 a=rtpmap:8 PCMA/8000
-a=rtpmap:97 opus/48000/2
-a=fmtp:97 stereo=0; sprop-stereo=0; useinbandfec=1
+a=rtpmap:99 opus/48000/2
+a=fmtp:99 stereo=0; sprop-stereo=0; useinbandfec=1
 a=rtpmap:98 telephone-event/48000
 a=fmtp:98 0-15
 a=rtpmap:96 telephone-event/8000
@@ -16028,17 +16028,16 @@ v=0
 o=- 3816337545 3816337545 IN IP4 ims.example.com
 s=-
 t=0 0
-m=audio PORT RTP/AVP 9 97 108 8 96 98 101
+m=audio PORT RTP/AVP 9 111 108 8 96 97 101
 c=IN IP4 203.0.113.1
 a=rtpmap:9 G722/8000
-a=rtpmap:97 opus/48000
-a=fmtp:97 useinbandfec=1
+a=rtpmap:111 opus/48000
 a=rtpmap:108 speex/16000
 a=rtpmap:8 PCMA/8000
 a=rtpmap:96 telephone-event/8000
 a=fmtp:96 0-15
-a=rtpmap:98 telephone-event/16000
-a=fmtp:98 0-15
+a=rtpmap:97 telephone-event/16000
+a=fmtp:97 0-15
 a=rtpmap:101 telephone-event/48000
 a=fmtp:101 0-15
 a=sendrecv
@@ -16143,13 +16142,13 @@ v=0
 o=- 1545997027 1 IN IP4 203.0.113.1
 s=tester
 t=0 0
-m=audio PORT RTP/AVP 8 108 97 96 101
+m=audio PORT RTP/AVP 8 108 111 96 101
 c=IN IP4 203.0.113.1
 a=rtpmap:8 PCMA/8000
 a=rtpmap:108 AMR/8000
 a=fmtp:108 mode-set=7
-a=rtpmap:97 AMR-WB/16000
-a=fmtp:97 mode-set=0,1,2;mode-change-period=2;mode-change-capability=2
+a=rtpmap:111 AMR-WB/16000
+a=fmtp:111 mode-set=0,1,2; mode-change-period=2; mode-change-capability=2
 a=rtpmap:96 telephone-event/16000
 a=fmtp:96 0-15
 a=rtpmap:101 telephone-event/8000
@@ -16165,10 +16164,10 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.10
 s=tester
 t=0 0
-m=audio 3064 RTP/AVP 97 96
+m=audio 3064 RTP/AVP 111 96
 c=IN IP4 198.51.100.10
-a=rtpmap:97 AMR-WB/16000
-a=fmtp:97 octet-align=0; mode-set=0,1,2; max-red=0; mode-change-capability=2
+a=rtpmap:111 AMR-WB/16000
+a=fmtp:111 octet-align=0; mode-set=0,1,2; max-red=0; mode-change-capability=2
 a=rtpmap:96 telephone-event/16000
 a=fmtp:96 0-16
 a=ptime:20
@@ -16180,7 +16179,7 @@ t=0 0
 m=audio PORT RTP/AVP 111 96
 c=IN IP4 203.0.113.1
 a=rtpmap:111 AMR-WB/16000
-a=fmtp:111 mode-set=0,1,2; mode-change-period=2; mode-change-capability=2
+a=fmtp:111 octet-align=0; mode-set=0,1,2; max-red=0; mode-change-capability=2
 a=rtpmap:96 telephone-event/16000
 a=fmtp:96 0-15
 a=sendrecv
@@ -16225,13 +16224,13 @@ v=0
 o=- 1545997027 1 IN IP4 203.0.113.1
 s=tester
 t=0 0
-m=audio PORT RTP/AVP 8 108 97 96 101
+m=audio PORT RTP/AVP 8 108 111 96 101
 c=IN IP4 203.0.113.1
 a=rtpmap:8 PCMA/8000
 a=rtpmap:108 AMR/8000
 a=fmtp:108 mode-set=7
-a=rtpmap:97 AMR-WB/16000
-a=fmtp:97 mode-set=0,1,2;mode-change-period=2;mode-change-capability=2
+a=rtpmap:111 AMR-WB/16000
+a=fmtp:111 mode-set=0,1,2; mode-change-period=2; mode-change-capability=2
 a=rtpmap:96 telephone-event/16000
 a=fmtp:96 0-15
 a=rtpmap:101 telephone-event/8000
@@ -16247,10 +16246,10 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.10
 s=tester
 t=0 0
-m=audio 3068 RTP/AVP 97 96
+m=audio 3068 RTP/AVP 111 96
 c=IN IP4 198.51.100.10
-a=rtpmap:97 AMR-WB/16000
-a=fmtp:97 octet-align=0; mode-set=0,1,2; max-red=0; mode-change-capability=2
+a=rtpmap:111 AMR-WB/16000
+a=fmtp:111 octet-align=0; mode-set=0,1,2; max-red=0; mode-change-capability=2
 a=rtpmap:96 telephone-event/16000
 a=fmtp:96 0-16
 a=ptime:20
@@ -16262,7 +16261,7 @@ t=0 0
 m=audio PORT RTP/AVP 111 96
 c=IN IP4 203.0.113.1
 a=rtpmap:111 AMR-WB/16000
-a=fmtp:111 mode-set=0,1,2; mode-change-period=2; mode-change-capability=2
+a=fmtp:111 octet-align=0; mode-set=0,1,2; max-red=0; mode-change-capability=2
 a=rtpmap:96 telephone-event/16000
 a=fmtp:96 0-15
 a=sendrecv
@@ -16304,11 +16303,11 @@ v=0
 o=- 3812713289 3812713289 IN IP4 foo.bar.com
 s=-
 t=0 0
-m=audio PORT RTP/AVP 9 97 108 8 96 101
+m=audio PORT RTP/AVP 9 111 108 8 96 101
 c=IN IP4 203.0.113.1
 a=rtpmap:9 G722/8000
-a=rtpmap:97 AMR-WB/16000
-a=fmtp:97 mode-set=0,1,2;mode-change-period=2;mode-change-capability=2
+a=rtpmap:111 AMR-WB/16000
+a=fmtp:111 mode-set=0,1,2; mode-change-period=2; mode-change-capability=2
 a=rtpmap:108 AMR/8000
 a=fmtp:108 mode-set=7
 a=rtpmap:8 PCMA/8000
@@ -16384,11 +16383,11 @@ v=0
 o=- 3812713289 3812713289 IN IP4 foo.bar.com
 s=-
 t=0 0
-m=audio PORT RTP/AVP 9 97 108 8 96 101
+m=audio PORT RTP/AVP 9 111 108 8 96 101
 c=IN IP4 203.0.113.1
 a=rtpmap:9 G722/8000
-a=rtpmap:97 AMR-WB/16000
-a=fmtp:97 mode-set=0,1,2;mode-change-period=2;mode-change-capability=2
+a=rtpmap:111 AMR-WB/16000
+a=fmtp:111 mode-set=0,1,2; mode-change-period=2; mode-change-capability=2
 a=rtpmap:108 AMR/8000
 a=fmtp:108 mode-set=7
 a=rtpmap:8 PCMA/8000
@@ -16464,11 +16463,11 @@ v=0
 o=- 3812713289 3812713289 IN IP4 foo.bar.com
 s=-
 t=0 0
-m=audio PORT RTP/AVP 9 97 108 8 96 101
+m=audio PORT RTP/AVP 9 111 108 8 96 101
 c=IN IP4 203.0.113.1
 a=rtpmap:9 G722/8000
-a=rtpmap:97 AMR-WB/16000
-a=fmtp:97 mode-set=0,1,2;mode-change-period=2;mode-change-capability=2
+a=rtpmap:111 AMR-WB/16000
+a=fmtp:111 mode-set=0,1,2; mode-change-period=2; mode-change-capability=2
 a=rtpmap:108 AMR/8000
 a=fmtp:108 mode-set=7
 a=rtpmap:8 PCMA/8000
