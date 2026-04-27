@@ -6108,6 +6108,16 @@ void codec_store_transcode(struct codec_store *cs, str_q *offer, struct codec_st
 		}
 		GQueue *orig_list = t_hash_table_lookup(orig->codec_names, codec);
 		if (!orig_list || !orig_list->length || cs->strip_full) {
+			// check for a compatible entry on opposite side
+			codec_store_find_matching_codecs(NULL, &pt_match, orig, codec, pt);
+			if (pt_match) {
+				ilogs(codec, LOG_DEBUG, "Adding previously existing codec " STR_FORMAT,
+						STR_FMT(&pt_match->encoding_with_full_params));
+				codec_touched(cs, pt_match);
+				codec_store_add_order(cs, pt_match);
+				continue;
+			}
+
 			ilogs(codec, LOG_DEBUG, "Adding codec " STR_FORMAT
 					" for transcoding",
 					STR_FMT(codec));
