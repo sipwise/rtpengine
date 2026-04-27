@@ -3112,7 +3112,7 @@ static void media_set_audio_player(struct call_media *media, sdp_ng_flags *flags
 static void media_make_audio_player(struct call_media *media, rtp_payload_type *pref_dest_codec,
 		sdp_ng_flags *flags)
 {
-	if (!MEDIA_ISSET(media, AUDIO_PLAYER))
+	if (!MEDIA_ARESET2(media, AUDIO_PLAYER, SEND))
 		return;
 
 	audio_player_setup(media, pref_dest_codec, rtpe_config.audio_buffer_length,
