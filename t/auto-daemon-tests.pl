@@ -89,6 +89,121 @@ sub stun_succ {
 
 
 
+if ($extended_tests) {
+
+new_call;
+
+offer('re-offer with full transcode params', {
+		"codec", { "strip", [ "PCMU" ], "mask", [ "PCMA" ], "offer", [ "opus", "G722" ], "transcode", [ "AMR-WB/16000/1/23850//mode-set--0,1,2/CMR-interval--500", "PCMA", "telephone-event" ] },
+		flags => ['single codec'],
+	}, <<SDP);
+v=0
+o=- 0 0 IN IP4 172.16.10.14
+s=-
+c=IN IP4 172.16.10.14
+t=0 0
+m=audio 21326 RTP/AVP 111 9 0 8 110 101
+a=rtpmap:111 opus/48000/2
+a=rtcp-fb:111 transport-cc
+a=fmtp:111 minptime=10;useinbandfec=1
+a=rtpmap:9 G722/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:110 telephone-event/48000
+a=rtpmap:101 telephone-event/8000
+---------------------------------------------------
+v=0
+o=- 0 0 IN IP4 172.16.10.14
+s=-
+t=0 0
+m=audio PORT RTP/AVP 111 9 96 8 97 110 101
+c=IN IP4 203.0.113.1
+a=rtpmap:111 opus/48000/2
+a=fmtp:111 useinbandfec=1; minptime=10
+a=rtcp-fb:111 transport-cc
+a=rtpmap:9 G722/8000
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,1,2
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 telephone-event/16000
+a=fmtp:97 0-15
+a=rtpmap:110 telephone-event/48000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('re-offer with full transcode params', { }, <<SDP);
+v=0
+o=- 0 0 IN IP4 172.16.10.14
+s=-
+c=IN IP4 172.16.10.14
+t=0 0
+m=audio 30003 RTP/AVP 96 97
+c=IN IP4 192.168.1.106
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,1,2;max-red=0
+a=rtpmap:97 telephone-event/16000
+a=fmtp:97 0-15
+---------------------------------------------------
+v=0
+o=- 0 0 IN IP4 172.16.10.14
+s=-
+t=0 0
+m=audio PORT RTP/AVP 111 110
+c=IN IP4 203.0.113.1
+a=rtpmap:111 opus/48000/2
+a=fmtp:111 stereo=0; useinbandfec=1
+a=rtcp-fb:111 transport-cc
+a=rtpmap:110 telephone-event/48000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('re-offer with full transcode params', {
+		"codec", { "strip", [ "PCMU" ], "mask", [ "PCMA" ], "offer", [ "opus", "G722" ], "transcode", [ "AMR-WB/16000/1/23850//mode-set--0,1,2/CMR-interval--500", "PCMA", "telephone-event" ] },
+		flags => ['single codec'],
+	}, <<SDP);
+v=0
+o=- 0 0 IN IP4 172.16.10.14
+s=-
+c=IN IP4 172.16.10.14
+t=0 0
+m=audio 21326 RTP/AVP 111 9 0 8 110 101
+a=rtpmap:111 opus/48000/2
+a=rtcp-fb:111 transport-cc
+a=fmtp:111 minptime=10;useinbandfec=1
+a=rtpmap:9 G722/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:110 telephone-event/48000
+a=rtpmap:101 telephone-event/8000
+---------------------------------------------------
+v=0
+o=- 0 0 IN IP4 172.16.10.14
+s=-
+t=0 0
+m=audio PORT RTP/AVP 111 9 96 8 97 110 101
+c=IN IP4 203.0.113.1
+a=rtpmap:111 opus/48000/2
+a=fmtp:111 useinbandfec=1; minptime=10
+a=rtcp-fb:111 transport-cc
+a=rtpmap:9 G722/8000
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,1,2;max-red=0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 telephone-event/16000
+a=fmtp:97 0-15
+a=rtpmap:110 telephone-event/48000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+}
+
+
+
 new_call;
 
 ($port_a) = offer('from-tag alias control', { }, <<SDP);
