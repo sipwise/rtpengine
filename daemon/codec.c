@@ -5530,6 +5530,7 @@ static void codec_store_move(struct codec_store *dst, struct codec_store *src) {
 
 // `out_compat` must be initialised already, or NULL
 // either `codec` or `pt_parsed` must be given (or both)
+__attribute__((nonnull(3, 4)))
 static void codec_store_find_matching_codecs(rtp_pt_q *out_compat, rtp_payload_type **out_exact,
 		struct codec_store *cs, const str *codec,
 		rtp_payload_type *pt_parsed)
