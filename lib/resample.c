@@ -20,7 +20,6 @@ AVFrame *resample_frame(resample_t *resample, AVFrame *frame, const format_t *to
 	const char *err;
 	int errcode = 0;
 
-	ilog(LOG_ERR, "XXXXXXXXXXXXXX %d > %d", frame->sample_rate, to_format->clockrate);
 	CH_LAYOUT_T to_channel_layout;
 	DEF_CH_LAYOUT(&to_channel_layout, to_format->channels);
 	fix_frame_channel_layout(frame);
