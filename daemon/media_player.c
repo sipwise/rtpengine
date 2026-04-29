@@ -1024,6 +1024,13 @@ static int __media_player_setup_internal(struct media_player *mp, const rtp_payl
 	return 0;
 }
 
+
+static void __probe_format(struct media_player *mp) {
+	media_player_read_first_frame(mp);
+	media_player_seek_first_frame(mp);
+}
+
+
 static int __ensure_codec_handler(struct media_player *mp, const rtp_payload_type *dst_pt,
 		str_case_value_ht codec_set)
 {
@@ -1037,9 +1044,19 @@ static int __ensure_codec_handler(struct media_player *mp, const rtp_payload_typ
 		ilog(LOG_ERR, "Attempting to play media from an unsupported file format/codec");
 		return -1;
 	}
+
+	if (!GET_CHANNELS(mp->coder.avstream->CODECPAR) || !mp->coder.avstream->CODECPAR->sample_rate)
+		__probe_format(mp);
+
+	if (!GET_CHANNELS(mp->coder.avstream->CODECPAR) || !mp->coder.avstream->CODECPAR->sample_rate) {
+		ilog(LOG_ERR, "Unrecognised audio format, cannot do playback");
+		return -1;
+	}
+
 	src_pt.encoding = src_pt.codec_def->rtpname_str;
 	src_pt.channels = GET_CHANNELS(mp->coder.avstream->CODECPAR);
 	src_pt.clock_rate = mp->coder.avstream->CODECPAR->sample_rate;
+
 	codec_init_payload_type(&src_pt, MT_AUDIO);
 
 	if (__media_player_setup_internal(mp, &src_pt, dst_pt, codec_set))
