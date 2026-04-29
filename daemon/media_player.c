@@ -1036,6 +1036,7 @@ static int __ensure_codec_handler(struct media_player *mp, const rtp_payload_typ
 	src_pt.encoding = src_pt.codec_def->rtpname_str;
 	src_pt.channels = GET_CHANNELS(mp->coder.avstream->CODECPAR);
 	src_pt.clock_rate = mp->coder.avstream->CODECPAR->sample_rate;
+	ilog(LOG_ERR, "XXXXXXXXXXXXXXXXXXXXXX %d %d", src_pt.channels, src_pt.clock_rate);
 	codec_init_payload_type(&src_pt, MT_AUDIO);
 
 	if (__media_player_setup_internal(mp, &src_pt, dst_pt, codec_set))
@@ -1229,6 +1230,7 @@ static bool media_player_play_start(struct media_player *mp, const rtp_payload_t
 	if (!mp->coder.fmtctx->streams || !mp->coder.fmtctx->streams[0])
 		avformat_find_stream_info(mp->coder.fmtctx, NULL);
 
+	ilog(LOG_ERR, "XXXXXXXXXXXXXXXX %d %d", __LINE__, mp->coder.fmtctx->nb_streams);
 	mp->coder.avstream = mp->coder.fmtctx->streams[0];
 	if (!mp->coder.avstream) {
 		ilog(LOG_ERR, "No AVStream present in format context");
