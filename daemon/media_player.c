@@ -133,6 +133,10 @@ static bool media_player_read_packet(struct media_player *mp);
 static mp_cached_code __media_player_add_blob_id(struct media_player *mp,
 		media_player_opts_t opts,
 		const rtp_payload_type *dst_pt);
+
+static int media_player_read_first_frame(struct media_player *mp);
+static int media_player_seek_first_frame(struct media_player *mp);
+
 #endif
 
 static struct timerthread send_timer_thread;
@@ -1098,18 +1102,27 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 	timerthread_obj_schedule_abs(&mp->tt_obj, mp->next_run);
 }
 
-static int media_player_find_file_begin(struct media_player *mp) {
+static int media_player_seek_first_frame(struct media_player *mp) {
 	int ret = 0;
 
 	int64_t ret64 = avio_seek(mp->coder.fmtctx->pb, 0, SEEK_SET);
-	if (ret64 != 0)
+	if (ret64 != 0) {
 		ilog(LOG_ERR, "Failed to seek to beginning of media file");
+		return ret64;
+	}
 	ret = av_seek_frame(mp->coder.fmtctx, -1, 0, AVSEEK_FLAG_ANY | AVSEEK_FLAG_BACKWARD);
-	if (ret < 0)
+	if (ret < 0) {
 		ilog(LOG_ERR, "Failed to seek to beginning of media file");
-	ret = av_read_frame(mp->coder.fmtctx, mp->coder.pkt);
+		return ret;
+	}
+	return 0;
+}
 
-	return ret;
+static int media_player_read_first_frame(struct media_player *mp) {
+	int ret = media_player_seek_first_frame(mp);
+	if (ret)
+		return ret;
+	return av_read_frame(mp->coder.fmtctx, mp->coder.pkt);
 }
 
 // appropriate lock must be held
@@ -1132,7 +1145,7 @@ static bool media_player_read_packet(struct media_player *mp) {
 				return true;
 			}
 
-			ret = media_player_find_file_begin(mp);
+			ret = media_player_read_first_frame(mp);
 
 			/* counter for the max spent duration (in milliseconds)
 			 * duration takes precedence over repeats, if used together
