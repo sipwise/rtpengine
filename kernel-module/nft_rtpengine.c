@@ -2487,7 +2487,6 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 		if (!i->num_destinations)
 			return -EINVAL;
 		for (u = 0; u < RTPE_NUM_OUTPUT_MEDIA; u++) {
-			printk(KERN_ERR "XXX %d %d\n", __LINE__, i->media_output_idxs[u].rtp_start_idx);
 			if (i->media_output_idxs[u].rtp_start_idx >= i->num_destinations)
 				return -EINVAL;
 			if (i->media_output_idxs[u].rtp_end_idx > i->num_destinations)
