@@ -1492,6 +1492,9 @@ const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg v
 		case CSH_LOOKUP("blob"):
 			out->blob = s;
 			break;
+		case CSH_LOOKUP("blob64"):
+			out->blob64 = s;
+			break;
 		case CSH_LOOKUP("bundle"):
 		case CSH_LOOKUP("BUNDLE"):
 			return call_ng_flags_str_list(parser, value, call_ng_flags_bundle, out);

@@ -178,6 +178,7 @@ struct sdp_ng_flags {
 	str file;
 	str moh_file;
 	str blob;
+	str blob64;
 	str moh_blob;
 	long long db_id;
 	long long moh_db_id;

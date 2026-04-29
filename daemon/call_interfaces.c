@@ -1905,6 +1905,17 @@ const char *call_play_media_ng(ng_command_ctx_t *ctx) {
 	if (err)
 		return err;
 
+	g_autoptr(char) b64dec = NULL;
+
+	if (flags.blob64.len && !flags.blob.len) {
+		b64dec = g_malloc(flags.blob64.len * 3 / 4 + 3);
+		gint state = 0;
+		guint save = 0;
+		size_t out = g_base64_decode_step(flags.blob64.s, flags.blob64.len, (guchar *) b64dec, &state, &save);
+
+		flags.blob = STR_LEN(b64dec, out);
+	}
+
 	for (__auto_type l = monologues.head; l; l = l->next) {
 		struct call_monologue *monologue = l->data;
 

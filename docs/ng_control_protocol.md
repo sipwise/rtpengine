@@ -2289,6 +2289,12 @@ Media files can be provided through one of these keys:
 	*ng* transport protocol, only very short files can be provided this way, and so this is primarily
 	useful for testing and debugging.
 
+* `blob64`
+
+    Alternative to `blob` which expects a binary media file in base64 encoding.
+    This is useful for transports which don't natively support binary data
+    (e.g. JSON).
+
 * `db-id`
 
 	Contains an integer. This requires the daemon to be configured for accessing a *MySQL* (or *MariaDB*)
