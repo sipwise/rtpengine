@@ -3409,6 +3409,11 @@ static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *dec
 
 	unsigned long ts = packet ? packet->ts : 0;
 
+	if (!mp->ssrc_out->seq_set) {
+		mp->ssrc_out->seq_set = true;
+		mp->ssrc_out->seq_out = packet->p.seq;
+	}
+
 	// allocate packet object
 	struct dtx_packet *dtxp = g_new0(__typeof(*dtxp), 1);
 	dtxp->packet = packet;
