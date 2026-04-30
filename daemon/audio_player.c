@@ -5,10 +5,13 @@
 #include "media_player.h"
 #include "mix_buffer.h"
 #include "codec.h"
+#include "resample.h"
 
 
 struct audio_player {
 	struct media_player *mp;
+	format_t format;
+	resample_t resampler;
 	struct mix_buffer mb;
 	int64_t last_run;
 
@@ -100,6 +103,7 @@ bool audio_player_setup(struct call_media *m, const rtp_payload_type *dst_pt,
 
 	if (ap) {
 		mix_buffer_destroy(&ap->mb);
+		resample_shutdown(&ap->resampler);
 		ZERO(ap->mb);
 	}
 	else
@@ -127,6 +131,12 @@ bool audio_player_setup(struct call_media *m, const rtp_payload_type *dst_pt,
 		goto error;
 
 	bufsize_ms = MAX(bufsize_ms, ptime_ms * 2); // make sure the buf size is at least 2 frames
+
+	ap->format = (format_t) {
+		.channels = dst_pt->channels,
+		.clockrate = clockrate,
+		.format = AV_SAMPLE_FMT_S16,
+	};
 
 	mix_buffer_init_active(&ap->mb, AV_SAMPLE_FMT_S16, clockrate, dst_pt->channels, bufsize_ms, delay_ms,
 			false);
@@ -177,10 +187,20 @@ void audio_player_start(struct call_media *m) {
 
 
 void audio_player_add_frame(struct audio_player *ap, uint32_t ssrc, AVFrame *frame) {
-	bool ret = mix_buffer_write(&ap->mb, ssrc, frame->extended_data[0], frame->nb_samples);
+	AVFrame *rsmp_frame = resample_frame(&ap->resampler, frame, &ap->format);
+	if (!rsmp_frame) {
+		ilog(LOG_ERR, "Resampling failed");
+		av_frame_free(&frame);
+		return;
+	}
+
+	bool ret = mix_buffer_write(&ap->mb, ssrc, rsmp_frame->extended_data[0], rsmp_frame->nb_samples);
 	if (!ret)
 		ilogs(transcoding, LOG_WARN | LOG_FLAG_LIMIT, "Failed to add samples to mix buffer");
-	av_frame_free(&frame);
+
+	if (rsmp_frame != frame)
+		av_frame_free(&frame);
+	av_frame_free(&rsmp_frame);
 }
 
 
@@ -216,6 +236,7 @@ void audio_player_free(struct call_media *m) {
 		return;
 	mix_buffer_destroy(&ap->mb);
 	media_player_put(&ap->mp);
+	resample_shutdown(&ap->resampler);
 	g_free(ap);
 	m->audio_player = NULL;
 }
