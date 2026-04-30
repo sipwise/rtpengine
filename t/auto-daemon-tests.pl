@@ -91,6 +91,120 @@ sub stun_succ {
 
 if ($extended_tests) {
 
+($sock_a, $sock_b) = new_call([qw(198.51.100.21 7294)], [qw(198.51.100.21 7296)]);
+
+($port_a) = offer('seq nr codec change', {
+		flags => [],
+		codec => { transcode => ['PCMU', 'PCMA'] },
+}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7294 RTP/AVP 0
+c=IN IP4 198.51.100.21
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('seq nr codec change', {
+		flags => [],
+		codec => { },
+}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7296 RTP/AVP 8
+c=IN IP4 198.51.100.21
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_b, $port_a,  rtp(8, 1000, 3000, 0x1234, "\x99" x 160));
+rcv($sock_a, $port_b, rtpm(0, 1000, 3000, 0x1234, "\xb2" x 160));
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.21 7298)], [qw(198.51.100.21 7300)]);
+
+($port_a) = offer('seq nr codec change', {
+		flags => [],
+		codec => { transcode => ['AMR-WB/16000/1/23850//mode-set--0,1,2/CMR-interval--500'] },
+}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7298 RTP/AVP 96
+c=IN IP4 198.51.100.21
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 minptime=10;useinbandfec=1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 97
+c=IN IP4 203.0.113.1
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 useinbandfec=1; minptime=10
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 mode-set=0,1,2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('seq nr codec change', {
+		flags => [],
+		codec => { },
+}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7300 RTP/AVP 97
+c=IN IP4 198.51.100.21
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 mode-set=0,1,2
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; useinbandfec=1
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_b, $port_a,  rtp(97, 1000, 3000, 0x1234, "\xf1\x75\x22\x74\x85\x60\x93\x6f\x97\x5c\x27\xd9\xba\xe2\xfe\x07\x9e\x10\x84\x92\x10\xd6\xdc\xdd\x56\x52\x93\x91\x90\x50\xd3\xb1\x98"));
+rcv($sock_a, $port_b, rtpm(96, 1000, 3000, 0x1234, "\x48\x80\x0a\x02\x12\xf4\xed\x7e\xda\x67\x39\x9d\x13\xc3\x57\x2b\x37\xbc\xa7\xbb\x3e\x50\x09\xe3\xef\xa5\x2e\x5b\x3a\x5c\x90\xfe\x31\x78\x04\x57\xe5\x17\x1c\x75\x95\x35\x11\xed\x08\xa8\xc0"));
+
+
+
 new_call;
 
 offer('re-offer with full transcode params', {
