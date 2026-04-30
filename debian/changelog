@@ -1,3 +1,13 @@
+ngcp-rtpengine (14.1.1.8+0~mr14.1.1.8) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [e2f0dd3] MT#55283 remove stray log message
+  * [a013cfb] MT#55283 fix test case
+  * [ac89732] MT#55283 fix random seq under DTX
+  * [5f8d75e] MT#55283 tests for Iecdd3d28
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 01 May 2026 00:04:02 +0200
+
 ngcp-rtpengine (14.1.1.7+0~mr14.1.1.7) unstable; urgency=medium
 
   [ Richard Fuchs ]
