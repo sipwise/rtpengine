@@ -37,11 +37,8 @@ static struct ssrc_entry *create_ssrc_entry_call(void *uptr) {
 	payload_tracker_init(&ent->tracker);
 	while (!ent->ssrc_map_out)
 		ent->ssrc_map_out = ssl_random();
-	ent->seq_out = ssl_random();
 	atomic64_set_na(&ent->last_sample, rtpe_now);
 	ent->stats = bufferpool_alloc0(shm_bufferpool, sizeof(*ent->stats));
-	//ent->seq_out = ssl_random();
-	//ent->ts_out = ssl_random();
 	ent->lost_bits = -1;
 	return &ent->h;
 }
