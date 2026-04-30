@@ -67,6 +67,7 @@ struct ssrc_entry_call {
 	uint32_t ssrc_map_out;
 	uint16_t seq_out;
 	unsigned long ts_out;
+	bool seq_set;
 
 	// RTCP stats
 	struct ssrc_stats *stats;
