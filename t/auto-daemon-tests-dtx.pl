@@ -1155,11 +1155,11 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.10
 s=tester
 t=0 0
-m=audio PORT RTP/AVP 9 97 108 8 96 101
+m=audio PORT RTP/AVP 9 111 108 8 96 101
 c=IN IP4 203.0.113.1
 a=rtpmap:9 G722/8000
-a=rtpmap:97 AMR-WB/16000
-a=fmtp:97 mode-set=0,1,2;mode-change-period=2;mode-change-capability=2
+a=rtpmap:111 AMR-WB/16000
+a=fmtp:111 mode-set=0,1,2; mode-change-period=2; mode-change-capability=2
 a=rtpmap:108 AMR/8000
 a=fmtp:108 mode-set=7
 a=rtpmap:8 PCMA/8000
