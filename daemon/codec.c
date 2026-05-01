@@ -2534,17 +2534,26 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 
 	ts_diff_us = p->ttq_entry.when - rtpe_now;
 
-	if (!csch->is_media_playback)
-		csch->output_skew = csch->output_skew * 15 / 16 + ts_diff_us / 16;
+	if (!csch->is_media_playback) {
+		if (ts_diff_us >= 0) {
+			csch->skew_samples++;
+			csch->output_skew = MIN(csch->output_skew, ts_diff_us);
+		}
+	}
 
-	if (csch->output_skew > 50000 && ts_diff_us > 10000) { // arbitrary value, 50 ms, 10 ms shift
-		ilogs(transcoding, LOG_DEBUG, "Steady clock skew of %li.%01li ms detected, shifting send timer back by 10 ms",
-			csch->output_skew / 1000,
-			(csch->output_skew % 1000) / 100);
-		p->ttq_entry.when -= 10000;
-		csch->output_skew -= 10000;
-		csch->first_send_ts += handler->dest_pt.clock_rate / 100;
-		ts_diff_us = p->ttq_entry.when - rtpe_now;
+	// arbitrary values, min 25 samples of at least 50 ms
+	if (csch->skew_samples >= 25) {
+		if (csch->output_skew > 50000) {
+			ilogs(transcoding, LOG_DEBUG, "Steady clock skew of %li.%01li ms detected, shifting send timer back by 10 ms",
+				csch->output_skew / 1000,
+				(csch->output_skew % 1000) / 100);
+			p->ttq_entry.when -= 10000;
+			csch->output_skew -= 10000;
+			csch->first_send_ts += handler->dest_pt.clock_rate / 100;
+			ts_diff_us = p->ttq_entry.when - rtpe_now;
+		}
+		csch->skew_samples = 0;
+		csch->output_skew = 0;
 	}
 	else if (ts_diff_us < 0) {
 		ts_diff_us *= -1;
@@ -2553,6 +2562,7 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 			(ts_diff_us % 1000) / 100);
 		p->ttq_entry.when += ts_diff_us;
 		csch->output_skew = 0;
+		csch->skew_samples = 0;
 		csch->first_send_ts -= (int64_t) handler->dest_pt.clock_rate * ts_diff_us / 1000000;
 		ts_diff_us = p->ttq_entry.when - rtpe_now; // should be 0 now
 	}
