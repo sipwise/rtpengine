@@ -2163,7 +2163,7 @@ int encoder_input_fifo(encoder_t *enc, AVFrame *frame,
 }
 
 
-int packetizer_passthrough(AVPacket *pkt, GString *buf, str *output, encoder_t *enc,
+int packetizer_passthrough(AVPacket *pkt, GString *buf, str *output, size_t num_bytes, encoder_t *enc,
 		int64_t *__restrict pts, int64_t *__restrict duration)
 {
 	if (!pkt)
@@ -2182,39 +2182,41 @@ int packetizer_passthrough(AVPacket *pkt, GString *buf, str *output, encoder_t *
 
 // returns: -1 = not enough data, nothing returned; 0 = returned a packet;
 // 1 = returned a packet and there's more
-static int packetizer_samplestream(AVPacket *pkt, GString *buf, str *input_output, encoder_t *enc,
-		int64_t *__restrict pts, int64_t *__restrict duration)
+static int packetizer_samplestream(AVPacket *pkt, GString *buf, str *input_output, size_t num_bytes,
+		encoder_t *enc, int64_t *__restrict pts, int64_t *__restrict duration)
 {
 	// avoid moving buffers around if possible:
 	// most common case: new input packet has just enough (or more) data as what we need
-	if (G_LIKELY(pkt && buf->len == 0 && pkt->size >= input_output->len)) {
+	if (G_LIKELY(pkt && buf->len == 0 && pkt->size >= num_bytes)) {
 		*pts = pkt->pts;
 		*duration = pkt->duration;
-		memcpy(input_output->s, pkt->data, input_output->len);
+		memcpy(input_output->s, pkt->data, num_bytes);
 		// any leftovers?
-		if (pkt->size > input_output->len) {
-			g_string_append_len(buf, (char *) pkt->data + input_output->len,
-					pkt->size - input_output->len);
-			*duration = input_output->len
-				* (fraction_mult(enc->def->bits_per_sample, &enc->clockrate_fact) / 8);
+		if (pkt->size > num_bytes) {
+			g_string_append_len(buf, (char *) pkt->data + num_bytes,
+					pkt->size - num_bytes);
+			*duration = fraction_mult(num_bytes * 8, &enc->clockrate_fact)
+				/ enc->def->bits_per_sample;
 			enc->packet_pts = pkt->pts + *duration;
 		}
-		return buf->len >= input_output->len ? 1 : 0;
+		input_output->len = num_bytes;
+		return buf->len >= num_bytes ? 1 : 0;
 	}
 	// we have to move data around. append input packet to buffer if we have one
 	if (pkt)
 		g_string_append_len(buf, (char *) pkt->data, pkt->size);
 	// do we have enough?
-	if (buf->len < input_output->len)
+	if (buf->len < num_bytes)
 		return -1;
 	// copy requested data into provided output buffer and remove from interim buffer
-	memcpy(input_output->s, buf->str, input_output->len);
-	g_string_erase(buf, 0, input_output->len);
+	memcpy(input_output->s, buf->str, num_bytes);
+	input_output->len = num_bytes;
+	g_string_erase(buf, 0, num_bytes);
 	// adjust output pts
 	*pts = enc->packet_pts;
-	*duration = input_output->len * (fraction_mult(enc->def->bits_per_sample, &enc->clockrate_fact) / 8);
+	*duration = fraction_mult(num_bytes * 8, &enc->clockrate_fact) / enc->def->bits_per_sample;
 	enc->packet_pts += *duration;
-	return buf->len >= input_output->len ? 1 : 0;
+	return buf->len >= num_bytes ? 1 : 0;
 }
 
 
@@ -3325,7 +3327,7 @@ static void amr_encoder_got_packet(encoder_t *enc) {
 	amr_encoder_mode_change(enc);
 	enc->avc.amr.pkt_seq++;
 }
-static int packetizer_amr(AVPacket *pkt, GString *buf, str *output, encoder_t *enc,
+static int packetizer_amr(AVPacket *pkt, GString *buf, str *output, size_t num_bytes, encoder_t *enc,
 		int64_t *__restrict pts, int64_t *__restrict duration)
 {
 	assert(pkt->size >= 1);
@@ -3582,7 +3584,7 @@ static void bcg729_encoder_close(encoder_t *enc) {
 	enc->bcg729 = NULL;
 }
 
-static int packetizer_g729(AVPacket *pkt, GString *buf, str *input_output, encoder_t *enc,
+static int packetizer_g729(AVPacket *pkt, GString *buf, str *input_output, size_t num_bytes, encoder_t *enc,
 		int64_t *__restrict pts, int64_t *__restrict duration)
 {
 	// how many frames do we want?
@@ -3590,7 +3592,7 @@ static int packetizer_g729(AVPacket *pkt, GString *buf, str *input_output, encod
 
 	// easiest case: we only want one frame. return what we got
 	if (want_frames == 1 && pkt)
-		return packetizer_passthrough(pkt, buf, input_output, enc, pts, duration);
+		return packetizer_passthrough(pkt, buf, input_output, num_bytes, enc, pts, duration);
 
 	// any other case, we go through our buffer
 	str output = *input_output; // remaining output buffer

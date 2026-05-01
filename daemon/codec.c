@@ -4493,7 +4493,7 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 	if (!__ssrc_handler_decode_common(ch, h, &ch->encoder_format))
 		goto err;
 
-	ch->bytes_per_packet = (ch->encoder->samples_per_packet ? : ch->encoder->samples_per_frame)
+	ch->bytes_per_packet = (ch->encoder->samples_per_packet ?: ch->encoder->samples_per_frame)
 		* h->dest_pt.codec_def->bits_per_sample / 8;
 
 	ilogs(codec, LOG_DEBUG, "Encoder created with clockrate %i, %i channels, using sample format %i "
@@ -4589,8 +4589,8 @@ void packet_encoded_packetize(AVPacket *pkt, struct codec_ssrc_handler *ch, stru
 		if (in_pkt)
 			ilogs(transcoding, LOG_DEBUG, "Adding %i bytes to packetizer", in_pkt->size);
 		int64_t pts, duration;
-		int ret = pkt_f(in_pkt,
-				ch->sample_buffer, &inout, pkt_f_data, &pts, &duration);
+		int ret = pkt_f(in_pkt, ch->sample_buffer, &inout, ch->bytes_per_packet, pkt_f_data, &pts,
+				&duration);
 
 		if (G_UNLIKELY(ret == -1 || pts == AV_NOPTS_VALUE)) {
 			// nothing
