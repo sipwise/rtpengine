@@ -1706,12 +1706,13 @@ class TestVideoroom(unittest.TestCase):
                 "o=- \\d+ \\d+ IN IP4 203.0.113.1\r\n"
                 "s=rtpengine.*?\r\n"
                 "t=0 0\r\n"
-                "m=audio \\d+ UDP/TLS/RTP/SAVPF 111\r\n"
+                "m=audio \\d+ UDP/TLS/RTP/SAVPF 111 110\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
                 "a=mid:0\r\n"
                 "a=rtpmap:111 opus/48000/2\r\n"
                 "a=fmtp:111 useinbandfec=1; minptime=10\r\n"
                 "a=rtcp-fb:111 transport-cc\r\n"
+                "a=rtpmap:110 telephone-event/48000\r\n"
                 "a=extmap-allow-mixed\r\n"
                 "a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level\r\n"
                 "a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n"  # noqa: E501
@@ -1730,7 +1731,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=ice-options:trickle\r\n"
                 "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"  # noqa: E501
                 "a=end-of-candidates\r\n"
-                "m=video \\d+ UDP/TLS/RTP/SAVPF 96\r\n"
+                "m=video \\d+ UDP/TLS/RTP/SAVPF 96 124\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
                 "a=mid:1\r\n"
                 "a=rtpmap:96 VP8/90000\r\n"
@@ -1739,6 +1740,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=rtcp-fb:96 ccm fir\r\n"
                 "a=rtcp-fb:96 nack\r\n"
                 "a=rtcp-fb:96 nack pli\r\n"
+                "a=rtpmap:124 red/90000\r\n"
                 "a=extmap-allow-mixed\r\n"
                 "a=extmap:14 urn:ietf:params:rtp-hdrext:toffset\r\n"
                 "a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n"  # noqa: E501
@@ -1831,12 +1833,13 @@ class TestVideoroom(unittest.TestCase):
                 "s=-\r\n"
                 "t=0 0\r\n"
                 "a=msid-semantic: WMS hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"
-                "m=audio \\d+ UDP/TLS/RTP/SAVPF 111\r\n"
+                "m=audio \\d+ UDP/TLS/RTP/SAVPF 111 110\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
                 "a=mid:1\r\n"
                 "a=rtpmap:111 opus/48000/2\r\n"
                 "a=fmtp:111 useinbandfec=1; minptime=10\r\n"
                 "a=rtcp-fb:111 transport-cc\r\n"
+                "a=rtpmap:110 telephone-event/48000\r\n"
                 "a=extmap-allow-mixed\r\n"
                 "a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level\r\n"
                 "a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n"  # noqa: E501
@@ -1859,7 +1862,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=ice-options:trickle\r\n"
                 "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"  # noqa: E501
                 "a=end-of-candidates\r\n"
-                "m=video \\d+ UDP/TLS/RTP/SAVPF 96\r\n"
+                "m=video \\d+ UDP/TLS/RTP/SAVPF 96 124\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
                 "a=mid:2\r\n"
                 "a=rtpmap:96 VP8/90000\r\n"
@@ -1868,6 +1871,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=rtcp-fb:96 ccm fir\r\n"
                 "a=rtcp-fb:96 nack\r\n"
                 "a=rtcp-fb:96 nack pli\r\n"
+                "a=rtpmap:124 red/90000\r\n"
                 "a=extmap-allow-mixed\r\n"
                 "a=extmap:14 urn:ietf:params:rtp-hdrext:toffset\r\n"
                 "a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n"  # noqa: E501
