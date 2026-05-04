@@ -785,6 +785,18 @@ static struct codec_def_s __codec_defs[] = {
 		.codec_type = &codec_type_cn,
 	},
 	{
+		.rtpname = "red",
+		.avcodec_id = -1,
+		.packetizer = packetizer_passthrough,
+		.media_type = MT_AUDIO,
+		.supplemental = 1,
+		.default_clockrate = 8000,
+		.default_channels = 1,
+		.format_cmp = format_cmp_ignore,
+		.support_encoding = 1,
+		.support_decoding = 1,
+	},
+	{
 		.rtpname = "G726-16",
 		.avcodec_id = AV_CODEC_ID_ADPCM_G726,
 		.default_clockrate = 8000,
