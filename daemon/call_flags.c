@@ -1514,6 +1514,7 @@ const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg v
 				out->digit = s.s[0];
 			break;
 		case CSH_LOOKUP("codec"):
+		case CSH_LOOKUP("codecs"):
 			return parser->dict_iter(parser, value, call_ng_codec_flags, out);
 		case CSH_LOOKUP("command"):
 			break;
