@@ -6,8 +6,8 @@ Homepage: https://www.sipwise.com/
 Standards-Version: 4.5.1
 Build-Depends:
  debhelper-compat (= 13),
- default-libmysqlclient-dev,
  dh-sequence-dkms,
+ default-libmysqlclient-dev,
  discount,
  gperf,
  libavcodec-dev (>= 6:10),
@@ -16,6 +16,7 @@ Build-Depends:
  libavutil-dev (>= 6:10),
  libbcg729-dev <!pkg.ngcp-rtpengine.nobcg729>,
  libbencode-perl,
+ libcjson-dev,
  libcrypt-openssl-rsa-perl,
  libcrypt-rijndael-perl,
  libcurl4-openssl-dev | libcurl4-gnutls-dev,
