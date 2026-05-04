@@ -4958,7 +4958,7 @@ void subscriber_connect(const medias_q *src_medias, struct call_monologue *dst_m
 		if (src_media->media_id.len) {
 			dst_media = t_hash_table_lookup(dst_ml->media_ids, &src_media->media_id);
 			// type must still match
-			if (str_cmp_str(&dst_media->type, &src_media->type))
+			if (dst_media && str_cmp_str(&dst_media->type, &src_media->type))
 				dst_media = NULL;
 		}
 
