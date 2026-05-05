@@ -6747,8 +6747,7 @@ bool monologue_call_create_answer(struct call_monologue *ml, sdp_ng_flags *flags
 
 		__media_unconfirm(media, "create answer event");
 
-		if (flags->early_media)
-			audio_player_activate(media);
+		audio_player_activate(media);
 
 		sdp_sp_move(&media->sp, sp);
 	}
