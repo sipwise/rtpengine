@@ -307,7 +307,7 @@ struct sdp_attr {
 };
 
 /**
- * Globaly visible variables for this file.
+ * Globally visible variables for this file.
  */
 static char __id_buf[6*2 + 1]; // 6 hex encoded characters
 const str rtpe_instance_id = STR_CONST(__id_buf);
@@ -3169,7 +3169,7 @@ static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 	bool media_has_ice = MEDIA_ISSET(media, ICE);
 	bool media_has_ice_lite_self = MEDIA_ISSET(media, ICE_LITE_SELF);
 
-	/* add loop protectio if required */
+	/* add loop protection if required */
 	if (flags->loop_protect)
 		append_attr_to_gstring(out, "rtpengine", &rtpe_instance_id, flags, media->type_id);
 #ifdef WITH_TRANSCODING
@@ -3194,7 +3194,7 @@ static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 	/* carry other session level a= attributes to the outgoing SDP */
 	monologue->sdp_attr_print(out, monologue, flags);
 
-	/* ADD arbitrary SDP manipulations for a session sessions */
+	/* ADD arbitrary SDP manipulations for a session */
 	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags->sdp_manipulations, MT_UNKNOWN);
 	sdp_manipulations_add(out, sdp_manipulations);
 }
@@ -3423,7 +3423,7 @@ static struct call_media *sdp_out_set_source_media_address(struct call_media *me
 
 /**
  * For the offer/answer model, SDP create will be triggered for the B monologue,
- * which likely has empty paramaters (such as sdp origin, session name etc.), hence
+ * which likely has empty parameters (such as sdp origin, session name etc.), hence
  * such parameters have to be taken from the A monologue (so from the subscription).
  *
  * For the rest of cases (publish, subscribe, janus etc.) this works as usual:
