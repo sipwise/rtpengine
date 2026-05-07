@@ -2219,7 +2219,7 @@ next:
 
 error:
 	ilog(LOG_WARNING, "Failed to extract streams from SDP: %s", errstr);
-	g_free(sp);
+	sp_free(sp);
 	return false;
 }
 
