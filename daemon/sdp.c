@@ -2419,7 +2419,7 @@ static void insert_candidate(GString *s, stream_fd *sfd,
 	if (__attr_append_str(&state, &ifa->ice_foundation))
 		return;
 
-	if (local_pref == -1)
+	if (local_pref == UINT_MAX)
 		local_pref = ifa->unique_id;
 
 	priority = ice_priority_pref(type_pref, local_pref, ps->component);
@@ -2452,7 +2452,7 @@ static void insert_sfd_candidates(GString *s, struct packet_stream *ps,
 		stream_fd *sfd = l->data;
 		insert_candidate(s, sfd, type_pref, local_pref, type, flags, ps->media);
 
-		if (local_pref != -1)
+		if (local_pref != UINT_MAX)
 			local_pref++;
 	}
 }
@@ -2495,7 +2495,7 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 		new_priority(source_media, cand_type, &type_pref, &local_pref);
 	else {
 		type_pref = ice_type_preference(cand_type);
-		local_pref = -1;
+		local_pref = UINT_MAX;
 	}
 
 	ag = media->ice_agent;
