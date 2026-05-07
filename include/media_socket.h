@@ -354,10 +354,10 @@ struct rtp_extension {
 };
 
 
-static inline void rtp_extension_free(struct rtp_extension *r) {
+INLINE void rtp_extension_free(struct rtp_extension *r) {
 	g_free(r);
 }
-static inline void rtp_ext_data_free(struct rtp_extension_data *r) {
+INLINE void rtp_ext_data_free(struct rtp_extension_data *r) {
 	g_free(r);
 }
 
