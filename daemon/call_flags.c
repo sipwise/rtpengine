@@ -1899,7 +1899,7 @@ const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg v
 		case CSH_LOOKUP("RTCP mux"):
 			return call_ng_flags_str_list(parser, value, call_ng_flags_rtcp_mux, out);
 		case CSH_LOOKUP("rtpp-flags"):
-		case CSH_LOOKUP("rtpp_flags"):;
+		case CSH_LOOKUP("rtpp_flags"):
 		case CSH_LOOKUP("rtpp flags"):;
 			/* s - list of rtpp flags */
 			out->rtpp_flags = true;
