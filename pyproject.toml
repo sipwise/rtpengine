@@ -1,3 +1,32 @@
+[build-system]
+requires = ["hatchling >= 1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pysip-simple"
+description = "Lightweight SIP framework based on belle-sip"
+readme = "python/README.md"
+license = "GPL-3.0-or-later"
+dynamic = ["version"]
+requires-python = ">= 3.13"
+dependencies = [
+	"aiohttp >= 3.11",
+]
+authors = [
+	{name = "Richard Fuchs", email = "rfuchs@sipwise.com"},
+]
+maintainers = [
+	{name = "Richard Fuchs", email = "rfuchs@sipwise.com"},
+]
+
+[tool.hatch.version]
+path = "python/pysip_lite/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["python/pysip_lite"]
+exclude = [".gitignore"]
+artifacts = ["python/src/*.so"]
+
 [tool.black]
 # Match line-length expected by pycodestyle.
 line-length = 79

@@ -17,6 +17,9 @@ ifeq ($(with_transcoding),yes)
 	$(MAKE) -C recording-daemon
 	$(MAKE) -C perf-tester
 endif
+ifneq (,$(filter $(DEB_BUILD_PROFILES),pkg.ngcp-rtpengine.pysip-lite))
+	$(MAKE) -C python
+endif
 
 install:
 	$(MAKE) -C daemon install
@@ -51,6 +54,7 @@ distclean clean:
 	$(MAKE) -C kernel-module clean
 	$(MAKE) -C t clean
 	$(MAKE) -C lib clean
+	$(MAKE) -C python clean
 	rm -f config.mk
 
 .DEFAULT:

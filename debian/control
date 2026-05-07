@@ -5,6 +5,7 @@ Homepage: https://www.sipwise.com/
 Standards-Version: 4.7.2
 Build-Depends:
  debhelper-compat (= 13),
+ dh-python,
  dh-sequence-dkms,
  default-libmysqlclient-dev,
  discount,
@@ -14,6 +15,7 @@ Build-Depends:
  libavformat-dev (>= 6:10),
  libavutil-dev (>= 6:10),
  libbcg729-dev <!pkg.ngcp-rtpengine.nobcg729>,
+ libbellesip-dev <pkg.ngcp-rtpengine.pysip-lite>,
  libbencode-perl,
  libcrypt-openssl-rsa-perl,
  libcrypt-rijndael-perl,
@@ -49,7 +51,9 @@ Build-Depends:
  ngcp-libcodec-chain-dev (>= 13.3) <pkg.ngcp-rtpengine.codec-chain>,
  pandoc,
  pkgconf,
+ pybuild-plugin-pyproject <pkg.ngcp-rtpengine.pysip-lite>,
  python3,
+ python3-hatchling <pkg.ngcp-rtpengine.pysip-lite>,
  python3-websockets,
  systemd-dev | systemd,
  zlib1g-dev,
@@ -166,3 +170,17 @@ Description: helper tool to test rtpengine transcoding performance - data files
  base and produces performance and load statistics.
  .
  These are data files needed for the binary package.
+
+Package: ngcp-python3-pysip-lite
+Architecture: any
+Build-Profiles: <pkg.ngcp-rtpengine.pysip-lite>
+Multi-Arch: foreign
+Depends:
+ python3,
+ ${misc:Depends},
+ ${python3:Depends},
+ ${shlibs:Depends},
+Description: light-weight SIP module
+ This module provides a simple SIP framework to implement SIP user agents and
+ other applications. It only handles SIP and specifically doesn't handle RTP or
+ media.
