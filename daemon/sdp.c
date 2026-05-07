@@ -11,7 +11,6 @@
 #include "call.h"
 #include "log.h"
 #include "str.h"
-#include "call.h"
 #include "crypto.h"
 #include "dtls.h"
 #include "rtp.h"
