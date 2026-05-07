@@ -3279,7 +3279,7 @@ __attribute__((nonnull(1, 2, 3)))
 static void sdp_out_add_osrtp_media(GString *out, struct call_media *media,
 	const struct transport_protocol *prtp, const endpoint_t *address)
 {
-	g_string_append_printf(out, "m=" STR_FORMAT " %d %s ",
+	g_string_append_printf(out, "m=" STR_FORMAT " %u %s ",
 			STR_FMT(&media->type),
 			address ? address->port : 0,
 			prtp->name);
@@ -3297,12 +3297,12 @@ static bool sdp_out_add_media(GString *out, struct call_media *media,
 		unsigned int port)
 {
 	if (media->protocol)
-		g_string_append_printf(out, "m=" STR_FORMAT " %i %s ",
+		g_string_append_printf(out, "m=" STR_FORMAT " %u %s ",
 				STR_FMT(&media->type),
 				port,
 				media->protocol->name);
 	else if (media->protocol_str.s)
-		g_string_append_printf(out, "m=" STR_FORMAT " %i " STR_FORMAT " ",
+		g_string_append_printf(out, "m=" STR_FORMAT " %u " STR_FORMAT " ",
 				STR_FMT(&media->type),
 				port,
 				STR_FMT(&media->protocol_str));
