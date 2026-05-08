@@ -4075,13 +4075,11 @@ void media_subscriptions_clear(subscription_q *q) {
 	i_queue_clear_full(q, media_subscription_free);
 }
 
-__attribute__((nonnull(1, 2)))
-static inline void __unsubscribe_media_link_store(struct call_media *which, struct media_subscription *ms,
+__attribute__((nonnull(1, 2, 3, 4)))
+static inline void __remove_sub_link_store(struct call_media *which, struct media_subscription *ms,
+		struct call_media *from, struct media_subscription *rev_ms,
 		subscription_store_ht ht)
 {
-	struct media_subscription *rev_ms = ms->reverse;
-	struct call_media *from = ms->media;
-
 	ilog(LOG_DEBUG, "Unsubscribing media with monologue tag '" STR_FORMAT_M "' (index: %d) "
 			"from media with monologue tag '" STR_FORMAT_M "' (index: %d)",
 			STR_FMT_M(&which->monologue->tag), which->index,
@@ -4099,6 +4097,20 @@ static inline void __unsubscribe_media_link_store(struct call_media *which, stru
 		t_hash_table_insert(ht, from, rev_ms);
 	else
 		g_free(rev_ms);
+}
+
+
+__attribute__((nonnull(1, 2)))
+static inline void __unsubscribe_media_link_store(struct call_media *which, struct media_subscription *ms,
+		subscription_store_ht ht)
+{
+	__remove_sub_link_store(which, ms, ms->media, ms->reverse, ht);
+}
+
+__attribute__((nonnull(1, 2)))
+static inline void __unsubscribe_subscriber_media_link(struct call_media *from, struct media_subscription *rev_ms)
+{
+	__remove_sub_link_store(rev_ms->media, rev_ms->reverse, from, rev_ms, subscription_store_ht_null());
 }
 
 __attribute__((nonnull(1, 2)))
@@ -4157,10 +4169,10 @@ INLINE void __unsubscribe_media_from_all(struct call_media *media, subscription_
 }
 
 __attribute__((nonnull(1)))
-INLINE void __unsubscribe_all_from_media(struct call_media *media, subscription_store_ht ht)
+INLINE void __unsubscribe_all_from_media(struct call_media *media)
 {
 	IQUEUE_FOREACH_SAFE(&media->media_subscribers, subscription)
-		__unsubscribe_media_link_store(media, subscription, ht);
+		__unsubscribe_subscriber_media_link(media, subscription);
 }
 
 __attribute__((nonnull(1)))
@@ -4172,7 +4184,7 @@ INLINE void unsubscribe_media_from_all(struct call_media *media)
 __attribute__((nonnull(1)))
 INLINE void unsubscribe_all_from_media(struct call_media *media)
 {
-	__unsubscribe_all_from_media(media, subscription_store_ht_null());
+	__unsubscribe_all_from_media(media);
 }
 
 __attribute__((nonnull(1)))
@@ -4189,7 +4201,7 @@ INLINE void __unsubscribe_monologue_from_all(struct call_monologue *ml, subscrip
 }
 
 __attribute__((nonnull(1)))
-INLINE void __unsubscribe_all_from_monologue(struct call_monologue *ml, subscription_store_ht ht)
+INLINE void __unsubscribe_all_from_monologue(struct call_monologue *ml)
 {
 	for (unsigned int i = 0; i < ml->medias->len; i++)
 	{
@@ -4197,7 +4209,7 @@ INLINE void __unsubscribe_all_from_monologue(struct call_monologue *ml, subscrip
 		if (!media)
 			continue;
 
-		__unsubscribe_all_from_media(media, ht);
+		__unsubscribe_all_from_media(media);
 	}
 }
 
