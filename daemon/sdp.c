@@ -374,7 +374,9 @@ static void sdp_manipulations_add(GString *s, const struct sdp_manipulations * s
 	for (auto_iter(l, q_ptr->head); l; l = l->next)
 	{
 		str * attr_value = l->data;
-		g_string_append_len(s, "a=", 2);
+		/* add a= only when not given by manipulation flags */
+		if (attr_value->len >= 2 && strncmp(attr_value->s, "a=", 2))
+			g_string_append_len(s, "a=", 2);
 		g_string_append_len(s, attr_value->s, attr_value->len);
 		g_string_append_len(s, "\r\n", 2);
 	}
