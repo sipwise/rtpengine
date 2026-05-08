@@ -1892,6 +1892,8 @@ static struct sdp_attr *sdp_attr_dup(const struct sdp_attribute *c) {
 
 	ac->strs.name = call_str_cpy(&c->strs.name);
 	ac->strs.value = call_str_cpy(&c->strs.value);
+	ac->strs.line_value = call_str_cpy(&c->strs.line_value);
+	ac->strs.key = call_str_cpy(&c->strs.key);
 	ac->other = c->other;
 	ac->attr = c->attr;
 
