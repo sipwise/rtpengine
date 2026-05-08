@@ -3252,6 +3252,7 @@ static void sdp_out_add_media_connection(GString *out, struct call_media *media,
 				ifa = rtp_ps->selected_sfd->local_intf;
 			else
 				ifa = get_any_interface_address(rtp_ps->media->logical_intf, rtp_ps->media->desired_family);
+			assert(ifa != NULL);
 			ifa_addr = &ifa->spec->local_address;
 			media_conn_address_type = ifa_addr->addr.family->rfc_name;
 			media_conn_address = ifa_addr->addr.family->unspec_string;
