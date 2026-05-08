@@ -66,6 +66,7 @@ RUN apt-get update \
   libevent-pthreads-2.1-7 \
   libglib2.0-0 \
   libhiredis1.1.0 \
+  libip4tc2 \
   libip6tc2 \
   libjson-glib-1.0-0 \
   libjwt2 \
