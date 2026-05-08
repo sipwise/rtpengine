@@ -2613,8 +2613,10 @@ const char *call_mesh_ng(ng_command_ctx_t *ctx) {
 			return "Given from-tag not found";
 
 		if (flags.unsubscribe) {
+			/* unsubscribe these medias from other */
 			unsubscribe_monologue_from_all(tag->from_ml);
 			if (flags.bidirectional)
+				/* drop all subscribers of these medias */
 				unsubscribe_all_from_monologue(tag->from_ml);
 		}
 	}

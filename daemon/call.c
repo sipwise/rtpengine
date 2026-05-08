@@ -4218,7 +4218,7 @@ void unsubscribe_monologue_from_all(struct call_monologue *ml) {
 }
 
 void unsubscribe_all_from_monologue(struct call_monologue *ml) {
-	__unsubscribe_monologue_from_all(ml, subscription_store_ht_null());
+	__unsubscribe_all_from_monologue(ml);
 }
 
 
