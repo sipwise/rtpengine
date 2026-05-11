@@ -6691,7 +6691,11 @@ static bool monologue_call_create_media(struct call_monologue *ml, sdp_ng_flags 
 		return false;
 	__ice_init(m);
 
-	monologue_open_ports(ml);
+	if (!monologue_open_ports(ml)) {
+		ilog(LOG_ERR, "Error allocating media ports");
+		return false;
+	}
+
 	monologue_media_start(ml);
 
 	return true;
