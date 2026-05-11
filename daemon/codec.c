@@ -6049,6 +6049,7 @@ int codec_store_accept_one(struct codec_store *cs, const str_q *accept, bool acc
 	// local codec-accept routine: accept first supported codec, or first from "accept" list
 	// if given
 
+	bool accept_all = false;
 	rtp_payload_type *accept_pt = NULL;
 
 	for (auto_iter(l, accept->head); l; l = l->next) {
@@ -6056,6 +6057,10 @@ int codec_store_accept_one(struct codec_store *cs, const str_q *accept, bool acc
 		str *codec = l->data;
 		if (!str_cmp(codec, "any")) {
 			accept_any = true;
+			continue;
+		}
+		if (!str_cmp(codec, "all")) {
+			accept_all = true;
 			continue;
 		}
 		GQueue *pts = t_hash_table_lookup(cs->codec_names, codec);
@@ -6075,6 +6080,9 @@ int codec_store_accept_one(struct codec_store *cs, const str_q *accept, bool acc
 		if (accept_pt)
 			break;
 	}
+
+	if (accept_all && accept_any)
+		return 0;
 
 	if (!accept_pt) {
 		// none found yet - pick the first one
@@ -6105,7 +6113,15 @@ int codec_store_accept_one(struct codec_store *cs, const str_q *accept, bool acc
 			continue;
 		}
 		ensure_codec_def(pt, cs->media);
-		if (pt->codec_def && pt->codec_def->supplemental
+		if (accept_all) {
+			if (codec_def_supported(pt->codec_def)
+					|| (pt->codec_def && pt->codec_def->supplemental))
+			{
+				link = link->next;
+				continue;
+			}
+		}
+		else if (pt->codec_def && pt->codec_def->supplemental
 				&& pt->clock_rate == accept_pt->clock_rate)
 		{
 			link = link->next;
