@@ -4600,7 +4600,10 @@ static int monologue_subscribe_request1(struct call_media *src_media, struct cal
 
 	update_init_subscribers(src_media, NULL, NULL, flags->opmode);
 
-	monologue_open_ports(dst_ml);
+	if (!monologue_open_ports(dst_ml)) {
+		ilog(LOG_ERR, "Error allocating media ports");
+		return -1;
+	}
 
 	return 0;
 }
