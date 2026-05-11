@@ -4456,7 +4456,7 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 
 		struct endpoint_map *em = __get_endpoint_map(media, num_ports, NULL, flags, true);
 		if (!em)
-			return -1; // XXX error - no ports
+			goto error_ports;
 
 		__num_media_streams(media, num_ports);
 
@@ -4476,14 +4476,16 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		sdp_sp_move(&media->sp, sp);
 	}
 
-	if (!monologue_open_ports(ml)) {
-		ilog(LOG_ERR, "Error allocating media ports");
-		return -1;
-	}
+	if (!monologue_open_ports(ml))
+		goto error_ports;
 
 	monologue_media_start(ml);
 
 	return 0;
+
+error_ports:
+	ilog(LOG_ERR, "Error allocating media ports");
+	return -1;
 }
 
 /* called with call->master_lock held in W */
