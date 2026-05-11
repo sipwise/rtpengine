@@ -2605,7 +2605,10 @@ the first codec that is supported for transcoding is selected. If no such codec
 is present, then the offer is rejected. The special string `any` can be given
 in the `accept` list to influence this behaviour: If `any` is listed, then the
 first codec from the offer is accepted even if it's not supported for
-transcoding.
+transcoding. The special string `all` can be given in the `accept` list to
+keep all codecs that are supported for transcoding (and their supplemental
+codecs), removing only unsupported codecs. If both `all` and `any` are given,
+all codecs from the offer are kept without removing any.
 
 ## `subscribe request` Message
 
