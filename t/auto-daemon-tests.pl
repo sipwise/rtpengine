@@ -1139,6 +1139,51 @@ rcv($sock_b, $port_a, rtpm(98 | 0x80, 7003, 9480, 0x75336ce, "\x08\x0f\x00\xa0")
 
 
 
+new_call;
+
+offer('ICE=force in answer', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('ICE=force in answer', { ICE => 'force'}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
 ($sock_a, $sock_b) = new_call([qw(198.51.100.1 7256)], [qw(198.51.100.3 7258)]);
 
 ($port_a, undef, $ufrag_a, $pwd_a) = offer('remote-candidates', { 'rtcp-mux' => ['require'] }, <<SDP);
