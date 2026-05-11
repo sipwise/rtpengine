@@ -15,6 +15,15 @@
 struct bufferpool;
 struct bpool_shard;
 
+typedef struct {
+	unsigned int num_shards;
+	struct {
+		unsigned int refs;
+		size_t size;
+		size_t used;
+	} *shards;
+} bpool_stats_t;
+
 void bufferpool_init(void);
 void bufferpool_cleanup(void);
 
@@ -37,6 +46,10 @@ INLINE void *bufferpool_alloc0(struct bufferpool *bp, size_t len) {
 
 void *bufferpool_aligned_alloc(void);
 void bufferpool_aligned_free(void *);
+
+void bufferpool_stats(struct bufferpool *bp, bpool_stats_t *stats);
+void bufferpool_stats_clear(bpool_stats_t *stats);
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(bpool_stats_t, bufferpool_stats_clear);
 
 typedef char bp_char;
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(bp_char, bufferpool_unref);

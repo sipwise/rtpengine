@@ -313,6 +313,36 @@ static void add_header(stats_metric_q *ret, const char *fmt1, const char *fmt2, 
 #define HEADERl(fmt2, ...) add_header(ret, NULL, fmt2, ##__VA_ARGS__)
 
 
+static void bpool_stats(stats_metric_q *ret, const char *name, struct bufferpool *bpool) {
+	if (!bpool) // relevant for unit tests only
+		return;
+
+	HEADER(name, NULL);
+	HEADER("{", NULL);
+	{
+		g_auto(bpool_stats_t) stats;
+		bufferpool_stats(bpool, &stats);
+
+		METRICs("num_shards", "%u", stats.num_shards);
+
+		HEADER("shards", NULL);
+		HEADER("[", NULL);
+
+		for (unsigned int i = 0; i < stats.num_shards; i++) {
+			HEADER("{", NULL);
+
+			METRICs("references", "%u", stats.shards[i].refs);
+			METRICs("size", "%zu", stats.shards[i].size);
+			METRICs("used", "%zu", stats.shards[i].used);
+
+			HEADER("}", NULL);
+		}
+
+		HEADER("]", NULL);
+	}
+	HEADER("}", NULL);
+}
+
 stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *interface_rate_stats) {
 	stats_metric_q *ret = stats_metric_q_new();
 
@@ -927,6 +957,14 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 		HEADER("}", NULL);
 	}
 	HEADER("]", NULL);
+
+	HEADER("bufferpools", NULL);
+	HEADER("{", NULL);
+
+	bpool_stats(ret, "main", rtpe_bufferpool);
+	bpool_stats(ret, "shared", shm_bufferpool);
+
+	HEADER("}", NULL);
 
 	HEADER("}", NULL);
 

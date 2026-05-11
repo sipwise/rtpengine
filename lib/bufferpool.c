@@ -359,3 +359,23 @@ void *bufferpool_aligned_alloc(void) {
 void bufferpool_aligned_free(void *p) {
 	free(p);
 }
+
+void bufferpool_stats(struct bufferpool *bp, bpool_stats_t *stats) {
+	rwlock_lock_r(&bp->shards_lock);
+
+	stats->num_shards = bp->num_shards;
+
+	stats->shards = g_new(__typeof(*stats->shards), bp->num_shards);
+
+	for (unsigned int i = 0; i < bp->num_shards; i++) {
+		stats->shards[i].refs = bp->shards[i]->refs;
+		stats->shards[i].size = bp->shards[i]->end - bp->shards[i]->empty;
+		stats->shards[i].used = bp->shards[i]->head - bp->shards[i]->empty;
+	}
+
+	rwlock_unlock_r(&bp->shards_lock);
+}
+
+void bufferpool_stats_clear(bpool_stats_t *stats) {
+	g_free(stats->shards);
+}
