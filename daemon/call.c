@@ -4476,7 +4476,11 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		sdp_sp_move(&media->sp, sp);
 	}
 
-	monologue_open_ports(ml);
+	if (!monologue_open_ports(ml)) {
+		ilog(LOG_ERR, "Error allocating media ports");
+		return -1;
+	}
+
 	monologue_media_start(ml);
 
 	return 0;
