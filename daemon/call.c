@@ -1431,8 +1431,10 @@ static void __ice_offer(const sdp_ng_flags *flags, struct call_media *this,
 	// unless instructed not to
 	if (flags->ice_option == ICE_REMOVE)
 		MEDIA_CLEAR(this, ICE);
-	else if (flags->ice_option != ICE_DEFAULT)
-		MEDIA_SET(this, ICE);
+	else if (flags->ice_option != ICE_DEFAULT) {
+		if (flags->opmode != OP_ANSWER && flags->opmode != OP_PUBLISH)
+			MEDIA_SET(this, ICE);
+	}
 
 	if (flags->ice_reject)
 		MEDIA_CLEAR(other, ICE);
