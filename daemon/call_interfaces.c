@@ -2044,7 +2044,7 @@ const char *call_play_dtmf_ng(ng_command_ctx_t *ctx) {
 
 found:
 		ML_SET(monologue, DTMF_INJECTION_ACTIVE);
-		dialogue_unconfirm(monologue, "DTMF playback");
+		__monologue_unconfirm(monologue, "DTMF playback");
 
 		for (unsigned int i = 0; i < monologue->medias->len; i++)
 		{

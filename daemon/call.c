@@ -5939,6 +5939,10 @@ void __monologue_unconfirm(struct call_monologue *monologue, const char *reason)
 		if (!media)
 			continue;
 		__media_unconfirm(media, reason);
+		IQUEUE_FOREACH(&media->media_subscriptions, ms)
+			__media_unconfirm(ms->media, reason);
+		IQUEUE_FOREACH(&media->media_subscribers, ms)
+			__media_unconfirm(ms->media, reason);
 	}
 }
 /**
@@ -5954,28 +5958,6 @@ void __media_unconfirm(struct call_media *media, const char *reason) {
 		__stream_unconfirm(stream, reason);
 		__unconfirm_sinks(&stream->rtp_sinks, reason);
 		__unconfirm_sinks(&stream->rtcp_sinks, reason);
-	}
-}
-/**
- * Unconfirms all monologue medias and its subscribers/subscriptions.
- */
-void dialogue_unconfirm(struct call_monologue *ml, const char *reason) {
-	__monologue_unconfirm(ml, reason);
-
-	/* TODO: this seems to be doing similar work as `__monologue_unconfirm()`
-	 * but works instead on subscriptions additionally. For the future
-	 * this should probably be deprecated and `__monologue_unconfirm()`
-	 * has to take the work on subscribers/subscriptions as well.
-	 */
-	for (unsigned int i = 0; i < ml->medias->len; i++)
-	{
-		struct call_media *media = ml->medias->pdata[i];
-		if (!media)
-			continue;
-		IQUEUE_FOREACH(&media->media_subscriptions, ms)
-			__media_unconfirm(ms->media, reason);
-		IQUEUE_FOREACH(&media->media_subscribers, ms)
-			__media_unconfirm(ms->media, reason);
 	}
 }
 
@@ -6205,7 +6187,7 @@ static int call_get_monologue_new(struct call_monologue *monologues[2], call_t *
 
 	__C_DBG("found existing monologue");
 	/* unkernelize existing monologue medias, which are subscribed to something */
-	dialogue_unconfirm(ret, "signalling on existing monologue");
+	__monologue_unconfirm(ret, "signalling on existing monologue");
 
 	/* If to-tag is present, retrieve it.
 	 * Create a new monologue for the other side, if the monologue with such to-tag not found.
@@ -6365,12 +6347,12 @@ tag_setup:
 	 * derived from the viabranch. */
 	__monologue_tag(ft, fromtag);
 
-	dialogue_unconfirm(ft, "dialogue signalling event");
-	dialogue_unconfirm(tt, "dialogue signalling event");
+	__monologue_unconfirm(ft, "dialogue signalling event");
+	__monologue_unconfirm(tt, "dialogue signalling event");
 
 done:
 	__monologue_unconfirm(ft, "dialogue signalling event");
-	dialogue_unconfirm(ft, "dialogue signalling event");
+	__monologue_unconfirm(ft, "dialogue signalling event");
 	__tags_associate(ft, tt);
 
 	/* just provide gotten dialogs,

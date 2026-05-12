@@ -938,7 +938,6 @@ void call_media_free(struct call_media **mdp);
 enum call_stream_state call_stream_state_machine(struct packet_stream *);
 void call_media_state_machine(struct call_media *m);
 void call_media_unkernelize(struct call_media *media, const char *reason);
-void dialogue_unconfirm(struct call_monologue *ml, const char *);
 void __monologue_unconfirm(struct call_monologue *monologue, const char *);
 void __media_unconfirm(struct call_media *media, const char *);
 __attribute__((nonnull(1)))
