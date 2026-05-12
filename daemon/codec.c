@@ -335,7 +335,6 @@ static int packet_decoded_audio_player(decoder_t *decoder, AVFrame *frame, void 
 
 static void codec_touched(struct codec_store *cs, rtp_payload_type *pt);
 
-__attribute__((nonnull(4, 5, 6)))
 static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *ch,
 		struct codec_ssrc_handler *input_handler,
 		struct transcode_packet *packet, struct media_packet *mp,
@@ -3428,7 +3427,7 @@ static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *dec
 		return true;
 	}
 
-	unsigned long ts = packet->ts;
+	unsigned long ts = packet ? packet->ts : 0;
 
 	if (!mp->ssrc_out->seq_set) {
 		mp->ssrc_out->seq_set = true;
@@ -3464,7 +3463,7 @@ static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *dec
 	}
 
 	// packet now consumed if there was one
-	bool ret = true;
+	bool ret = packet ? true : false;
 	packet = NULL;
 
 	mutex_unlock(&dtxb->lock);
