@@ -1,3 +1,13 @@
+ngcp-rtpengine (13.5.1.11+0~mr13.5.1.11) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [6d4514c] MT#55283 prevent SSRC deadlock
+  * [83afd79] MT#55283 fix random seq under DTX
+  * [11d600a] MT#55283 tests for Iecdd3d28
+  * [ff81e2c] MT#55283 prevent possible NULL dereference
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 12 May 2026 15:18:12 +0200
+
 ngcp-rtpengine (13.5.1.10+0~mr13.5.1.10) unstable; urgency=medium
 
   [ Orgad Shaneh ]
