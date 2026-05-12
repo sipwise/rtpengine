@@ -335,6 +335,7 @@ static int packet_decoded_audio_player(decoder_t *decoder, AVFrame *frame, void 
 
 static void codec_touched(struct codec_store *cs, rtp_payload_type *pt);
 
+__attribute__((nonnull(5, 6)))
 static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *ch,
 		struct codec_ssrc_handler *input_handler,
 		struct transcode_packet *packet, struct media_packet *mp,
@@ -3385,7 +3386,8 @@ static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *dec
 		if (!__dtx_should_do(decoder_handler))
 			return false;
 		ilogs(dtx, LOG_INFO | LOG_FLAG_LIMIT, "No DTX buffer, discarding packet");
-		__transcode_packet_free(packet);
+		if (packet)
+			__transcode_packet_free(packet);
 		return true;
 	}
 
