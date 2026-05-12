@@ -77,9 +77,8 @@ static struct media_subscription *__subscribe_medias_both_ways(struct call_media
 static void call_stream_crypto_reset(struct packet_stream *ps);
 
 /* called with call->master_lock held in R */
-static int call_timer_delete_monologues(call_t *c) {
+static void call_timer_delete_monologues(call_t *c) {
 	struct call_monologue *ml;
-	int ret = 0;
 	int64_t min_deleted = 0;
 	bool update = false;
 
@@ -110,7 +109,6 @@ static int call_timer_delete_monologues(call_t *c) {
 	rwlock_lock_r(&c->master_lock);
 
 	// coverity[missing_unlock : FALSE]
-	return ret;
 }
 
 
@@ -165,8 +163,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 		goto delete;
 
 	if (c->ml_deleted_us && rtpe_now >= c->ml_deleted_us) {
-		if (call_timer_delete_monologues(c))
-			goto delete;
+		call_timer_delete_monologues(c);
 	}
 
 	// conference: call can be created without participants added
