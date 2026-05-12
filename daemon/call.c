@@ -1373,12 +1373,17 @@ static bool __streams_set_sinks(struct call_media *A, struct call_media *B,
 		else if (b_rtp && MEDIA_ISSET(B, SEND))
 			__add_sink_handler(&a_rtp->rtp_sinks, b_rtp, attrs);
 
-		PS_CLEAR(b_rtp, ZERO_ADDR);
+		if (b_rtp)
+			PS_CLEAR(b_rtp, ZERO_ADDR);
+
 		if (is_addr_unspecified(&a_rtp->advertised_endpoint.address)
 				&& !(is_trickle_ice_address(&a_rtp->advertised_endpoint)
 					&& MEDIA_ISSET(A, TRICKLE_ICE))
 				&& !(flags && flags->replace_zero_address))
-			PS_SET(b_rtp, ZERO_ADDR);
+		{
+			if (b_rtp)
+				PS_SET(b_rtp, ZERO_ADDR);
+		}
 
 		/* RTCP */
 		lb = lb->next;
