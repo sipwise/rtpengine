@@ -92,6 +92,9 @@ out:
 }
 
 
+static_assert(0x7f < G_N_ELEMENTS(((ssrc_t *)0)->decoders),
+	"payload_type mask 0x7f must be within decoders array bounds");
+
 // ssrc is locked
 static void packet_decode(ssrc_t *ssrc, packet_t *packet) {
 	// determine payload type and run decoder
