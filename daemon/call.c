@@ -6347,12 +6347,10 @@ tag_setup:
 	 * derived from the viabranch. */
 	__monologue_tag(ft, fromtag);
 
+done:
 	__monologue_unconfirm(ft, "dialogue signalling event");
 	__monologue_unconfirm(tt, "dialogue signalling event");
 
-done:
-	__monologue_unconfirm(ft, "dialogue signalling event");
-	__monologue_unconfirm(ft, "dialogue signalling event");
 	__tags_associate(ft, tt);
 
 	/* just provide gotten dialogs,
