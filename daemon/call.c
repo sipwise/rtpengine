@@ -6753,7 +6753,7 @@ bool monologue_call_create_answer(struct call_monologue *ml, sdp_ng_flags *flags
 		__dtls_logic(flags, media, sp);
 
 		if (!__init_streams(media, sp, flags))
-			return -1;
+			return false;
 
 		bf_copy(&media->media_flags, MEDIA_FLAG_RECV, &sp->sp_flags, SP_FLAG_SEND);
 		bf_copy(&media->media_flags, MEDIA_FLAG_SEND, &sp->sp_flags, SP_FLAG_RECV);
