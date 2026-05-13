@@ -1289,6 +1289,9 @@ static bool __init_streams(struct call_media *A, const struct stream_params *sp,
 			__fill_stream(a, &sp->rtp_endpoint, port_off, sp, flags);
 			bf_copy_same(&a->ps_flags, &sp->sp_flags,
 					SHARED_FLAG_STRICT_SOURCE | SHARED_FLAG_MEDIA_HANDOVER);
+			if (PS_ARESET2(a, STRICT_SOURCE, MEDIA_HANDOVER))
+				ilog(LOG_WARN, "Both strict-source and media-handover are set, "
+						"which are mutually exclusive");
 		}
 		bf_copy_same(&a->ps_flags, &A->media_flags, SHARED_FLAG_ICE);
 
@@ -1326,6 +1329,9 @@ static bool __init_streams(struct call_media *A, const struct stream_params *sp,
 			}
 			bf_copy_same(&a->ps_flags, &sp->sp_flags,
 					SHARED_FLAG_STRICT_SOURCE | SHARED_FLAG_MEDIA_HANDOVER);
+			if (PS_ARESET2(a, STRICT_SOURCE, MEDIA_HANDOVER))
+				ilog(LOG_WARN, "Both strict-source and media-handover are set, "
+						"which are mutually exclusive");
 		}
 		bf_copy_same(&a->ps_flags, &A->media_flags, SHARED_FLAG_ICE);
 
