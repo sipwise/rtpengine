@@ -2056,7 +2056,7 @@ bool sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_
 			bf_set_clear(&sp->sp_flags, SP_FLAG_MEDIA_HANDOVER, flags->media_handover);
 
 			/* b= (bandwidth), is parsed in sdp_parse() */
-			sp->media_session_bandiwdth = media->bandwidth;
+			sp->media_session_bandwidth = media->bandwidth;
 
 			sp->sdp_information = media->information;
 

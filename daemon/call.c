@@ -3267,7 +3267,7 @@ static void media_update_attrs(struct call_media *media, struct stream_params *s
 	t_queue_init(&sp->all_attributes);
 
 	/* bandwidth */
-	media->sdp_media_bandwidth = sp->media_session_bandiwdth;
+	media->sdp_media_bandwidth = sp->media_session_bandwidth;
 	media->sdp_information = call_str_cpy(&sp->sdp_information);
 }
 

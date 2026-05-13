@@ -382,7 +382,7 @@ struct stream_params {
 	struct t38_options	t38_options;
 	str			tls_id;
 	int			media_sdp_id;
-	struct session_bandwidth media_session_bandiwdth;
+	struct session_bandwidth media_session_bandwidth;
 	str			sdp_information;
 	extmap_q		extmap;
 	str			label;
