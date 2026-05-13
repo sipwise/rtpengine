@@ -82,6 +82,7 @@ static GQueue rtpe_cli = G_QUEUE_INIT;
 GQueue rtpe_control_ng = G_QUEUE_INIT;
 GQueue rtpe_control_ng_tcp = G_QUEUE_INIT;
 struct bufferpool *shm_bufferpool;
+struct bufferpool *static_bufferpool;
 struct bufferpool *rtpe_bufferpool;
 memory_arena_t rtpe_arena;
 
@@ -1611,7 +1612,9 @@ static void kernel_setup(void) {
 	return;
 
 fallback:
-	shm_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free); // fallback userspace bufferpool
+	// fallback userspace bufferpool
+	shm_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free);
+	static_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free);
 }
 
 
@@ -2046,6 +2049,7 @@ int main(int argc, char **argv) {
 #endif
 	ng_client_cleanup();
 	bufferpool_destroy(shm_bufferpool);
+	bufferpool_destroy(static_bufferpool);
 	kernel_shutdown_table();
 	options_free();
 	bufferpool_cleanup();

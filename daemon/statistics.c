@@ -963,6 +963,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 
 	bpool_stats(ret, "main", rtpe_bufferpool);
 	bpool_stats(ret, "shared", shm_bufferpool);
+	bpool_stats(ret, "static", static_bufferpool);
 
 	HEADER("}", NULL);
 
@@ -1003,7 +1004,7 @@ TYPED_GHASHTABLE_IMPL(codec_stats_ht, c_str_hash, c_str_equal, NULL, codec_stats
 
 void statistics_init(void) {
 	rtpe_started = now_us();
-	rtpe_stats = bufferpool_alloc0(shm_bufferpool, sizeof(*rtpe_stats));
+	rtpe_stats = bufferpool_alloc0(static_bufferpool, sizeof(*rtpe_stats));
 
 	mutex_init(&rtpe_codec_stats_lock);
 	rtpe_codec_stats = codec_stats_ht_new();

@@ -189,6 +189,7 @@ bool kernel_setup_table(unsigned int id) {
 	kernel.is_open = true;
 
 	shm_bufferpool = bufferpool_new(kernel_alloc, kernel_free);
+	static_bufferpool = bufferpool_new(kernel_alloc, kernel_free);
 
 	return true;
 }

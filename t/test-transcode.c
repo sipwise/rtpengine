@@ -22,6 +22,7 @@ unsigned int rtpe_poller_rr_iter;
 GString *dtmf_logs;
 GQueue rtpe_control_ng = G_QUEUE_INIT;
 struct bufferpool *shm_bufferpool;
+struct bufferpool *static_bufferpool;
 struct bufferpool *rtpe_bufferpool;
 memory_arena_t rtpe_arena;
 
@@ -440,6 +441,7 @@ int main(void) {
 	bufferpool_init();
 	media_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free);
 	shm_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free);
+	static_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free);
 
 	unsigned long random_seed = 0;
 
@@ -1748,6 +1750,7 @@ int main(void) {
 	statistics_free();
 	bufferpool_destroy(media_bufferpool);
 	bufferpool_destroy(shm_bufferpool);
+	bufferpool_destroy(static_bufferpool);
 	bufferpool_cleanup();
 
 	return 0;

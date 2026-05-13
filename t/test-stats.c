@@ -27,6 +27,7 @@ unsigned int rtpe_poller_rr_iter;
 GString *dtmf_logs;
 GQueue rtpe_control_ng = G_QUEUE_INIT;
 struct bufferpool *shm_bufferpool;
+struct bufferpool *static_bufferpool;
 struct bufferpool *rtpe_bufferpool;
 memory_arena_t rtpe_arena;
 
@@ -72,6 +73,7 @@ int main(void) {
 	rtpe_common_config_ptr = &rtpe_config.common;
 	bufferpool_init();
 	shm_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free);
+	static_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free);
 
 	endpoint_parse_any(&rtpe_config.graphite_ep, "1.2.3.4:4567");
 
@@ -1396,6 +1398,14 @@ int main(void) {
 			"bufferpools\n"
 			"{\n"
 			"shared\n"
+			"{\n"
+			"num_shards\n"
+			"0\n"
+			"shards\n"
+			"[\n"
+			"]\n"
+			"}\n"
+			"static\n"
 			"{\n"
 			"num_shards\n"
 			"1\n"
@@ -2729,6 +2739,14 @@ int main(void) {
 			"shared\n"
 			"{\n"
 			"num_shards\n"
+			"0\n"
+			"shards\n"
+			"[\n"
+			"]\n"
+			"}\n"
+			"static\n"
+			"{\n"
+			"num_shards\n"
 			"1\n"
 			"shards\n"
 			"[\n"
@@ -4055,6 +4073,14 @@ int main(void) {
 			"bufferpools\n"
 			"{\n"
 			"shared\n"
+			"{\n"
+			"num_shards\n"
+			"0\n"
+			"shards\n"
+			"[\n"
+			"]\n"
+			"}\n"
+			"static\n"
 			"{\n"
 			"num_shards\n"
 			"1\n"
@@ -5404,6 +5430,14 @@ int main(void) {
 			"shared\n"
 			"{\n"
 			"num_shards\n"
+			"0\n"
+			"shards\n"
+			"[\n"
+			"]\n"
+			"}\n"
+			"static\n"
+			"{\n"
+			"num_shards\n"
 			"1\n"
 			"shards\n"
 			"[\n"
@@ -6740,6 +6774,14 @@ int main(void) {
 			"shared\n"
 			"{\n"
 			"num_shards\n"
+			"0\n"
+			"shards\n"
+			"[\n"
+			"]\n"
+			"}\n"
+			"static\n"
+			"{\n"
+			"num_shards\n"
 			"1\n"
 			"shards\n"
 			"[\n"
@@ -8068,6 +8110,14 @@ int main(void) {
 			"bufferpools\n"
 			"{\n"
 			"shared\n"
+			"{\n"
+			"num_shards\n"
+			"0\n"
+			"shards\n"
+			"[\n"
+			"]\n"
+			"}\n"
+			"static\n"
 			"{\n"
 			"num_shards\n"
 			"1\n"
@@ -9403,6 +9453,14 @@ int main(void) {
 			"shared\n"
 			"{\n"
 			"num_shards\n"
+			"0\n"
+			"shards\n"
+			"[\n"
+			"]\n"
+			"}\n"
+			"static\n"
+			"{\n"
+			"num_shards\n"
 			"1\n"
 			"shards\n"
 			"[\n"
@@ -9429,6 +9487,7 @@ int main(void) {
 	dtls_cert_free();
 	ice_free();
 	bufferpool_destroy(shm_bufferpool);
+	bufferpool_destroy(static_bufferpool);
 	call_memory_arena_release();
 	bufferpool_cleanup();
 

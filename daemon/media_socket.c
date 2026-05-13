@@ -988,7 +988,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 	ifc->advertised_address = ifa->advertised_address;
 	ifc->spec = spec;
 	ifc->logical = lif;
-	ifc->stats = bufferpool_alloc0(shm_bufferpool, sizeof(*ifc->stats));
+	ifc->stats = bufferpool_alloc0(static_bufferpool, sizeof(*ifc->stats));
 
 	t_queue_push_tail(&all_local_interfaces, ifc);
 
