@@ -5277,11 +5277,8 @@ static int __codec_options_set1(call_t *call, rtp_payload_type *pt, const str *e
 	// match - apply options
 	if (pt_parsed->bitrate)
 		pt->bitrate = pt_parsed->bitrate;
-	if (!pt->codec_opts.len && pt_parsed->codec_opts.len) {
-		str_free_dup(&pt->codec_opts);
+	if (!pt->codec_opts.len && pt_parsed->codec_opts.len)
 		pt->codec_opts = pt_parsed->codec_opts;
-		pt_parsed->codec_opts = STR_NULL;
-	}
 	payload_type_free(pt_parsed);
 	return 1;
 }
@@ -5788,9 +5785,7 @@ void __codec_store_populate(struct codec_store *dst, struct codec_store *src, st
 			pt->for_transcoding = orig_pt->for_transcoding;
 			pt->accepted = orig_pt->accepted;
 			pt->bitrate = orig_pt->bitrate;
-			str_free_dup(&pt->codec_opts);
 			pt->codec_opts = orig_pt->codec_opts;
-			orig_pt->codec_opts = STR_NULL;
 			if (pt->for_transcoding)
 				codec_touched(dst, pt);
 		}
