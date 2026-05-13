@@ -115,7 +115,7 @@ enum {
 #endif
 
 #define IS_FOREIGN_CALL(c) CALL_ISSET(c, FOREIGN)
-#define IS_OWN_CALL(c) !IS_FOREIGN_CALL(c)
+#define IS_OWN_CALL(c) (!IS_FOREIGN_CALL(c))
 
 /* flags shared by several of the structs below */
 #define SHARED_FLAG_IMPLICIT_RTCP		(1LL <<  0)
