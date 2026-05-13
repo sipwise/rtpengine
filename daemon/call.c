@@ -4336,7 +4336,7 @@ static struct media_subscription *__subscribe_medias_both_ways(struct call_media
 }
 
 /**
- * Retrieve exsisting media subscriptions for a call monologue.
+ * Retrieve existing media subscriptions for a call monologue.
  * Checks if given media is in subscriptions/subscribers HT of opposite media.
  */
 struct media_subscription *call_get_media_subscription(subscription_ht ht, struct call_media * cm) {
@@ -5863,7 +5863,7 @@ struct call_monologue *__monologue_create(call_t *call) {
 	ret->medias = medias_arr_new();
 	ret->media_ids = media_id_ht_new();
 	ret->sdp_attr_print = sdp_insert_monologue_attributes;
-	/* explicitely set b=RR/b=RS to -1 so it's not considered as 0 inadvertently */
+	/* explicitly set b=RR/b=RS to -1 so it's not considered as 0 inadvertently */
 	RESET_BANDWIDTH(ret->sdp_session_bandwidth, -1);
 
 	ret->started = rtpe_now;
@@ -6394,10 +6394,10 @@ static void __monologue_stop(struct call_monologue *ml) {
 	media_player_stop(ml->rec_player);
 }
 /**
- * Stops media player and all medias of given monolgue.
+ * Stops media player and all medias of given monologue.
  * If asked, stops all media subscribers as well.
  */
-static void monologue_stop(struct call_monologue *ml, bool stop_media_subsribers) {
+static void monologue_stop(struct call_monologue *ml, bool stop_media_subscribers) {
 	/* monologue itself */
 	__monologue_stop(ml);
 	for (unsigned int i = 0; i < ml->medias->len; i++)
@@ -6405,7 +6405,7 @@ static void monologue_stop(struct call_monologue *ml, bool stop_media_subsribers
 		media_stop(ml->medias->pdata[i]);
 	}
 	/* monologue's subscribers */
-	if (stop_media_subsribers) {
+	if (stop_media_subscribers) {
 		for (unsigned int i = 0; i < ml->medias->len; i++)
 		{
 			struct call_media *media = ml->medias->pdata[i];

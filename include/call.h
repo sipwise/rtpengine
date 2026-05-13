@@ -559,8 +559,8 @@ struct call_media {
 
 	unsigned int		buffer_delay;
 
-	/* media subsriptions handling */
-	subscription_ht		media_subscriptions_ht;		/* for quick lookup of our subsriptions */
+	/* media subscriptions handling */
+	subscription_ht		media_subscriptions_ht;		/* for quick lookup of our subscriptions */
 	subscription_ht		media_subscribers_ht;		/* for quick lookup of medias subscribed to us */
 	subscription_q		media_subscribers;		/* who is subscribed to this media (sinks) */
 	subscription_q		media_subscriptions;		/* who am I subscribed to (sources) */
