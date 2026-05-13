@@ -41,7 +41,7 @@ void cdr_update_entry(call_t * c) {
 	const rtp_payload_type *rtp_pt;
 	struct packet_stream *ps=0;
 
-	if (!IS_OWN_CALL(c))
+	if (IS_FOREIGN_CALL(c))
 		return;
 
 	/* CDRs and statistics */

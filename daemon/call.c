@@ -5241,7 +5241,7 @@ void call_destroy(call_t *c) {
 
 	mqtt_timer_stop(&c->mqtt_timer);
 
-	if (!IS_OWN_CALL(c))
+	if (IS_FOREIGN_CALL(c))
 		goto no_stats_output;
 
 	///// stats output
