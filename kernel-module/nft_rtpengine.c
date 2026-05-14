@@ -439,7 +439,6 @@ struct re_shm {
  };
 
 #define RE_HASH_BITS 8 /* make configurable? */
-#define MAX_SHM_AREAS 16
 
 struct rtpengine_table {
 	atomic_t			refcnt;
@@ -465,7 +464,8 @@ struct rtpengine_table {
 	struct hlist_head		streams_hash[1 << RE_HASH_BITS];
 
 	spinlock_t			shm_lock;
-	struct re_shm			shms[MAX_SHM_AREAS];
+	struct re_shm			*shms;
+	unsigned int			max_shm;
 	unsigned int			nshms;
 	unsigned long			shm_total;
 
@@ -1173,6 +1173,7 @@ static void table_put(struct rtpengine_table *t) {
 
 	for (i = 0; i < t->nshms; i++)
 		release_shm(&t->shms[i]);
+	kfree(t->shms);
 
 	clear_table_proc_files(t);
 #ifdef KERNEL_PLAYER
@@ -2055,7 +2056,7 @@ static void *shm_map_resolve(struct rtpengine_table *t, void *p, size_t size) {
 
 	spin_lock(&t->shm_lock);
 
-	rmm = bsearch(p, &t->shms, t->nshms, sizeof(t->shms[0]), search_shm);
+	rmm = bsearch(p, t->shms, t->nshms, sizeof(t->shms[0]), search_shm);
 
 	if (!rmm)
 		goto out;
@@ -3743,6 +3744,7 @@ static int cmd_pin_memory(struct rtpengine_table *t, struct rtpengine_pin_memory
 	int npages;
 	struct re_shm rmm = {0};
 	int ret;
+	struct re_shm *shm_alloc = NULL;
 
 	// verify size
 	if (mi->size == 0)
@@ -3800,10 +3802,41 @@ static int cmd_pin_memory(struct rtpengine_table *t, struct rtpengine_pin_memory
 
 	spin_lock(&t->shm_lock);
 
-	if (t->nshms >= MAX_SHM_AREAS) {
+	while (t->nshms >= t->max_shm) {
+		// reallocate lock-free
+		unsigned int cur_shm = t->max_shm;
+		struct re_shm *tmp;
+
 		spin_unlock(&t->shm_lock);
-		release_shm(&rmm);
-		return -E2BIG;
+
+		if (!cur_shm)
+			cur_shm = 4;
+		else
+			cur_shm *= 2;
+
+		shm_alloc = kmalloc(sizeof(*shm_alloc) * cur_shm, GFP_KERNEL);
+
+		if (!shm_alloc) {
+			release_shm(&rmm);
+			return -ENOMEM;
+		}
+
+		spin_lock(&t->shm_lock);
+
+		if (t->nshms >= cur_shm) {
+			spin_unlock(&t->shm_lock);
+
+			kfree(shm_alloc);
+
+			spin_lock(&t->shm_lock);
+			continue;
+		}
+
+		t->max_shm = cur_shm;
+		memcpy(shm_alloc, t->shms, t->nshms * sizeof(*shm_alloc));
+		tmp = t->shms;
+		t->shms = shm_alloc;
+		shm_alloc = tmp;
 	}
 
 	// add to end
@@ -3815,6 +3848,8 @@ static int cmd_pin_memory(struct rtpengine_table *t, struct rtpengine_pin_memory
 	sort(t->shms, t->nshms, sizeof(t->shms[0]), cmp_shm, NULL);
 
 	spin_unlock(&t->shm_lock);
+
+	kfree(shm_alloc);
 
 	return 0;
 }
