@@ -1,3 +1,10 @@
+ngcp-rtpengine (14.1.1.10+0~mr14.1.1.10) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [722a795] MT#55283 don't free codec_opts
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 14 May 2026 14:23:32 +0200
+
 ngcp-rtpengine (14.1.1.9+0~mr14.1.1.9) unstable; urgency=medium
 
   [ Richard Fuchs ]
