@@ -210,16 +210,16 @@ static const char *ng_sdp_attr_media_iter(const ng_parser_t *parser, str *comman
 static const char *ng_sdp_attr_manipulations_iter(const ng_parser_t *parser, str *media_type, parser_arg command_action,
 		helper_arg arg)
 {
+	if (!parser->is_dict(command_action)) {
+		ilog(LOG_WARN, "SDP manipulations: Wrong content for SDP section.");
+		return "wrong content given";
+	}
+
 	struct sdp_manipulations *sm = sdp_manipulations_get_by_name(arg.flags->sdp_manipulations, media_type);
 	if (!sm) {
 		ilog(LOG_WARN, "SDP manipulations: unsupported SDP section '" STR_FORMAT "' targeted.",
 				STR_FMT(media_type));
 		return "unsupported sdp section";
-	}
-
-	if (!parser->is_dict(command_action)) {
-		ilog(LOG_WARN, "SDP manipulations: Wrong content for SDP section.");
-		return "wrong content given";
 	}
 
 	return parser->dict_iter(parser, command_action, ng_sdp_attr_media_iter, sm);
