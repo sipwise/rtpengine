@@ -836,10 +836,8 @@ static unsigned int pop_free_list_entry(struct re_auto_array *a) {
 }
 static void auto_array_free(struct re_auto_array *a) {
 
-	if (a->array)
-		kfree(a->array);
-	if (a->used_bitfield)
-		kfree(a->used_bitfield);
+	kfree(a->array);
+	kfree(a->used_bitfield);
 	while (!list_empty(&a->free_list))
 		pop_free_list_entry(a);
 }
@@ -1992,8 +1990,7 @@ out:
 
 	if (!g)
 		return ERR_PTR(-ENOENT);
-	if (b)
-		kfree(b);
+	kfree(b);
 
 	return g;
 }
@@ -2649,8 +2646,7 @@ got_bucket:
 	g = NULL;
 	write_unlock_irqrestore(&t->target_lock, flags);
 
-	if (ba)
-		kfree(ba);
+	kfree(ba);
 	if (og)
 		target_put(og);
 
@@ -2658,11 +2654,9 @@ got_bucket:
 
 fail4:
 	write_unlock_irqrestore(&t->target_lock, flags);
-	if (ba)
-		kfree(ba);
+	kfree(ba);
 fail2:
-	if (g->outputs)
-		kfree(g->outputs);
+	kfree(g->outputs);
 	kfree(g);
 fail1:
 	return err;
@@ -5764,13 +5758,11 @@ static int srtp_decrypt_aes_gcm(struct re_crypto_context *c,
 
 		req = aead_request_alloc(c->aead, GFP_ATOMIC);
 		if (!req) {
-			if (copy)
-				kfree(copy);
+			kfree(copy);
 			return -ENOMEM;
 		}
 		if (IS_ERR(req)) {
-			if (copy)
-				kfree(copy);
+			kfree(copy);
 			return PTR_ERR(req);
 		}
 
@@ -5816,8 +5808,7 @@ static int srtp_decrypt_aes_gcm(struct re_crypto_context *c,
 		guess++;
 	} while (1);
 
-	if (copy)
-		kfree(copy);
+	kfree(copy);
 
 	if (ret == 0 && guess != 0) {
 		*pkt_idxp = pkt_idx;
