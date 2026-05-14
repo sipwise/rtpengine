@@ -137,7 +137,7 @@ static const char *call_ng_flags_str_pair_ht(str *s, unsigned int idx, helper_ar
 	if (!str_token(&token, s_copy, '>')) {
 		ilog(LOG_WARN, "SDP manipulations: Ignoring invalid token '" STR_FORMAT "'", STR_FMT(s));
 		free(s_copy);
-		return NULL; // return error?
+		return "invalid token given";
 	}
 	str_case_value_ht *ht = arg.svt;
 	if (!t_hash_table_is_set(*ht))
@@ -202,6 +202,7 @@ static const char *ng_sdp_attr_media_iter(const ng_parser_t *parser, str *comman
 
 		default:
 			ilog(LOG_WARN, "SDP manipulations: Unknown SDP manipulation command type.");
+			return "unknown manipulation command";
 	}
 
 	return NULL;
@@ -213,12 +214,12 @@ static const char *ng_sdp_attr_manipulations_iter(const ng_parser_t *parser, str
 	if (!sm) {
 		ilog(LOG_WARN, "SDP manipulations: unsupported SDP section '" STR_FORMAT "' targeted.",
 				STR_FMT(media_type));
-		return NULL;
+		return "unsupported sdp section";
 	}
 
 	if (!parser->is_dict(command_action)) {
 		ilog(LOG_WARN, "SDP manipulations: Wrong content for SDP section.");
-		return NULL;
+		return "wrong content given";
 	}
 
 	return parser->dict_iter(parser, command_action, ng_sdp_attr_media_iter, sm);
@@ -226,7 +227,7 @@ static const char *ng_sdp_attr_manipulations_iter(const ng_parser_t *parser, str
 INLINE const char *ng_sdp_attr_manipulations(const ng_parser_t *parser, sdp_ng_flags *flags, parser_arg value) {
 	if (!parser->is_dict(value)) {
 		ilog(LOG_WARN, "SDP manipulations: Wrong type for this type of command.");
-		return NULL;
+		return "wrong type used";
 	}
 	return parser->dict_iter(parser, value, ng_sdp_attr_manipulations_iter, flags);
 }
@@ -242,17 +243,17 @@ static const char *ng_sdp_media_remove_iter(str *media_type, unsigned int i, hel
 		ilog(LOG_WARN, "SDP manipulations: unsupported SDP section '" STR_FORMAT "' targeted.",
 				STR_FMT(media_type));
 		/* only known media types are supported */
-		return NULL; // return error?
+		return "unsupported sdp section";
 	}
 	arg.flags->sdp_media_remove[id] = true;
 	return NULL;
 }
-INLINE void ng_sdp_media_remove(const ng_parser_t *parser, sdp_ng_flags *flags, parser_arg value) {
+INLINE const char *ng_sdp_media_remove(const ng_parser_t *parser, sdp_ng_flags *flags, parser_arg value) {
 	if (!parser->is_list(value)) {
 		ilog(LOG_WARN, "SDP media remove: Wrong type for this type of command.");
-		return;
+		return "wrong type used";
 	}
-	parser->list_iter(parser, value, ng_sdp_media_remove_iter, NULL, flags);
+	return parser->list_iter(parser, value, ng_sdp_media_remove_iter, NULL, flags);
 }
 
 static const char *ng_el_option(str *s, unsigned int idx, helper_arg arg) {
@@ -1920,7 +1921,7 @@ const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg v
 		case CSH_LOOKUP("SDP-attr"):
 		case CSH_LOOKUP("sdp attr"):
 		case CSH_LOOKUP("SDP attr"):
-			ng_sdp_attr_manipulations(parser, out, value);
+			return ng_sdp_attr_manipulations(parser, out, value);
 			break;
 		case CSH_LOOKUP("sdp-media-remove"):
 		case CSH_LOOKUP("SDP-media-remove"):
@@ -1928,7 +1929,7 @@ const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg v
 		case CSH_LOOKUP("SDP_media_remove"):
 		case CSH_LOOKUP("sdp media remove"):
 		case CSH_LOOKUP("SDP media remove"):
-			ng_sdp_media_remove(parser, out, value);
+			return ng_sdp_media_remove(parser, out, value);
 			break;
 		case CSH_LOOKUP("set-label"):
 		case CSH_LOOKUP("set label"):
