@@ -224,8 +224,10 @@ static const char *ng_sdp_attr_manipulations_iter(const ng_parser_t *parser, str
 	return parser->dict_iter(parser, command_action, ng_sdp_attr_media_iter, sm);
 }
 INLINE const char *ng_sdp_attr_manipulations(const ng_parser_t *parser, sdp_ng_flags *flags, parser_arg value) {
-	if (!parser->is_dict(value))
+	if (!parser->is_dict(value)) {
 		ilog(LOG_WARN, "SDP manipulations: Wrong type for this type of command.");
+		return NULL;
+	}
 	return parser->dict_iter(parser, value, ng_sdp_attr_manipulations_iter, flags);
 }
 
