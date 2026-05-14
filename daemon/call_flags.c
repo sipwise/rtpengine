@@ -648,9 +648,10 @@ INLINE int call_ng_flags_prefix(str *s_ori, const char *prefix,
 {
 	size_t len = strlen(prefix);
 	str s = *s_ori;
-	if (len > 0)
+	if (len > 0) {
 		if (str_shift_cmp(&s, prefix))
 			return 0;
+	}
 	cb(&s, 0, arg);
 	return 1;
 }
