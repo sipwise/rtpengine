@@ -248,8 +248,10 @@ static const char *ng_sdp_media_remove_iter(str *media_type, unsigned int i, hel
 	return NULL;
 }
 INLINE void ng_sdp_media_remove(const ng_parser_t *parser, sdp_ng_flags *flags, parser_arg value) {
-	if (!parser->is_list(value))
+	if (!parser->is_list(value)) {
+		ilog(LOG_WARN, "SDP media remove: Wrong type for this type of command.");
 		return;
+	}
 	parser->list_iter(parser, value, ng_sdp_media_remove_iter, NULL, flags);
 }
 
