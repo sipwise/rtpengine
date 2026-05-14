@@ -694,7 +694,7 @@ SDP
 	my @flags = ('trust address');
 	my $dict = {sdp => $sdp, command => $op, 'call-id' => $$c{callid},
 		flags => \@flags,
-		replace => [ 'origin', 'session connection' ],
+		replace => [ 'origin' ],
 		#direction => [ $$pr{direction}, $$pr_o{direction} ],
 		'received from' => [ qw(IP4 127.0.0.1) ],
 		'rtcp-mux' => ['demux'],

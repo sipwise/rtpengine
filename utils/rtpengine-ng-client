@@ -148,7 +148,6 @@ my @codec_opts = qw(
 
 my @replace_opts = qw(
 	origin
-	session-connection
 	sdp-version
 	username
 	session-name
