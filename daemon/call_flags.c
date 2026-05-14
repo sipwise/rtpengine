@@ -637,7 +637,7 @@ static const char *call_ng_flags_sdp_attr_helper_remove(str *s, unsigned int idx
 static const char *call_ng_flags_sdp_attr_helper_subst(str *s, unsigned int idx, helper_arg arg) {
 	struct sdp_manipulations *sm = call_ng_flags_sdp_attr_helper(s, arg.flags);
 	if (sm)
-		call_ng_flags_str_pair_ht(s, idx, &sm->subst_commands);
+		return call_ng_flags_str_pair_ht(s, idx, &sm->subst_commands);
 	return NULL;
 }
 
