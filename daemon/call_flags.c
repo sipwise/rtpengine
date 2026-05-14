@@ -180,7 +180,7 @@ err:
 }
 
 /**
- * SDP attribute manipulation praser helpers.
+ * SDP attribute manipulation parser helpers.
  */
 static const char *ng_sdp_attr_media_iter(const ng_parser_t *parser, str *command_type, parser_arg command_value,
 		helper_arg arg)
@@ -559,7 +559,7 @@ static const char *call_ng_flags_esc_str_list(str *s, unsigned int idx, helper_a
 	return NULL;
 }
 /**
- * Stores flag's value in the given GhashTable.
+ * Stores flags in the given GHashTable.
  */
 static const char *call_ng_flags_str_ht(str *s, unsigned int idx, helper_arg arg) {
 	str *s_copy = str_dup_escape(s);
@@ -571,8 +571,8 @@ static const char *call_ng_flags_str_ht(str *s, unsigned int idx, helper_arg arg
 	return NULL;
 }
 /**
- * Parses one-row flags separated by 'delimiter'.
- * Stores parsed flag's values then in the given GQueue.
+ * Parses one-row flags separated by semicolon.
+ * Stores parsed flags then in the given GQueue.
  */
 static const char *call_ng_flags_str_q_multi(str *s, unsigned int idx, helper_arg arg) {
 	str *s_copy = str_dup_escape(s);
