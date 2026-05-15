@@ -526,7 +526,7 @@ RTPE_CONFIG_ENDPOINT_QUEUE_PARAMS
 static void cli_incoming_params_diff(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 #define ll(system, descr) \
 	int_diff_print(common.log_levels[log_level_index_ ## system], "log-level-" #system);
-#include "loglevels.h"
+#include "loglevels.inc"
 #undef ll
 
 #define X(v, n) \
@@ -537,7 +537,7 @@ SETTABLE_OPTIONS
 static void cli_incoming_params_revert(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 #define ll(system, descr) \
 	int_revert(common.log_levels[log_level_index_ ## system], "log-level-" #system);
-#include "loglevels.h"
+#include "loglevels.inc"
 #undef ll
 
 #define X(v, n) \

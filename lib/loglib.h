@@ -32,7 +32,7 @@ void __ilog_np(int prio, const char *format, ...) __attribute__ ((format (printf
 
 #define ll(system, descr) log_level_index_ ## system,
 enum __loglevels {
-#include "loglevels.h"
+#include "loglevels.inc"
 	ll(LAST, NULL)
 };
 #undef ll
