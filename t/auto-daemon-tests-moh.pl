@@ -167,6 +167,7 @@ SDP
 
 # make sure no RTP flows after call is done.
 rcv_maybe($sock_b);
+rcv_maybe($sock_b);
 rcv_no($sock_b);
 
 # test MoH zero-connection
@@ -306,6 +307,7 @@ a=rtcp:PORT
 SDP
 
 # make sure no RTP flows after call is done.
+rcv_maybe($sock_b);
 rcv_maybe($sock_b);
 rcv_no($sock_b);
 
@@ -447,6 +449,7 @@ SDP
 
 # make sure no RTP flows after call is done.
 rcv_maybe($sock_b);
+rcv_maybe($sock_b);
 rcv_no($sock_b);
 
 # test MoH zero-connection + mode sendrecv
@@ -586,6 +589,7 @@ a=rtcp:PORT
 SDP
 
 # make sure no RTP flows after call is done.
+rcv_maybe($sock_b);
 rcv_maybe($sock_b);
 rcv_no($sock_b);
 
@@ -729,6 +733,7 @@ SDP
 
 # make sure no RTP flows after call is done.
 rcv_maybe($sock_b);
+rcv_maybe($sock_b);
 rcv_no($sock_b);
 
 # test MoH for answerer (inactive)
@@ -871,6 +876,7 @@ SDP
 
 # make sure no RTP flows after call is done.
 rcv_maybe($sock_b);
+rcv_maybe($sock_b);
 rcv_no($sock_b);
 
 # test MoH, double hold
@@ -965,6 +971,7 @@ a=rtcp:PORT
 SDP
 
 # make sure no RTP flows after call is done.
+rcv_maybe($sock_b);
 rcv_maybe($sock_b);
 rcv_no($sock_b);
 
@@ -1107,6 +1114,7 @@ a=rtcp:PORT
 SDP
 
 # make sure no RTP flows after call is done.
+rcv_maybe($sock_b);
 rcv_maybe($sock_b);
 rcv_no($sock_b);
 
