@@ -500,10 +500,16 @@ static bool if_addr_parse(intf_config_q *q, char *s, struct ifaddrs *ifas) {
 }
 
 
-
+/**
+ * Sets hostname and auth.
+ */
 static int redis_ep_parse(endpoint_t *ep, int *db, char **hostname, char **auth, const char *auth_env, char *s) {
 	char *sl, *sp;
 	long l;
+
+	/* ensure to have pointers nulled */
+	*auth = NULL;
+	*hostname = NULL;
 
 	sl = strrchr(s, '@');
 	if (sl) {
@@ -517,16 +523,14 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **hostname, char **auth,
 	if (db) {
 		sl = strchr(s, '/');
 		if (!sl)
-			return -1;
+			goto error;
 		*sl = 0;
 		sl++;
 		if (!*sl)
-			return -1;
+			goto error;
 		l = strtol(sl, &sl, 10);
-		if (*sl != 0)
-			return -1;
-		if (l < 0)
-			return -1;
+		if (*sl != 0 || l < 0)
+			goto error;
 		*db = l;
 	}
 
@@ -538,8 +542,15 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **hostname, char **auth,
 		*hostname = g_strdup(s);
 
 	if (!endpoint_parse_any_getaddrinfo_full(ep, s))
-		return -1;
+		goto error;
+
 	return 0;
+error:
+	if (*hostname)
+		g_free(*hostname);
+	if (*auth)
+		g_free(*auth);
+	return -1;
 }
 
 
