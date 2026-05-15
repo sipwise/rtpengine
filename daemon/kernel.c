@@ -699,10 +699,8 @@ ssize_t kernel_sendmsg(socket_t *s, struct msghdr *msg, const endpoint_t *dst,
 		break;
 	}
 
-	if (!p) {
-		atomic_inc(&p->errors);
+	if (!p)
 		return -1;
-	}
 
 	unsigned int slot_idx = atomic_inc(&shm->slots_filled);
 	if (slot_idx >= rtpe_config.kernel_slots) {
