@@ -2,10 +2,6 @@
 
 include ../lib/lib.Makefile
 
-CFLAGS += -fPIE
-LDFLAGS += -pie
-LDLIBS += -latomic
-
 all:	$(TARGET) $(MANS)
 
 

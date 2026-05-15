@@ -6,17 +6,10 @@ include ../lib/deps.Makefile
 
 with_transcoding ?= yes
 
-ifeq ($(origin CFLAGS),undefined)
-CFLAGS:=	-g -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes -Werror=return-type \
-		-Wshadow
-else
-CFLAGS:=	$(CFLAGS)
-endif
-CFLAGS+=	-pthread
-CFLAGS+=	-std=c11
+include ../lib/flags.Makefile
+
 CFLAGS+=	-I. -I../kernel-module/ -I../lib/ -I../include/
 CFLAGS+=	-Iprivate
-CFLAGS+=	-D_GNU_SOURCE
 CFLAGS+=	$(CFLAGS_GLIB)
 CFLAGS+=	$(CFLAGS_GTHREAD)
 CFLAGS+=	$(CFLAGS_LIBZ)
@@ -35,7 +28,6 @@ CFLAGS+=	$(CFLAGS_LIBSWRESAMPLE)
 CFLAGS+=	$(CFLAGS_LIBAVFILTER)
 CFLAGS+=	$(CFLAGS_SPANDSP)
 CFLAGS+=	$(CFLAGS_OPUS)
-CFLAGS+=	-DWITH_TRANSCODING
 CFLAGS+=	$(CFLAGS_MYSQL)
 else
 CFLAGS+=	-DWITHOUT_CODECLIB
@@ -48,7 +40,6 @@ endif
 #CFLAGS+=	-DSRTCP_KEY_DERIVATION_RFC_COMPLIANCE
 #CFLAGS+=	-DSTRICT_SDES_KEY_LIFETIME
 
-LDLIBS:=	-lm -ldl
 LDLIBS+=	$(LDLIBS_GLIB)
 LDLIBS+=	$(LDLIBS_GTHREAD)
 LDLIBS+=	$(LDLIBS_LIBZ)

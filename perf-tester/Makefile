@@ -6,17 +6,9 @@ include ../lib/deps.Makefile
 
 FIXTURES_PATH ?= ../fixtures
 
-ifeq ($(origin CFLAGS),undefined)
-CFLAGS ?= -g -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes -Werror=return-type \
-		-Wshadow
-else
-CFLAGS := $(CFLAGS)
-endif
+include ../lib/flags.Makefile
 
-CFLAGS += -pthread
-CFLAGS += -std=c11
 CFLAGS += -I. -I../kernel-module/ -I../lib/
-CFLAGS += -D_GNU_SOURCE
 CFLAGS += -DFIXTURES_PATH="\"$(FIXTURES_PATH)\""
 CFLAGS += -DWITH_TRANSCODING
 CFLAGS += $(CFLAGS_LIBPCRE)
@@ -33,7 +25,6 @@ CFLAGS += $(CFLAGS_OPUS)
 CFLAGS += $(CFLAGS_NCURSESW)
 CFLAGS += $(CFLAGS_OPENSSL)
 
-LDLIBS := -lm -ldl
 LDLIBS += $(LDLIBS_GLIB)
 LDLIBS += $(LDLIBS_JSON_GLIB)
 LDLIBS += $(LDLIBS_GTHREAD)

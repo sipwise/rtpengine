@@ -4,16 +4,9 @@ export top_srcdir = ..
 
 include ../lib/deps.Makefile
 
-ifeq ($(origin CFLAGS),undefined)
-CFLAGS?=	-g -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes -Werror=return-type \
-		-Wshadow
-else
-CFLAGS:=	$(CFLAGS)
-endif
-CFLAGS+=	-pthread
-CFLAGS+=	-std=c11
+include ../lib/flags.Makefile
+
 CFLAGS+=	-I. -I../lib/ -I../kernel-module/
-CFLAGS+=	-D_GNU_SOURCE -D_POSIX_SOURCE -D_POSIX_C_SOURCE
 CFLAGS+=	$(CFLAGS_LIBPCRE)
 CFLAGS+=	$(CFLAGS_GLIB)
 CFLAGS+=	$(CFLAGS_JSON_GLIB)
@@ -29,7 +22,6 @@ CFLAGS+=	$(CFLAGS_OPENSSL)
 CFLAGS+=	$(CFLAGS_LIBCURL)
 CFLAGS+=	$(CFLAGS_LIBJWT)
 
-LDLIBS:=	-lm -ldl
 LDLIBS+=	$(LDLIBS_GLIB)
 LDLIBS+=	$(LDLIBS_JSON_GLIB)
 LDLIBS+=	$(LDLIBS_GTHREAD)

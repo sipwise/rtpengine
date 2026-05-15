@@ -6,17 +6,11 @@ include ../lib/deps.Makefile
 
 with_transcoding ?= yes
 
-ifeq ($(origin CFLAGS),undefined)
-CFLAGS?=	-g -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes -Werror=return-type \
-		-Wshadow
-else
-CFLAGS:=	$(CFLAGS)
-endif
+include ../lib/flags.Makefile
+
 PRELOAD_CFLAGS := $(CFLAGS)
-CFLAGS+=	-pthread
-CFLAGS+=	-std=c11
+
 CFLAGS+=	-I. -I../lib/ -I../kernel-module/ -I../include/
-CFLAGS+=	-D_GNU_SOURCE
 CFLAGS+=	$(CFLAGS_GLIB)
 CFLAGS+=	$(CFLAGS_GTHREAD)
 CFLAGS+=	$(CFLAGS_OPENSSL)
@@ -43,7 +37,6 @@ else
 CFLAGS+=	-DWITHOUT_CODECLIB
 endif
 
-LDLIBS:=	-lm -ldl
 LDLIBS+=	$(LDLIBS_GLIB)
 LDLIBS+=	$(LDLIBS_GTHREAD)
 LDLIBS+=	$(LDLIBS_LIBCRYPTO)
