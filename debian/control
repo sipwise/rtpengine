@@ -15,7 +15,6 @@ Build-Depends:
  libavutil-dev (>= 6:10),
  libbcg729-dev <!pkg.ngcp-rtpengine.nobcg729>,
  libbencode-perl,
- libcjson-dev,
  libcrypt-openssl-rsa-perl,
  libcrypt-rijndael-perl,
  libcurl4-openssl-dev | libcurl4-gnutls-dev,
