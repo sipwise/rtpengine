@@ -1330,9 +1330,14 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		     rtpe_config.jb_adaptive_min, rtpe_config.jb_adaptive_max);
 	}
 
-	if (silence_detect > 0) {
+	if (silence_detect > 0 && silence_detect < 100) {
 		rtpe_config.silence_detect_double = silence_detect / 100.0;
-		rtpe_config.silence_detect_int = (int) ((silence_detect / 100.0) * UINT32_MAX);
+		rtpe_config.silence_detect_int = (uint32_t) ((silence_detect / 100.0) * UINT32_MAX);
+	}
+	else if (silence_detect != 0) {
+		/* all what's < 0 and > 100 */
+		ilog(LOG_WARN, "Invalid --silence-detect value given (%f), must be in range 1-100",
+				silence_detect);
 	}
 
 	parse_cn_payload(&rtpe_config.cn_payload, cn_payload, "\x20", "cn-payload");
