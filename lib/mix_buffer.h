@@ -4,7 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "helpers.h"
-#include "ssrc.h"
+#include "ssrclib.h"
+#include "codeclib.h"
 
 
 enum AVSampleFormat;

@@ -7,13 +7,15 @@ all:	$(TARGET) $(MANS)
 
 OBJS = $(SRCS:.c=.o)
 
+ASMOBJS = $(ASM:.S=.o)
+
 LIBOBJS = $(LIBSRCS:.c=.o)
 
 DAEMONOBJS = $(DAEMONSRCS:.c=.o)
 
 LIBASMOBJS = $(LIBASM:.S=.o)
 
-ALLOBJS = $(OBJS) $(LIBOBJS) $(LIBASMOBJS) $(DAEMONOBJS)
+ALLOBJS = $(OBJS) $(LIBOBJS) $(LIBASMOBJS) $(DAEMONOBJS) $(ASMOBJS)
 
 
 $(OBJS): %.o: %.c
@@ -54,7 +56,7 @@ $(ALLOBJS):	Makefile ../include/* ../lib/*.h ../kernel-module/*.h
 			-M "date:$(BUILD_DATE)" \
 			-o "$@"
 
-resample.c ../lib/codeclib.strhash.c mix.c packet.c:	../lib/fix_frame_channel_layout.h
+resample.c codeclib.strhash.c mix.c packet.c:	../lib/fix_frame_channel_layout.h
 
 ifeq ($(with_transcoding),yes)
 ../daemon/codec.c codec.c:	../lib/dtmf_rx_fillin.h

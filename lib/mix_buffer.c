@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <glib.h>
-#include "ssrc.h"
+#include "ssrclib.h"
 
 
 typedef void mix_in_fn_t(void *restrict dst, const void *restrict src, unsigned int num);

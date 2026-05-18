@@ -9,6 +9,7 @@
 #include "obj.h"
 #include "codeclib.h"
 #include "types.h"
+#include "ssrclib.h"
 
 #define MAX_SSRC_ENTRIES 20
 
@@ -17,16 +18,6 @@ struct ssrc_entry;
 struct ssrc_entry_call;
 enum ssrc_dir;
 
-typedef struct ssrc_entry *(*ssrc_create_func_t)(void *uptr);
-
-struct ssrc_hash {
-	GQueue nq;
-	mutex_t lock;
-	ssrc_create_func_t create_func;
-	void *uptr;
-	struct ssrc_entry *precreat; // next used entry
-	unsigned int iters; // tracks changes
-};
 struct payload_tracker {
 	mutex_t lock;
 	unsigned char last[32]; // must be <= 255
@@ -47,13 +38,6 @@ struct ssrc_stats_block {
 	uint32_t rtt_leg; // RTT only for the leg receiving the RTCP report
 	uint64_t packetloss; // percent
 	uint64_t mos; // nominal range of 10 - 50 for MOS values 1.0 to 5.0
-};
-
-struct ssrc_entry {
-	struct obj obj;
-	GList link;
-	mutex_t lock;
-	uint32_t ssrc;
 };
 
 struct ssrc_entry_call {
@@ -194,18 +178,7 @@ struct crtt_args {
 };
 
 
-
-void ssrc_hash_destroy(struct ssrc_hash *);
-void ssrc_hash_foreach(struct ssrc_hash *, void (*)(void *, void *), void *);
-void ssrc_hash_full_init(struct ssrc_hash *, ssrc_create_func_t, void *uptr); // pre-creates one object
-void ssrc_hash_full_fast_init(struct ssrc_hash *, ssrc_create_func_t, void *uptr); // doesn't pre-create object
-
 void ssrc_hash_call_init(struct ssrc_hash *);
-
-void *get_ssrc_full(uint32_t, struct ssrc_hash *, bool *created); // creates new entry if not found
-INLINE void *get_ssrc(uint32_t ssrc, struct ssrc_hash *ht) {
-	return get_ssrc_full(ssrc, ht, NULL);
-}
 
 INLINE struct ssrc_entry_call *call_get_first_ssrc(struct ssrc_hash *ht) {
 	return ht->nq.head ? ht->nq.head->data : NULL;
