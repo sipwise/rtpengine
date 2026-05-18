@@ -893,7 +893,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 #endif
 		{ "janus-secret", 0,0,	G_OPTION_ARG_STRING,	&rtpe_config.janus_secret,"Admin secret for Janus protocol","STRING"},
 		{ "rtcp-interval", 0,0,	G_OPTION_ARG_INT,	&rtcp_interval,		"Delay in milliseconds between RTCP packets when generate-rtcp flag is on, where random dispersion < 1 sec is added on top","INT"},
-		{ "moh-max-duration", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.moh_max_duration, "Max possible duration (in milliseconds) that can be spent on playing a file. If set to 0 then will be ignored.", "INT"},
+		{ "moh-max-duration", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.moh_max_duration, "Max possible duration (in milliseconds) that can be spent on playing a file. If set to 0 then will be ignored. If not set at all, will be set to 180s by default.", "INT"},
 		{ "moh-max-repeats", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.moh_max_repeats, "Max possible amount of playback repeats for the music on hold. player-max-duration always takes a precedence over it.", "INT"},
 		{ "moh-attr-name", 0,0,	G_OPTION_ARG_STRING,	&rtpe_config.moh_attr_name, "Controls the value to be added to the session level of SDP whenever MoH is triggered.", "STRING"},
 		{ "moh-prevent-double-hold", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.moh_prevent_double_hold, "Protects against double MoH played.", NULL},
@@ -1137,8 +1137,10 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		die("Invalid max-recv-iters value");
 
 	/* if not set, define by default to half an hour */
-	if (rtpe_config.moh_max_duration <= 0)
+	if (rtpe_config.moh_max_duration < 0) {
+		ilog(LOG_DEBUG, "MoH max duration corrected to 180s.\n");
 		rtpe_config.moh_max_duration = 1800000;
+	}
 
 	rtpe_config.timeout_us = timeout * 1000000LL;
 	if (rtpe_config.timeout_us <= 0)
