@@ -15,12 +15,4 @@ struct poller {
 	} state;
 };
 
-void poller_blocked(struct poller *, void *);
-void poller_error(struct poller *, void *);
-bool poller_isblocked(struct poller *, void *);
-
-#define rtpe_poller_isblocked poller_isblocked
-#define rtpe_poller_blocked poller_blocked
-#define rtpe_poller_error poller_error
-
 #endif
