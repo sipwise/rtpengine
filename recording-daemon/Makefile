@@ -46,7 +46,7 @@ SRCS=		epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c packet.c 
 		gcs.c
 LIBSRCS=	loglib.c auxlib.c rtplib.c codeclib.strhash.c resample.c str.c socket.c streambuf.c ssllib.c \
 		dtmflib.c bufferpool.c bencode.c http.c s3utils.c oauth.c
-LIBASM=		mvr2s_x64_avx2.S mvr2s_x64_avx512.S mix_in_x64_avx2.S mix_in_x64_avx512bw.S mix_in_x64_sse2.S
+LIBASM := mvr2s_x64_avx2.S mvr2s_x64_avx512.S mix_in_x64_avx2.S mix_in_x64_avx512bw.S mix_in_x64_sse2.S
 
 MDS=		rtpengine-recording.ronn
 MANS=		$(MDS:.ronn=.8)

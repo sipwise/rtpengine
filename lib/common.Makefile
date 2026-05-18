@@ -5,17 +5,17 @@ include ../lib/lib.Makefile
 all:	$(TARGET) $(MANS)
 
 
-OBJS = $(SRCS:.c=.o)
+OBJS := $(SRCS:.c=.o)
 
-ASMOBJS = $(ASM:.S=.o)
+ASM := $(ASM) $(patsubst %,$(top_srcdir)/lib/%,$(LIBASM))
+
+ASMOBJS := $(ASM:.S=.o)
 
 LIBOBJS = $(LIBSRCS:.c=.o)
 
 DAEMONOBJS = $(DAEMONSRCS:.c=.o)
 
-LIBASMOBJS = $(LIBASM:.S=.o)
-
-ALLOBJS = $(OBJS) $(LIBOBJS) $(LIBASMOBJS) $(DAEMONOBJS) $(ASMOBJS)
+ALLOBJS := $(OBJS) $(LIBOBJS) $(DAEMONOBJS) $(ASMOBJS)
 
 
 $(OBJS): %.o: %.c
@@ -26,9 +26,6 @@ $(LIBOBJS): %.o: ../lib/%.c
 
 $(DAEMONOBJS): %.o: ../daemon/%.c
 	$(CC) -c $(CFLAGS) $< -o $@
-
-$(LIBASMOBJS): %.o: ../lib/%.S
-	$(CC) -c $(ASFLAGS) $< -o $@
 
 
 $(TARGET):	$(ALLOBJS) Makefile
@@ -42,7 +39,7 @@ debug:
 BUILD_TEST_ALTS = ../lib/fix_frame_channel_layout.h ../lib/dtmf_rx_fillin.h ../lib/spandsp_logging.h
 
 clean:
-	rm -f $(ALLOBJS) $(TARGET) $(LIBSRCS) $(LIBASM) $(DAEMONSRCS) $(MANS) $(ADD_CLEAN) core core.*
+	rm -f $(ALLOBJS) $(TARGET) $(LIBSRCS) $(DAEMONSRCS) $(MANS) $(ADD_CLEAN) core core.*
 	rm -f $(BUILD_TEST_ALTS) $(BUILD_TEST_ALTS:.h=-test) *.strhash.c
 
 install:

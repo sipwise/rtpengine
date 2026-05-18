@@ -81,7 +81,7 @@ DAEMONSRCS+=	control_ng_flags_parser.c codec.c call.c ice.c kernel.c media_socke
 		media_player.c jitter_buffer.c t38.c tcp_listener.c mqtt.c websocket.c \
 		audio_player.c arena.c ng_client.c call_interfaces.c sdp.strhash.c \
 		janus.strhash.c control_ng.strhash.c call_flags.strhash.c
-LIBASM=		mvr2s_x64_avx2.S mvr2s_x64_avx512.S mix_in_x64_avx2.S mix_in_x64_avx512bw.S mix_in_x64_sse2.S
+LIBASM := mvr2s_x64_avx2.S mvr2s_x64_avx512.S mix_in_x64_avx2.S mix_in_x64_avx512bw.S mix_in_x64_sse2.S
 endif
 ifneq ($(have_liburing),yes)
 LIBSRCS+=	uring.c
@@ -301,8 +301,13 @@ daemon-tests-recording:	daemon-test-deps
 test-bitstr:	test-bitstr.o
 
 test-mix-buffer:	test-mix-buffer.o $(COMMONOBJS) mix_buffer.o ssrc.o rtp.o crypto.o helpers.o \
-	mix_in_x64_avx2.o mix_in_x64_sse2.o mix_in_x64_avx512bw.o codeclib.strhash.o dtmflib.o \
-	mvr2s_x64_avx2.o mvr2s_x64_avx512.o resample.o bufferpool.o uring.o poller.o bencode.o log.o
+	../lib/mix_in_x64_avx2.o \
+	../lib/mix_in_x64_sse2.o \
+	../lib/mix_in_x64_avx512bw.o \
+	codeclib.strhash.o dtmflib.o \
+	../lib/mvr2s_x64_avx2.o \
+	../lib/mvr2s_x64_avx512.o \
+	resample.o bufferpool.o uring.o poller.o bencode.o log.o
 
 spandsp_send_fax_pcm:	spandsp_send_fax_pcm.o
 
@@ -315,10 +320,14 @@ spandsp_recv_fax_t38:	spandsp_recv_fax_t38.o
 spandsp_raw_fax_tests: spandsp_send_fax_pcm spandsp_recv_fax_pcm spandsp_send_fax_t38 spandsp_recv_fax_t38
 
 test-amr-decode: test-amr-decode.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o resample.o \
-	mvr2s_x64_avx2.o mvr2s_x64_avx512.o bencode.o log.o
+	../lib/mvr2s_x64_avx2.o \
+	../lib/mvr2s_x64_avx512.o \
+	bencode.o log.o
 
 test-amr-encode: test-amr-encode.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o \
-	mvr2s_x64_avx2.o mvr2s_x64_avx512.o bencode.o log.o
+	../lib/mvr2s_x64_avx2.o \
+	../lib/mvr2s_x64_avx512.o \
+	bencode.o log.o
 
 test-dtmf-detect: test-dtmf-detect.o
 
@@ -334,8 +343,14 @@ test-stats:	test-stats.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssr
 	control_ng_flags_parser.o control_ng.strhash.o graphite.o \
 	streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o timerthread.o \
 	media_player.o jitter_buffer.o dtmflib.o t38.o tcp_listener.o mqtt.o janus.strhash.o \
-	websocket.o cli.strhash.o mvr2s_x64_avx2.o mvr2s_x64_avx512.o audio_player.o mix_buffer.o \
-	mix_in_x64_avx2.o mix_in_x64_sse2.o mix_in_x64_avx512bw.o bufferpool.o uring.o arena.o ng_client.o \
+	websocket.o cli.strhash.o \
+	../lib/mvr2s_x64_avx2.o \
+	../lib/mvr2s_x64_avx512.o \
+	audio_player.o mix_buffer.o \
+	../lib/mix_in_x64_avx2.o \
+	../lib/mix_in_x64_sse2.o \
+	../lib/mix_in_x64_avx512bw.o \
+	bufferpool.o uring.o arena.o ng_client.o \
 	call_flags.strhash.o log.o
 
 test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssrc.o call.o ice.o helpers.o \
@@ -344,15 +359,26 @@ test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.strhash.o resample.o cod
 	control_ng_flags_parser.o control_ng.strhash.o \
 	streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o timerthread.o \
 	media_player.o jitter_buffer.o dtmflib.o t38.o tcp_listener.o mqtt.o janus.strhash.o websocket.o \
-	cli.strhash.o mvr2s_x64_avx2.o mvr2s_x64_avx512.o audio_player.o mix_buffer.o \
-	mix_in_x64_avx2.o mix_in_x64_sse2.o mix_in_x64_avx512bw.o bufferpool.o uring.o arena.o ng_client.o \
+	cli.strhash.o \
+	../lib/mvr2s_x64_avx2.o \
+	../lib/mvr2s_x64_avx512.o \
+	audio_player.o mix_buffer.o \
+	../lib/mix_in_x64_avx2.o \
+	../lib/mix_in_x64_sse2.o \
+	../lib/mix_in_x64_avx512bw.o \
+	bufferpool.o uring.o arena.o ng_client.o \
 	call_flags.strhash.o log.o
 
-test-resample:	test-resample.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o mvr2s_x64_avx2.o \
-	mvr2s_x64_avx512.o bencode.o log.o
+test-resample:	test-resample.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o \
+	../lib/mvr2s_x64_avx2.o \
+	../lib/mvr2s_x64_avx512.o \
+	bencode.o log.o
 
 test-payload-tracker: test-payload-tracker.o $(COMMONOBJS) ssrc.o helpers.o auxlib.o rtp.o crypto.o codeclib.strhash.o \
-	resample.o dtmflib.o mvr2s_x64_avx2.o mvr2s_x64_avx512.o bufferpool.o uring.o poller.o bencode.o log.o
+	resample.o dtmflib.o \
+	../lib/mvr2s_x64_avx2.o \
+	../lib/mvr2s_x64_avx512.o \
+	bufferpool.o uring.o poller.o bencode.o log.o
 
 test-kernel-module: test-kernel-module.o $(COMMONOBJS) kernel.o
 
