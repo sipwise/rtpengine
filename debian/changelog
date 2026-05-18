@@ -1,3 +1,12 @@
+ngcp-rtpengine (14.0.1.11+0~mr14.0.1.11) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [ddabfee] MT#55283 slightly defuse some tests
+  * [e71e718] MT#55283 fix possible UAF
+  * [27be8c5] MT#55283 add missing lock in JB
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 18 May 2026 18:07:38 +0200
+
 ngcp-rtpengine (14.0.1.10+0~mr14.0.1.10) unstable; urgency=medium
 
   [ Orgad Shaneh ]
