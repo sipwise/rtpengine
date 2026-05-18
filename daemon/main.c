@@ -1374,7 +1374,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 
 	if (rtpe_config.jb_length < 0)
 		die("Invalid negative jitter buffer size");
-	
+
 	// Validate adaptive jitter buffer parameters
 	if (rtpe_config.jb_adaptive) {
 		if (rtpe_config.jb_adaptive_min < 0)
@@ -1386,12 +1386,12 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		if (rtpe_config.jb_adaptive_min > rtpe_config.jb_adaptive_max)
 			die("--jb-adaptive-min (%d) must be <= --jb-adaptive-max (%d)", 
 			    rtpe_config.jb_adaptive_min, rtpe_config.jb_adaptive_max);
-		
+
 		// Set reasonable defaults if not specified
 		if (rtpe_config.jb_adaptive_max == 0)
 			rtpe_config.jb_adaptive_max = 300; // Default max: 300ms
-		
-		ilog(LOG_INFO, "Adaptive jitter buffer enabled: min=%dms, max=%dms", 
+
+		ilog(LOG_INFO, "Adaptive jitter buffer enabled: min=%dms, max=%dms",
 		     rtpe_config.jb_adaptive_min, rtpe_config.jb_adaptive_max);
 	}
 
