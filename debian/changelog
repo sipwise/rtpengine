@@ -1,3 +1,14 @@
+ngcp-rtpengine (26.0.1.8+0~mr26.0.1.8) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [ccd8782] MT#55283 slightly defuse some tests
+  * [4356566] MT#55283 dynamically allocate shm map
+
+  [ Donat Zenichev ]
+  * [71d29c7] MT#61856 main: prevent duplicated usage of `F` shortcut
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 18 May 2026 18:07:22 +0200
+
 ngcp-rtpengine (26.0.1.7+0~mr26.0.1.7) unstable; urgency=medium
 
   [ Orgad Shaneh ]
