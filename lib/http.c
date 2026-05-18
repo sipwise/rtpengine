@@ -1,5 +1,5 @@
 #include "http.h"
-#include "log.h"
+#include "loglib.h"
 #include <assert.h>
 
 CURL *http_create_req(const char *uri,

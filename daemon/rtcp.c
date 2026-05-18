@@ -8,7 +8,7 @@
 #include "compat.h"
 #include "str.h"
 #include "call.h"
-#include "log.h"
+#include "log_d.h"
 #include "rtp.h"
 #include "crypto.h"
 #include "homer.h"
@@ -16,7 +16,6 @@
 #include "rtcplib.h"
 #include "ssrc.h"
 #include "sdp.h"
-#include "log_funcs.h"
 
 /* This toggles between two different and incompatible interpretations of
  * RFC 3711, namely sections 4.3.2 and 4.3.1.

@@ -15,7 +15,7 @@
 #include "str.h"
 #include "helpers.h"
 #include "crypto.h"
-#include "log.h"
+#include "log_d.h"
 #include "call.h"
 #include "poller.h"
 #include "ice.h"

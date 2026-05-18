@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include "compat.h"
 #include "auxlib.h"
+#include "ll_common.h"
 
 extern int ilog_facility;
 
@@ -28,16 +29,12 @@ void log_free(void);
 void __vpilog(int prio, const char *prefix, const char *fmt, va_list);
 void __ilog_np(int prio, const char *format, ...) __attribute__ ((format (printf, 2, 3)));
 
+// component-specific handler:
+void __ilog(int prio, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
+void log_info_reset(void);
 
 
-#define ll(system, descr) log_level_index_ ## system,
-enum __loglevels {
-#include "loglevels.inc"
-	ll(LAST, NULL)
-};
-#undef ll
-
-#define num_log_levels log_level_index_LAST
+extern const unsigned int num_log_levels;
 
 extern const char * const log_level_names[];
 extern const char * const log_level_descriptions[];
@@ -60,6 +57,12 @@ extern const char * const log_level_descriptions[];
 
 #define ilog(prio, fmt, ...) ilogs(core, prio, fmt, ##__VA_ARGS__)
 #define ilogs(system, prio, fmt, ...) ilogsn(log_level_index_ ## system, prio, fmt, ##__VA_ARGS__)
+
+#ifdef __DEBUG
+#define dbg_int(x...) ilog(LOG_DEBUG, x)
+#else
+#define dbg_int(x...) ilogs(internals, LOG_DEBUG, x)
+#endif
 
 
 #define LOG_LEVEL_MASK(v)	((v) & 0x0f)

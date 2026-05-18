@@ -253,7 +253,7 @@ INLINE int crypto_params_sdes_check_limitations(str_case_ht sdes_only,
 }
 
 #include "main.h"
-#include "log.h"
+#include "log_d.h"
 #include <inttypes.h>
 
 

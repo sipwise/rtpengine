@@ -17,7 +17,7 @@
 #include "rtcp.h"
 #include "sdp.h"
 #include "helpers.h"
-#include "log_funcs.h"
+#include "log_d.h"
 #include "poller.h"
 #include "recording.h"
 #include "rtplib.h"
@@ -475,7 +475,7 @@ static int has_free_ports_loc(struct local_intf *loc, unsigned int num_ports) {
 		return 0;
 	}
 
-	__C_DBG("Found %d ports available for " STR_FORMAT "/%s from total of %u free ports",
+	dbg_int("Found %d ports available for " STR_FORMAT "/%s from total of %u free ports",
 		num_ports, STR_FMT(&loc->logical->name),
 		sockaddr_print_buf(&loc->spec->local_address.addr),
 		loc->spec->port_pool.free_ports_q.length);
@@ -542,7 +542,7 @@ static struct logical_intf* run_round_robin_calls(struct intf_rr *rr, unsigned i
 
 		mutex_unlock(&rr->lock);
 
-		__C_DBG("Trying %d ports on logical interface " STR_FORMAT, num_ports, STR_FMT(&log->name));
+		dbg_int("Trying %d ports on logical interface " STR_FORMAT, num_ports, STR_FMT(&log->name));
 
 		if (has_free_ports_log_all(log, num_ports))
 			goto done;
@@ -558,7 +558,7 @@ done:
 		ilog(LOG_ERR, "No logical interface with free ports found; fallback to default behaviour");
 		return NULL;
 	}
-	__C_DBG("Round Robin Calls algorithm found logical " STR_FORMAT, STR_FMT(&log->name));
+	dbg_int("Round Robin Calls algorithm found logical " STR_FORMAT, STR_FMT(&log->name));
 	return log;
 }
 
@@ -567,7 +567,7 @@ struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam, i
 	struct logical_intf *log = NULL;
 	int rr_use_default_intf = 0;
 
-	__C_DBG("Get logical interface for %d ports", num_ports);
+	dbg_int("Get logical interface for %d ports", num_ports);
 
 	if (G_UNLIKELY(!name || !name->s)) {
 		// trivial case: no interface given. just pick one suitable for the address family.
@@ -618,14 +618,14 @@ got_some:
 	if (!rr)
 		return name ? __get_logical_interface(name, fam) : log;
 	if (rr->singular) {
-		__C_DBG("Returning non-RR logical interface '" STR_FORMAT "' based on direction '" \
+		dbg_int("Returning non-RR logical interface '" STR_FORMAT "' based on direction '" \
 					STR_FORMAT "'",
 				STR_FMT(&rr->singular->name),
 				STR_FMT(name));
 		return rr->singular;
 	}
 
-	__C_DBG("Running RR interface selection for direction '" STR_FORMAT "'",
+	dbg_int("Running RR interface selection for direction '" STR_FORMAT "'",
 			STR_FMT(name));
 
 	log = run_round_robin_calls(rr, num_ports);
@@ -644,11 +644,11 @@ static struct logical_intf *__get_logical_interface(const str *name, sockfamily_
 
 	log = t_hash_table_lookup(__logical_intf_name_family_hash, &d);
 	if (log) {
-		__C_DBG("Choose logical interface " STR_FORMAT " because of direction " STR_FORMAT,
+		dbg_int("Choose logical interface " STR_FORMAT " because of direction " STR_FORMAT,
 			STR_FMT(&log->name),
 			STR_FMT(name));
 	} else {
-		__C_DBG("Choose logical interface NULL because of direction " STR_FORMAT,
+		dbg_int("Choose logical interface NULL because of direction " STR_FORMAT,
 			STR_FMT(name));
 	}
 
@@ -1080,15 +1080,15 @@ struct local_intf *get_any_interface_address(const struct logical_intf *lif, soc
  * It doesn't provide a port selection logic.
  */
 static bool add_socket(socket_t *r, unsigned int port, struct intf_spec *spec, const str *label) {
-	__C_DBG("An attempt to open a socket for the port: '%u'", port);
+	dbg_int("An attempt to open a socket for the port: '%u'", port);
 
 	if (!open_socket(r, SOCK_DGRAM, port, &spec->local_address.addr)) {
-		__C_DBG("Can't open a socket for the port: '%d'", port);
+		dbg_int("Can't open a socket for the port: '%d'", port);
 		return false;
 	}
 	iptables_add_rule(r, label);
 	socket_timestamping(r);
-	__C_DBG("A socket is successfully bound for the port: '%u'", port);
+	dbg_int("A socket is successfully bound for the port: '%u'", port);
 	return true;
 }
 /**
@@ -1096,7 +1096,7 @@ static bool add_socket(socket_t *r, unsigned int port, struct intf_spec *spec, c
  */
 static void release_port_push(void *p) {
 	struct late_port_release *lpr = p;
-	__C_DBG("Adding the port '%u' to late-release list", lpr->socket.local.port);
+	dbg_int("Adding the port '%u' to late-release list", lpr->socket.local.port);
 	t_queue_push_tail_link(&ports_to_release, &lpr->link);
 }
 static void release_port_poller(struct socket_port_link *spl, struct poller *poller) {
@@ -1110,7 +1110,7 @@ static void release_port_poller(struct socket_port_link *spl, struct poller *pol
 	if (!poller)
 		release_port_push(lpr);
 	else {
-		__C_DBG("Adding late-release callback for port '%u'", lpr->socket.local.port);
+		dbg_int("Adding late-release callback for port '%u'", lpr->socket.local.port);
 		rtpe_poller_del_item_callback(poller, lpr->socket.fd, release_port_push, lpr);
 	}
 }
@@ -1128,10 +1128,10 @@ static void free_port(struct socket_port_link *spl) {
 static void release_port_now(socket_t *r, ports_q *list, struct port_pool *pp) {
 	unsigned int port = r->local.port;
 
-	__C_DBG("Trying to release the port '%u'", port);
+	dbg_int("Trying to release the port '%u'", port);
 
 	if (close_socket(r)) {
-		__C_DBG("A socket for the '%u' has been closed", port);
+		dbg_int("A socket for the '%u' has been closed", port);
 
 		iptables_del_rule(r);
 
@@ -2718,7 +2718,7 @@ static int media_loop_detect(struct packet_handler_ctx *phc) {
 		if (memcmp(phc->mp.stream->lp_buf[i].buf, phc->s.s, MIN(phc->s.len, RTP_LOOP_PROTECT)))
 			continue;
 
-		__C_DBG("packet dupe");
+		dbg_int("packet dupe");
 		if (phc->mp.stream->lp_count >= RTP_LOOP_MAX_COUNT) {
 			ilog(LOG_WARNING, "More than %d duplicate packets detected, dropping packet from %s%s%s"
 					"to avoid potential loop",
@@ -3125,12 +3125,12 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 	 * in the other direction. */
 	/* if the other side hasn't been signalled yet, just forward the packet */
 	if (!PS_ISSET(phc->mp.stream, FILLED)) {
-		__C_DBG("stream %s:%d not FILLED", sockaddr_print_buf(&phc->mp.stream->endpoint.address),
+		dbg_int("stream %s:%d not FILLED", sockaddr_print_buf(&phc->mp.stream->endpoint.address),
 				phc->mp.stream->endpoint.port);
 		return false;
 	}
 	if (!MEDIA_ISSET(phc->mp.media, PUBLIC)) {
-		__C_DBG("media not answered");
+		dbg_int("media not answered");
 		return false;
 	}
 
@@ -3326,12 +3326,12 @@ update_addr:
 
 static void media_packet_kernel_check(struct packet_handler_ctx *phc) {
 	if (PS_ISSET(phc->mp.stream, NO_KERNEL_SUPPORT)) {
-		__C_DBG("stream %s%s%s NO_KERNEL_SUPPORT", FMT_M(endpoint_print_buf(&phc->mp.stream->endpoint)));
+		dbg_int("stream %s%s%s NO_KERNEL_SUPPORT", FMT_M(endpoint_print_buf(&phc->mp.stream->endpoint)));
 		return;
 	}
 
 	if (!phc->mp.sfd->confirmed) {
-		__C_DBG("stream %s%s%s not CONFIRMED", FMT_M(endpoint_print_buf(&phc->mp.stream->endpoint)));
+		dbg_int("stream %s%s%s not CONFIRMED", FMT_M(endpoint_print_buf(&phc->mp.stream->endpoint)));
 		return;
 	}
 
@@ -3460,7 +3460,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	phc->mp.stream = phc->mp.sfd->stream;
 	if (G_UNLIKELY(!phc->mp.stream))
 		goto out;
-	__C_DBG("Handling packet on: %s", endpoint_print_buf(&phc->mp.stream->endpoint));
+	dbg_int("Handling packet on: %s", endpoint_print_buf(&phc->mp.stream->endpoint));
 
 
 	phc->mp.media = phc->mp.stream->media;
@@ -3987,7 +3987,7 @@ stream_fd *stream_fd_new(struct socket_port_link *spl, call_t *call, struct loca
 	sfd->spl = *spl;
 	t_queue_push_tail(&call->stream_fds, sfd); /* hand over ref */
 
-	__C_DBG("stream_fd_new localport=%d", sfd->socket.local.port);
+	dbg_int("stream_fd_new localport=%d", sfd->socket.local.port);
 
 	ZERO(pi);
 	pi.fd = sfd->socket.fd;

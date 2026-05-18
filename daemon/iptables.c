@@ -21,7 +21,7 @@ int (*iptables_del_rule)(const socket_t *local_sock);
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "helpers.h"
-#include "log.h"
+#include "log_d.h"
 #include "socket.h"
 
 #undef __ALIGN_KERNEL

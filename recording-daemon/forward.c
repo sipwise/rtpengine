@@ -4,7 +4,7 @@
 #include <sys/un.h>
 #include <fcntl.h>
 #include "main.h"
-#include "log.h"
+#include "log_r.h"
 
 void start_forwarding_capture(metafile_t *mf, char *meta_info) {
 	int sock;

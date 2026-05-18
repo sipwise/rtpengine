@@ -5,8 +5,7 @@
 #include <netdb.h>
 #include <ctype.h>
 
-#include "log.h"
-#include "log_funcs.h"
+#include "log_d.h"
 
 
 /**

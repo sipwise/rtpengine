@@ -14,8 +14,7 @@
 
 #include "poller.h"
 #include "helpers.h"
-#include "log.h"
-#include "log_funcs.h"
+#include "log_d.h"
 #include "call.h"
 #include "socket.h"
 #include "redis.h"
@@ -526,7 +525,8 @@ RTPE_CONFIG_ENDPOINT_QUEUE_PARAMS
 static void cli_incoming_params_diff(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 #define ll(system, descr) \
 	int_diff_print(common.log_levels[log_level_index_ ## system], "log-level-" #system);
-#include "loglevels.inc"
+#include "loglevels_common.inc"
+#include "loglevels_d.inc"
 #undef ll
 
 #define X(v, n) \
@@ -537,7 +537,8 @@ SETTABLE_OPTIONS
 static void cli_incoming_params_revert(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 #define ll(system, descr) \
 	int_revert(common.log_levels[log_level_index_ ## system], "log-level-" #system);
-#include "loglevels.inc"
+#include "loglevels_common.inc"
+#include "loglevels_d.inc"
 #undef ll
 
 #define X(v, n) \

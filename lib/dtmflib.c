@@ -1,7 +1,7 @@
 #include "dtmflib.h"
 #include <math.h>
 #include "compat.h"
-#include "log.h"
+#include "loglib.h"
 
 struct dtmf_freq {
 	unsigned int prim,

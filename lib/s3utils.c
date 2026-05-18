@@ -1,5 +1,5 @@
 #include "s3utils.h"
-#include "log.h"
+#include "loglib.h"
 #include <glib.h>
 #include <time.h>
 #include <openssl/sha.h>

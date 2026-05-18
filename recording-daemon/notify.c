@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <curl/curl.h>
 #include "main.h"
-#include "log.h"
+#include "log_r.h"
 #include "recaux.h"
 #include "output.h"
 #include "http.h"

@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <json-glib/json-glib.h>
 
-#include "log.h"
+#include "log_d.h"
 #include "main.h"
 #include "str.h"
 #include "cli.h"

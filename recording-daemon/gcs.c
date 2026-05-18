@@ -8,6 +8,7 @@
 #include "http.h"
 #include "oauth.h"
 #include "db.h"
+#include "log_r.h"
 
 
 static oauth_context_t auth_ctx;

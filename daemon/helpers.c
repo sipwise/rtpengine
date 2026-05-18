@@ -10,7 +10,7 @@
 #include <errno.h>
 #include <unistd.h>
 
-#include "log.h"
+#include "log_d.h"
 #include "main.h"
 #include "bufferpool.h"
 #include "media_socket.h"

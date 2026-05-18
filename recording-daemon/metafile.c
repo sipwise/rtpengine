@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <limits.h>
-#include "log.h"
+#include "log_r.h"
 #include "stream.h"
 #include "garbage.h"
 #include "main.h"

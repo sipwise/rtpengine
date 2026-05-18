@@ -5,7 +5,7 @@
 #include "bencode.h"
 #include "control_ng.h"
 #include "media_socket.h"
-#include "log.h"
+#include "log_d.h"
 #include "call.h"
 #include "dtmflib.h"
 #include "main.h"

@@ -16,7 +16,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <curl/curl.h>
-#include "log.h"
+#include "log_r.h"
 #include "epoll.h"
 #include "inotify.h"
 #include "metafile.h"

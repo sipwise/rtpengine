@@ -14,7 +14,7 @@
 
 #include "poller.h"
 #include "helpers.h"
-#include "log.h"
+#include "log_d.h"
 #include "kernel.h"
 #include "control_tcp.h"
 #include "streambuf.h"
@@ -25,7 +25,6 @@
 #include "rtp.h"
 #include "call_interfaces.h"
 #include "ice.h"
-#include "log_funcs.h"
 #include "rtplib.h"
 #include "cdr.h"
 #include "ssrc.h"
@@ -743,11 +742,11 @@ static struct call_media *call_get_media(struct call_monologue *ml, const str *t
 		t_ptr_array_set_size(ml->medias, want_index);
 
 	if (ml->medias->pdata[arr_index]) {
-		__C_DBG("found existing call_media for stream #%u", want_index);
+		dbg_int("found existing call_media for stream #%u", want_index);
 		return ml->medias->pdata[arr_index];
 	}
 
-	__C_DBG("allocating new call_media for stream #%u", want_index);
+	dbg_int("allocating new call_media for stream #%u", want_index);
 	call = ml->call;
 	med = call_media_new(call);
 	med->monologue = ml;
@@ -820,7 +819,7 @@ static struct endpoint_map *__hunt_endpoint_map(struct call_media *media, unsign
 		if ((em->wildcard || always_reuse) && em->num_ports >= num_ports
 				&& em->intf_sfds.length >= want_interfaces)
 		{
-			__C_DBG("found a wildcard endpoint map%s", ep ? " and filling it in" : "");
+			dbg_int("found a wildcard endpoint map%s", ep ? " and filling it in" : "");
 			if (ep) {
 				em->endpoint = *ep;
 				em->wildcard = 0;
@@ -874,7 +873,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 		}
 	}
 
-	__C_DBG("allocating new %sendpoint map", ep ? "" : "wildcard ");
+	dbg_int("allocating new %sendpoint map", ep ? "" : "wildcard ");
 	em = uid_alloc(&media->call->endpoint_maps);
 	if (ep)
 		em->endpoint = *ep;
@@ -994,7 +993,7 @@ static int __num_media_streams(struct call_media *media, unsigned int num_ports)
 	if (num_ports < 2)
 		num_ports = 2;
 
-	__C_DBG("allocating %i new packet_streams", num_ports - media->streams.length);
+	dbg_int("allocating %i new packet_streams", num_ports - media->streams.length);
 	while (media->streams.length < num_ports) {
 		stream = __packet_stream_new(call);
 		stream->media = media;
@@ -1275,7 +1274,7 @@ static bool __init_streams(struct call_media *A, const struct stream_params *sp,
 {
 	unsigned int port_off = 0;
 
-	__C_DBG("Stream set flags media %u", A->index);
+	dbg_int("Stream set flags media %u", A->index);
 
 	for (__auto_type l = A->streams.head; l; l = l->next) {
 		__auto_type a = l->data;
@@ -1356,7 +1355,7 @@ static bool __streams_set_sinks(struct call_media *A, struct call_media *B,
 	__auto_type la = A->streams.head;
 	__auto_type lb = B->streams.head;
 
-	__C_DBG("Sink init media %u -> %u", A->index, B->index);
+	dbg_int("Sink init media %u -> %u", A->index, B->index);
 
 	while (la) {
 		if (!lb)
@@ -3762,7 +3761,7 @@ static bool media_open_ports(struct call_media *media) {
 		if (em_il->list.length)
 			continue; // not empty, we can use these
 
-		__C_DBG("allocating stream_fds for %u ports", em->num_ports);
+		dbg_int("allocating stream_fds for %u ports", em->num_ports);
 		MEDIA_CLEAR(media, PUBLIC);
 
 		socket_port_q q = IQUEUE_INIT;
@@ -3830,7 +3829,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		ML_SET(sender_ml, NO_RECORDING);
 	}
 
-	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&receiver_ml->tag), STR_FMT(&sender_ml->tag));
+	dbg_int("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&receiver_ml->tag), STR_FMT(&sender_ml->tag));
 
 	if (flags->opmode == OP_OFFER)
 		ML_CLEAR(receiver_ml, FINAL_RESPONSE);
@@ -3844,7 +3843,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 
 	for (__auto_type sp_iter = streams->head; sp_iter; sp_iter = sp_iter->next) {
 		struct stream_params *sp = sp_iter->data;
-		__C_DBG("processing media stream #%u", sp->index);
+		dbg_int("processing media stream #%u", sp->index);
 		assert(sp->index > 0);
 
 		/**
@@ -5860,7 +5859,7 @@ call_t *call_get_opmode(const str *callid, enum ng_opmode opmode) {
 struct call_monologue *__monologue_create(call_t *call) {
 	struct call_monologue *ret;
 
-	__C_DBG("creating new monologue");
+	dbg_int("creating new monologue");
 	ret = uid_alloc(&call->monologues);
 
 	ret->call = call;
@@ -5888,7 +5887,7 @@ void __monologue_tag(struct call_monologue *ml, const str *tag) {
 	call_t *call = ml->call;
 
 	if (!ml->tag.s) {
-		__C_DBG("tagging monologue with '" STR_FORMAT "'", STR_FMT(tag));
+		dbg_int("tagging monologue with '" STR_FORMAT "'", STR_FMT(tag));
 		ml->tag = call_str_cpy(tag);
 		t_hash_table_insert(call->tags, &ml->tag, ml);
 		return;
@@ -5898,7 +5897,7 @@ void __monologue_tag(struct call_monologue *ml, const str *tag) {
 		return; // no change
 
 	// to-tag has changed, save previous as alias
-	__C_DBG("tagging monologue with '" STR_FORMAT "', saving previous '" STR_FORMAT "' as alias",
+	dbg_int("tagging monologue with '" STR_FORMAT "', saving previous '" STR_FORMAT "' as alias",
 			STR_FMT(tag), STR_FMT(&ml->tag));
 	// remove old entry first, as `ml->tag` will be changed
 	t_hash_table_remove(call->tags, &ml->tag);
@@ -5919,7 +5918,7 @@ void __monologue_viabranch(struct call_monologue *ml, const str *viabranch) {
 	if (!viabranch || !viabranch->len)
 		return;
 
-	__C_DBG("tagging monologue with viabranch '"STR_FORMAT"'", STR_FMT(viabranch));
+	dbg_int("tagging monologue with viabranch '"STR_FORMAT"'", STR_FMT(viabranch));
 	if (ml->viabranch.s)
 		t_hash_table_remove(call->viabranches, &ml->viabranch);
 	ml->viabranch = call_str_cpy(viabranch);
@@ -6180,7 +6179,7 @@ static int call_get_monologue_new(struct call_monologue *monologues[2], call_t *
 {
 	struct call_monologue *ret, *os = NULL; /* ret - initial offer, os - other side */
 
-	__C_DBG("getting monologue for tag '"STR_FORMAT"' in call '"STR_FORMAT"'",
+	dbg_int("getting monologue for tag '"STR_FORMAT"' in call '"STR_FORMAT"'",
 			STR_FMT(fromtag), STR_FMT(&call->callid));
 
 	ret = call_get_monologue_alias(call, fromtag, flags, &flags->sdp, ep);
@@ -6191,7 +6190,7 @@ static int call_get_monologue_new(struct call_monologue *monologues[2], call_t *
 		goto new_branch;
 	}
 
-	__C_DBG("found existing monologue");
+	dbg_int("found existing monologue");
 	/* unkernelize existing monologue medias, which are subscribed to something */
 	__monologue_unconfirm(ret, "signalling on existing monologue");
 
@@ -6219,7 +6218,7 @@ static int call_get_monologue_new(struct call_monologue *monologues[2], call_t *
 	/* we need both sides of the dialogue even in the initial offer, so create
 	 * another monologue without to-tag (to be filled in later) */
 new_branch:
-	__C_DBG("create new \"other side\" monologue for viabranch "STR_FORMAT, STR_FMT0(viabranch));
+	dbg_int("create new \"other side\" monologue for viabranch "STR_FORMAT, STR_FMT0(viabranch));
 	os = __monologue_create(call);
 	__monologue_viabranch(os, viabranch);
 	goto finish;
@@ -6272,7 +6271,7 @@ static int call_get_dialogue(struct call_monologue *monologues[2], call_t *call,
 {
 	struct call_monologue *ft, *tt;
 
-	__C_DBG("getting dialogue for tags '"STR_FORMAT"'<>'"STR_FORMAT"' in call '"STR_FORMAT"'",
+	dbg_int("getting dialogue for tags '"STR_FORMAT"'<>'"STR_FORMAT"' in call '"STR_FORMAT"'",
 			STR_FMT(fromtag), STR_FMT(totag), STR_FMT(&call->callid));
 
 	/* ft - is always this side's tag (in offer it's message's from-tag, in answer it's message's to-tag)
@@ -6287,7 +6286,7 @@ static int call_get_dialogue(struct call_monologue *monologues[2], call_t *call,
 	/* if the from-tag is known already, return that */
 	ft = call_get_monologue_alias(call, fromtag, flags, &flags->sdp, ep);
 	if (ft) {
-		__C_DBG("found existing dialogue");
+		dbg_int("found existing dialogue");
 
 		/* detect whether given ft's medias
 		 * already seen as subscribers of tt's medias, otherwise setup tags */
@@ -6323,7 +6322,7 @@ static int call_get_dialogue(struct call_monologue *monologues[2], call_t *call,
 			struct media_subscription *ms = media->media_subscriptions.head;
 			if (ms->monologue) {
 				ft = ms->monologue;
-				__C_DBG("Found existing monologue '" STR_FORMAT "' for this side, by lookup of other side subscriptions",
+				dbg_int("Found existing monologue '" STR_FORMAT "' for this side, by lookup of other side subscriptions",
 						STR_FMT(&ft->tag));
 				break;
 			}

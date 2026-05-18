@@ -9,7 +9,7 @@
 #include "helpers.h"
 #include "rtp.h"
 #include "rtcp.h"
-#include "log.h"
+#include "log_d.h"
 #include "rtplib.h"
 #include "rtcplib.h"
 #include "main.h"

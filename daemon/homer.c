@@ -9,7 +9,7 @@
 #include <glib.h>
 #include <sys/time.h>
 
-#include "log.h"
+#include "log_d.h"
 #include "helpers.h"
 #include "str.h"
 #include "types.h"

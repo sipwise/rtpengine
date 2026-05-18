@@ -19,7 +19,7 @@
 #include "kernel.h"
 #include "rtplib.h"
 #include "cdr.h"
-#include "log.h"
+#include "log_d.h"
 #include "call_interfaces.h"
 #include "media_player.h"
 

@@ -9,7 +9,7 @@
 
 #include "compat.h"
 #include "call.h"
-#include "log.h"
+#include "log_d.h"
 #include "str.h"
 #include "crypto.h"
 #include "dtls.h"

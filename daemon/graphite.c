@@ -12,7 +12,7 @@
 #include <sys/time.h>
 #include <string.h>
 
-#include "log.h"
+#include "log_d.h"
 #include "call.h"
 #include "socket.h"
 #include "statistics.h"

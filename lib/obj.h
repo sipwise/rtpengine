@@ -125,10 +125,6 @@ INLINE void obj_put_gen(struct obj *o) {
 
 
 
-#include "log.h"
-
-
-
 INLINE void *__obj_alloc(size_t size, void (*clear_func)(void *),
 #if OBJ_DEBUG
 		const char *type, const char *file, const char *func, unsigned int line,

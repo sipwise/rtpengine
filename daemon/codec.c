@@ -6,7 +6,7 @@
 #include <sys/types.h>
 
 #include "call.h"
-#include "log.h"
+#include "log_d.h"
 #include "rtplib.h"
 #include "codeclib.h"
 #include "ssrc.h"
@@ -17,7 +17,6 @@
 #include "t38.h"
 #include "media_player.h"
 #include "timerthread.h"
-#include "log_funcs.h"
 #include "mqtt.h"
 #include "audio_player.h"
 #ifdef WITH_TRANSCODING

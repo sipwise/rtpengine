@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
-#include "log.h"
+#include "log_r.h"
 #include "types.h"
 #include "resample.h"
 #include "main.h"

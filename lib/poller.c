@@ -15,7 +15,7 @@
 
 
 #include "obj.h"
-#include "log_funcs.h"
+#include "loglib.h"
 #include "auxlib.h"
 #include "uring.h"
 

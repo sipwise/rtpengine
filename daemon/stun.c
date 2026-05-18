@@ -11,7 +11,7 @@
 #include "compat.h"
 #include "str.h"
 #include "helpers.h"
-#include "log.h"
+#include "log_d.h"
 #include "ice.h"
 #include "ssllib.h"
 #include "uring.h"

@@ -10,10 +10,9 @@
 #include "poller.h"
 #include "helpers.h"
 #include "str.h"
-#include "log.h"
+#include "log_d.h"
 #include "obj.h"
 #include "socket.h"
-#include "log_funcs.h"
 #include "uring.h"
 
 struct udp_listener_callback {

@@ -16,6 +16,7 @@
 #include "ssllib.h"
 #include "obj.h"
 #include "fix_frame_channel_layout.h"
+#include "log.h"
 
 
 

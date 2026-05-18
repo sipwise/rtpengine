@@ -7,7 +7,7 @@
 #include <libavcodec/avcodec.h>
 #include "metafile.h"
 #include "epoll.h"
-#include "log.h"
+#include "log_r.h"
 #include "main.h"
 #include "packet.h"
 #include "forward.h"

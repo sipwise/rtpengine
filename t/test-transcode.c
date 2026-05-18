@@ -1,7 +1,7 @@
 #include "codec.h"
 #include "call.h"
 #include "call_interfaces.h"
-#include "log.h"
+#include "log_t.h"
 #include "main.h"
 #include "ssrc.h"
 #include "helpers.h"
@@ -19,7 +19,6 @@ struct poller *rtpe_control_poller;
 struct poller *uring_poller;
 unsigned int num_media_pollers;
 unsigned int rtpe_poller_rr_iter;
-GString *dtmf_logs;
 GQueue rtpe_control_ng = G_QUEUE_INIT;
 struct bufferpool *shm_bufferpool;
 struct bufferpool *static_bufferpool;

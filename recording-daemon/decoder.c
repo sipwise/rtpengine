@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <libavutil/opt.h>
 #include "types.h"
-#include "log.h"
+#include "log_r.h"
 #include "str.h"
 #include "output.h"
 #include "mix.h"

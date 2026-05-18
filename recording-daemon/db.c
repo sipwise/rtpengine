@@ -6,7 +6,7 @@
 #include <sys/time.h>
 #include "types.h"
 #include "main.h"
-#include "log.h"
+#include "log_r.h"
 #include "tag.h"
 #include "recaux.h"
 #include "output.h"

@@ -16,7 +16,6 @@
 #include <codec-chain/client.h>
 #endif
 #include "str.h"
-#include "log.h"
 #include "loglib.h"
 #include "resample.h"
 #include "rtplib.h"

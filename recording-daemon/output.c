@@ -7,7 +7,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/time.h>
-#include "log.h"
+#include "log_r.h"
 #include "db.h"
 #include "main.h"
 #include "recaux.h"

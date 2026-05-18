@@ -7,7 +7,7 @@
 #include "compat.h"
 #include "str.h"
 #include "crypto.h"
-#include "log.h"
+#include "log_d.h"
 #include "rtplib.h"
 #include "ssrc.h"
 #include "call.h"

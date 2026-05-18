@@ -1,7 +1,7 @@
 #include "timerthread.h"
 
 #include "helpers.h"
-#include "log_funcs.h"
+#include "log_d.h"
 #include "poller.h"
 #include "main.h"
 #include "uring.h"

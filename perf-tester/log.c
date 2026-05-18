@@ -3,12 +3,29 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include "loglib.h"
+#include "ll_p.h"
 
 
 static const uint max_log_lines = 10000;
 
 mutex_t log_lock = MUTEX_STATIC_INIT;
 static GQueue log_buffer = G_QUEUE_INIT;
+
+
+#define ll(system, descr) #system,
+const char * const log_level_names[] = {
+#include "loglevels_common.inc"
+#include "loglevels_p.inc"
+};
+#undef ll
+#define ll(system, descr) descr,
+const char * const log_level_descriptions[] = {
+#include "loglevels_common.inc"
+#include "loglevels_p.inc"
+};
+#undef ll
+
+const unsigned int num_log_levels = __log_level_last;
 
 
 void __ilog(int prio, const char *fmt, ...) {
@@ -54,3 +71,5 @@ void log_clear(void) {
 int get_local_log_level(unsigned int subsystem_idx) {
 	return -1;
 }
+
+void log_info_reset(void) { }

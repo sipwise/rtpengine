@@ -8,7 +8,6 @@
 #include "ssllib.h"
 #include "ice.h"
 #include "bufferpool.h"
-#include "log_funcs.h"
 
 int _log_facility_rtcp;
 int _log_facility_cdr;
@@ -24,7 +23,6 @@ struct poller *rtpe_control_poller;
 struct poller *uring_poller;
 unsigned int num_media_pollers = 1;
 unsigned int rtpe_poller_rr_iter;
-GString *dtmf_logs;
 GQueue rtpe_control_ng = G_QUEUE_INIT;
 struct bufferpool *shm_bufferpool;
 struct bufferpool *static_bufferpool;

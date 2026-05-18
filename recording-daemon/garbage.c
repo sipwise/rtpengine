@@ -1,7 +1,7 @@
 #include "garbage.h"
 #include <glib.h>
 #include <pthread.h>
-#include "log.h"
+#include "log_r.h"
 
 
 typedef struct {

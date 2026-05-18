@@ -12,7 +12,7 @@
 #include <sys/eventfd.h>
 
 #include "helpers.h"
-#include "log.h"
+#include "log_d.h"
 #include "bufferpool.h"
 #include "main.h"
 #include "statistics.h"

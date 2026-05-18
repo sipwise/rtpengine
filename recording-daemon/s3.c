@@ -5,6 +5,7 @@
 #include "http.h"
 #include "s3utils.h"
 #include "db.h"
+#include "log_r.h"
 
 
 static void s3_setup(notif_req_t *req, output_t *o, metafile_t *mf, tag_t *tag) {

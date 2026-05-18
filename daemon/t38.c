@@ -7,10 +7,9 @@
 #include "spandsp_logging.h"
 #include "codec.h"
 #include "call.h"
-#include "log.h"
+#include "log_d.h"
 #include "str.h"
 #include "media_player.h"
-#include "log_funcs.h"
 #include "sdp.h"
 
 

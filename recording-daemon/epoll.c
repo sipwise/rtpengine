@@ -4,7 +4,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <mysql.h>
-#include "log.h"
+#include "log_r.h"
 #include "main.h"
 #include "garbage.h"
 #include "db.h"

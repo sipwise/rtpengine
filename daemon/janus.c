@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 #include "websocket.h"
-#include "log.h"
+#include "log_d.h"
 #include "main.h"
 #include "obj.h"
 #include "call.h"
@@ -12,7 +12,6 @@
 #include "call_interfaces.h"
 #include "rtplib.h"
 #include "ice.h"
-#include "log_funcs.h"
 
 TYPED_GHASHTABLE(janus_handles_set, uint64_t, void, int64_hash, int64_eq, NULL, NULL)
 TYPED_DIRECT_FUNCS(websocket_conn_direct_hash, websocket_conn_direct_eq, struct websocket_conn)

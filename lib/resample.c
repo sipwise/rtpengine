@@ -9,7 +9,7 @@
 #include <libswresample/swresample.h>
 #include <libavutil/opt.h>
 #include <libavutil/frame.h>
-#include "log.h"
+#include "loglib.h"
 #include "codeclib.h"
 #include "fix_frame_channel_layout.h"
 

@@ -13,11 +13,10 @@
 #include "poller.h"
 #include "helpers.h"
 #include "streambuf.h"
-#include "log.h"
+#include "log_d.h"
 #include "call.h"
 #include "call_interfaces.h"
 #include "socket.h"
-#include "log_funcs.h"
 #include "tcp_listener.h"
 
 struct control_tcp {

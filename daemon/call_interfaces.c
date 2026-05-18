@@ -9,7 +9,7 @@
 
 #include "call.h"
 #include "helpers.h"
-#include "log.h"
+#include "log_d.h"
 #include "redis.h"
 #include "sdp.h"
 #include "str.h"
@@ -372,7 +372,7 @@ str call_lookup_tcp(char **out) {
 }
 
 str call_delete_udp(char **out) {
-	__C_DBG("got delete for callid '%s' and viabranch '%s'",
+	dbg_int("got delete for callid '%s' and viabranch '%s'",
 		out[RE_UDP_DQ_CALLID], out[RE_UDP_DQ_VIABRANCH]);
 
 	str callid = STR(out[RE_UDP_DQ_CALLID]);
@@ -390,7 +390,7 @@ str call_query_udp(char **out) {
 	str ret;
 	struct call_stats stats;
 
-	__C_DBG("got query for callid '%s'", out[RE_UDP_DQ_CALLID]);
+	dbg_int("got query for callid '%s'", out[RE_UDP_DQ_CALLID]);
 
 	str callid = STR(out[RE_UDP_DQ_CALLID]);
 	str fromtag = STR(out[RE_UDP_DQ_FROMTAG]);

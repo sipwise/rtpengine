@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
-#include "log.h"
+#include "log_r.h"
 #include "main.h"
 #include "epoll.h"
 #include "metafile.h"

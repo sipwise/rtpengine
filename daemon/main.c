@@ -29,7 +29,7 @@
 #include "control_udp.h"
 #include "control_ng.h"
 #include "helpers.h"
-#include "log.h"
+#include "log_d.h"
 #include "call.h"
 #include "kernel.h"
 #include "redis.h"
@@ -59,7 +59,6 @@
 #include "janus.h"
 #include "nftables.h"
 #include "bufferpool.h"
-#include "log_funcs.h"
 #include "uring.h"
 #include "ng_client.h"
 

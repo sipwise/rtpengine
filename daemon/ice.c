@@ -7,11 +7,10 @@
 #include "str.h"
 #include "call.h"
 #include "helpers.h"
-#include "log.h"
+#include "log_d.h"
 #include "obj.h"
 #include "stun.h"
 #include "poller.h"
-#include "log_funcs.h"
 #include "timerthread.h"
 #include "call_interfaces.h"
 

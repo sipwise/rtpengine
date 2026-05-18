@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <openssl/err.h>
 #include "types.h"
-#include "log.h"
+#include "log_r.h"
 #include "rtplib.h"
 #include "str.h"
 #include "decoder.h"

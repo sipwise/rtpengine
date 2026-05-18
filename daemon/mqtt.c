@@ -11,8 +11,7 @@
 #include <json-glib/json-glib.h>
 
 #include "main.h"
-#include "log.h"
-#include "log_funcs.h"
+#include "log_d.h"
 #include "call.h"
 #include "ssrc.h"
 #include "rtplib.h"

@@ -1,4 +1,4 @@
-#include "log.h"
+#include "log_r.h"
 #include <syslog.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -7,6 +7,20 @@
 
 __thread const char *log_info_call, *log_info_stream;
 __thread unsigned long log_info_ssrc;
+
+
+#define ll(system, descr) #system,
+const char * const log_level_names[] = {
+#include "loglevels_common.inc"
+};
+#undef ll
+#define ll(system, descr) descr,
+const char * const log_level_descriptions[] = {
+#include "loglevels_common.inc"
+};
+#undef ll
+
+const unsigned int num_log_levels = __log_level_last_common;
 
 
 void __ilog(int prio, const char *fmt, ...) {

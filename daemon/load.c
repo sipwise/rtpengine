@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 #include "helpers.h"
-#include "log.h"
+#include "log_d.h"
 #include "main.h"
 
 int load_average; // times 100

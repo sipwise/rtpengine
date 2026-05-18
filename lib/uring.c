@@ -1,7 +1,6 @@
 #include "uring.h"
 #include <string.h>
 #include <poll.h>
-#include "log.h"
 #include "loglib.h"
 #include "socket.h"
 #include "poller.h"

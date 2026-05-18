@@ -7,7 +7,7 @@
 #endif
 
 #include "obj.h"
-#include "log.h"
+#include "log_d.h"
 #include "timerthread.h"
 #include "call.h"
 #include "call_interfaces.h"
@@ -16,7 +16,6 @@
 #include "codec.h"
 #include "media_socket.h"
 #include "ssrc.h"
-#include "log_funcs.h"
 #include "main.h"
 #include "rtcp.h"
 #ifdef WITH_TRANSCODING

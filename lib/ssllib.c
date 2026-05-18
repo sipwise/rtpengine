@@ -2,7 +2,7 @@
 #include <openssl/ssl.h>
 #include <time.h>
 #include "auxlib.h"
-#include "log.h"
+#include "loglib.h"
 
 
 

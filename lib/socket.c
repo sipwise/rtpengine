@@ -10,7 +10,7 @@
 #include "str.h"
 #include "auxlib.h"
 #include "nft_rtpengine.h"
-#include "log.h"
+#include "loglib.h"
 
 static bool __ip4_addr_parse(sockaddr_t *dst, const char *src);
 static bool __ip6_addr_parse(sockaddr_t *dst, const char *src);
@@ -272,10 +272,10 @@ static bool __ip_bind(socket_t *s, unsigned int port, const sockaddr_t *a) {
 
 	s->family->addrport2sockaddr(&sin, a, port);
 	if (bind(s->fd, (struct sockaddr *) &sin, s->family->sockaddr_size)) {
-		__C_DBG("bind fail, fd=%d, port=%d", s->fd, s->local.port);
+		dbg_int("bind fail, fd=%d, port=%d", s->fd, s->local.port);
 		return false;
 	} else {
-		__C_DBG("bind success, fd=%d, port=%d", s->fd, s->local.port);
+		dbg_int("bind success, fd=%d, port=%d", s->fd, s->local.port);
 	}
 
 	return true;
@@ -285,10 +285,10 @@ static bool __ip_connect(socket_t *s, const endpoint_t *ep) {
 
 	s->family->endpoint2sockaddr(&sin, ep);
 	if (connect(s->fd, (struct sockaddr *) &sin, s->family->sockaddr_size)) {
-		__C_DBG("connect fail, fd=%d, port=%d", s->fd, s->local.port);
+		dbg_int("connect fail, fd=%d, port=%d", s->fd, s->local.port);
 		return false;
 	} else {
-		__C_DBG("connect success, fd=%d, port=%d", s->fd, s->local.port);
+		dbg_int("connect success, fd=%d, port=%d", s->fd, s->local.port);
 	}
 	return true;
 }
@@ -305,7 +305,7 @@ static bool __ip_accept(socket_t *s, socket_t *newsock) {
 	sinlen = sizeof(sin);
 	nfd = accept(s->fd, (struct sockaddr *) &sin, &sinlen);
 	if (nfd == -1) {
-		__C_DBG("accept fail, fd=%d, port=%d", s->fd, s->local.port);
+		dbg_int("accept fail, fd=%d, port=%d", s->fd, s->local.port);
 		return false;
 	}
 
@@ -673,7 +673,7 @@ bool sockaddr_getaddrinfo_alt(sockaddr_t *a, sockaddr_t *a2, const char *s) {
 	hints.ai_socktype = SOCK_DGRAM;
 
 	if ((status = getaddrinfo(s, NULL, &hints, &res)) != 0) {
-		__C_DBG("getaddrinfo failed for %s, status is \"%s\"\n", s, gai_strerror(status));
+		dbg_int("getaddrinfo failed for %s, status is \"%s\"\n", s, gai_strerror(status));
 		return false;
 	}
 
@@ -744,10 +744,10 @@ static bool __socket(socket_t *r, int type, sockfamily_t *fam) {
 	r->family = fam;
 	r->fd = socket(fam->af, type, 0);
 	if (r->fd == -1) {
-		__C_DBG("socket() syscall fail, fd=%d", r->fd);
+		dbg_int("socket() syscall fail, fd=%d", r->fd);
 		return false;
 	} else {
-		__C_DBG("socket() syscall success, fd=%d", r->fd);
+		dbg_int("socket() syscall success, fd=%d", r->fd);
 	}
 
 	return true;
@@ -769,7 +769,7 @@ bool open_socket(socket_t *r, int type, unsigned int port, const sockaddr_t *sa)
 	fam = sa->family;
 
 	if (!__socket(r, type, fam)) {
-		__C_DBG("open socket fail, fd=%d", r->fd);
+		dbg_int("open socket fail, fd=%d", r->fd);
 		return false;
 	}
 
@@ -779,19 +779,19 @@ bool open_socket(socket_t *r, int type, unsigned int port, const sockaddr_t *sa)
 		ipv6only(r->fd, 1);
 
 	if (port > 0xffff) {
-		__C_DBG("open socket fail, port=%d > 0xfffffd", port);
+		dbg_int("open socket fail, port=%d > 0xfffffd", port);
 		goto fail;
 	}
 
 	if (!fam->bind(r, port, sa)) {
-		__C_DBG("open socket fail, fd=%d, port=%d", r->fd, port);
+		dbg_int("open socket fail, fd=%d, port=%d", r->fd, port);
 		goto fail;
 	}
 
 	r->local.port = port;
 	r->local.address = *sa;
 
-	__C_DBG("open socket success, fd=%d, port=%d", r->fd, port);
+	dbg_int("open socket success, fd=%d, port=%d", r->fd, port);
 
 	return true;
 
@@ -806,7 +806,7 @@ bool open_v46_socket(socket_t *r, int type) {
 		if (errno == EAFNOSUPPORT)
 			ret = __socket(r, type, &__socket_families[SF_IP4]);
 		if (!ret) {
-			__C_DBG("open socket fail");
+			dbg_int("open socket fail");
 			return false;
 		}
 	}
@@ -887,20 +887,20 @@ bool reset_socket(socket_t *r) {
 }
 bool close_socket(socket_t *r) {
 	if (!r) {
-		__C_DBG("close() syscall not called, no socket");
+		dbg_int("close() syscall not called, no socket");
 		return false;
 	}
 	if (r->fd == -1) {
-		__C_DBG("close() syscall not called, fd=%d", r->fd);
+		dbg_int("close() syscall not called, fd=%d", r->fd);
 		return false;
 	}
 
 	if (close(r->fd) != 0) {
-		__C_DBG("close() syscall fail, fd=%d", r->fd);
+		dbg_int("close() syscall fail, fd=%d", r->fd);
 		return false;
 	}
 
-	__C_DBG("close() syscall success, fd=%d", r->fd);
+	dbg_int("close() syscall success, fd=%d", r->fd);
 
 	reset_socket(r);
 

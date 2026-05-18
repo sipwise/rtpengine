@@ -6,10 +6,9 @@
 #include "obj.h"
 #include "socket.h"
 #include "helpers.h"
-#include "log.h"
+#include "log_d.h"
 #include "streambuf.h"
 #include "media_socket.h"
-#include "log_funcs.h"
 
 struct tcp_listener_callback {
 	struct obj obj;
