@@ -1,3 +1,11 @@
+ngcp-rtpengine (26.0.1.9+0~mr26.0.1.9) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [14aa8e5] MT#55283 add missing lock in JB
+  * [755e7f8] MT#55283 ignore ICE=force for answer SDPs
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 18 May 2026 19:30:45 +0200
+
 ngcp-rtpengine (26.0.1.8+0~mr26.0.1.8) unstable; urgency=medium
 
   [ Richard Fuchs ]
