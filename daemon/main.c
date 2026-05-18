@@ -310,6 +310,37 @@ static unsigned int parse_interface_rtp_port(const char *value, const char *opti
 	return port;
 }
 
+/**
+ * Validate global port range when parsing config.
+ */
+static void validate_global_rtp_port_range(void) {
+	if (!rtp_port_valid(rtpe_config.port_min))
+		die("Invalid RTP port range: --port-min must be between 1 and 65535");
+
+	if (!rtp_port_valid(rtpe_config.port_max))
+		die("Invalid RTP port range: --port-max must be between 1 and 65535");
+
+	if (rtpe_config.port_min > rtpe_config.port_max)
+		die("Invalid RTP port range: --port-min (%d) must not be greater than --port-max (%d)",
+				rtpe_config.port_min, rtpe_config.port_max);
+}
+/**
+ * Validate per iface port range when parsing config.
+ */
+static void validate_interface_rtp_port_range(const struct intf_config *ic) {
+	if (!rtp_port_valid(ic->port_min))
+		die("Invalid RTP port range for iface '" STR_FORMAT "': port-min must be between 1 and 65535",
+				STR_FMT(&ic->name));
+
+	if (!rtp_port_valid(ic->port_max))
+		die("Invalid RTP port range for iface '" STR_FORMAT "': port-max must be between 1 and 65535",
+				STR_FMT(&ic->name));
+
+	if (ic->port_min > ic->port_max)
+		die("Invalid RTP port range for iface '" STR_FORMAT "': port-min (%u) must not be greater than port-max (%u)",
+				STR_FMT(&ic->name), ic->port_min, ic->port_max);
+}
+
 static void if_add_alias(intf_config_q *q, const str *name, const char *alias) {
 	struct intf_config *ifa = g_new0(__typeof(*ifa), 1);
 	ifa->name = str_dup_str(name);
@@ -1061,6 +1092,8 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	}
 #endif
 
+	validate_global_rtp_port_range();
+
 	for (iter = if_a; iter && *iter; iter++) {
 		if (!if_addr_parse(&rtpe_config.interfaces, *iter, ifas))
 			die("Invalid interface specification: '%s'", *iter);
@@ -1072,6 +1105,9 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 			ic->port_min = rtpe_config.port_min;
 		if (!ic->port_max)
 			ic->port_max = rtpe_config.port_max;
+
+		validate_interface_rtp_port_range(ic);
+
 		t_queue_push_tail(&rtpe_config.interfaces, ic);
 	}
 
