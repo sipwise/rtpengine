@@ -281,6 +281,35 @@ static void __resolve_ifname(const char *s, GQueue *addrs) {
 	freeaddrinfo(res);
 }
 
+static bool rtp_port_valid(unsigned int port) {
+	return port >= 1 && port <= 65535;
+}
+static unsigned int parse_interface_rtp_port(const char *value, const char *option,
+		const char *interface_name)
+{
+	char *endptr;
+	unsigned int port;
+	unsigned long port_l; // INT_MAX guard
+
+	errno = 0;
+	/* due to not having pure stroui(), keep unsigned long
+	 * for the port value locally, because the strtoul() is used.
+	 */
+	port_l = strtoul(value, &endptr, 10);
+	if (port_l > INT_MAX)
+		die("Invalid '%s' for interface '%s': '%lu' (must be in range 1-65535)", option, interface_name, port_l);
+
+	port = (unsigned int)port_l;
+
+	while (g_ascii_isspace(*endptr))
+		endptr++;
+
+	if (endptr == value || errno == ERANGE || *endptr != '\0' || !rtp_port_valid(port))
+		die("Invalid '%s' for interface '%s': '%s'", option, interface_name, value);
+
+	return port;
+}
+
 static void if_add_alias(intf_config_q *q, const str *name, const char *alias) {
 	struct intf_config *ifa = g_new0(__typeof(*ifa), 1);
 	ifa->name = str_dup_str(name);
@@ -376,18 +405,16 @@ static void add_if_from_config(const char *name, charp_ht ht, struct interface_c
 
 	unsigned int port_min = 0, port_max = 0;
 	char *p = t_hash_table_lookup(ht, "port-min");
-	if (p) {
-		port_min = atoi(p);
-		if (!port_min)
-			die("Invalid 'port-min' for interface '%s'", name);
-	}
+	if (p)
+		port_min = parse_interface_rtp_port(p, "port-min", name);
 
 	p = t_hash_table_lookup(ht, "port-max");
-	if (p) {
-		port_max = atoi(p);
-		if (!port_max)
-			die("Invalid 'port-max' for interface '%s'", name);
-	}
+	if (p)
+		port_max = parse_interface_rtp_port(p, "port-max", name);
+
+	if (port_min > port_max)
+		die("Invalid RTP port range for iface '%s': port min (%d) must not be greater than port max (%d)",
+				name, port_min, port_max);
 
 	GList *exclud = NULL;
 	p = t_hash_table_lookup(ht, "exclude-ports");
