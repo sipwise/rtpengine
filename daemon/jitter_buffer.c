@@ -284,7 +284,7 @@ static void check_buffered_packets(struct jitter_buffer *jb) {
 	}
 }
 
-// jb is locked
+// jb is locked and call is locked
 static int queue_packet(struct media_packet *mp, struct jb_packet *p) {
 	struct jitter_buffer *jb = mp->stream->jb;
 	unsigned long ts = ntohl(mp->rtp->timestamp);
@@ -346,6 +346,7 @@ static int queue_packet(struct media_packet *mp, struct jb_packet *p) {
 	return 0;
 }
 
+// jb is locked and call is locked
 static int handle_clock_drift(struct media_packet *mp) {
 	ilog(LOG_DEBUG, "handle_clock_drift");
 	struct jitter_buffer *jb = mp->stream->jb;
@@ -512,6 +513,7 @@ static void decrement_buffer(struct jitter_buffer *jb) {
 		jb->buffer_len--;
 }
 
+// jb and call are unlocked
 static void set_jitter_values(struct media_packet *mp) {
 	struct jitter_buffer *jb = mp->stream->jb;
 	if(!jb || !mp->rtp)
@@ -519,12 +521,16 @@ static void set_jitter_values(struct media_packet *mp) {
 	int curr_seq = ntohs(mp->rtp->seq_num); 
 	int payload_type = (mp->rtp->m_pt & 0x7f);
 	int dtmf = 0;
+
+	call_t *call = mp->call;
+	RWLOCK_R(&call->master_lock);
 	const rtp_payload_type *rtp_pt = codec_rtp_pt(mp, payload_type);
 	if(rtp_pt) {
 		if(rtp_pt->codec_def && rtp_pt->codec_def->dtmf)
 			dtmf = 1;
 	}
-	mutex_lock(&jb->lock);
+
+	LOCK(&jb->lock);
 	if(jb->next_exp_seq && !dtmf) {
 		if(curr_seq > jb->next_exp_seq) {
 			int marker = (mp->rtp->m_pt & 0x80) ? 1 : 0;
@@ -554,7 +560,6 @@ static void set_jitter_values(struct media_packet *mp) {
 	}
 	if(curr_seq >= jb->next_exp_seq)
 		jb->next_exp_seq = curr_seq + 1;
-	mutex_unlock(&jb->lock);
 }
 
 static void __jb_send_later(struct timerthread_queue *ttq, void *p) {
