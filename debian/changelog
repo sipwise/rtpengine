@@ -1,3 +1,13 @@
+ngcp-rtpengine (14.1.1.12+0~mr14.1.1.12) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [cbb4aab] MT#55283 slightly defuse some tests
+
+  [ Donat Zenichev ]
+  * [c7572f2] MT#61856 main: prevent duplicated usage of `F` shortcut
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 18 May 2026 18:07:30 +0200
+
 ngcp-rtpengine (14.1.1.11+0~mr14.1.1.11) unstable; urgency=medium
 
   [ Orgad Shaneh ]
