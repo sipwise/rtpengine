@@ -58,6 +58,7 @@ LDLIBS+=	$(LDLIBS_LIBPCAP)
 LDLIBS+=	$(LDLIBS_LIBEVENT)
 LDLIBS+=	$(LDLIBS_LIBHIREDIS)
 LDLIBS+=	$(LDLIBS_MYSQL)
+LDLIBS+=	$(LDLIBS_BCG729)
 endif
 
 CFLAGS+=	$(CFLAGS_CODEC_CHAIN)
@@ -92,7 +93,7 @@ LIBSRCS+=	s3utils.c
 
 SRCS+=		kernel-extmap-filter.c
 
-COMMONOBJS=	str.o auxlib.o rtplib.o loglib.o ssllib.o
+COMMONOBJS=	../lib/str.o ../lib/auxlib.o ../lib/rtplib.o ../lib/loglib.o ../lib/ssllib.o
 
 include ../lib/common.Makefile
 
@@ -300,14 +301,14 @@ daemon-tests-recording:	daemon-test-deps
 
 test-bitstr:	test-bitstr.o
 
-test-mix-buffer:	test-mix-buffer.o $(COMMONOBJS) mix_buffer.o ssrc.o rtp.o crypto.o helpers.o \
+test-mix-buffer:	test-mix-buffer.o $(COMMONOBJS) ../lib/mix_buffer.o ssrc.o rtp.o crypto.o helpers.o \
 	../lib/mix_in_x64_avx2.o \
 	../lib/mix_in_x64_sse2.o \
 	../lib/mix_in_x64_avx512bw.o \
-	codeclib.strhash.o dtmflib.o \
+	../lib/codeclib.strhash.o ../lib/dtmflib.o \
 	../lib/mvr2s_x64_avx2.o \
 	../lib/mvr2s_x64_avx512.o \
-	resample.o bufferpool.o uring.o poller.o bencode.o log.o
+	../lib/resample.o ../lib/bufferpool.o ../lib/uring.o ../lib/poller.o ../lib/bencode.o log.o
 
 spandsp_send_fax_pcm:	spandsp_send_fax_pcm.o
 
@@ -319,72 +320,72 @@ spandsp_recv_fax_t38:	spandsp_recv_fax_t38.o
 
 spandsp_raw_fax_tests: spandsp_send_fax_pcm spandsp_recv_fax_pcm spandsp_send_fax_t38 spandsp_recv_fax_t38
 
-test-amr-decode: test-amr-decode.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o resample.o \
+test-amr-decode: test-amr-decode.o $(COMMONOBJS) ../lib/codeclib.strhash.o ../lib/resample.o ../lib/dtmflib.o \
 	../lib/mvr2s_x64_avx2.o \
 	../lib/mvr2s_x64_avx512.o \
-	bencode.o log.o
+	../lib/bencode.o log.o
 
-test-amr-encode: test-amr-encode.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o \
+test-amr-encode: test-amr-encode.o $(COMMONOBJS) ../lib/codeclib.strhash.o ../lib/resample.o ../lib/dtmflib.o \
 	../lib/mvr2s_x64_avx2.o \
 	../lib/mvr2s_x64_avx512.o \
-	bencode.o log.o
+	../lib/bencode.o log.o
 
 test-dtmf-detect: test-dtmf-detect.o
 
-aes-crypt:	aes-crypt.o $(COMMONOBJS) crypto.o bencode.o log.o
+aes-crypt:	aes-crypt.o $(COMMONOBJS) crypto.o ../lib/bencode.o log.o
 
-aead-decrypt:	aead-decrypt.o $(COMMONOBJS) crypto.o rtp.o bencode.o log.o
+aead-decrypt:	aead-decrypt.o $(COMMONOBJS) crypto.o rtp.o ../lib/bencode.o log.o
 
-aead-aes-crypt:	aead-aes-crypt.o $(COMMONOBJS) crypto.o bencode.o log.o
+aead-aes-crypt:	aead-aes-crypt.o $(COMMONOBJS) crypto.o ../lib/bencode.o log.o
 
-test-stats:	test-stats.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssrc.o call.o ice.o helpers.o \
-	kernel.o media_socket.o stun.o bencode.o socket.o poller.o dtls.o recording.o statistics.o \
+test-stats:	test-stats.o $(COMMONOBJS) ../lib/codeclib.strhash.o ../lib/resample.o codec.o ssrc.o call.o ice.o helpers.o \
+	kernel.o media_socket.o stun.o ../lib/bencode.o ../lib/socket.o ../lib/poller.o dtls.o recording.o statistics.o \
 	rtcp.o redis.o iptables.o graphite.o call_interfaces.o sdp.strhash.o rtp.o crypto.o \
 	control_ng_flags_parser.o control_ng.strhash.o graphite.o \
-	streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o timerthread.o \
-	media_player.o jitter_buffer.o dtmflib.o t38.o tcp_listener.o mqtt.o janus.strhash.o \
+	../lib/streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o timerthread.o \
+	media_player.o jitter_buffer.o ../lib/dtmflib.o t38.o tcp_listener.o mqtt.o janus.strhash.o \
 	websocket.o cli.strhash.o \
 	../lib/mvr2s_x64_avx2.o \
 	../lib/mvr2s_x64_avx512.o \
-	audio_player.o mix_buffer.o \
+	audio_player.o ../lib/mix_buffer.o \
 	../lib/mix_in_x64_avx2.o \
 	../lib/mix_in_x64_sse2.o \
 	../lib/mix_in_x64_avx512bw.o \
-	bufferpool.o uring.o arena.o ng_client.o \
+	../lib/bufferpool.o ../lib/uring.o arena.o ng_client.o \
 	call_flags.strhash.o log.o
 
-test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssrc.o call.o ice.o helpers.o \
-	kernel.o media_socket.o stun.o bencode.o socket.o poller.o dtls.o recording.o statistics.o \
+test-transcode:	test-transcode.o $(COMMONOBJS) ../lib/codeclib.strhash.o ../lib/resample.o codec.o ssrc.o call.o ice.o helpers.o \
+	kernel.o media_socket.o stun.o ../lib/bencode.o ../lib/socket.o ../lib/poller.o dtls.o recording.o statistics.o \
 	rtcp.o redis.o iptables.o graphite.o call_interfaces.o sdp.strhash.o rtp.o crypto.o \
 	control_ng_flags_parser.o control_ng.strhash.o \
-	streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o timerthread.o \
-	media_player.o jitter_buffer.o dtmflib.o t38.o tcp_listener.o mqtt.o janus.strhash.o websocket.o \
+	../lib/streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o timerthread.o \
+	media_player.o jitter_buffer.o ../lib/dtmflib.o t38.o tcp_listener.o mqtt.o janus.strhash.o websocket.o \
 	cli.strhash.o \
 	../lib/mvr2s_x64_avx2.o \
 	../lib/mvr2s_x64_avx512.o \
-	audio_player.o mix_buffer.o \
+	audio_player.o ../lib/mix_buffer.o \
 	../lib/mix_in_x64_avx2.o \
 	../lib/mix_in_x64_sse2.o \
 	../lib/mix_in_x64_avx512bw.o \
-	bufferpool.o uring.o arena.o ng_client.o \
+	../lib/bufferpool.o ../lib/uring.o arena.o ng_client.o \
 	call_flags.strhash.o log.o
 
-test-resample:	test-resample.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o \
+test-resample:	test-resample.o $(COMMONOBJS) ../lib/codeclib.strhash.o ../lib/resample.o ../lib/dtmflib.o \
 	../lib/mvr2s_x64_avx2.o \
 	../lib/mvr2s_x64_avx512.o \
-	bencode.o log.o
+	../lib/bencode.o log.o
 
-test-payload-tracker: test-payload-tracker.o $(COMMONOBJS) ssrc.o helpers.o auxlib.o rtp.o crypto.o codeclib.strhash.o \
-	resample.o dtmflib.o \
+test-payload-tracker: test-payload-tracker.o $(COMMONOBJS) ssrc.o helpers.o rtp.o crypto.o ../lib/codeclib.strhash.o \
+	../lib/resample.o ../lib/dtmflib.o \
 	../lib/mvr2s_x64_avx2.o \
 	../lib/mvr2s_x64_avx512.o \
-	bufferpool.o uring.o poller.o bencode.o log.o
+	../lib/bufferpool.o ../lib/uring.o ../lib/poller.o ../lib/bencode.o log.o
 
 test-kernel-module: test-kernel-module.o $(COMMONOBJS) kernel.o
 
-test-const_str_hash.strhash: test-const_str_hash.strhash.o $(COMMONOBJS) bencode.o log.o
+test-const_str_hash.strhash: test-const_str_hash.strhash.o $(COMMONOBJS) ../lib/bencode.o log.o
 
-s3-auth:	s3-auth.o s3utils.o
+s3-auth:	s3-auth.o ../lib/s3utils.o
 
 kernel-extmap-filter:	kernel-extmap-filter.o
 
