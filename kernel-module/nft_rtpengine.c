@@ -605,6 +605,14 @@ struct re_timer_thread {
 	ktime_t scheduled_at;
 };
 
+static void free_packet_stream(struct re_play_stream_packets *stream);
+static void free_play_stream_packet(struct re_play_stream_packet *p);
+static void free_play_stream(struct re_play_stream *s);
+static void do_stop_stream(struct re_play_stream *stream);
+
+#endif
+
+
 struct re_ring_buffer {
 	void *head;
 	struct rtpengine_buf_slot *slots;
@@ -630,14 +638,6 @@ struct re_ring_buffer_pair {
 	atomic_t errors;
 	struct task_struct *sender;
 };
-
-
-static void free_packet_stream(struct re_play_stream_packets *stream);
-static void free_play_stream_packet(struct re_play_stream_packet *p);
-static void free_play_stream(struct re_play_stream *s);
-static void do_stop_stream(struct re_play_stream *stream);
-
-#endif
 
 
 static struct proc_dir_entry *my_proc_root;
