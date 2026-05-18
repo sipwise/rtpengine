@@ -1205,7 +1205,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 				die("Invalid Redis endpoint [IP:PORT/INT] '%s' (--redis-subscribe)", redisps_subscribe);
 		}
 
-	if (rtpe_config.fmt > 2)
+	if (rtpe_config.fmt < 0 || rtpe_config.fmt > 2)
 		die("Invalid XMLRPC format");
 
 	// XXX unify the log facility options
