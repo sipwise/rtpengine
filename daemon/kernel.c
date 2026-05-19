@@ -560,7 +560,7 @@ void kernel_init_pollers(unsigned int num) {
 
 static void wake_eventfd(struct thread_waker *wk) {
 	int64_t a = 1;
-	(void) write(GPOINTER_TO_INT(wk->arg), &a, sizeof(a));
+	ssize_t ret __attribute__((unused)) = write(GPOINTER_TO_INT(wk->arg), &a, sizeof(a));
 }
 
 static void wait_eventfd(int fd) {
