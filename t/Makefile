@@ -10,90 +10,70 @@ include ../lib/flags.Makefile
 
 PRELOAD_CFLAGS := $(CFLAGS)
 
-CFLAGS+=	-I. -I../lib/ -I../kernel-module/ -I../include/
-CFLAGS+=	$(CFLAGS_GLIB)
-CFLAGS+=	$(CFLAGS_GTHREAD)
-CFLAGS+=	$(CFLAGS_OPENSSL)
-CFLAGS+=	$(CFLAGS_LIBPCRE)
-CFLAGS+=	$(CFLAGS_LIBCURL)
-CFLAGS+=	$(CFLAGS_JSON_GLIB)
+CFLAGS += -I$(top_srcdir)/include/
+CFLAGS += $(CFLAGS_GLIB)
+CFLAGS += $(CFLAGS_GTHREAD)
+CFLAGS += $(CFLAGS_OPENSSL)
+CFLAGS += $(CFLAGS_LIBPCRE)
+CFLAGS += $(CFLAGS_LIBCURL)
+CFLAGS += $(CFLAGS_JSON_GLIB)
 ifeq ($(with_transcoding),yes)
-CFLAGS+=	$(CFLAGS_LIBAVCODEC)
-CFLAGS+=	$(CFLAGS_LIBAVFORMAT)
-CFLAGS+=	$(CFLAGS_LIBAVUTIL)
-CFLAGS+=	$(CFLAGS_LIBSWRESAMPLE)
-CFLAGS+=	$(CFLAGS_LIBAVFILTER)
-CFLAGS+=	$(CFLAGS_SPANDSP)
-CFLAGS+=	$(CFLAGS_OPUS)
-CFLAGS+=	$(CFLAGS_LIBZ)
-CFLAGS+=	$(CFLAGS_LIBWEBSOCKETS)
-CFLAGS+=	$(CFLAGS_LIBEVENT)
-CFLAGS+=	-DWITH_TRANSCODING
+CFLAGS += $(CFLAGS_LIBAVCODEC)
+CFLAGS += $(CFLAGS_LIBAVFORMAT)
+CFLAGS += $(CFLAGS_LIBAVUTIL)
+CFLAGS += $(CFLAGS_LIBSWRESAMPLE)
+CFLAGS += $(CFLAGS_LIBAVFILTER)
+CFLAGS += $(CFLAGS_SPANDSP)
+CFLAGS += $(CFLAGS_OPUS)
+CFLAGS += $(CFLAGS_LIBZ)
+CFLAGS += $(CFLAGS_LIBWEBSOCKETS)
+CFLAGS += $(CFLAGS_LIBEVENT)
+CFLAGS += -DWITH_TRANSCODING
 ifeq ($(RTPENGINE_EXTENDED_TESTS),1)
-CFLAGS+=	-DWITH_AMR_TESTS
+CFLAGS += -DWITH_AMR_TESTS
 endif
-CFLAGS+=	$(CFLAGS_MYSQL)
+CFLAGS += $(CFLAGS_MYSQL)
 else
-CFLAGS+=	-DWITHOUT_CODECLIB
+CFLAGS += -DWITHOUT_CODECLIB
 endif
 
-LDLIBS+=	$(LDLIBS_GLIB)
-LDLIBS+=	$(LDLIBS_GTHREAD)
-LDLIBS+=	$(LDLIBS_LIBCRYPTO)
-LDLIBS+=	$(LDLIBS_OPENSSL)
-LDLIBS+=	$(LDLIBS_LIBPCRE)
-LDLIBS+=	$(LDLIBS_LIBCURL)
-LDLIBS+=	$(LDLIBS_JSON_GLIB)
+LDLIBS += $(LDLIBS_GLIB)
+LDLIBS += $(LDLIBS_GTHREAD)
+LDLIBS += $(LDLIBS_LIBCRYPTO)
+LDLIBS += $(LDLIBS_OPENSSL)
+LDLIBS += $(LDLIBS_LIBPCRE)
+LDLIBS += $(LDLIBS_LIBCURL)
+LDLIBS += $(LDLIBS_JSON_GLIB)
 ifeq ($(with_transcoding),yes)
-LDLIBS+=	$(LDLIBS_LIBAVCODEC)
-LDLIBS+=	$(LDLIBS_LIBAVFORMAT)
-LDLIBS+=	$(LDLIBS_LIBAVUTIL)
-LDLIBS+=	$(LDLIBS_LIBSWRESAMPLE)
-LDLIBS+=	$(LDLIBS_LIBAVFILTER)
-LDLIBS+=	$(LDLIBS_SPANDSP)
-LDLIBS+=	$(LDLIBS_OPUS)
-LDLIBS+=	$(LDLIBS_LIBZ)
-LDLIBS+=	$(LDLIBS_LIBWEBSOCKETS)
-LDLIBS+=	$(LDLIBS_LIBPCAP)
-LDLIBS+=	$(LDLIBS_LIBEVENT)
-LDLIBS+=	$(LDLIBS_LIBHIREDIS)
-LDLIBS+=	$(LDLIBS_MYSQL)
-LDLIBS+=	$(LDLIBS_BCG729)
+LDLIBS += $(LDLIBS_LIBAVCODEC)
+LDLIBS += $(LDLIBS_LIBAVFORMAT)
+LDLIBS += $(LDLIBS_LIBAVUTIL)
+LDLIBS += $(LDLIBS_LIBSWRESAMPLE)
+LDLIBS += $(LDLIBS_LIBAVFILTER)
+LDLIBS += $(LDLIBS_SPANDSP)
+LDLIBS += $(LDLIBS_OPUS)
+LDLIBS += $(LDLIBS_LIBZ)
+LDLIBS += $(LDLIBS_LIBWEBSOCKETS)
+LDLIBS += $(LDLIBS_LIBPCAP)
+LDLIBS += $(LDLIBS_LIBEVENT)
+LDLIBS += $(LDLIBS_LIBHIREDIS)
+LDLIBS += $(LDLIBS_MYSQL)
+LDLIBS += $(LDLIBS_BCG729)
 endif
 
-CFLAGS+=	$(CFLAGS_CODEC_CHAIN)
-LDLIBS+=	$(LDLIBS_CODEC_CHAIN)
+CFLAGS += $(CFLAGS_CODEC_CHAIN)
+LDLIBS += $(LDLIBS_CODEC_CHAIN)
 
-SRCS=		test-bitstr.c aes-crypt.c aead-aes-crypt.c test-const_str_hash.strhash.c aead-decrypt.c log.c
-LIBSRCS=	loglib.c auxlib.c str.c rtplib.c ssllib.c mix_buffer.c bufferpool.c bencode.c
-DAEMONSRCS=	crypto.c ssrc.c helpers.c rtp.c cli.strhash.c
+DAEMONSRCS := crypto.c ssrc.c helpers.c rtp.c cli.strhash.c
 
-ifeq ($(with_transcoding),yes)
-SRCS+=		test-transcode.c test-dtmf-detect.c test-payload-tracker.c test-resample.c test-stats.c
-SRCS+=		spandsp_recv_fax_pcm.c spandsp_recv_fax_t38.c spandsp_send_fax_pcm.c \
-		spandsp_send_fax_t38.c test-mix-buffer.c
-ifeq ($(RTPENGINE_EXTENDED_TESTS),1)
-SRCS+=		test-amr-decode.c test-amr-encode.c
-endif
-LIBSRCS+=	codeclib.strhash.c resample.c socket.c streambuf.c dtmflib.c poller.c
-DAEMONSRCS+=	control_ng_flags_parser.c codec.c call.c ice.c kernel.c media_socket.c stun.c \
+DAEMONSRCS += control_ng_flags_parser.c codec.c call.c ice.c kernel.c media_socket.c stun.c \
 		dtls.c recording.c statistics.c rtcp.c redis.c iptables.c graphite.c \
 		cookie_cache.c udp_listener.c homer.c load.c cdr.c dtmf.c timerthread.c \
 		media_player.c jitter_buffer.c t38.c tcp_listener.c mqtt.c websocket.c \
 		audio_player.c arena.c ng_client.c call_interfaces.c sdp.strhash.c \
 		janus.strhash.c control_ng.strhash.c call_flags.strhash.c
-LIBASM := mvr2s_x64_avx2.S mvr2s_x64_avx512.S mix_in_x64_avx2.S mix_in_x64_avx512bw.S mix_in_x64_sse2.S
-endif
-ifneq ($(have_liburing),yes)
-LIBSRCS+=	uring.c
-endif
 
-SRCS+=		s3-auth.c
-LIBSRCS+=	s3utils.c
-
-SRCS+=		kernel-extmap-filter.c
-
-COMMONOBJS=	../lib/str.o ../lib/auxlib.o ../lib/rtplib.o ../lib/loglib.o ../lib/ssllib.o
+COMMONOBJS := ../lib/str.o ../lib/auxlib.o ../lib/rtplib.o ../lib/loglib.o ../lib/ssllib.o
 
 include ../lib/common.Makefile
 
@@ -108,17 +88,17 @@ include ../lib/common.Makefile
 	daemon-tests-bundle daemon-tests-dtls \
 	daemon-tests-recording daemon-tests-create
 
-TESTS=		test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
+TESTS := test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
 ifeq ($(with_transcoding),yes)
-TESTS+=		test-transcode test-dtmf-detect test-payload-tracker test-resample test-stats test-mix-buffer
+TESTS += test-transcode test-dtmf-detect test-payload-tracker test-resample test-stats test-mix-buffer
 ifeq ($(RTPENGINE_EXTENDED_TESTS),1)
-TESTS+=		test-amr-decode test-amr-encode
+TESTS += test-amr-decode test-amr-encode
 endif
 endif
-TESTS+=		s3-auth
+TESTS += s3-auth
 
-ADD_CLEAN=	tests-preload.so time-fudge-preload.so $(TESTS) aead-decrypt
-ADD_CLEAN+=	s3-auth
+ADD_CLEAN := tests-preload.so time-fudge-preload.so $(TESTS) aead-decrypt
+ADD_CLEAN += s3-auth
 
 ifeq ($(with_transcoding),yes)
 all-tests:	unit-tests daemon-tests
@@ -301,14 +281,26 @@ daemon-tests-recording:	daemon-test-deps
 
 test-bitstr:	test-bitstr.o
 
-test-mix-buffer:	test-mix-buffer.o $(COMMONOBJS) ../lib/mix_buffer.o ssrc.o rtp.o crypto.o helpers.o \
+test-mix-buffer:	test-mix-buffer.o \
+	$(COMMONOBJS) \
+	../lib/mix_buffer.o \
+	ssrc.o \
+	rtp.o \
+	crypto.o \
+	helpers.o \
 	../lib/mix_in_x64_avx2.o \
 	../lib/mix_in_x64_sse2.o \
 	../lib/mix_in_x64_avx512bw.o \
-	../lib/codeclib.strhash.o ../lib/dtmflib.o \
+	../lib/codeclib.strhash.o \
+	../lib/dtmflib.o \
 	../lib/mvr2s_x64_avx2.o \
 	../lib/mvr2s_x64_avx512.o \
-	../lib/resample.o ../lib/bufferpool.o ../lib/uring.o ../lib/poller.o ../lib/bencode.o log.o
+	../lib/resample.o \
+	../lib/bufferpool.o \
+	../lib/uring.o \
+	../lib/poller.o \
+	../lib/bencode.o \
+	log.o
 
 spandsp_send_fax_pcm:	spandsp_send_fax_pcm.o
 
@@ -320,15 +312,25 @@ spandsp_recv_fax_t38:	spandsp_recv_fax_t38.o
 
 spandsp_raw_fax_tests: spandsp_send_fax_pcm spandsp_recv_fax_pcm spandsp_send_fax_t38 spandsp_recv_fax_t38
 
-test-amr-decode: test-amr-decode.o $(COMMONOBJS) ../lib/codeclib.strhash.o ../lib/resample.o ../lib/dtmflib.o \
+test-amr-decode: test-amr-decode.o \
+	$(COMMONOBJS) \
+	../lib/codeclib.strhash.o \
+	../lib/resample.o \
+	../lib/dtmflib.o \
 	../lib/mvr2s_x64_avx2.o \
 	../lib/mvr2s_x64_avx512.o \
-	../lib/bencode.o log.o
+	../lib/bencode.o \
+	log.o
 
-test-amr-encode: test-amr-encode.o $(COMMONOBJS) ../lib/codeclib.strhash.o ../lib/resample.o ../lib/dtmflib.o \
+test-amr-encode: test-amr-encode.o \
+	$(COMMONOBJS) \
+	../lib/codeclib.strhash.o \
+	../lib/resample.o \
+	../lib/dtmflib.o \
 	../lib/mvr2s_x64_avx2.o \
 	../lib/mvr2s_x64_avx512.o \
-	../lib/bencode.o log.o
+	../lib/bencode.o \
+	log.o
 
 test-dtmf-detect: test-dtmf-detect.o
 
@@ -338,48 +340,151 @@ aead-decrypt:	aead-decrypt.o $(COMMONOBJS) crypto.o rtp.o ../lib/bencode.o log.o
 
 aead-aes-crypt:	aead-aes-crypt.o $(COMMONOBJS) crypto.o ../lib/bencode.o log.o
 
-test-stats:	test-stats.o $(COMMONOBJS) ../lib/codeclib.strhash.o ../lib/resample.o codec.o ssrc.o call.o ice.o helpers.o \
-	kernel.o media_socket.o stun.o ../lib/bencode.o ../lib/socket.o ../lib/poller.o dtls.o recording.o statistics.o \
-	rtcp.o redis.o iptables.o graphite.o call_interfaces.o sdp.strhash.o rtp.o crypto.o \
-	control_ng_flags_parser.o control_ng.strhash.o graphite.o \
-	../lib/streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o timerthread.o \
-	media_player.o jitter_buffer.o ../lib/dtmflib.o t38.o tcp_listener.o mqtt.o janus.strhash.o \
-	websocket.o cli.strhash.o \
-	../lib/mvr2s_x64_avx2.o \
-	../lib/mvr2s_x64_avx512.o \
-	audio_player.o ../lib/mix_buffer.o \
-	../lib/mix_in_x64_avx2.o \
-	../lib/mix_in_x64_sse2.o \
-	../lib/mix_in_x64_avx512bw.o \
-	../lib/bufferpool.o ../lib/uring.o arena.o ng_client.o \
-	call_flags.strhash.o log.o
-
-test-transcode:	test-transcode.o $(COMMONOBJS) ../lib/codeclib.strhash.o ../lib/resample.o codec.o ssrc.o call.o ice.o helpers.o \
-	kernel.o media_socket.o stun.o ../lib/bencode.o ../lib/socket.o ../lib/poller.o dtls.o recording.o statistics.o \
-	rtcp.o redis.o iptables.o graphite.o call_interfaces.o sdp.strhash.o rtp.o crypto.o \
-	control_ng_flags_parser.o control_ng.strhash.o \
-	../lib/streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o timerthread.o \
-	media_player.o jitter_buffer.o ../lib/dtmflib.o t38.o tcp_listener.o mqtt.o janus.strhash.o websocket.o \
+test-stats:	test-stats.o \
+	$(COMMONOBJS) \
+	../lib/codeclib.strhash.o \
+	../lib/resample.o \
+	codec.o \
+	ssrc.o \
+	call.o \
+	ice.o \
+	helpers.o \
+	kernel.o \
+	media_socket.o \
+	stun.o \
+	../lib/bencode.o \
+	../lib/socket.o \
+	../lib/poller.o \
+	dtls.o  \
+	recording.o \
+	statistics.o \
+	rtcp.o \
+	redis.o \
+	iptables.o \
+	graphite.o \
+	call_interfaces.o \
+	sdp.strhash.o \
+	rtp.o \
+	crypto.o \
+	control_ng_flags_parser.o \
+	control_ng.strhash.o \
+	graphite.o \
+	../lib/streambuf.o \
+	cookie_cache.o \
+	udp_listener.o \
+	homer.o \
+	load.o \
+	cdr.o \
+	dtmf.o \
+	timerthread.o \
+	media_player.o \
+	jitter_buffer.o \
+	../lib/dtmflib.o \
+	t38.o \
+	tcp_listener.o \
+	mqtt.o \
+	janus.strhash.o \
+	websocket.o \
 	cli.strhash.o \
 	../lib/mvr2s_x64_avx2.o \
 	../lib/mvr2s_x64_avx512.o \
-	audio_player.o ../lib/mix_buffer.o \
+	audio_player.o \
+	../lib/mix_buffer.o \
 	../lib/mix_in_x64_avx2.o \
 	../lib/mix_in_x64_sse2.o \
 	../lib/mix_in_x64_avx512bw.o \
-	../lib/bufferpool.o ../lib/uring.o arena.o ng_client.o \
-	call_flags.strhash.o log.o
+	../lib/bufferpool.o \
+	../lib/uring.o \
+	arena.o \
+	ng_client.o \
+	call_flags.strhash.o \
+	log.o
 
-test-resample:	test-resample.o $(COMMONOBJS) ../lib/codeclib.strhash.o ../lib/resample.o ../lib/dtmflib.o \
+test-transcode:	test-transcode.o \
+	$(COMMONOBJS) \
+	../lib/codeclib.strhash.o \
+	../lib/resample.o \
+	codec.o \
+	ssrc.o \
+	call.o \
+	ice.o \
+	helpers.o \
+	kernel.o \
+	media_socket.o \
+	stun.o \
+	../lib/bencode.o \
+	../lib/socket.o \
+	../lib/poller.o \
+	dtls.o \
+	recording.o \
+	statistics.o \
+	rtcp.o \
+	redis.o \
+	iptables.o \
+	graphite.o \
+	call_interfaces.o \
+	sdp.strhash.o \
+	rtp.o \
+	crypto.o \
+	control_ng_flags_parser.o \
+	control_ng.strhash.o \
+	../lib/streambuf.o \
+	cookie_cache.o \
+	udp_listener.o \
+	homer.o \
+	load.o \
+	cdr.o \
+	dtmf.o \
+	timerthread.o \
+	media_player.o \
+	jitter_buffer.o \
+	../lib/dtmflib.o \
+	t38.o \
+	tcp_listener.o \
+	mqtt.o \
+	janus.strhash.o \
+	websocket.o \
+	cli.strhash.o \
 	../lib/mvr2s_x64_avx2.o \
 	../lib/mvr2s_x64_avx512.o \
-	../lib/bencode.o log.o
+	audio_player.o \
+	../lib/mix_buffer.o \
+	../lib/mix_in_x64_avx2.o \
+	../lib/mix_in_x64_sse2.o \
+	../lib/mix_in_x64_avx512bw.o \
+	../lib/bufferpool.o \
+	../lib/uring.o \
+	arena.o \
+	ng_client.o \
+	call_flags.strhash.o \
+	log.o
 
-test-payload-tracker: test-payload-tracker.o $(COMMONOBJS) ssrc.o helpers.o rtp.o crypto.o ../lib/codeclib.strhash.o \
-	../lib/resample.o ../lib/dtmflib.o \
+test-resample:	test-resample.o \
+	$(COMMONOBJS) \
+	../lib/codeclib.strhash.o \
+	../lib/resample.o \
+	../lib/dtmflib.o \
 	../lib/mvr2s_x64_avx2.o \
 	../lib/mvr2s_x64_avx512.o \
-	../lib/bufferpool.o ../lib/uring.o ../lib/poller.o ../lib/bencode.o log.o
+	../lib/bencode.o \
+	log.o
+
+test-payload-tracker: test-payload-tracker.o \
+	$(COMMONOBJS) \
+	ssrc.o \
+	helpers.o \
+	rtp.o \
+	crypto.o \
+	../lib/codeclib.strhash.o \
+	../lib/resample.o \
+	../lib/dtmflib.o \
+	../lib/mvr2s_x64_avx2.o \
+	../lib/mvr2s_x64_avx512.o \
+	../lib/bufferpool.o \
+	../lib/uring.o \
+	../lib/poller.o \
+	../lib/bencode.o \
+	log.o
 
 test-kernel-module: test-kernel-module.o $(COMMONOBJS) kernel.o
 

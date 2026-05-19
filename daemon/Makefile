@@ -8,94 +8,93 @@ with_transcoding ?= yes
 
 include ../lib/flags.Makefile
 
-CFLAGS+=	-I. -I../kernel-module/ -I../lib/ -I../include/
-CFLAGS+=	-Iprivate
-CFLAGS+=	$(CFLAGS_GLIB)
-CFLAGS+=	$(CFLAGS_GTHREAD)
-CFLAGS+=	$(CFLAGS_LIBZ)
-CFLAGS+=	$(CFLAGS_OPENSSL)
-CFLAGS+=	$(CFLAGS_LIBEVENT)
-CFLAGS+=	$(CFLAGS_LIBPCRE)
-CFLAGS+=	$(CFLAGS_LIBCURL)
-CFLAGS+=	$(CFLAGS_JSON_GLIB)
-CFLAGS+=	$(CFLAGS_LIBWEBSOCKETS)
-CFLAGS+=	$(CFLAGS_LIBIPTC)
+CFLAGS += -I$(top_srcdir)/include/
+CFLAGS += $(CFLAGS_GLIB)
+CFLAGS += $(CFLAGS_GTHREAD)
+CFLAGS += $(CFLAGS_LIBZ)
+CFLAGS += $(CFLAGS_OPENSSL)
+CFLAGS += $(CFLAGS_LIBEVENT)
+CFLAGS += $(CFLAGS_LIBPCRE)
+CFLAGS += $(CFLAGS_LIBCURL)
+CFLAGS += $(CFLAGS_JSON_GLIB)
+CFLAGS += $(CFLAGS_LIBWEBSOCKETS)
+CFLAGS += $(CFLAGS_LIBIPTC)
 ifeq ($(with_transcoding),yes)
-CFLAGS+=	$(CFLAGS_LIBAVCODEC)
-CFLAGS+=	$(CFLAGS_LIBAVFORMAT)
-CFLAGS+=	$(CFLAGS_LIBAVUTIL)
-CFLAGS+=	$(CFLAGS_LIBSWRESAMPLE)
-CFLAGS+=	$(CFLAGS_LIBAVFILTER)
-CFLAGS+=	$(CFLAGS_SPANDSP)
-CFLAGS+=	$(CFLAGS_OPUS)
-CFLAGS+=	$(CFLAGS_MYSQL)
+CFLAGS += $(CFLAGS_LIBAVCODEC)
+CFLAGS += $(CFLAGS_LIBAVFORMAT)
+CFLAGS += $(CFLAGS_LIBAVUTIL)
+CFLAGS += $(CFLAGS_LIBSWRESAMPLE)
+CFLAGS += $(CFLAGS_LIBAVFILTER)
+CFLAGS += $(CFLAGS_SPANDSP)
+CFLAGS += $(CFLAGS_OPUS)
+CFLAGS += $(CFLAGS_MYSQL)
 else
-CFLAGS+=	-DWITHOUT_CODECLIB
+CFLAGS += -DWITHOUT_CODECLIB
 endif
 ifeq ($(without_nftables),yes)
-CFLAGS+=	-DWITHOUT_NFTABLES
+CFLAGS += -DWITHOUT_NFTABLES
 endif
 
 ### compile time options:
-#CFLAGS+=	-DSRTCP_KEY_DERIVATION_RFC_COMPLIANCE
-#CFLAGS+=	-DSTRICT_SDES_KEY_LIFETIME
+#CFLAGS += -DSRTCP_KEY_DERIVATION_RFC_COMPLIANCE
+#CFLAGS += -DSTRICT_SDES_KEY_LIFETIME
 
-LDLIBS+=	$(LDLIBS_GLIB)
-LDLIBS+=	$(LDLIBS_GTHREAD)
-LDLIBS+=	$(LDLIBS_LIBZ)
-LDLIBS+=	$(LDLIBS_LIBPCRE)
-LDLIBS+=	$(LDLIBS_LIBCURL)
-LDLIBS+=	$(LDLIBS_LIBCRYPTO)
-LDLIBS+=	$(LDLIBS_OPENSSL)
-LDLIBS+=	$(LDLIBS_LIBEVENT)
-LDLIBS+=	$(LDLIBS_LIBPCAP)
-LDLIBS+=	$(LDLIBS_LIBHIREDIS)
-LDLIBS+=	$(LDLIBS_JSON_GLIB)
-LDLIBS+=	$(LDLIBS_LIBWEBSOCKETS)
-LDLIBS+=	$(LDLIBS_LIBIPTC)
+LDLIBS += $(LDLIBS_GLIB)
+LDLIBS += $(LDLIBS_GTHREAD)
+LDLIBS += $(LDLIBS_LIBZ)
+LDLIBS += $(LDLIBS_LIBPCRE)
+LDLIBS += $(LDLIBS_LIBCURL)
+LDLIBS += $(LDLIBS_LIBCRYPTO)
+LDLIBS += $(LDLIBS_OPENSSL)
+LDLIBS += $(LDLIBS_LIBEVENT)
+LDLIBS += $(LDLIBS_LIBPCAP)
+LDLIBS += $(LDLIBS_LIBHIREDIS)
+LDLIBS += $(LDLIBS_JSON_GLIB)
+LDLIBS += $(LDLIBS_LIBWEBSOCKETS)
+LDLIBS += $(LDLIBS_LIBIPTC)
 ifeq ($(with_transcoding),yes)
-LDLIBS+=	$(LDLIBS_LIBAVCODEC)
-LDLIBS+=	$(LDLIBS_LIBAVFORMAT)
-LDLIBS+=	$(LDLIBS_LIBAVUTIL)
-LDLIBS+=	$(LDLIBS_LIBSWRESAMPLE)
-LDLIBS+=	$(LDLIBS_LIBAVFILTER)
-LDLIBS+=	$(LDLIBS_SPANDSP)
-LDLIBS+=	$(LDLIBS_OPUS)
-LDLIBS+=	$(LDLIBS_MYSQL)
+LDLIBS += $(LDLIBS_LIBAVCODEC)
+LDLIBS += $(LDLIBS_LIBAVFORMAT)
+LDLIBS += $(LDLIBS_LIBAVUTIL)
+LDLIBS += $(LDLIBS_LIBSWRESAMPLE)
+LDLIBS += $(LDLIBS_LIBAVFILTER)
+LDLIBS += $(LDLIBS_SPANDSP)
+LDLIBS += $(LDLIBS_OPUS)
+LDLIBS += $(LDLIBS_MYSQL)
 endif
 
 ifeq ($(with_transcoding),yes)
-CFLAGS+=	$(CFLAGS_BCG729)
-LDLIBS+=	$(LDLIBS_BCG729)
+CFLAGS += $(CFLAGS_BCG729)
+LDLIBS += $(LDLIBS_BCG729)
 
-CFLAGS+=	$(CFLAGS_CODEC_CHAIN)
-LDLIBS+=	$(LDLIBS_CODEC_CHAIN)
+CFLAGS += $(CFLAGS_CODEC_CHAIN)
+LDLIBS += $(LDLIBS_CODEC_CHAIN)
 endif
 
-CFLAGS+=	$(CFLAGS_MQTT)
-LDLIBS+=	$(LDLIBS_MQTT)
+CFLAGS += $(CFLAGS_MQTT)
+LDLIBS += $(LDLIBS_MQTT)
 
-SRCS=		main.c kernel.c helpers.c control_tcp.c call.c control_udp.c redis.c \
+SRCS := main.c kernel.c helpers.c control_tcp.c call.c control_udp.c redis.c \
 		cookie_cache.c udp_listener.c control_ng_flags_parser.c control_ng.strhash.c sdp.strhash.c stun.c rtcp.c \
 		crypto.c rtp.c call_interfaces.c dtls.c log.c cli.strhash.c graphite.c ice.c \
 		media_socket.c homer.c recording.c statistics.c cdr.c ssrc.c iptables.c tcp_listener.c \
 		codec.c load.c dtmf.c timerthread.c media_player.c jitter_buffer.c t38.c websocket.c \
 		mqtt.c janus.strhash.c audio_player.c arena.c ng_client.c call_flags.strhash.c
 ifneq ($(without_nftables),yes)
-SRCS+=		nftables.c
+SRCS += nftables.c
 endif
-LIBSRCS=	loglib.c auxlib.c rtplib.c str.c socket.c streambuf.c ssllib.c dtmflib.c mix_buffer.c poller.c \
+LIBSRCS := loglib.c auxlib.c rtplib.c str.c socket.c streambuf.c ssllib.c dtmflib.c mix_buffer.c poller.c \
 		bufferpool.c bencode.c netfilter_api.c
 ifeq ($(with_transcoding),yes)
-LIBSRCS+=	codeclib.strhash.c resample.c
+LIBSRCS += codeclib.strhash.c resample.c
 LIBASM := mvr2s_x64_avx2.S mvr2s_x64_avx512.S mix_in_x64_avx2.S mix_in_x64_avx512bw.S mix_in_x64_sse2.S
 endif
 ifneq ($(have_liburing),yes)
-LIBSRCS+=	uring.c
+LIBSRCS += uring.c
 endif
 
-MDS=		rtpengine.ronn
-MANS=		$(MDS:.ronn=.8)
+MDS := rtpengine.ronn
+MANS := $(MDS:.ronn=.8)
 
 include ../lib/common.Makefile
 
