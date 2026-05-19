@@ -1585,6 +1585,14 @@ RTPE_CONFIG_ENUM_PARAMS
 RTPE_CONFIG_CHARP_PARAMS
 #undef X
 
+#define X(s) ini_rtpe_cfg->s = g_strdupv(rtpe_config.s);
+RTPE_CONFIG_CHARPP_PARAMS
+#undef X
+
+#define X(s) ini_rtpe_cfg->s = str_dup_str(&rtpe_config.s);
+RTPE_CONFIG_STR_PARAMS
+#undef X
+
 	memcpy(&ini_rtpe_cfg->common.log_levels, &rtpe_config.common.log_levels, sizeof(ini_rtpe_cfg->common.log_levels));
 
 #define X(s) endpoint_list_dup(&ini_rtpe_cfg->s, &rtpe_config.s);
