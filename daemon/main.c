@@ -907,8 +907,8 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 #ifdef WITH_TRANSCODING
 		{ "dtx-delay",	0,0,	G_OPTION_ARG_INT,	&dtx_delay,		"Delay in milliseconds to trigger DTX handling","INT"},
 		{ "max-dtx",	0,0,	G_OPTION_ARG_INT,	&max_dtx,		"Maximum duration of DTX handling",	"INT"},
-		{ "dtx-buffer",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_buffer,"Maxmium number of packets held in DTX buffer",	"INT"},
-		{ "dtx-lag",	0,0,	G_OPTION_ARG_INT,	&dtx_lag,		"Maxmium time span in milliseconds held in DTX buffer",	"INT"},
+		{ "dtx-buffer",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_buffer,"Maximum number of packets held in DTX buffer",	"INT"},
+		{ "dtx-lag",	0,0,	G_OPTION_ARG_INT,	&dtx_lag,		"Maximum time span in milliseconds held in DTX buffer",	"INT"},
 		{ "dtx-shift",	0,0,	G_OPTION_ARG_INT,	&dtx_shift,		"Length of time (in ms) to shift DTX buffer after over/underflow",	"INT"},
 		{ "dtx-cn-params",0,0,	G_OPTION_ARG_STRING_ARRAY,&dtx_cn_params,	"Parameters for CN generated from DTX","INT INT INT ..."},
 		{ "amr-dtx", 0,0,	G_OPTION_ARG_STRING,	&amr_dtx,		"DTX mechanism to use for AMR and AMR-WB","native|CN"},
@@ -1838,7 +1838,7 @@ static void create_everything(void) {
 		if (!rtpe_redis_notify)
 			die("Cannot start up without running Redis %s subscribe database! See also NO_REDIS_REQUIRED parameter.",
 				endpoint_print_buf(&rtpe_config.redis_subscribe_ep));
-		// subscribed-kespaces takes precedence over db in notify ep
+		// subscribed-keyspaces takes precedence over db in notify ep
 		if (!rtpe_config.redis_subscribed_keyspaces.length) {
 			g_queue_push_tail(&rtpe_config.redis_subscribed_keyspaces, GINT_TO_POINTER(rtpe_config.redis_subscribe_db));
 		}
