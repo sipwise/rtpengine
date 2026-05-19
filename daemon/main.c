@@ -1284,21 +1284,21 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	if (log_facility_cdr_s) {
 		if (!parse_log_facility(log_facility_cdr_s, &_log_facility_cdr)) {
 			print_available_log_facilities();
-			die ("Invalid log facility for CDR '%s' (--log-facility-cdr)", log_facility_cdr_s);
+			die("Invalid log facility for CDR '%s' (--log-facility-cdr)", log_facility_cdr_s);
 		}
 	}
 
 	if (log_facility_rtcp_s) {
 		if (!parse_log_facility(log_facility_rtcp_s, &_log_facility_rtcp)) {
 			print_available_log_facilities();
-			die ("Invalid log facility for RTCP '%s' (--log-facility-rtcp)n", log_facility_rtcp_s);
+			die("Invalid log facility for RTCP '%s' (--log-facility-rtcp)", log_facility_rtcp_s);
 		}
 	}
 
 	if (log_facility_dtmf_s) {
 		if (!parse_log_facility(log_facility_dtmf_s, &_log_facility_dtmf)) {
 			print_available_log_facilities();
-			die ("Invalid log facility for DTMF '%s' (--log-facility-dtmf)n", log_facility_dtmf_s);
+			die("Invalid log facility for DTMF '%s' (--log-facility-dtmf)", log_facility_dtmf_s);
 		}
 	}
 
