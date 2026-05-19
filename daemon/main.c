@@ -499,7 +499,7 @@ static void do_transcode_config(const char *name, charp_ht ht, struct transcode_
 	if (!codec_parse_payload_type(&tc->i.src, STR_PTR(tc->src)))
 		die("Failed to parse source codec '%s' in transcode config '%s'", src, name);
 	if (!codec_parse_payload_type(&tc->i.dst, STR_PTR(tc->dst)))
-		die("Failed to parse source codec '%s' in transcode config '%s'", src, name);
+		die("Failed to parse destination codec '%s' in transcode config '%s'", dst, name);
 
 	char *tfm = t_hash_table_lookup(ht, "transform");
 	char *pref_s = t_hash_table_lookup(ht, "preference");
