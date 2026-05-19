@@ -1741,7 +1741,7 @@ static void init_everything(charp_ht templates) {
 	iptables_init();
 	control_ng_init();
 	if (call_interfaces_init(templates))
-		abort();
+		die("Interfaces initialization fatal error");
 	statistics_init();
 #ifdef WITH_TRANSCODING
 	codeclib_thread_init = clib_init;
@@ -1755,7 +1755,7 @@ static void init_everything(charp_ht templates) {
 	jitter_buffer_init();
 	t38_init();
 	if (rtpe_config.mqtt_host && mqtt_init())
-		abort();
+		die("Mosquitto client initialization fatal error");
 	codecs_init();
 	janus_init();
 	if (!kernel_init_table())
@@ -1802,7 +1802,7 @@ static void create_everything(void) {
 	rtpe_poller_threads = g_new0(struct poller_thread, num_poller_threads);
 
 	if (call_init())
-		abort();
+		die("rtpe_callhash initialization fatal error");
 
         rwlock_init(&rtpe_config.keyspaces_lock);
 
