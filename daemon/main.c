@@ -357,12 +357,16 @@ static bool if_add(intf_config_q *q, struct ifaddrs *ifas, const str *name,
 	/* address */
 	sockaddr_t *addr = g_new(__typeof(*addr), 1);
 	if (sockaddr_parse_any(addr, address)) {
-		if (is_addr_unspecified(addr))
+		if (is_addr_unspecified(addr)) {
+			g_free(addr);
 			return false;
+		}
 		g_queue_push_tail(&addrs, addr);
 	}
 	else {
 		g_free(addr);
+		addr = NULL;
+
 		// could be an interface name?
 		ilog(LOG_DEBUG, "Could not parse '%s' as network address, checking to see if "
 				"it's an interface", address);
@@ -372,10 +376,12 @@ static bool if_add(intf_config_q *q, struct ifaddrs *ifas, const str *name,
 			ilog(LOG_DEBUG, "'%s' is not an interface, attempting to resolve it as DNS host name", address);
 			__resolve_ifname(address, &addrs);
 		}
-	}
 
-	if (!addrs.length) // nothing found
-		return false;
+		// if still nothing found
+		if (!addrs.length) {
+			return false;
+		}
+	}
 
 	sockaddr_t adv = {0};
 	if (adv_addr) {
@@ -386,8 +392,10 @@ static bool if_add(intf_config_q *q, struct ifaddrs *ifas, const str *name,
 				return false;
 			}
 		}
-		if (is_addr_unspecified(&adv))
+		if (is_addr_unspecified(&adv)) {
+			g_free(addr);
 			return false;
+		}
 	}
 
 	while ((addr = g_queue_pop_head(&addrs))) {
