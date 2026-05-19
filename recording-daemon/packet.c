@@ -17,7 +17,7 @@
 #include "streambuf.h"
 #include "resample.h"
 #include "tag.h"
-#include "fix_frame_channel_layout.h"
+#include "fix_frame_channel_layout.compat"
 #include "tls_send.h"
 #include "mix.h"
 

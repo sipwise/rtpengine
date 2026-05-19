@@ -6,7 +6,7 @@
 #include <spandsp/telephony.h>
 #include <spandsp/logging.h>
 #include "compat.h"
-#include "spandsp_logging.h"
+#include "spandsp_logging.compat"
 
 void logfunc(SPAN_LOG_ARGS) {
 	return;

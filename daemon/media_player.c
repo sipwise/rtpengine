@@ -19,7 +19,7 @@
 #include "main.h"
 #include "rtcp.h"
 #ifdef WITH_TRANSCODING
-#include "fix_frame_channel_layout.h"
+#include "fix_frame_channel_layout.compat"
 #endif
 #include "kernel.h"
 #include "bufferpool.h"

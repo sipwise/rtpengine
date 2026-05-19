@@ -8,7 +8,7 @@
 #include "resample.h"
 #include "main.h"
 #include "streambuf.h"
-#include "fix_frame_channel_layout.h"
+#include "fix_frame_channel_layout.compat"
 #include "output.h"
 #include "tag.h"
 

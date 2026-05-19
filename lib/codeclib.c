@@ -21,7 +21,7 @@
 #include "rtplib.h"
 #include "bitstr.h"
 #include "dtmflib.h"
-#include "fix_frame_channel_layout.h"
+#include "fix_frame_channel_layout.compat"
 
 
 

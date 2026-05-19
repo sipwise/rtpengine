@@ -15,7 +15,7 @@
 #include "poller.h"
 #include "ssllib.h"
 #include "obj.h"
-#include "fix_frame_channel_layout.h"
+#include "fix_frame_channel_layout.compat"
 #include "log.h"
 
 

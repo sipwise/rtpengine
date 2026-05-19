@@ -51,7 +51,7 @@ LIBASM := mvr2s_x64_avx2.S mvr2s_x64_avx512.S
 
 include ../lib/common.Makefile
 
-main.o: ../lib/fix_frame_channel_layout.h
+main.o: ../lib/fix_frame_channel_layout.compat
 
 install: $(TARGET)
 	install -m 0755 -D $(TARGET) $(DESTDIR)/usr/bin/$(TARGET)

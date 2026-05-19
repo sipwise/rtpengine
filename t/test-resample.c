@@ -3,7 +3,7 @@
 #include <assert.h>
 #include "resample.h"
 #include "codeclib.h"
-#include "fix_frame_channel_layout.h"
+#include "fix_frame_channel_layout.compat"
 #include "main.h"
 
 struct rtpengine_config rtpe_config;

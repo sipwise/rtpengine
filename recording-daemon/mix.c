@@ -13,7 +13,7 @@
 #include "output.h"
 #include "resample.h"
 #include "main.h"
-#include "fix_frame_channel_layout.h"
+#include "fix_frame_channel_layout.compat"
 
 
 

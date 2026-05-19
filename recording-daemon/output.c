@@ -13,7 +13,7 @@
 #include "recaux.h"
 #include "notify.h"
 #include "resample.h"
-#include "fix_frame_channel_layout.h"
+#include "fix_frame_channel_layout.compat"
 #include "s3.h"
 #include "gcs.h"
 

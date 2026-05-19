@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <spandsp/t30.h>
 #include <spandsp/logging.h>
-#include "spandsp_logging.h"
+#include "spandsp_logging.compat"
 #include "codec.h"
 #include "call.h"
 #include "log_d.h"

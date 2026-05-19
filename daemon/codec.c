@@ -20,7 +20,7 @@
 #include "mqtt.h"
 #include "audio_player.h"
 #ifdef WITH_TRANSCODING
-#include "fix_frame_channel_layout.h"
+#include "fix_frame_channel_layout.compat"
 #endif
 #include "bufferpool.h"
 #include "ng_client.h"
@@ -101,7 +101,7 @@ static rtp_pt_list *__codec_store_delete_link(rtp_pt_list *link, struct codec_st
 #include <spandsp/logging.h>
 #include <spandsp/dtmf.h>
 #include "resample.h"
-#include "dtmf_rx_fillin.h"
+#include "dtmf_rx_fillin.compat"
 
 
 

@@ -1,6 +1,6 @@
 #include "codeclib.h"
 #include "str.h"
-#include "fix_frame_channel_layout.h"
+#include "fix_frame_channel_layout.compat"
 #include "main.h"
 #include <assert.h>
 

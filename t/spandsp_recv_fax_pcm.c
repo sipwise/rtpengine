@@ -13,7 +13,7 @@
 #include <spandsp/t30_api.h>
 #include <spandsp/fax.h>
 #include "compat.h"
-#include "spandsp_logging.h"
+#include "spandsp_logging.compat"
 
 
 

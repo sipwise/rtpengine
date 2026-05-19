@@ -499,7 +499,7 @@ tests-preload.so:	tests-preload.c
 time-fudge-preload.so:	time-fudge-preload.c
 	$(CC) $(PRELOAD_CFLAGS) -o $@ -shared -fPIC $< $(PRELOAD_LIBS)
 
-spandsp_send_fax_pcm.c:	../lib/spandsp_logging.h
-spandsp_send_fax_t38.c:	../lib/spandsp_logging.h
-spandsp_recv_fax_t38.c:	../lib/spandsp_logging.h
-spandsp_recv_fax_pcm.c:	../lib/spandsp_logging.h
+spandsp_send_fax_pcm.c:	../lib/spandsp_logging.compat
+spandsp_send_fax_t38.c:	../lib/spandsp_logging.compat
+spandsp_recv_fax_t38.c:	../lib/spandsp_logging.compat
+spandsp_recv_fax_pcm.c:	../lib/spandsp_logging.compat

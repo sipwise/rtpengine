@@ -1,6 +1,6 @@
 #!/bin/sh
 TARGET=$1
-ROOT=$(echo "$TARGET" | sed 's/\.h$//')
+ROOT=$(echo "$TARGET" | sed 's/\.compat$//')
 if test "$MAKE" = ""; then
 	# shellcheck disable=SC2209
 	MAKE=make

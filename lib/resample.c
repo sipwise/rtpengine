@@ -11,7 +11,7 @@
 #include <libavutil/frame.h>
 #include "loglib.h"
 #include "codeclib.h"
-#include "fix_frame_channel_layout.h"
+#include "fix_frame_channel_layout.compat"
 
 
 

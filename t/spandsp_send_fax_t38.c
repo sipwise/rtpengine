@@ -16,7 +16,7 @@
 #include <spandsp/t38_terminal.h>
 #include <spandsp/fax.h>
 #include "compat.h"
-#include "spandsp_logging.h"
+#include "spandsp_logging.compat"
 
 
 

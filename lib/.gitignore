@@ -2,3 +2,4 @@
 dtmf_rx_fillin.h
 fix_frame_channel_layout.h
 spandsp_logging.h
+*.compat
