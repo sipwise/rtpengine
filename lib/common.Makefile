@@ -13,17 +13,9 @@ ASM := $(ASM) $(patsubst %,$(top_srcdir)/lib/%,$(LIBASM))
 
 OBJS := $(OBJS) $(ASM:.S=.o)
 
-DAEMONOBJS = $(DAEMONSRCS:.c=.o)
 
-ALLOBJS := $(OBJS) $(DAEMONOBJS)
-
-
-$(DAEMONOBJS): %.o: ../daemon/%.c
-	$(CC) -c $(CFLAGS) $< -o $@
-
-
-$(TARGET):	$(ALLOBJS) Makefile
-	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(ALLOBJS) $(LDLIBS)
+$(TARGET):	$(OBJS) Makefile
+	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(OBJS) $(LDLIBS)
 
 
 debug:
@@ -33,12 +25,12 @@ debug:
 BUILD_TEST_ALTS = ../lib/fix_frame_channel_layout.h ../lib/dtmf_rx_fillin.h ../lib/spandsp_logging.h
 
 clean:
-	rm -f $(ALLOBJS) $(TARGET) $(DAEMONSRCS) $(MANS) $(ADD_CLEAN) core core.*
+	rm -f $(OBJS) $(TARGET) $(MANS) $(ADD_CLEAN) core core.*
 	rm -f $(BUILD_TEST_ALTS) $(BUILD_TEST_ALTS:.h=-test) *.strhash.c
 
 install:
 
-$(ALLOBJS):	Makefile ../include/* ../lib/*.h ../kernel-module/*.h
+$(OBJS):	Makefile ../include/* ../lib/*.h ../kernel-module/*.h
 
 %.8: ../docs/%.md
 	cat "$<" | sed '/^# /d; s/^##/#/' | \
