@@ -365,7 +365,10 @@ static const char *json_list_iter(const ng_parser_t *parser, JsonNode *list,
 				err = str_callback(STR_PTR(s), i, arg);
 		}
 		else
-			err = item_callback(parser, n, arg);
+			if (item_callback)
+				err = item_callback(parser, n, arg);
+			else
+				ilog(LOG_DEBUG, "Ignoring non-string value in list");
 		if (err)
 			return err;
 	}
