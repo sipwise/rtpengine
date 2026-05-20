@@ -1245,11 +1245,28 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		rtpe_config.rtcp_interval_us = 5000 * 1000LL;
 
 	rtpe_config.redis_disable_time_us = redis_disable_time * 1000000LL;
+	if (rtpe_config.redis_disable_time_us < 0)
+		die("Invalid negative redis-disable-time");
+
 	rtpe_config.mqtt_publish_interval_us = mqtt_publish_interval * 1000LL;
+	if (rtpe_config.mqtt_publish_interval_us < 0)
+		die("Invalid negative mqtt-publish-interval");
+
 	rtpe_config.dtx_lag_us = dtx_lag * 1000LL;
+	if (rtpe_config.dtx_lag_us < 0)
+		die("Invalid negative dtx-lag");
+
 	rtpe_config.dtx_delay_us = dtx_delay * 1000LL;
+	if (rtpe_config.dtx_delay_us < 0)
+		die("Invalid negative dtx-delay");
+
 	rtpe_config.dtx_shift_us = dtx_shift * 1000LL;
+	if (rtpe_config.dtx_shift_us < 0)
+		die("Invalid negative dtx-shift");
+
 	rtpe_config.max_dtx_us = max_dtx * 1000000LL;
+	if (rtpe_config.max_dtx_us < 0)
+		die("Invalid negative max-dtx");
 
 	if (redisps) {
 		if (redis_ep_parse(&rtpe_config.redis_ep, &rtpe_config.redis_db, &rtpe_config.redis_hostname,
