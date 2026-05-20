@@ -5062,6 +5062,7 @@ static bool __cc_async_check_busy_blocked_queue(codec_cc_t *c, const str *data, 
 		void *async_cb_obj, __typeof__(__cc_run_async) run_async)
 {
 	struct async_job *j = NULL;
+	async_job_q overflow = TYPED_GQUEUE_INIT;
 
 	{
 		LOCK(&c->async_lock);
@@ -5076,9 +5077,24 @@ static bool __cc_async_check_busy_blocked_queue(codec_cc_t *c, const str *data, 
 		// append to queue
 		__cc_async_do_add_queue(c, data, ts, async_cb_obj);
 
+		if (c->async_jobs.length > 20) {
+			ilog(LOG_WARN | LOG_FLAG_LIMIT, "Async job queue overflow (%u), dropping frames",
+					c->async_jobs.length);
+			do {
+				__auto_type jj = t_queue_pop_head(&c->async_jobs);
+				t_queue_push_tail(&overflow, jj);
+			} while (c->async_jobs.length > 20);
+		}
+
 		// if we were blocked (not currently running), try running now
 		if (c->async_blocked)
 			j = t_queue_pop_head(&c->async_jobs);
+	}
+
+	while (overflow.length) {
+		__auto_type jj = t_queue_pop_head(&overflow);
+		c->async_callback(NULL, jj->async_cb_obj);
+		__cc_async_job_free(jj);
 	}
 
 	if (j) {
