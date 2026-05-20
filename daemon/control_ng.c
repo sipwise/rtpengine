@@ -727,7 +727,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 			goto err_send;
 		}
 		command_ctx.req.json = json_parser_get_root(command_ctx.ngbuf->json);
-		errstr = "Could not decode bencode dictionary";
+		errstr = "Could not decode JSON dictionary";
 		if (!command_ctx.req.json || !ng_parser_json.is_dict(command_ctx.req)) {
 			command_ctx.resp = parser->dict(&command_ctx.parser_ctx);
 			assert(command_ctx.resp.gen != NULL);
