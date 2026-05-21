@@ -688,6 +688,19 @@ ng_buffer *ng_buffer_new(struct obj *ref) {
 	return ngbuf;
 }
 
+/**
+ * Initialize resp context.
+ */
+static void prepare_resp_ctx(ng_command_ctx_t *command_ctx, const ng_parser_t *parser,
+		bool native)
+{
+	/* init as dict by default, if requested */
+	if (native)
+		ng_parser_native.init(&command_ctx->parser_ctx, &command_ctx->ngbuf->buffer);
+	command_ctx->resp = parser->dict(&command_ctx->parser_ctx);
+	assert(command_ctx->resp.gen != NULL);
+}
+
 static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, const endpoint_t *sin, char *addr, struct obj *ref,
 		struct ng_buffer **ngbufp)
 {
@@ -704,10 +717,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 
 	errstr = "Invalid data (no payload)";
 	if (data->len <= 0) {
-		ng_parser_native.init(&command_ctx.parser_ctx, &command_ctx.ngbuf->buffer);
-		command_ctx.resp = parser->dict(&command_ctx.parser_ctx); // init as dict by default
-		assert(command_ctx.resp.gen != NULL);
-
+		prepare_resp_ctx(&command_ctx, parser, true);
 		goto err_send;
 	}
 
@@ -718,8 +728,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 		command_ctx.req.benc = bencode_decode_expect_str(&command_ctx.ngbuf->buffer, data, BENCODE_DICTIONARY);
 		errstr = "Could not decode bencode dictionary";
 		if (!command_ctx.req.benc) {
-			command_ctx.resp = parser->dict(&command_ctx.parser_ctx);
-			assert(command_ctx.resp.gen != NULL);
+			prepare_resp_ctx(&command_ctx, parser, false);
 			goto err_send;
 		}
 	}
@@ -730,24 +739,19 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 		command_ctx.ngbuf->json = json_parser_new();
 		errstr = "Failed to parse JSON document";
 		if (!json_parser_load_from_data(command_ctx.ngbuf->json, data->s, data->len, NULL)) {
-			command_ctx.resp = parser->dict(&command_ctx.parser_ctx);
-			assert(command_ctx.resp.gen != NULL);
+			prepare_resp_ctx(&command_ctx, parser, false);
 			goto err_send;
 		}
 		command_ctx.req.json = json_parser_get_root(command_ctx.ngbuf->json);
 		errstr = "Could not decode JSON dictionary";
 		if (!command_ctx.req.json || !ng_parser_json.is_dict(command_ctx.req)) {
-			command_ctx.resp = parser->dict(&command_ctx.parser_ctx);
-			assert(command_ctx.resp.gen != NULL);
+			prepare_resp_ctx(&command_ctx, parser, false);
 			goto err_send;
 		}
 	}
 
 	else {
-		ng_parser_native.init(&command_ctx.parser_ctx, &command_ctx.ngbuf->buffer);
-		command_ctx.resp = parser->dict(&command_ctx.parser_ctx); // init as dict by default
-		assert(command_ctx.resp.gen != NULL);
-
+		prepare_resp_ctx(&command_ctx, parser, true);
 		errstr = "Invalid NG data format";
 		goto err_send;
 	}
