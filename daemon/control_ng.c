@@ -696,7 +696,7 @@ static void prepare_resp_ctx(ng_command_ctx_t *command_ctx, const ng_parser_t *p
 {
 	/* init as dict by default, if requested */
 	if (native)
-		ng_parser_native.init(&command_ctx->parser_ctx, &command_ctx->ngbuf->buffer);
+		parser->init(&command_ctx->parser_ctx, &command_ctx->ngbuf->buffer);
 	command_ctx->resp = parser->dict(&command_ctx->parser_ctx);
 	assert(command_ctx->resp.gen != NULL);
 }
@@ -712,6 +712,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 
 	ng_command_ctx_t command_ctx = {.opmode = -1};
 	const ng_parser_t *parser = &ng_parser_native;
+	const ng_parser_t *json_parser = &ng_parser_json;
 
 	command_ctx.ngbuf = *ngbufp = ng_buffer_new(ref);
 
@@ -723,7 +724,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 
 	/* Bencode dictionary */
 	if (data->s[0] == 'd') {
-		ng_parser_native.init(&command_ctx.parser_ctx, &command_ctx.ngbuf->buffer);
+		parser->init(&command_ctx.parser_ctx, &command_ctx.ngbuf->buffer);
 
 		command_ctx.req.benc = bencode_decode_expect_str(&command_ctx.ngbuf->buffer, data, BENCODE_DICTIONARY);
 		errstr = "Could not decode bencode dictionary";
@@ -735,7 +736,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 
 	/* JSON */
 	else if (data->s[0] == '{') {
-		ng_parser_json.init(&command_ctx.parser_ctx, &command_ctx.ngbuf->buffer);
+		json_parser->init(&command_ctx.parser_ctx, &command_ctx.ngbuf->buffer);
 		command_ctx.ngbuf->json = json_parser_new();
 		errstr = "Failed to parse JSON document";
 		if (!json_parser_load_from_data(command_ctx.ngbuf->json, data->s, data->len, NULL)) {
@@ -744,7 +745,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 		}
 		command_ctx.req.json = json_parser_get_root(command_ctx.ngbuf->json);
 		errstr = "Could not decode JSON dictionary";
-		if (!command_ctx.req.json || !ng_parser_json.is_dict(command_ctx.req)) {
+		if (!command_ctx.req.json || !json_parser->is_dict(command_ctx.req)) {
 			prepare_resp_ctx(&command_ctx, parser, false);
 			goto err_send;
 		}
