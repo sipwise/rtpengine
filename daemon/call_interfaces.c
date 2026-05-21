@@ -2093,8 +2093,10 @@ const char *call_publish_ng(ng_command_ctx_t *ctx, const char *addr) {
 
 	if (!flags.sdp.len)
 		return "No SDP body in message";
-	if (!flags.call_id.len)
+	if (!flags.call_id.len) {
 		flags.call_id = STR_LEN(rand_hex_str(rand_call_id, 32), 64);
+		log_info_str(&flags.call_id);
+	}
 	if (!flags.from_tag.len)
 		flags.from_tag = STR_LEN(rand_hex_str(rand_from_tag, 32), 64);
 
@@ -2522,8 +2524,10 @@ const char *call_create_ng(ng_command_ctx_t *ctx) {
 
 	call_ng_process_flags_RETURN(&flags, ctx);
 
-	if (!flags.call_id.len)
+	if (!flags.call_id.len) {
 		flags.call_id = STR_LEN(rand_hex_str(rand_call_id, 32), 64);
+		log_info_str(&flags.call_id);
+	}
 	if (!flags.from_tag.len)
 		flags.from_tag = STR_LEN(rand_hex_str(rand_from_tag, 32), 64);
 
