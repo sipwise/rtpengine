@@ -703,8 +703,13 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	command_ctx.ngbuf = *ngbufp = ng_buffer_new(ref);
 
 	errstr = "Invalid data (no payload)";
-	if (data->len <= 0)
-		goto err_send; // TODO: the `command_ctx.resp` isn't initialized yet, fix?
+	if (data->len <= 0) {
+		ng_parser_native.init(&command_ctx.parser_ctx, &command_ctx.ngbuf->buffer);
+		command_ctx.resp = parser->dict(&command_ctx.parser_ctx); // init as dict by default
+		assert(command_ctx.resp.gen != NULL);
+
+		goto err_send;
+	}
 
 	/* Bencode dictionary */
 	if (data->s[0] == 'd') {
@@ -739,8 +744,12 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	}
 
 	else {
+		ng_parser_native.init(&command_ctx.parser_ctx, &command_ctx.ngbuf->buffer);
+		command_ctx.resp = parser->dict(&command_ctx.parser_ctx); // init as dict by default
+		assert(command_ctx.resp.gen != NULL);
+
 		errstr = "Invalid NG data format";
-		goto err_send; // TODO: the `command_ctx.resp` isn't initialized yet, fix?
+		goto err_send;
 	}
 
 	parser = command_ctx.parser_ctx.parser;
