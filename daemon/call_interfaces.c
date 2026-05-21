@@ -1930,6 +1930,8 @@ const char *call_play_media_ng(ng_command_ctx_t *ctx) {
 				.db_id = flags.db_id,
 			);
 
+		ilog(LOG_DEBUG, "Requesting play media");
+
 		err = call_play_media_for_ml(monologue, opts, &flags);
 		if (err)
 			return err;
