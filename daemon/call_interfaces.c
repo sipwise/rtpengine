@@ -3916,6 +3916,9 @@ const char *call_stop_media_ng(ng_command_ctx_t *ctx) {
 		if (!monologue->player)
 			return "Not currently playing media";
 
+		if (monologue->player->opts.moh)
+			return "Currently MoH ongoing, ignore stop media.";
+
 		last_frame_pos = call_stop_media_for_ml(monologue);
 	}
 	parser->dict_add_int(ctx->resp, "last-frame-pos", last_frame_pos);
