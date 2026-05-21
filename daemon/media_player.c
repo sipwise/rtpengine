@@ -1677,9 +1677,17 @@ const char * call_play_media_for_ml(struct call_monologue *ml,
 
 	/* this starts the audio player if needed */
 	update_init_monologue_subscribers(ml, OP_PLAY_MEDIA);
-	/* media_player_new() now knows that audio player is in use
-	 * TODO: player options can have changed if already exists */
-	media_player_new(&ml->player, ml, NULL, &opts);
+
+	if (ml->player && ml->player->opts.moh) {
+		ilog(LOG_DEBUG, "There is already ongoing media playback for MoH. Ignore new one.");
+		/* pretend that everything is good */
+		return NULL;
+	}
+	else {
+		/* media_player_new() now knows that audio player is in use
+		* TODO: player options can have changed if already exists */
+		media_player_new(&ml->player, ml, NULL, &opts);
+	}
 
 	if (opts.file.len) {
 		if (!media_player_play_file(ml->player, opts))
