@@ -242,7 +242,7 @@ void media_player_new(struct media_player **mpp, struct call_monologue *ml, stru
 	struct media_player *mp;
 
 	if (!(mp = *mpp)) {
-		//ilog(LOG_DEBUG, "creating media_player");
+		ilog(LOG_DEBUG, "creating media_player");
 
 		mp = *mpp = obj_alloc0(struct media_player, __media_player_free);
 
