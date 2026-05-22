@@ -651,7 +651,7 @@ struct control_ng_stats* get_control_ng_stats(const sockaddr_t *addr) {
 	if (!cur) {
 		cur = g_new0(__typeof(*cur), 1);
 		cur->proxy = *addr;
-		ilogs(control, LOG_DEBUG,"Adding a proxy for control ng stats:%s", sockaddr_print_buf(addr));
+		ilogs(control, LOG_DEBUG, "Adding a proxy for control ng stats:%s", sockaddr_print_buf(addr));
 
 		for (int i = 0; i < OP_COUNT; i++) {
 			struct ng_command_stats *c = &cur->cmd[i];
@@ -988,7 +988,7 @@ send_resp:
 
 	release_closed_sockets();
 	log_info_pop_until(&callid);
-	CH(homer_trace_msg_out ,hctx, reply);
+	CH(homer_trace_msg_out, hctx, reply);
 }
 
 int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockaddr_t *local,
