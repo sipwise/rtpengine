@@ -31,43 +31,60 @@ const char magic_load_limit_strings[__LOAD_LIMIT_MAX][64] = {
 	[LOAD_LIMIT_LOAD] = "Load limit exceeded",
 	[LOAD_LIMIT_BW] = "Bandwidth limit exceeded",
 };
+
+#define NG_COMMANDS(X) \
+	X(OP_PING,                   "ping",                  "ping",                  "Ping") \
+	X(OP_OFFER,                  "offer",                 "offer",                 "Offer") \
+	X(OP_ANSWER,                 "answer",                "answer",                "Answer") \
+	X(OP_DELETE,                 "delete",                "delete",                "Delete") \
+	X(OP_QUERY,                  "query",                 "query",                 "Query") \
+	X(OP_LIST,                   "list",                  "list",                  "List") \
+	X(OP_START_RECORDING,        "start recording",       "start_recording",       "StartRec") \
+	X(OP_STOP_RECORDING,         "stop recording",        "stop_recording",        "StopRec") \
+	X(OP_PAUSE_RECORDING,        "pause recording",       "pause_recording",       "PauseRec") \
+	X(OP_START_FORWARDING,       "start forwarding",      "start_forwarding",      "StartFwd") \
+	X(OP_STOP_FORWARDING,        "stop forwarding",       "stop_forwarding",       "StopFwd") \
+	X(OP_BLOCK_DTMF,             "block DTMF",            "block_DTMF",            "BlkDTMF") \
+	X(OP_UNBLOCK_DTMF,           "unblock DTMF",          "unblock_DTMF",          "UnblkDTMF") \
+	X(OP_BLOCK_MEDIA,            "block media",           "block_media",           "BlkMedia") \
+	X(OP_UNBLOCK_MEDIA,          "unblock media",         "unblock_media",         "UnblkMedia") \
+	X(OP_PLAY_MEDIA,             "play media",            "play_media",            "PlayMedia") \
+	X(OP_STOP_MEDIA,             "stop media",            "stop_media",            "StopMedia") \
+	X(OP_PLAY_DTMF,              "play DTMF",             "play_DTMF",             "PlayDTMF") \
+	X(OP_STATISTICS,             "statistics",            "statistics",            "Stats") \
+	X(OP_SILENCE_MEDIA,          "silence media",         "silence_media",         "SlnMedia") \
+	X(OP_UNSILENCE_MEDIA,        "unsilence media",       "unsilence_media",       "UnslnMedia") \
+	X(OP_BLOCK_SILENCE_MEDIA,    "block silence media",   "block_silence_media",   "BlkSlnMedia") \
+	X(OP_UNBLOCK_SILENCE_MEDIA,  "unblock silence media", "unblock_silence_media", "UnblkSlnMedia") \
+	X(OP_PUBLISH,                "publish",               "publish",               "Pub") \
+	X(OP_SUBSCRIBE_REQ,          "subscribe request",     "subscribe_request",     "SubReq") \
+	X(OP_SUBSCRIBE_ANS,          "subscribe answer",      "subscribe_answer",      "SubAns") \
+	X(OP_UNSUBSCRIBE,            "unsubscribe",           "unsubscribe",           "Unsub") \
+	X(OP_INJECT_START,           "inject start",          "inject_start",          "InjStart") \
+	X(OP_INJECT_STOP,            "inject stop",           "inject_stop",           "InjStop") \
+	X(OP_CONNECT,                "connect",               "connect",               "Conn") \
+	X(OP_CLI,                    "cli",                   "cli",                   "CLI") \
+	X(OP_TRANSFORM,              "transform",             "transform",             "Trnsfm") \
+	X(OP_CREATE,                 "create",                "create",                "Create") \
+	X(OP_CREATE_ANSWER,          "create answer",         "create_answer",         "CrtAnsw") \
+	X(OP_MESH,                   "mesh",                  "mesh",                  "Mesh")
+
 const char *ng_command_strings[OP_COUNT] = {
-	"ping", "offer", "answer", "delete", "query", "list",
-	"start recording", "stop recording", "pause recording",
-	"start forwarding", "stop forwarding", "block DTMF",
-	"unblock DTMF", "block media", "unblock media", "play media", "stop media",
-	"play DTMF", "statistics", "silence media", "unsilence media",
-	"block silence media", "unblock silence media",
-	"publish", "subscribe request",
-	"subscribe answer", "unsubscribe",
-	"inject start", "inject stop",
-	"connect", "cli", "transform",
-	"create", "create answer", "mesh",
+#define X(op, name, esc, short_name) [op] = name,
+	NG_COMMANDS(X)
+#undef X
 };
+
 const char *ng_command_strings_esc[OP_COUNT] = {
-	"ping", "offer", "answer", "delete", "query", "list",
-	"start_recording", "stop_recording", "pause_recording",
-	"start_forwarding", "stop_forwarding", "block_DTMF",
-	"unblock_DTMF", "block_media", "unblock_media", "play_media", "stop_media",
-	"play_DTMF", "statistics", "silence_media", "unsilence_media",
-	"block_silence_media", "unblock_silence_media",
-	"publish", "subscribe_request",
-	"subscribe_answer", "unsubscribe",
-	"inject_start", "inject_stop",
-	"connect", "cli", "transform",
-	"create", "create_answer", "mesh",
+#define X(op, name, esc, short_name) [op] = esc,
+	NG_COMMANDS(X)
+#undef X
 };
+
 const char *ng_command_strings_short[OP_COUNT] = {
-	"Ping", "Offer", "Answer", "Delete", "Query", "List",
-	"StartRec", "StopRec", "PauseRec",
-	"StartFwd", "StopFwd", "BlkDTMF",
-	"UnblkDTMF", "BlkMedia", "UnblkMedia", "PlayMedia", "StopMedia",
-	"PlayDTMF", "Stats", "SlnMedia", "UnslnMedia",
-	"BlkSlnMedia", "UnblkSlnMedia",
-	"Pub", "SubReq", "SubAns", "Unsub",
-	"InjStart", "InjStop",
-	"Conn", "CLI", "Trnsfm",
-	"Create", "CrtAnsw", "Mesh",
+#define X(op, name, esc, short_name) [op] = short_name,
+	NG_COMMANDS(X)
+#undef X
 };
 
 typedef struct ng_ctx {
