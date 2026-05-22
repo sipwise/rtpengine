@@ -629,6 +629,8 @@ static void bencode_pretty_print(bencode_item_t *el, GString *s) {
 				g_string_append(s, sep);
 				bencode_pretty_print(chld, s);
 				g_string_append(s, ": ");
+				if (!chld->sibling)
+					break;
 				chld = chld->sibling;
 				bencode_pretty_print(chld, s);
 				sep = ", ";
