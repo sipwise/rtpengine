@@ -6,22 +6,16 @@
 #include <assert.h>
 #include <json-glib/json-glib.h>
 
-#include "obj.h"
 #include "poller.h"
-#include "bencode.h"
 #include "log_d.h"
 #include "cookie_cache.h"
 #include "call.h"
 #include "sdp.h"
 #include "call_interfaces.h"
-#include "socket.h"
 #include "main.h"
 #include "statistics.h"
 #include "streambuf.h"
-#include "str.h"
 #include "homer.h"
-#include "tcp_listener.h"
-#include "main.h"
 #include "cli.h"
 
 mutex_t rtpe_cngs_lock;
