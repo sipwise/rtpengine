@@ -1,45 +1,50 @@
 #ifndef _CONTROL_NG_H_
 #define _CONTROL_NG_H_
 
-enum ng_opmode {
-	OP_PING = 0,
-	OP_OFFER,
-	OP_ANSWER,
-	OP_DELETE,
-	OP_QUERY,
-	OP_LIST,
-	OP_START_RECORDING,
-	OP_STOP_RECORDING,
-	OP_PAUSE_RECORDING,
-	OP_START_FORWARDING,
-	OP_STOP_FORWARDING,
-	OP_BLOCK_DTMF,
-	OP_UNBLOCK_DTMF,
-	OP_BLOCK_MEDIA,
-	OP_UNBLOCK_MEDIA,
-	OP_PLAY_MEDIA,
-	OP_STOP_MEDIA,
-	OP_PLAY_DTMF,
-	OP_STATISTICS,
-	OP_SILENCE_MEDIA,
-	OP_UNSILENCE_MEDIA,
-	OP_BLOCK_SILENCE_MEDIA,
-	OP_UNBLOCK_SILENCE_MEDIA,
-	OP_PUBLISH,
-	OP_SUBSCRIBE_REQ,
-	OP_SUBSCRIBE_ANS,
-	OP_UNSUBSCRIBE,
-	OP_INJECT_START,
-	OP_INJECT_STOP,
-	OP_CONNECT,
-	OP_CLI,
-	OP_TRANSFORM,
-	OP_CREATE,
-	OP_CREATE_ANSWER,
-	OP_MESH,
+#define NG_COMMANDS(X) \
+	X(OP_PING,                   "ping",                  "ping",                  "Ping") \
+	X(OP_OFFER,                  "offer",                 "offer",                 "Offer") \
+	X(OP_ANSWER,                 "answer",                "answer",                "Answer") \
+	X(OP_DELETE,                 "delete",                "delete",                "Delete") \
+	X(OP_QUERY,                  "query",                 "query",                 "Query") \
+	X(OP_LIST,                   "list",                  "list",                  "List") \
+	X(OP_START_RECORDING,        "start recording",       "start_recording",       "StartRec") \
+	X(OP_STOP_RECORDING,         "stop recording",        "stop_recording",        "StopRec") \
+	X(OP_PAUSE_RECORDING,        "pause recording",       "pause_recording",       "PauseRec") \
+	X(OP_START_FORWARDING,       "start forwarding",      "start_forwarding",      "StartFwd") \
+	X(OP_STOP_FORWARDING,        "stop forwarding",       "stop_forwarding",       "StopFwd") \
+	X(OP_BLOCK_DTMF,             "block DTMF",            "block_DTMF",            "BlkDTMF") \
+	X(OP_UNBLOCK_DTMF,           "unblock DTMF",          "unblock_DTMF",          "UnblkDTMF") \
+	X(OP_BLOCK_MEDIA,            "block media",           "block_media",           "BlkMedia") \
+	X(OP_UNBLOCK_MEDIA,          "unblock media",         "unblock_media",         "UnblkMedia") \
+	X(OP_PLAY_MEDIA,             "play media",            "play_media",            "PlayMedia") \
+	X(OP_STOP_MEDIA,             "stop media",            "stop_media",            "StopMedia") \
+	X(OP_PLAY_DTMF,              "play DTMF",             "play_DTMF",             "PlayDTMF") \
+	X(OP_STATISTICS,             "statistics",            "statistics",            "Stats") \
+	X(OP_SILENCE_MEDIA,          "silence media",         "silence_media",         "SlnMedia") \
+	X(OP_UNSILENCE_MEDIA,        "unsilence media",       "unsilence_media",       "UnslnMedia") \
+	X(OP_BLOCK_SILENCE_MEDIA,    "block silence media",   "block_silence_media",   "BlkSlnMedia") \
+	X(OP_UNBLOCK_SILENCE_MEDIA,  "unblock silence media", "unblock_silence_media", "UnblkSlnMedia") \
+	X(OP_PUBLISH,                "publish",               "publish",               "Pub") \
+	X(OP_SUBSCRIBE_REQ,          "subscribe request",     "subscribe_request",     "SubReq") \
+	X(OP_SUBSCRIBE_ANS,          "subscribe answer",      "subscribe_answer",      "SubAns") \
+	X(OP_UNSUBSCRIBE,            "unsubscribe",           "unsubscribe",           "Unsub") \
+	X(OP_INJECT_START,           "inject start",          "inject_start",          "InjStart") \
+	X(OP_INJECT_STOP,            "inject stop",           "inject_stop",           "InjStop") \
+	X(OP_CONNECT,                "connect",               "connect",               "Conn") \
+	X(OP_CLI,                    "cli",                   "cli",                   "CLI") \
+	X(OP_TRANSFORM,              "transform",             "transform",             "Trnsfm") \
+	X(OP_CREATE,                 "create",                "create",                "Create") \
+	X(OP_CREATE_ANSWER,          "create answer",         "create_answer",         "CrtAnsw") \
+	X(OP_MESH,                   "mesh",                  "mesh",                  "Mesh")
 
-	OP_COUNT,		// last, number of elements
-	OP_OTHER = OP_COUNT	// alias to above
+enum ng_opmode {
+#define X(op, name, esc, short_name) op,
+	NG_COMMANDS(X)
+#undef X
+
+	OP_COUNT,             /* last, number of real command elements */
+	OP_OTHER = OP_COUNT   /* sentinel/alias only, do not use as array index */
 };
 
 #include "obj.h"
