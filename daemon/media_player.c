@@ -2664,6 +2664,9 @@ GQueue media_player_list_caches(void) {
 	return ret;
 }
 
+/**
+ * Returns mtime and atime in microseconds.
+ */
 bool media_player_get_cache_times(unsigned long long id, int64_t *mtime, int64_t *atime) {
 #ifdef WITH_TRANSCODING
 	g_autoptr(char) fn = media_player_make_cache_entry_name(id);
@@ -2671,8 +2674,8 @@ bool media_player_get_cache_times(unsigned long long id, int64_t *mtime, int64_t
 	int fail = stat(fn, &sb);
 	if (fail)
 		return false;
-	*mtime = sb.st_mtim.tv_sec;
-	*atime = sb.st_atim.tv_sec;
+	*mtime = (sb.st_mtim.tv_sec) * 1000000LL;
+	*atime = (sb.st_atim.tv_sec) * 1000000LL;
 	return true;
 #else
 	return false;
