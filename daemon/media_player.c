@@ -2904,7 +2904,7 @@ static void media_player_expire_cache_entry(unsigned long long id, unsigned int 
 	int64_t mtime, atime;
 	if (!media_player_get_cache_times(id, &mtime, &atime))
 		return;
-	int64_t limit = rtpe_now - rtpe_config.db_expire_us;
+	int64_t limit = rtpe_now - rtpe_config.media_expire_us;
 	if (atime >= limit)
 		return;
 	if (media_player_evict_cache(id))
