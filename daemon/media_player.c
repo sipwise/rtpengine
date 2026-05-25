@@ -1980,17 +1980,20 @@ success:;
 	unsigned long *lengths = mysql_fetch_lengths(res);
 	err = "empty result from database";
 	if (!row || !lengths || !row[0] || !lengths[0]) {
-		mysql_free_result(res);
-		goto err;
+		goto release_res;
 	}
 
 	err = "failed to insert data into cache";
 	if (!cache_fn(row[0], lengths[0], id))
-		goto err;
+		goto release_res;
 
 	*out = dup_fn(row[0], lengths[0]);
+	mysql_free_result(res);
 	return NULL;
 
+release_res:
+	if (res)
+		mysql_free_result(res);
 err:
 	if (query)
 		ilog(LOG_ERR, "Failed to read media from database (used query '%s'): %s", query, err);
