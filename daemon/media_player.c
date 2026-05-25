@@ -1741,6 +1741,8 @@ const char * call_play_media_for_ml(struct call_monologue *ml,
 long long call_stop_media_for_ml(struct call_monologue *ml)
 {
 #ifdef WITH_TRANSCODING
+	if (!ml->player)
+		return 0;
 	long long ret = media_player_stop(ml->player);
 	/* restore to non-mixing if needed */
 	codec_update_all_source_handlers(ml);
