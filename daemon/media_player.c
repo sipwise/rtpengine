@@ -2495,7 +2495,7 @@ static bool __media_player_evict_file(str *name) {
 	}
 
 	obj_put(val);
-	g_free(key);
+	str_free(key);
 
 	return true;
 }
