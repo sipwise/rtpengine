@@ -3321,8 +3321,8 @@ static void del_stream(struct re_stream *stream, struct rtpengine_table *table) 
 	 * they're closed. There can be no new open file references as the stream is set
 	 * to eof. */
 	DBG("del_stream() waiting for other refs\n");
-	while (1) {
-		if (wait_event_interruptible(stream->close_wq, atomic_read(&stream->refcnt) == 2) == 0)
+	while (atomic_read(&stream->refcnt) != 2) {
+		if (wait_event_interruptible_timeout(stream->close_wq, atomic_read(&stream->refcnt) == 2, HZ / 10) == 0)
 			break;
 	}
 
