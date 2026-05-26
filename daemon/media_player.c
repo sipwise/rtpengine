@@ -2168,7 +2168,8 @@ static void __media_player_cache_entry_free(struct media_player_cache_entry *e) 
 	}
 	media_player_coder_shutdown(&e->coder);
 	av_packet_free(&e->coder.pkt);
-	kernel_free_packet_stream(e->kernel_idx);
+	if (e->kernel_idx != -1)
+		kernel_free_packet_stream(e->kernel_idx);
 	g_free(e->index.index.file.s);
 	payload_type_clear(&e->index.dst_pt);
 	memory_arena_free(&e->arena);
