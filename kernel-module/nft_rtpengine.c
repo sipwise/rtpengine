@@ -3586,34 +3586,6 @@ static void del_stream(struct re_stream *stream, struct rtpengine_table *table) 
 	stream_put(stream);
 }
 
-static int table_del_stream(struct rtpengine_table *table, const struct rtpengine_stream_idx_info *info) {
-	int err;
-	struct re_call *call;
-	struct re_stream *stream;
-
-	DBG("table_del_stream()\n");
-
-	call = get_call_lock(table, info->call_idx);
-	err = -ENOENT;
-	if (!call)
-		return -ENOENT;
-
-	stream = get_stream_lock(call, info->stream_idx);
-	err = -ENOENT;
-	if (!stream)
-		goto out;
-
-	del_stream(stream, table);
-
-	err = 0;
-
-out:
-	call_put(call);
-	return err;
-}
-
-
-
 
 static ssize_t proc_stream_read(struct file *f, char __user *b, size_t l, loff_t *o) {
 	struct re_stream *stream = f->private_data;
@@ -5144,7 +5116,6 @@ static const size_t min_req_sizes[__REMG_LAST] = {
 	[REMG_ADD_CALL]		= sizeof(struct rtpengine_command_add_call),
 	[REMG_DEL_CALL]		= sizeof(struct rtpengine_command_del_call),
 	[REMG_ADD_STREAM]	= sizeof(struct rtpengine_command_add_stream),
-	[REMG_DEL_STREAM]	= sizeof(struct rtpengine_command_del_stream),
 	[REMG_PACKET]		= sizeof(struct rtpengine_command_packet),
 	[REMG_INIT_PLAY_STREAMS]= sizeof(struct rtpengine_command_init_play_streams),
 	[REMG_GET_PACKET_STREAM]= sizeof(struct rtpengine_command_get_packet_stream),
@@ -5164,7 +5135,6 @@ static const size_t max_req_sizes[__REMG_LAST] = {
 	[REMG_ADD_CALL]		= sizeof(struct rtpengine_command_add_call),
 	[REMG_DEL_CALL]		= sizeof(struct rtpengine_command_del_call),
 	[REMG_ADD_STREAM]	= sizeof(struct rtpengine_command_add_stream),
-	[REMG_DEL_STREAM]	= sizeof(struct rtpengine_command_del_stream),
 	[REMG_PACKET]		= sizeof(struct rtpengine_command_packet) + 65535,
 	[REMG_INIT_PLAY_STREAMS]= sizeof(struct rtpengine_command_init_play_streams),
 	[REMG_GET_PACKET_STREAM]= sizeof(struct rtpengine_command_get_packet_stream),
@@ -5302,10 +5272,6 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 			err = -EINVAL;
 			if (writeable)
 				err = table_new_stream(t, &msg.add_stream->stream);
-			break;
-
-		case REMG_DEL_STREAM:
-			err = table_del_stream(t, &msg.del_stream->stream);
 			break;
 
 		case REMG_PACKET:

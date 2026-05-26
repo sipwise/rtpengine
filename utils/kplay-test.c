@@ -34,7 +34,6 @@ int main() {
 			[REMG_ADD_CALL] = sizeof(struct rtpengine_command_add_call),
 			[REMG_DEL_CALL] = sizeof(struct rtpengine_command_del_call),
 			[REMG_ADD_STREAM] = sizeof(struct rtpengine_command_add_stream),
-			[REMG_DEL_STREAM] = sizeof(struct rtpengine_command_del_stream),
 			[REMG_PACKET] = sizeof(struct rtpengine_command_packet),
 			[REMG_INIT_PLAY_STREAMS] = sizeof(struct rtpengine_command_init_play_streams),
 			[REMG_GET_PACKET_STREAM] = sizeof(struct rtpengine_command_get_packet_stream),
