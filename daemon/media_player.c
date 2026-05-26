@@ -2270,8 +2270,9 @@ bool media_player_add_cached_file(str *name) {
 	LOCK(&media_player_media_files_lock);
 	__auto_type foold = t_hash_table_lookup(media_player_media_files, name);
 	if (foold) {
+		str *key = foold->str_link->data;
 		fonew->str_link = foold->str_link;
-		t_hash_table_replace(media_player_media_files, name, fonew);
+		t_hash_table_replace(media_player_media_files, key, fonew);
 		obj_put(foold);
 	}
 	else
