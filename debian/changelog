@@ -1,3 +1,14 @@
+ngcp-rtpengine (13.5.1.14+0~mr13.5.1.14) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [53f0fcb] MT#55283 slightly defuse some tests
+
+  [ Donat Zenichev ]
+  * [04ea6ee] MT#61856 main: prevent duplicated usage of `F` shortcut
+  * [303908e] MT#61856 media_player: add cached file func, name ownership issue
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 26 May 2026 23:33:31 +0200
+
 ngcp-rtpengine (13.5.1.13+0~mr13.5.1.13) unstable; urgency=medium
 
   [ Orgad Shaneh ]
