@@ -284,7 +284,7 @@ static struct ice_candidate_pair *__pair_candidate(stream_fd *sfd, struct ice_ag
 	pair->agent = ag;
 	pair->remote_candidate = cand;
 	pair->local_intf = sfd->local_intf;
-	pair->sfd = sfd;
+	pair->sfd = obj_get(sfd);
 	if (cand->component_id != 1)
 		PAIR_SET(pair, FROZEN);
 	__do_ice_pair_priority(pair);
@@ -636,6 +636,7 @@ void ice_candidates_free(candidate_q *q) {
 	t_queue_clear_full(q, ice_candidate_free);
 }
 static void ice_candidate_pair_free(struct ice_candidate_pair *p) {
+	obj_release(p->sfd);
 	g_free(p);
 }
 static void ice_candidate_pairs_free(candidate_pair_q *q) {
@@ -892,7 +893,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 
 		/* skip dead streams */
 		sfd = pair->sfd;
-		if (!sfd || !sfd->stream || !sfd->stream->selected_sfd)
+		if (!sfd || !sfd->stream || !sfd->stream->selected_sfd || !sfd->socket.family)
 			continue;
 		if (PAIR_ISSET(pair, FAILED))
 			continue;
