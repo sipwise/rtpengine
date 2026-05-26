@@ -27,6 +27,7 @@
 #include "arena.h"
 
 #define DEFAULT_AVIO_BUFSIZE 4096
+#define KERNEL_IDX_NONE UINT_MAX
 
 typedef enum {
 	MPC_OK = 0,
@@ -74,7 +75,7 @@ struct media_player_cache_entry {
 
 	cache_packet_arr *packets; // read-only except for decoder thread, which uses finished flags and locks
 	unsigned long duration; // cumulative in ms, summed up while decoding
-	unsigned int kernel_idx; // -1 if not in use
+	unsigned int kernel_idx; // KERNEL_IDX_NONE if not in use
 	media_player_ht wait_queue; // players waiting on decoder to finish
 
 	struct codec_scheduler csch;
@@ -192,7 +193,7 @@ static void media_player_shutdown(struct media_player *mp) {
 	mp->media = NULL;
 	media_player_coder_shutdown(&mp->coder);
 
-	if (mp->kernel_idx != -1)
+	if (mp->kernel_idx != KERNEL_IDX_NONE)
 		kernel_stop_stream_player(mp->kernel_idx);
 	else if (mp->cache_entry) {
 		mutex_lock(&mp->cache_entry->lock);
@@ -207,7 +208,7 @@ static void media_player_shutdown(struct media_player *mp) {
 	mp->cache_index.file = STR_NULL;// coverity[missing_lock : FALSE]
 	obj_release(mp->cache_entry); // coverity[missing_lock : FALSE]
 	mp->cache_read_idx = 0;
-	mp->kernel_idx = -1;
+	mp->kernel_idx = KERNEL_IDX_NONE;
 }
 #endif
 
@@ -254,7 +255,7 @@ void media_player_new(struct media_player **mpp, struct call_monologue *ml, stru
 
 		mp->tt_obj.tt = &media_player_thread;
 		mutex_init(&mp->lock);
-		mp->kernel_idx = -1;
+		mp->kernel_idx = KERNEL_IDX_NONE;
 
 		mp->run_func = media_player_read_packet; // default
 		mp->call = obj_get(ml->call);
@@ -677,7 +678,7 @@ static void media_player_cached_reader_start(struct media_player *mp, str_case_v
 
 	__media_player_set_opts(mp, mp->opts);
 
-	if (entry->kernel_idx != -1) {
+	if (entry->kernel_idx != KERNEL_IDX_NONE) {
 		media_player_kernel_player_start(mp);
 		return;
 	}
@@ -772,10 +773,10 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 
 	t_hash_table_insert(media_player_cache, ins_key, obj_get(entry));
 
-	entry->kernel_idx = -1;
+	entry->kernel_idx = KERNEL_IDX_NONE;
 	if (kernel.use_player) {
 		entry->kernel_idx = kernel_get_packet_stream();
-		if (entry->kernel_idx == -1)
+		if (entry->kernel_idx == KERNEL_IDX_NONE)
 			ilog(LOG_ERR, "Failed to get kernel packet stream entry (%s)", strerror(errno));
 		else
 			ilog(LOG_DEBUG, "Using kernel packet stream index %i", entry->kernel_idx);
@@ -867,7 +868,7 @@ static void packet_encoded_cache(struct codec_ssrc_handler *ch, struct media_pac
 	mutex_lock(&entry->lock);
 	t_ptr_array_add(entry->packets, ep);
 
-	if (entry->kernel_idx != -1) {
+	if (entry->kernel_idx != KERNEL_IDX_NONE) {
 		ilog(LOG_DEBUG, "Adding media packet (length %zu, TS %" PRIu64 ", delay %lu ms) to kernel packet stream %i",
 				s->len, pts, entry->duration, entry->kernel_idx);
 		if (!kernel_add_stream_packet(entry->kernel_idx, s->s, s->len, entry->duration, pts,
@@ -2168,7 +2169,7 @@ static void __media_player_cache_entry_free(struct media_player_cache_entry *e) 
 	}
 	media_player_coder_shutdown(&e->coder);
 	av_packet_free(&e->coder.pkt);
-	if (e->kernel_idx != -1)
+	if (e->kernel_idx != KERNEL_IDX_NONE)
 		kernel_free_packet_stream(e->kernel_idx);
 	g_free(e->index.index.file.s);
 	payload_type_clear(&e->index.dst_pt);
