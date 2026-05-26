@@ -1862,6 +1862,7 @@ err:
 	ilog(LOG_ERR, "Failed to start media playback from memory: %s", err);
 	if (av_ret)
 		ilog(LOG_ERR, "Error returned from libav: %s", av_error(av_ret));
+	media_player_coder_shutdown(&mp->coder);
 	return MPC_ERR;
 }
 
