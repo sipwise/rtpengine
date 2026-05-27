@@ -76,7 +76,7 @@ static str streams_print(medias_arr *s, int start, int end, const char *prefix, 
 		g_string_append_printf(o, "%s ", prefix);
 
 	for (i = start; i <= end; i++) {
-		if (s->len <= i || (media = s->pdata[i - 1]) == NULL) {
+		if (i < 1 || i > s->len || (media = s->pdata[i - 1]) == NULL) {
 			ilog(LOG_WARNING, "Requested media index %i not found", i);
 			break;
 		}
