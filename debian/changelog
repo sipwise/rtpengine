@@ -1,3 +1,16 @@
+ngcp-rtpengine (11.5.1.52+0~mr11.5.1.52) unstable; urgency=medium
+
+  [ Orgad Shaneh ]
+  * [46fc1a5] MT#55283 Fix deb build
+
+  [ Donat Zenichev ]
+  * [11e8f22] MT#61856 main: prevent duplicated usage of `F` shortcut
+
+  [ Richard Fuchs ]
+  * [1c477a2] MT#55283 use timeout to wait for open file refs
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 27 May 2026 13:20:22 +0200
+
 ngcp-rtpengine (11.5.1.51+0~mr11.5.1.51) unstable; urgency=medium
 
   [ Michael Prokop ]
