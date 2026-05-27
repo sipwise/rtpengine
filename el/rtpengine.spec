@@ -1,5 +1,5 @@
 Name:		ngcp-rtpengine
-Version:	26.0.1.11+0~mr26.0.1.11
+Version:	26.0.1.12+0~mr26.0.1.12
 Release:	1%{?dist}
 Summary:	The Sipwise NGCP rtpengine daemon
 Group:		System Environment/Daemons
