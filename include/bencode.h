@@ -7,6 +7,8 @@
 
 #include "compat.h"
 
+#define BENCODE_ALLOC_ALIGN 8
+
 struct bencode_buffer;
 enum bencode_type;
 struct bencode_item;
@@ -35,7 +37,7 @@ struct bencode_item {
 	long long int value;	/* when decoding an integer, contains the value; otherwise used internally */
 	bencode_item_t *parent, *child, *last_child, *sibling;
 	bencode_buffer_t *buffer;
-	char __buf[0];
+	char __buf[0] __attribute__ ((aligned (BENCODE_ALLOC_ALIGN)));
 };
 
 struct bencode_buffer {
