@@ -1,3 +1,13 @@
+ngcp-rtpengine (13.5.1.16+0~mr13.5.1.16) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7fcb730] MT#55283 fix bencode buffer alignment
+
+  [ Donat Zenichev ]
+  * [f194de2] MT#61856 call_interfaces: block silence media, iteration bug
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 27 May 2026 18:22:40 +0200
+
 ngcp-rtpengine (13.5.1.15+0~mr13.5.1.15) unstable; urgency=medium
 
   [ Donat Zenichev ]
