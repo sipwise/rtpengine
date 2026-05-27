@@ -1,3 +1,12 @@
+ngcp-rtpengine (26.0.1.11+0~mr26.0.1.11) unstable; urgency=medium
+
+  [ Donat Zenichev ]
+  * [092c152] MT#62750 media_player: revert `ilog()`
+  * [2fa697c] MT#62750 media_player: skip MP init if there is ongoing MoH
+  * [f1a6db6] MT#62750 stop media: if MoH is ongoing, ignore the command
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 27 May 2026 14:55:05 +0200
+
 ngcp-rtpengine (26.0.1.10+0~mr26.0.1.10) unstable; urgency=medium
 
   [ Donat Zenichev ]
