@@ -3807,7 +3807,7 @@ static const char *call_block_silence_media(ng_command_ctx_t *ctx, bool on_off, 
 			/* now check if any sink ml media is susbcribed to any of monologue medias */
 			for (int i = 0; i < sink_ml->medias->len; i++)
 			{
-				struct call_media * sink_md = monologue->medias->pdata[i];
+				struct call_media * sink_md = sink_ml->medias->pdata[i];
 				if (!sink_md)
 					continue;
 				for (int j = 0; j < monologue->medias->len; j++)
