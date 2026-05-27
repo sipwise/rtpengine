@@ -489,7 +489,8 @@ void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssr
 	mos_calc = mos_calc_legacy;
 #endif
 
-	other_e->packets_lost = rr->packets_lost;
+	//ignore rtcp based packets lost
+	//other_e->packets_lost = rr->packets_lost;
 	mos_calc(ssb);
 	if (ssb->mos) {
 		ilog(LOG_DEBUG, "Calculated MOS from RR for %s%x%s is %.1f", FMT_M(rr->from),
