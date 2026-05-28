@@ -2,42 +2,42 @@
 #define _CONTROL_NG_H_
 
 #define NG_COMMANDS(X) \
-	X(OP_PING,                   "ping",                  "ping",                  "Ping") \
-	X(OP_OFFER,                  "offer",                 "offer",                 "Offer") \
-	X(OP_ANSWER,                 "answer",                "answer",                "Answer") \
-	X(OP_DELETE,                 "delete",                "delete",                "Delete") \
-	X(OP_QUERY,                  "query",                 "query",                 "Query") \
-	X(OP_LIST,                   "list",                  "list",                  "List") \
-	X(OP_START_RECORDING,        "start recording",       "start_recording",       "StartRec") \
-	X(OP_STOP_RECORDING,         "stop recording",        "stop_recording",        "StopRec") \
-	X(OP_PAUSE_RECORDING,        "pause recording",       "pause_recording",       "PauseRec") \
-	X(OP_START_FORWARDING,       "start forwarding",      "start_forwarding",      "StartFwd") \
-	X(OP_STOP_FORWARDING,        "stop forwarding",       "stop_forwarding",       "StopFwd") \
-	X(OP_BLOCK_DTMF,             "block DTMF",            "block_DTMF",            "BlkDTMF") \
-	X(OP_UNBLOCK_DTMF,           "unblock DTMF",          "unblock_DTMF",          "UnblkDTMF") \
-	X(OP_BLOCK_MEDIA,            "block media",           "block_media",           "BlkMedia") \
-	X(OP_UNBLOCK_MEDIA,          "unblock media",         "unblock_media",         "UnblkMedia") \
-	X(OP_PLAY_MEDIA,             "play media",            "play_media",            "PlayMedia") \
-	X(OP_STOP_MEDIA,             "stop media",            "stop_media",            "StopMedia") \
-	X(OP_PLAY_DTMF,              "play DTMF",             "play_DTMF",             "PlayDTMF") \
-	X(OP_STATISTICS,             "statistics",            "statistics",            "Stats") \
-	X(OP_SILENCE_MEDIA,          "silence media",         "silence_media",         "SlnMedia") \
-	X(OP_UNSILENCE_MEDIA,        "unsilence media",       "unsilence_media",       "UnslnMedia") \
-	X(OP_PUBLISH,                "publish",               "publish",               "Pub") \
-	X(OP_SUBSCRIBE_REQ,          "subscribe request",     "subscribe_request",     "SubReq") \
-	X(OP_SUBSCRIBE_ANS,          "subscribe answer",      "subscribe_answer",      "SubAns") \
-	X(OP_UNSUBSCRIBE,            "unsubscribe",           "unsubscribe",           "Unsub") \
-	X(OP_INJECT_START,           "inject start",          "inject_start",          "InjStart") \
-	X(OP_INJECT_STOP,            "inject stop",           "inject_stop",           "InjStop") \
-	X(OP_CONNECT,                "connect",               "connect",               "Conn") \
-	X(OP_CLI,                    "cli",                   "cli",                   "CLI") \
-	X(OP_TRANSFORM,              "transform",             "transform",             "Trnsfm") \
-	X(OP_CREATE,                 "create",                "create",                "Create") \
-	X(OP_CREATE_ANSWER,          "create answer",         "create_answer",         "CrtAnsw") \
-	X(OP_MESH,                   "mesh",                  "mesh",                  "Mesh")
+	X(OP_PING,                  "ping",                  "ping",                  "Ping",       call_ping_ng) \
+	X(OP_OFFER,                 "offer",                 "offer",                 "Offer",      call_offer_ng) \
+	X(OP_ANSWER,                "answer",                "answer",                "Answer",     call_answer_ng) \
+	X(OP_DELETE,                "delete",                "delete",                "Delete",     call_delete_ng) \
+	X(OP_QUERY,                 "query",                 "query",                 "Query",      call_query_ng) \
+	X(OP_LIST,                  "list",                  "list",                  "List",       call_list_ng) \
+	X(OP_START_RECORDING,       "start recording",       "start_recording",       "StartRec",   call_start_recording_ng) \
+	X(OP_STOP_RECORDING,        "stop recording",        "stop_recording",        "StopRec",    call_stop_recording_ng) \
+	X(OP_PAUSE_RECORDING,       "pause recording",       "pause_recording",       "PauseRec",   call_pause_recording_ng) \
+	X(OP_START_FORWARDING,      "start forwarding",      "start_forwarding",      "StartFwd",   call_start_forwarding_ng) \
+	X(OP_STOP_FORWARDING,       "stop forwarding",       "stop_forwarding",       "StopFwd",    call_stop_forwarding_ng) \
+	X(OP_BLOCK_DTMF,            "block DTMF",            "block_DTMF",            "BlkDTMF",    call_block_dtmf_ng) \
+	X(OP_UNBLOCK_DTMF,          "unblock DTMF",          "unblock_DTMF",          "UnblkDTMF",  call_unblock_dtmf_ng) \
+	X(OP_BLOCK_MEDIA,           "block media",           "block_media",           "BlkMedia",   call_block_media_ng) \
+	X(OP_UNBLOCK_MEDIA,         "unblock media",         "unblock_media",         "UnblkMedia", call_unblock_media_ng) \
+	X(OP_PLAY_MEDIA,            "play media",            "play_media",            "PlayMedia",  call_play_media_ng) \
+	X(OP_STOP_MEDIA,            "stop media",            "stop_media",            "StopMedia",  call_stop_media_ng) \
+	X(OP_PLAY_DTMF,             "play DTMF",             "play_DTMF",             "PlayDTMF",   call_play_dtmf_ng) \
+	X(OP_STATISTICS,            "statistics",            "statistics",            "Stats",      statistics_ng) \
+	X(OP_SILENCE_MEDIA,         "silence media",         "silence_media",         "SlnMedia",   call_silence_media_ng) \
+	X(OP_UNSILENCE_MEDIA,       "unsilence media",       "unsilence_media",       "UnslnMedia", call_unsilence_media_ng) \
+	X(OP_PUBLISH,               "publish",               "publish",               "Pub",        call_publish_ng) \
+	X(OP_SUBSCRIBE_REQ,         "subscribe request",     "subscribe_request",     "SubReq",     call_subscribe_request_ng) \
+	X(OP_SUBSCRIBE_ANS,         "subscribe answer",      "subscribe_answer",      "SubAns",     call_subscribe_answer_ng) \
+	X(OP_UNSUBSCRIBE,           "unsubscribe",           "unsubscribe",           "Unsub",      call_unsubscribe_ng) \
+	X(OP_INJECT_START,          "inject start",          "inject_start",          "InjStart",   call_inject_start_ng) \
+	X(OP_INJECT_STOP,           "inject stop",           "inject_stop",           "InjStop",    call_inject_stop_ng) \
+	X(OP_CONNECT,               "connect",               "connect",               "Conn",       call_connect_ng) \
+	X(OP_CLI,                   "cli",                   "cli",                   "CLI",        cli_ng) \
+	X(OP_TRANSFORM,             "transform",             "transform",             "Trnsfm",     call_transform_ng) \
+	X(OP_CREATE,                "create",                "create",                "Create",     call_create_ng) \
+	X(OP_CREATE_ANSWER,         "create answer",         "create_answer",         "CrtAnsw",    call_create_answer_ng) \
+	X(OP_MESH,                  "mesh",                  "mesh",                  "Mesh",       call_mesh_ng)
 
 enum ng_opmode {
-#define X(op, name, esc, short_name) op,
+#define X(op, name, esc, short_name, handler) op,
 	NG_COMMANDS(X)
 #undef X
 
