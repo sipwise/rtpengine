@@ -1058,8 +1058,8 @@ static void setup_stream_proc(struct packet_stream *stream) {
 		media_rec_slot = media_rec_slots;
 	}
 
-	len = snprintf(buf, sizeof(buf), "TAG %u MEDIA %u TAG-MEDIA %u COMPONENT %u FLAGS %" PRIu64 " MEDIA-SDP-ID %i MEDIA-REC-SLOT %i MEDIA-REC-SLOTS %i",
-				   ml->unique_id, media->unique_id, media->index, stream->component,
+	len = snprintf(buf, sizeof(buf), "TAG %u MEDIA %u COMPONENT %u FLAGS %" PRIu64 " MEDIA-SDP-ID %i MEDIA-REC-SLOT %i MEDIA-REC-SLOTS %i",
+				   ml->unique_id, media->unique_id, stream->component,
 				   atomic64_get_na(&stream->ps_flags), media->media_sdp_id, media_rec_slot, media_rec_slots);
 	append_meta_chunk(recording, buf, len, "STREAM %u details", stream->unique_id);
 
