@@ -2056,6 +2056,8 @@ found:
 			struct call_media *ml_media = monologue->medias->pdata[i];
 			if (!ml_media)
 				continue;
+			if (ml_media->type_id != MT_AUDIO)
+				continue;
 
 			struct call_media * ms_media_sink = NULL;
 
