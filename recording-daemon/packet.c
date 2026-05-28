@@ -80,7 +80,8 @@ out:
 			char buf[16];
 			snprintf(buf, sizeof(buf), "%08lx", ssrc);
 			tag_t *tag = tag_get(mf, stream->tag);
-			ret->output = output_new_ext(mf, buf, "single", tag->label);
+			if (tag)
+				ret->output = output_new_ext(mf, buf, "single", tag->label);
 		}
 
 		db_do_stream(mf, ret->output, stream, ssrc);

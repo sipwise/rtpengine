@@ -383,6 +383,8 @@ void db_do_stream(metafile_t *mf, output_t *op, stream_t *stream, unsigned long 
 		return;
 	if (mf->db_id == 0)
 		return;
+	if (!op)
+		return;
 	if (op->db_id > 0)
 		return;
 	if (mf->skip_db)
