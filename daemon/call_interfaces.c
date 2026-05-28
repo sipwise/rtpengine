@@ -7,15 +7,13 @@
 #include <pcre2.h>
 #include <inttypes.h>
 
-#include "call.h"
+#include "control_ng.h"
 #include "helpers.h"
 #include "log_d.h"
 #include "redis.h"
-#include "sdp.h"
 #include "str.h"
 #include "control_tcp.h"
 #include "control_udp.h"
-#include "control_ng.h"
 #include "rtp.h"
 #include "ice.h"
 #include "recording.h"
@@ -28,9 +26,6 @@
 #include "media_player.h"
 #include "dtmf.h"
 #include "codec.h"
-#include "dtmf.h"
-#include "call_flags.h"
-
 
 #define call_ng_process_flags_RETURN(a, b) \
 	do { \
