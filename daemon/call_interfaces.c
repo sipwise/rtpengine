@@ -2289,6 +2289,9 @@ const char *call_subscribe_answer_ng(ng_command_ctx_t *ctx) {
 	if (!call)
 		return "Unknown call-ID";
 
+	if (!flags.sdp.len)
+		return "No SDP body in message";
+
 	if (!sdp_parse(&flags.sdp, &parsed, &flags))
 		return "Failed to parse SDP";
 
@@ -2300,8 +2303,6 @@ const char *call_subscribe_answer_ng(ng_command_ctx_t *ctx) {
 
 	if (!flags.to_tag.s)
 		return "No to-tag in message";
-	if (!flags.sdp.len)
-		return "No SDP body in message";
 
 	// get destination monologue
 	struct call_monologue *dest_ml = call_get_monologue(call, &flags.to_tag);
