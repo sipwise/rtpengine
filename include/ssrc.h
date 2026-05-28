@@ -75,7 +75,8 @@ struct ssrc_entry_call {
 	atomic64 last_sample,
 		 sample_packets,
 		 sample_octets,
-		 sample_packets_lost,
+		 sample_packets_lost, // local (sequence-gap based)
+		 sample_packets_lost_rtcp, // as reported via RTCP RR
 		 sample_duplicates;
 
 	int64_t next_rtcp; // for self-generated RTCP reports
@@ -93,7 +94,8 @@ struct ssrc_entry_call {
 	// input only - tracking for passthrough handling
 	uint32_t last_seq_tracked;
 	uint32_t lost_bits; // sliding bitfield, [0] = ext_seq
-	uint32_t packets_lost; // RTCP cumulative number of packets lost
+	uint32_t packets_lost; // locally measured (sequence-gap based) cumulative packets lost
+	uint32_t packets_lost_rtcp; // RTCP cumulative number of packets lost (RR)
 	uint32_t duplicates;
 
 	// for transcoding
