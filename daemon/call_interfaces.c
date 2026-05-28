@@ -91,7 +91,7 @@ static str streams_print(medias_arr *s, int start, int end, const char *prefix, 
 			call_stream_address(o, ps, format, NULL, true);
 
 		port = ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0;
-		g_string_append_printf(o, (format == 1) ? "%i " : " %i", port);
+		g_string_append_printf(o, (format == SAF_UDP) ? "%i " : " %i", port);
 
 		if (format == SAF_UDP) {
 			af = call_stream_address(o, ps, format, NULL, true);
