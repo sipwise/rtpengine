@@ -33,7 +33,7 @@ my $meta_file = "$spool_dir/" . rand() . '.meta';
 my $parent = rand();
 
 print("adding kernel call\n");
-my (undef, $cid) = msg_ret(5, '', 'I I', 'I a256', 0, $parent);
+my (undef, $cid) = msg_ret(4, '', 'I I', 'I a256', 0, $parent);
 print("kernel cid $cid\n");
 
 print("starting metafile\n");
@@ -54,16 +54,16 @@ for my $key (@tag_keys) {
 			"component-$stream->{component}-xxx-id-$stream->{stream_id}";
 		put_meta("STREAM $stream->{stream_id} details",
 			"TAG $tag_id MEDIA $stream->{media_id} COMPONENT $stream->{component} ".
-			"FLAGS 0");
+			"FLAGS 0 MEDIA-SDP-ID 0 MEDIA-REC-SLOT 0 MEDIA-REC-SLOTS 1");
 		if ($ARGV[2]) {
 			if ($ARGV[3]) {
 				put_meta("MEDIA $stream->{media_id} PTIME $ARGV[3]", '');
 			}
 			put_meta("MEDIA $stream->{media_id} PAYLOAD TYPE $ARGV[1]", $ARGV[2]);
 		}
-		my @ret = msg_ret(7, '', 'I I I I',
+		my @ret = msg_ret(6, '', 'I I I',
 			'I I I a256', $cid, 0, 0, $sname);
-		my $sid = $ret[3];
+		my $sid = $ret[2];
 		$stream->{sid} = $sid;
 		print("kernel sid $sid\n");
 		put_meta("STREAM $stream->{stream_id} interface", $sname);
@@ -73,12 +73,12 @@ for my $key (@tag_keys) {
 
 print("sending packets\n");
 foreach my $pack (@packets) {
-	msg_ret(9, $pack->{eth}->{rest}, '', 'I I', $cid, $pack->{media}->{sid});
+	msg_ret(8, $pack->{eth}->{rest}, '', 'I I', $cid, $pack->{media}->{sid});
 	usleep(5000);
 }
 
 print("deleting call and metafile\n");
-msg_ret(6, '', '', 'I', $cid);
+msg_ret(5, '', '', 'I', $cid);
 unlink($meta_file);
 
 print("done\n");
@@ -169,10 +169,7 @@ sub put_meta {
 
 sub msg_ret {
 	my ($cmd, $extra, $unpacker, $packer, @rest) = @_;
-	my $msg = pack('II' . $packer, $cmd, 0, @rest);
-	# for 32-bit:
-	# my $msg = pack('I' . $packer, $cmd, @rest);
-	$msg .= ("\0" x (840 - length($msg))); # packet length also needs adjusting for 32-bit
+	my $msg = pack('I' . $packer, $cmd, @rest);
 	$msg .= ($extra // '');
 	sysread($kfd, $msg, length($msg)) or die $!;
 	return unpack($unpacker, $msg);
