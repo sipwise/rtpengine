@@ -2512,8 +2512,14 @@ const char *call_transform_ng(ng_command_ctx_t *ctx) {
 		__auto_type m = l->data;
 		parser_arg dict = parser->list_add_dict(list);
 		parser->dict_add_str_dup(dict, "id", &m->media_id);
+		if (!m->streams.head)
+			continue;
 		__auto_type ps = m->streams.head->data;
+		if (!ps->selected_sfd)
+			continue;
 		__auto_type sfd = ps->selected_sfd;
+		if (!sfd->socket.local.address.family)
+			continue;
 		parser->dict_add_str(dict, "family", STR_PTR(sfd->socket.local.address.family->rfc_name));
 		parser->dict_add_str_dup(dict, "address", STR_PTR(sockaddr_print_buf(&sfd->socket.local.address)));
 		parser->dict_add_int(dict, "port", sfd->socket.local.port);
