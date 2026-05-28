@@ -5713,6 +5713,11 @@ static gboolean fragment_move(str *key, fragment_q *q, void *c) {
 // both calls must be locked and a reference held. call2 reference will be released if successful
 __attribute__((nonnull(1, 2)))
 static bool call_merge(call_t *call, call_t *call2) {
+	if (call == call2) {
+		obj_release(call2);
+		return true;
+	}
+
 	// chcek for tag collisions: duplicate tags are a failure
 	for (auto_iter(l, call2->monologues.head); l; l = l->next) {
 		if (t_hash_table_lookup(call->tags, &l->data->tag))
@@ -5784,29 +5789,40 @@ static bool call_merge(call_t *call, call_t *call2) {
 
 	// redirect hash table entry for old ID. store old ID in new call
 
-	str *old_id = call_str_dup(&call2->callid);
-	t_queue_push_tail(&call->callid_aliases, old_id);
+	t_queue_push_tail(&call->callid_aliases, call_str_dup(&call2->callid));
+
+	while (call2->callid_aliases.length)
+		t_queue_push_tail(&call->callid_aliases, t_queue_pop_head(&call2->callid_aliases));
+
+	call_q ht_calls = TYPED_GQUEUE_INIT;
 
 	rwlock_lock_w(&rtpe_callhash_lock);
 
-	call_t *call_ht = NULL;
-	t_hash_table_steal_extended(rtpe_callhash, &call2->callid, NULL, &call_ht);
-	if (call_ht) {
-		if (call_ht != call2) {
-			// already deleted and replace by a different call
-			t_hash_table_insert(rtpe_callhash, &call_ht->callid, call_ht);
-			call_ht = NULL;
-		}
-		else {
-			// insert a new reference under the old call ID
-			t_hash_table_insert(rtpe_callhash, old_id, obj_get(call));
-			RTPE_GAUGE_DEC(total_sessions);
-		}
-	} // else: already deleted
+	for (auto_iter(l, call->callid_aliases.head); l; l = l->next) {
+		str *old_id = l->data;
+		str *id_ht;
+		call_t *call_ht;
+		t_hash_table_steal_extended(rtpe_callhash, old_id, &id_ht, &call_ht);
+		if (call_ht) {
+			if (call_ht != call2) {
+				// already deleted and replace by a different call
+				// (or possibly it's "call")
+				// either way, return it to the table
+				t_hash_table_insert(rtpe_callhash, id_ht, call_ht);
+			}
+			else {
+				// insert a new reference under the old call ID
+				t_hash_table_insert(rtpe_callhash, old_id, obj_get(call));
+				RTPE_GAUGE_DEC(total_sessions);
+				t_queue_push_tail(&ht_calls, call_ht);
+			}
+		} // else: already deleted
+	}
 
 	rwlock_unlock_w(&rtpe_callhash_lock);
 
-	obj_release(call_ht);
+	while (ht_calls.length)
+		obj_put(t_queue_pop_head(&ht_calls));
 
 	__call_iterator_remove(call2);
 	mqtt_timer_stop(&call2->mqtt_timer);
