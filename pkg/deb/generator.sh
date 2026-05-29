@@ -19,8 +19,6 @@ find debian -maxdepth 2 -type f -exec \
   sed -i -e 's/ngcp-rtpengine/rtpengine/g' \
   -e 's/ngcp\\-rtpengine/rtpengine/g' {} \;
 
-sed -i -e 's/ngcp-rtpengine/rtpengine/g' ./*Makefile* ./*/*Makefile*
-
 ## remove same file on links
 while read -r file; do
   file_new=${file//ngcp-/}
