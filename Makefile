@@ -17,7 +17,7 @@ ifeq ($(with_transcoding),yes)
 	$(MAKE) -C recording-daemon
 	$(MAKE) -C perf-tester
 endif
-ifneq (,$(filter $(DEB_BUILD_PROFILES),pkg.ngcp-rtpengine.pysip-lite))
+ifneq (,$(filter pkg.ngcp-rtpengine.pysip-lite pkg.rtpengine.pysip-lite,$(DEB_BUILD_PROFILES)))
 	$(MAKE) -C python
 endif
 

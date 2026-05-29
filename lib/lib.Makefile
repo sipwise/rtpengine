@@ -23,7 +23,7 @@ CFLAGS+=	$(CFLAGS_LIBSYSTEMD)
 LDLIBS+=	$(LDLIBS_LIBSYSTEMD)
 
 # look for liburing
-ifeq (,$(filter pkg.ngcp-rtpengine.nouring,${DEB_BUILD_PROFILES}))
+ifeq (,$(filter pkg.ngcp-rtpengine.nouring pkg.rtpengine.nouring,$(DEB_BUILD_PROFILES)))
 CFLAGS+=	$(CFLAGS_LIBURING)
 LDLIBS+=	$(LDLIBS_LIBURING)
 endif
@@ -36,7 +36,7 @@ endif
 LDFLAGS += -rdynamic
 
 ifneq ($(DBG),yes)
-  ifeq (,$(filter $(CFLAGS),-O0))
+  ifeq (,$(filter -O0,$(CFLAGS)))
     CFLAGS+=	$(CFLAGS_DEFAULT)
     CPPFLAGS+=	$(CPPFLAGS_DEFAULT)
     LDFLAGS+=	$(LDFLAGS_DEFAULT)
