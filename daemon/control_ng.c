@@ -76,6 +76,10 @@ static const struct ng_command_def *ng_command_find(const str *cmd) {
 	return NULL;
 }
 
+/**
+ * Compatibility arrays used outside control_ng.
+ * Keep generated from NG_COMMANDS until callers are migrated to a helper API.
+ */
 const char *ng_command_strings[OP_COUNT] = {
 #define X(op, name, esc, short_name, handler) [op] = name,
 #define XA(op, name, esc, short_name, handler) [op] = name,
