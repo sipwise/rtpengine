@@ -732,6 +732,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 		struct ng_buffer **ngbufp)
 {
 	str cmd = STR_NULL;
+	const struct ng_command_def *cmd_def;
 	const char *errstr, *resultstr;
 	GString *log_str;
 	int64_t cmd_start, cmd_stop, cmd_process_time = {0};
@@ -817,143 +818,31 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	// start command timer
 	cmd_start = now_us();
 
-	switch (__csh_lookup(&cmd)) {
-		case CSH_LOOKUP("ping"):
-			resultstr = "pong";
-			command_ctx.opmode = OP_PING;
-			break;
-		case CSH_LOOKUP("offer"):
-			command_ctx.opmode = OP_OFFER;
-			errstr = call_offer_ng(&command_ctx, addr);
-			break;
-		case CSH_LOOKUP("answer"):
-			command_ctx.opmode = OP_ANSWER;
-			errstr = call_answer_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("delete"):
-			command_ctx.opmode = OP_DELETE;
-			errstr = call_delete_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("query"):
-			command_ctx.opmode = OP_QUERY;
-			errstr = call_query_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("list"):
-			command_ctx.opmode = OP_LIST;
-			errstr = call_list_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("start recording"):
-			command_ctx.opmode = OP_START_RECORDING;
-			errstr = call_start_recording_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("stop recording"):
-			command_ctx.opmode = OP_STOP_RECORDING;
-			errstr = call_stop_recording_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("pause recording"):
-			command_ctx.opmode = OP_PAUSE_RECORDING;
-			errstr = call_pause_recording_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("start forwarding"):
-			command_ctx.opmode = OP_START_FORWARDING;
-			errstr = call_start_forwarding_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("stop forwarding"):
-			command_ctx.opmode = OP_STOP_FORWARDING;
-			errstr = call_stop_forwarding_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("block DTMF"):
-			command_ctx.opmode = OP_BLOCK_DTMF;
-			errstr = call_block_dtmf_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("unblock DTMF"):
-			command_ctx.opmode = OP_UNBLOCK_DTMF;
-			errstr = call_unblock_dtmf_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("block media"):
-			command_ctx.opmode = OP_BLOCK_MEDIA;
-			errstr = call_block_media_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("unblock media"):
-			command_ctx.opmode = OP_UNBLOCK_MEDIA;
-			errstr = call_unblock_media_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("silence media"):
-			command_ctx.opmode = OP_SILENCE_MEDIA;
-			errstr = call_silence_media_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("unsilence media"):
-			command_ctx.opmode = OP_UNSILENCE_MEDIA;
-			errstr = call_unsilence_media_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("play media"):
-			command_ctx.opmode = OP_PLAY_MEDIA;
-			errstr = call_play_media_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("stop media"):
-			command_ctx.opmode = OP_STOP_MEDIA;
-			errstr = call_stop_media_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("play DTMF"):
-			command_ctx.opmode = OP_PLAY_DTMF;
-			errstr = call_play_dtmf_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("statistics"):
-			command_ctx.opmode = OP_STATISTICS;
-			errstr = statistics_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("publish"):
-			command_ctx.opmode = OP_PUBLISH;
-			errstr = call_publish_ng(&command_ctx, addr);
-			break;
-		case CSH_LOOKUP("subscribe request"):
-			command_ctx.opmode = OP_SUBSCRIBE_REQ;
-			errstr = call_subscribe_request_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("subscribe answer"):
-			command_ctx.opmode = OP_SUBSCRIBE_ANS;
-			errstr = call_subscribe_answer_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("unsubscribe"):
-			command_ctx.opmode = OP_UNSUBSCRIBE;
-			errstr = call_unsubscribe_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("inject start"):
-			command_ctx.opmode = OP_INJECT_START;
-			errstr = call_inject_start_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("inject stop"):
-			command_ctx.opmode = OP_INJECT_STOP;
-			errstr = call_inject_stop_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("connect"):
-			command_ctx.opmode = OP_CONNECT;
-			errstr = call_connect_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("cli"):
-		case CSH_LOOKUP("CLI"):
-			command_ctx.opmode = OP_CLI;
-			errstr = cli_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("transform"):
-			command_ctx.opmode = OP_TRANSFORM;
-			errstr = call_transform_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("create"):
-			command_ctx.opmode = OP_CREATE;
-			errstr = call_create_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("create answer"):
-			command_ctx.opmode = OP_CREATE_ANSWER;
-			errstr = call_create_answer_ng(&command_ctx);
-			break;
-		case CSH_LOOKUP("mesh"):
-			command_ctx.opmode = OP_MESH;
-			errstr = call_mesh_ng(&command_ctx);
-			break;
-		default:
-			errstr = "Unrecognized command";
+	command_ctx.opmode = OP_OTHER;
+	cmd_def = ng_command_find(&cmd);
+
+	/* undefined command */
+	if (!cmd_def) {
+		errstr = "Unrecognized command";
+		goto err_send;
 	}
+
+	/* No handler found */
+	if (!cmd_def->handler && !cmd_def->addr_handler) {
+		errstr = "No command handler";
+		goto err_send;
+	}
+
+	command_ctx.opmode = cmd_def->opmode;
+	/* ping has special response string */
+	if (cmd_def->opmode == OP_PING)
+		resultstr = "pong";
+
+	/* properly select the handler to be used (single-/double-parameter) */
+	if (cmd_def->addr_handler)
+		errstr = cmd_def->addr_handler(&command_ctx, addr);
+	else
+		errstr = cmd_def->handler(&command_ctx);
 
 	CH(homer_fill_values, hctx, &callid, command_ctx.opmode);
 	CH(homer_trace_msg_in, hctx, data);

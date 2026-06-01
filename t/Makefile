@@ -347,7 +347,7 @@ test-stats:	test-stats.o \
 	../daemon/cli.strhash.o \
 	../daemon/codec.o \
 	../daemon/control_ng_flags_parser.o \
-	../daemon/control_ng.strhash.o \
+	../daemon/control_ng.o \
 	../daemon/cookie_cache.o \
 	../daemon/crypto.o \
 	../daemon/dtls.o  \
@@ -407,7 +407,7 @@ test-transcode:	test-transcode.o \
 	../daemon/cli.strhash.o \
 	../daemon/codec.o \
 	../daemon/control_ng_flags_parser.o \
-	../daemon/control_ng.strhash.o \
+	../daemon/control_ng.o \
 	../daemon/cookie_cache.o \
 	../daemon/crypto.o \
 	../daemon/dtls.o \
