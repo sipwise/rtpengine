@@ -1,9 +1,9 @@
 #ifndef _CONTROL_NG_H_
 #define _CONTROL_NG_H_
 
-#define NG_COMMANDS(X) \
+#define NG_COMMANDS(X, XA) \
 	X(OP_PING,                  "ping",                  "ping",                  "Ping",       call_ping_ng) \
-	X(OP_OFFER,                 "offer",                 "offer",                 "Offer",      call_offer_ng) \
+	XA(OP_OFFER,                 "offer",                 "offer",                 "Offer",      call_offer_ng) \
 	X(OP_ANSWER,                "answer",                "answer",                "Answer",     call_answer_ng) \
 	X(OP_DELETE,                "delete",                "delete",                "Delete",     call_delete_ng) \
 	X(OP_QUERY,                 "query",                 "query",                 "Query",      call_query_ng) \
@@ -23,7 +23,7 @@
 	X(OP_STATISTICS,            "statistics",            "statistics",            "Stats",      statistics_ng) \
 	X(OP_SILENCE_MEDIA,         "silence media",         "silence_media",         "SlnMedia",   call_silence_media_ng) \
 	X(OP_UNSILENCE_MEDIA,       "unsilence media",       "unsilence_media",       "UnslnMedia", call_unsilence_media_ng) \
-	X(OP_PUBLISH,               "publish",               "publish",               "Pub",        call_publish_ng) \
+	XA(OP_PUBLISH,               "publish",               "publish",               "Pub",        call_publish_ng) \
 	X(OP_SUBSCRIBE_REQ,         "subscribe request",     "subscribe_request",     "SubReq",     call_subscribe_request_ng) \
 	X(OP_SUBSCRIBE_ANS,         "subscribe answer",      "subscribe_answer",      "SubAns",     call_subscribe_answer_ng) \
 	X(OP_UNSUBSCRIBE,           "unsubscribe",           "unsubscribe",           "Unsub",      call_unsubscribe_ng) \
@@ -38,7 +38,9 @@
 
 enum ng_opmode {
 #define X(op, name, esc, short_name, handler) op,
-	NG_COMMANDS(X)
+#define XA(op, name, esc, short_name, handler) op,
+	NG_COMMANDS(X, XA)
+#undef XA
 #undef X
 
 	OP_COUNT,             /* last, number of real command elements */

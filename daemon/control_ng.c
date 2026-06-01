@@ -34,19 +34,25 @@ const char magic_load_limit_strings[__LOAD_LIMIT_MAX][64] = {
 
 const char *ng_command_strings[OP_COUNT] = {
 #define X(op, name, esc, short_name, handler) [op] = name,
-	NG_COMMANDS(X)
+#define XA(op, name, esc, short_name, handler) [op] = name,
+	NG_COMMANDS(X, XA)
+#undef XA
 #undef X
 };
 
 const char *ng_command_strings_esc[OP_COUNT] = {
 #define X(op, name, esc, short_name, handler) [op] = esc,
-	NG_COMMANDS(X)
+#define XA(op, name, esc, short_name, handler) [op] = esc,
+	NG_COMMANDS(X, XA)
+#undef XA
 #undef X
 };
 
 const char *ng_command_strings_short[OP_COUNT] = {
 #define X(op, name, esc, short_name, handler) [op] = short_name,
-	NG_COMMANDS(X)
+#define XA(op, name, esc, short_name, handler) [op] = short_name,
+	NG_COMMANDS(X, XA)
+#undef XA
 #undef X
 };
 
