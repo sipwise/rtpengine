@@ -54,6 +54,7 @@ enum ng_opmode {
 #include "tcp_listener.h"
 #include "bencode.h"
 #include "types.h"
+#include "cli.h"
 
 struct ng_command_stats {
 	mutex_t lock;

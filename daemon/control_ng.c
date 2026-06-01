@@ -16,7 +16,6 @@
 #include "statistics.h"
 #include "streambuf.h"
 #include "homer.h"
-#include "cli.h"
 
 mutex_t rtpe_cngs_lock;
 mutex_t tcp_connections_lock;
