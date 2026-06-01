@@ -31,6 +31,30 @@ const char magic_load_limit_strings[__LOAD_LIMIT_MAX][64] = {
 	[LOAD_LIMIT_BW] = "Bandwidth limit exceeded",
 };
 
+typedef const char *(*ng_command_handler_t)(ng_command_ctx_t *ctx);
+typedef const char *(*ng_command_addr_handler_t)(ng_command_ctx_t *ctx,
+		const char *addr);
+
+struct ng_command_def {
+	enum ng_opmode opmode;
+	const char *name;
+	const char *escaped_name;
+	const char *short_name;
+	/* Only one of handler/addr_handler should be set at a time */
+	ng_command_handler_t handler;
+	ng_command_addr_handler_t addr_handler;
+};
+
+static const struct ng_command_def ng_command_defs[OP_COUNT] = {
+#define X(op, name, esc, short_name, handler) \
+	[op] = { op, name, esc, short_name, handler, NULL },
+#define XA(op, name, esc, short_name, handler) \
+	[op] = { op, name, esc, short_name, NULL, handler },
+	NG_COMMANDS(X, XA)
+#undef XA
+#undef X
+};
+
 const char *ng_command_strings[OP_COUNT] = {
 #define X(op, name, esc, short_name, handler) [op] = name,
 #define XA(op, name, esc, short_name, handler) [op] = name,

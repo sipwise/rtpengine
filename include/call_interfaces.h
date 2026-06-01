@@ -28,6 +28,7 @@ str call_lookup_udp(char **);
 str call_delete_udp(char **);
 str call_query_udp(char **);
 
+const char *call_ping_ng(ng_command_ctx_t *ctx);
 const char *call_offer_ng(ng_command_ctx_t *, const char *);
 const char *call_answer_ng(ng_command_ctx_t *);
 const char *call_delete_ng(ng_command_ctx_t *);

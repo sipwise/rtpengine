@@ -720,6 +720,12 @@ out:
 	return errstr;
 }
 
+const char *call_ping_ng(ng_command_ctx_t *ctx)
+{
+	/* consider ping as always unconditionally ok */
+	return NULL;
+}
+
 const char *call_offer_ng(ng_command_ctx_t *ctx,
 		const char *addr)
 {
