@@ -16,6 +16,7 @@
 #include "statistics.h"
 #include "streambuf.h"
 #include "homer.h"
+#include <string.h>
 
 mutex_t rtpe_cngs_lock;
 mutex_t tcp_connections_lock;
@@ -54,6 +55,26 @@ static const struct ng_command_def ng_command_defs[OP_COUNT] = {
 #undef XA
 #undef X
 };
+
+static const struct ng_command_def *ng_command_find(const str *cmd) {
+	if (!cmd || !cmd->s)
+		return NULL;
+
+#define X(op, name, esc, short_name, handler) \
+	if (cmd->len == sizeof(name) - 1 && !memcmp(cmd->s, name, sizeof(name) - 1)) \
+		return &ng_command_defs[op];
+
+#define XA(op, name, esc, short_name, handler) \
+	if (cmd->len == sizeof(name) - 1 && !memcmp(cmd->s, name, sizeof(name) - 1)) \
+		return &ng_command_defs[op];
+
+	NG_COMMANDS(X, XA)
+
+#undef XA
+#undef X
+
+	return NULL;
+}
 
 const char *ng_command_strings[OP_COUNT] = {
 #define X(op, name, esc, short_name, handler) [op] = name,
