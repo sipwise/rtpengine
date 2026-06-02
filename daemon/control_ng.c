@@ -73,6 +73,10 @@ static const struct ng_command_def *ng_command_find(const str *cmd) {
 #undef XA
 #undef X
 
+	/* Preserve behaviour: both "cli" and "CLI" must be supported */
+	if (cmd->len == sizeof("CLI") - 1 && !memcmp(cmd->s, "CLI", sizeof("CLI") - 1))
+		return &ng_command_defs[OP_CLI];
+
 	return NULL;
 }
 
