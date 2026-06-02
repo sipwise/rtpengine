@@ -23,8 +23,6 @@
 	X(OP_STATISTICS,             "statistics",            "statistics",            "Stats") \
 	X(OP_SILENCE_MEDIA,          "silence media",         "silence_media",         "SlnMedia") \
 	X(OP_UNSILENCE_MEDIA,        "unsilence media",       "unsilence_media",       "UnslnMedia") \
-	X(OP_BLOCK_SILENCE_MEDIA,    "block silence media",   "block_silence_media",   "BlkSlnMedia") \
-	X(OP_UNBLOCK_SILENCE_MEDIA,  "unblock silence media", "unblock_silence_media", "UnblkSlnMedia") \
 	X(OP_PUBLISH,                "publish",               "publish",               "Pub") \
 	X(OP_SUBSCRIBE_REQ,          "subscribe request",     "subscribe_request",     "SubReq") \
 	X(OP_SUBSCRIBE_ANS,          "subscribe answer",      "subscribe_answer",      "SubAns") \

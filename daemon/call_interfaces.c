@@ -1691,7 +1691,7 @@ const char *call_unblock_dtmf_ng(ng_command_ctx_t *ctx) {
 
 static const char *call_block_silence_media(ng_command_ctx_t *ctx, bool on_off, const char *ucase_verb,
 		const char *lcase_verb,
-		unsigned int call_flag, unsigned int ml_flag, size_t attr_offset)
+		unsigned int call_flag, unsigned int ml_flag, size_t attr_offset, enum ng_opmode opmode)
 {
 	g_autoptr(call_t) call = NULL;
 	struct call_monologue *monologue;
@@ -1814,7 +1814,7 @@ static const char *call_block_silence_media(ng_command_ctx_t *ctx, bool on_off, 
 					return "Media flow not found (to-tag not subscribed)";
 
 			}
-			update_init_monologue_subscribers(monologue, OP_BLOCK_SILENCE_MEDIA);
+			update_init_monologue_subscribers(monologue, opmode);
 
 		} else {
 			/* it seems no to-monologue is given and no "all" flag is given as well.
@@ -1850,7 +1850,8 @@ static const char *call_block_silence_media(ng_command_ctx_t *ctx, bool on_off, 
 	call_block_silence_media(ctx, on_off, ucase_verb, lcase_verb, \
 			CALL_FLAG_ ## flag, \
 			ML_FLAG_ ## flag, \
-			G_STRUCT_OFFSET(struct sink_attrs, member_name))
+			G_STRUCT_OFFSET(struct sink_attrs, member_name), \
+			OP_ ## flag)
 
 const char *call_block_media_ng(ng_command_ctx_t *ctx) {
 	return CALL_BLOCK_SILENCE_MEDIA(ctx, true, "Blocking", "blocking", block_media, BLOCK_MEDIA);

@@ -61,7 +61,6 @@ enum message_type {
 		 || (opmode == OP_BLOCK_DTMF || opmode == OP_UNBLOCK_DTMF)                       \
 		 || (opmode == OP_BLOCK_MEDIA || opmode == OP_UNBLOCK_MEDIA)                     \
 		 || (opmode == OP_SILENCE_MEDIA || opmode == OP_UNSILENCE_MEDIA)                 \
-		 || (opmode == OP_BLOCK_SILENCE_MEDIA || opmode == OP_UNBLOCK_SILENCE_MEDIA)     \
 		 || (opmode == OP_PLAY_MEDIA || opmode == OP_STOP_MEDIA)                         \
 		 || (opmode == OP_START_FORWARDING || opmode == OP_STOP_FORWARDING)              \
 		 || (opmode == OP_UNSUBSCRIBE || opmode == OP_START_RECORDING)                   \
