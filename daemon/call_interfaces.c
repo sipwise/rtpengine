@@ -46,11 +46,11 @@ enum basic_errors {
 	NG_ERROR_NO_TO_TAG = 4
 };
 
-static const char* _ng_basic_errors[] = {
-    [NG_ERROR_NO_SDP_BODY] = "No SDP body in message",
-    [NG_ERROR_NO_CALL_ID] = "No call-id in message",
-    [NG_ERROR_NO_FROM_TAG] = "No from-tag in message",
-    [NG_ERROR_NO_TO_TAG] = "No to-tag in message",
+static const char* const _ng_basic_errors[] = {
+	[NG_ERROR_NO_SDP_BODY] = "No SDP body in message",
+	[NG_ERROR_NO_CALL_ID] = "No call-id in message",
+	[NG_ERROR_NO_FROM_TAG] = "No from-tag in message",
+	[NG_ERROR_NO_TO_TAG] = "No to-tag in message",
 };
 
 static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, parser_arg list,
