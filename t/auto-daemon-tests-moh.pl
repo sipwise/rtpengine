@@ -9,6 +9,8 @@ use Test::More;
 use NGCP::Rtpclient::ICE;
 use POSIX;
 
+$ENV{RTPENGINE_EXTENDED_TESTS} or exit(); # timing sensitive tests
+
 autotest_start(qw(--config-file=test5.conf))
 		or die;
 
