@@ -2725,8 +2725,11 @@ int call_interfaces_init(charp_ht templates) {
 
 	streams_re = pcre2_compile((PCRE2_SPTR8) "^([\\d.]+):(\\d+)(?::(.*?))?(?:$|,)", PCRE2_ZERO_TERMINATED,
 			PCRE2_DOLLAR_ENDONLY | PCRE2_DOTALL, &errcode, &erroff, NULL);
-	if (!streams_re)
+	if (!streams_re) {
+		pcre2_code_free(info_re);
+		info_re = NULL;
 		return -1;
+	}
 
 	rtpe_signalling_templates = str_case_value_ht_new();
 	parse_templates(templates);
