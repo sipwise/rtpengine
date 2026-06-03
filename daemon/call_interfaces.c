@@ -126,7 +126,7 @@ static int addr_parse_udp(struct stream_params *sp, char **out) {
 
 	if (out[RE_UDP_UL_FLAGS] && *out[RE_UDP_UL_FLAGS]) {
 		i = 0;
-		for (cp =out[RE_UDP_UL_FLAGS]; *cp && i < 2; cp++) {
+		for (cp = out[RE_UDP_UL_FLAGS]; *cp && i < 2; cp++) {
 			c = chrtoupper(*cp);
 			if (c == 'E')
 				sp->direction[i++] = STR("external");
@@ -1740,7 +1740,7 @@ static const char *call_block_silence_media(ng_command_ctx_t *ctx, bool on_off, 
 				}
 			}
 
-			/* now check if any sink ml media is susbcribed to any of monologue medias */
+			/* now check if any sink ml media is subscribed to any of monologue medias */
 			for (int i = 0; i < sink_ml->medias->len; i++)
 			{
 				struct call_media * sink_md = sink_ml->medias->pdata[i];
@@ -2680,7 +2680,7 @@ void call_interfaces_free(void) {
 
 	if (streams_re) {
 		pcre2_code_free(streams_re);
-		streams_re= NULL;
+		streams_re = NULL;
 	}
 
 	t_hash_table_destroy(rtpe_signalling_templates);
