@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 #include <unistd.h>
-#include <glib.h>
 #include <stdlib.h>
 #include <pcre2.h>
 #include <inttypes.h>
@@ -11,7 +10,6 @@
 #include "helpers.h"
 #include "log_d.h"
 #include "redis.h"
-#include "str.h"
 #include "control_tcp.h"
 #include "control_udp.h"
 #include "rtp.h"
