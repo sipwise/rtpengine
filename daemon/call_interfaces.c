@@ -968,7 +968,7 @@ static void ng_stats_monologue(ng_command_ctx_t *ctx, parser_arg dict, const str
 	parser_arg b_subscribers = parser->dict_add_list(sub, "subscribers");
 	for (int i = 0; i < ml->medias->len; i++)
 	{
-		struct call_media * media = ml->medias->pdata[i];
+		struct call_media *media = ml->medias->pdata[i];
 		if (!media)
 			continue;
 
@@ -1160,7 +1160,7 @@ stats:
 			g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
 			for (int i = 0; i < ml->medias->len; i++)
 			{
-				struct call_media * media = ml->medias->pdata[i];
+				struct call_media *media = ml->medias->pdata[i];
 				if (!media)
 					continue;
 
@@ -1743,12 +1743,12 @@ static const char *call_block_silence_media(ng_command_ctx_t *ctx, bool on_off, 
 			/* now check if any sink ml media is subscribed to any of monologue medias */
 			for (int i = 0; i < sink_ml->medias->len; i++)
 			{
-				struct call_media * sink_md = sink_ml->medias->pdata[i];
+				struct call_media *sink_md = sink_ml->medias->pdata[i];
 				if (!sink_md)
 					continue;
 				for (int j = 0; j < monologue->medias->len; j++)
 				{
-					struct call_media * ml_media = monologue->medias->pdata[j];
+					struct call_media *ml_media = monologue->medias->pdata[j];
 					if (!ml_media)
 						continue;
 					__auto_type ll = t_hash_table_lookup(ml_media->media_subscriptions_ht, sink_md);
@@ -1772,7 +1772,7 @@ static const char *call_block_silence_media(ng_command_ctx_t *ctx, bool on_off, 
 		{
 			for (int i = 0; i < monologue->medias->len; i++)
 			{
-				struct call_media * ml_media = monologue->medias->pdata[i];
+				struct call_media *ml_media = monologue->medias->pdata[i];
 				if (!ml_media)
 					continue;
 
@@ -2059,7 +2059,7 @@ found:
 			if (ml_media->type_id != MT_AUDIO)
 				continue;
 
-			struct call_media * ms_media_sink = NULL;
+			struct call_media *ms_media_sink = NULL;
 
 			IQUEUE_FOREACH(&ml_media->media_subscribers, ms) {
 				ms_media_sink = ms->media;
