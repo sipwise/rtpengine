@@ -4236,7 +4236,7 @@ static void __silence_detect_ ## type(struct codec_ssrc_handler *ch, AVFrame *fr
 		last = NULL; \
  \
 	for (unsigned int i = 0; i < frame->nb_samples; i++) { \
-		if (s[i] <= thres && s[1] >= -thres) { \
+		if (s[i] <= thres && s[i] >= -thres) { \
 			/* silence */ \
 			if (!last) { \
 				/* new event */ \
