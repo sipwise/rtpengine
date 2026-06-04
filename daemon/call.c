@@ -1103,7 +1103,7 @@ static void call_stream_crypto_reset(struct packet_stream *ps) {
 		mutex_unlock(&media->ssrc_hash_in.lock);
 
 		mutex_lock(&media->ssrc_hash_out.lock);
-		for (GList *l = media->ssrc_hash_in.nq.head; l; l = l->next) {
+		for (GList *l = media->ssrc_hash_out.nq.head; l; l = l->next) {
 			struct ssrc_entry_call *se = l->data;
 			atomic_set_na(&se->stats->ext_seq, 0);
 		}
