@@ -21,16 +21,16 @@ ALLOBJS = $(OBJS) $(LIBOBJS) $(LIBASMOBJS) $(DAEMONOBJS)
 
 
 $(OBJS): %.o: %.c
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $< -o $@
 
 $(LIBOBJS): %.o: ../lib/%.c
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $< -o $@
 
 $(DAEMONOBJS): %.o: ../daemon/%.c
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $< -o $@
 
 $(LIBASMOBJS): %.o: ../lib/%.S
-	$(CC) -c $(ASFLAGS) $< -o $@
+	$(CC) -c $(CPPFLAGS) $(ASFLAGS) $< -o $@
 
 
 $(TARGET):	$(ALLOBJS) Makefile
