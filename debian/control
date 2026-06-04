@@ -48,7 +48,7 @@ Build-Depends:
  libwebsockets-dev,
  libwww-perl,
  libxtables-dev (>= 1.4) | iptables-dev (>= 1.4),
- ngcp-libcodec-chain-dev (>= 13.3) <pkg.ngcp-rtpengine.codec-chain>,
+ ngcp-libcodec-chain-dev (>= 26.1) <pkg.ngcp-rtpengine.codec-chain>,
  pandoc,
  pkgconf,
  pybuild-plugin-pyproject <pkg.ngcp-rtpengine.pysip-lite>,

@@ -157,7 +157,7 @@ static __typeof__(codec_chain_client_runner_free) *cc_client_runner_free;
 static __typeof__(codec_chain_client_async_runner_new) *cc_client_async_runner_new;
 static __typeof__(codec_chain_client_async_runner_free) *cc_client_async_runner_free;
 static __typeof__(codec_chain_runner_do) *cc_runner_do;
-static __typeof__(codec_chain_async_runner_do_nonblock) *cc_async_runner_do_nonblock;
+static __typeof__(codec_chain_async_runner_do) *cc_async_runner_do;
 
 static __typeof__(codec_chain_client_codec_new) *cc_client_codec_new;
 static __typeof__(codec_chain_client_codec_free) *cc_client_codec_free;
@@ -171,6 +171,12 @@ static union {
 	codec_chain_runner *sync;
 	codec_chain_async_runner *async;
 } cc_runners[CODEC_CHAIN_ID_MAX];
+
+static struct {
+	unsigned int async_busy;
+	unsigned int async_blocked;
+	unsigned int async_retry;
+} cc_stats[CODEC_CHAIN_ID_MAX];
 
 
 typedef enum {
@@ -191,6 +197,7 @@ struct codec_cc_s {
 		codec_chain_runner *runner;
 		codec_chain_async_runner *async_runner;
 	};
+	__typeof(&cc_stats[0]) stats;
 	codec_chain_def *def;
 	codec_chain_codec *codec;
 
@@ -1473,8 +1480,15 @@ static void cc_dlsym_resolve(const char *fn) {
 	cc_runner_do = dlsym_assert(cc_lib_handle,
 			"codec_chain_runner_do", fn);
 
-	cc_async_runner_do_nonblock = dlsym_assert(cc_lib_handle,
-			"codec_chain_async_runner_do_nonblock", fn);
+	if (!rtpe_common_config_ptr->codec_chain_nonblock) {
+		cc_async_runner_do = dlsym_assert(cc_lib_handle,
+				"codec_chain_async_runner_do", fn);
+	}
+	else {
+		__typeof__(codec_chain_async_runner_do_nonblock) *nb = dlsym_assert(cc_lib_handle,
+				"codec_chain_async_runner_do_nonblock", fn);
+		cc_async_runner_do = nb;
+	}
 
 	cc_client_codec_new = dlsym_assert(cc_lib_handle,
 			"codec_chain_client_codec_new", fn);
@@ -1561,7 +1575,7 @@ void cc_init_chain(codec_def_t *src, format_t *src_format, codec_def_t *dst,
 			return;
 		cc_runners[id].async = cc_client_async_runner_new(cc_client, id,
 				rtpe_common_config_ptr->codec_chain_async,
-				10000,
+				rtpe_common_config_ptr->codec_chain_interval,
 				rtpe_common_config_ptr->codec_chain_runners,
 				rtpe_common_config_ptr->codec_chain_concurrency);
 		if (cc_runners[id].async)
@@ -1573,7 +1587,7 @@ void cc_init_chain(codec_def_t *src, format_t *src_format, codec_def_t *dst,
 		if (cc_runners[id].sync)
 			return;
 		cc_runners[id].sync = cc_client_runner_new(cc_client, id,
-				10000,
+				rtpe_common_config_ptr->codec_chain_interval,
 				rtpe_common_config_ptr->codec_chain_runners,
 				rtpe_common_config_ptr->codec_chain_concurrency);
 		if (cc_runners[id].sync)
@@ -5073,13 +5087,16 @@ static bool __cc_async_check_busy_blocked_queue(codec_cc_t *c, const str *data, 
 			return false;
 		}
 
+		atomic_inc_na(&c->stats->async_busy);
+
 		// codec is busy (either currently running or was blocked)
 		// append to queue
 		__cc_async_do_add_queue(c, data, ts, async_cb_obj);
 
 		if (c->async_jobs.length > 20) {
-			ilog(LOG_WARN | LOG_FLAG_LIMIT, "Async job queue overflow (%u), dropping frames",
-					c->async_jobs.length);
+			ilog(LOG_WARN | LOG_FLAG_LIMIT, "Async job queue overflow (%u @ %s), dropping frames",
+					c->async_jobs.length,
+					c->def->name);
 			do {
 				__auto_type jj = t_queue_pop_head(&c->async_jobs);
 				t_queue_push_tail(&overflow, jj);
@@ -5098,8 +5115,11 @@ static bool __cc_async_check_busy_blocked_queue(codec_cc_t *c, const str *data, 
 	}
 
 	if (j) {
+		atomic_inc_na(&c->stats->async_retry);
+
 		if (!run_async(c, &j->data, j->ts, j->async_cb_obj)) {
 			// still blocked. return to queue
+			atomic_inc_na(&c->stats->async_blocked);
 			LOCK(&c->async_lock);
 			t_queue_push_head(&c->async_jobs, j);
 		}
@@ -5201,7 +5221,9 @@ static bool __cc_run_async(codec_cc_t *c, const str *data, unsigned long ts, voi
 	c->ts = ts;
 	c->async_cb_obj = async_cb_obj;
 
-	return cc_async_runner_do_nonblock(c->async_runner, c->codec,
+	return cc_async_runner_do(&c->async_runner->runner,
+			&c->async_runner->async,
+			c->codec,
 			(unsigned char *) data->s, data->len,
 			pkt->data, pkt->size, cc_run_callback, c);
 }
@@ -5256,6 +5278,7 @@ static codec_cc_t *codec_cc_new_sync(codec_def_t *src, format_t *src_format, cod
 	ret->clear = cc_clear;
 	ret->clear_arg = ret->codec;
 	ret->runner = cc_runners[id].sync;
+	ret->stats = &cc_stats[id];
 	ret->avpkt = av_packet_alloc();
 	ret->run = cc_run;
 
@@ -5305,6 +5328,7 @@ static codec_cc_t *codec_cc_new_async(codec_def_t *src, format_t *src_format, co
 	ret->clear = cc_clear;
 	ret->clear_arg = ret->codec;
 	ret->async_runner = cc_runners[id].async;
+	ret->stats = &cc_stats[id];
 	ret->run = cc_run_async;
 	ret->avpkt_async = av_packet_alloc();
 	av_new_packet(ret->avpkt_async, 2048);
@@ -5351,6 +5375,68 @@ void codec_cc_free(codec_cc_t **ccp) {
 		}
 	}
 	__codec_cc_free(c);
+}
+
+
+codec_cc_stats_q codec_cc_stats(void) {
+	codec_cc_stats_q ret = TYPED_GQUEUE_INIT;
+
+	for (unsigned int i = 0; i < CODEC_CHAIN_ID_MAX; i++) {
+		codec_chain_runner *r;
+
+		if (rtpe_common_config_ptr->codec_chain_async) {
+			if (!cc_runners[i].async)
+				continue;
+			r = &cc_runners[i].async->runner;
+		}
+		else {
+			if (!cc_runners[i].sync)
+				continue;
+			r = cc_runners[i].sync;
+		}
+
+		__auto_type q = r->queuer;
+
+		__auto_type e = g_new0(codec_cc_stats_entry, 1);
+		t_queue_push_tail(&ret, e);
+
+		g_strlcpy(e->name, r->def->name, sizeof(e->name));
+
+#define LA(v) e->v = atomic_get_na(&cc_stats[i].v)
+		LA(async_busy);
+		LA(async_blocked);
+		LA(async_retry);
+#undef LA
+
+		for (unsigned int j = 0; j < r->num_contexts; j++) {
+			__auto_type c = g_new0(codec_cc_context_stats, 1);
+			t_queue_push_tail(&e->contexts, c);
+
+			c->ctx_idx = j;
+
+#define LA(v) c->v = atomic_get_na(&q->contexts[j].v)
+			LA(runs);
+			LA(slots);
+			LA(run_wait);
+			LA(writers_wait);
+			LA(compute_wait);
+			LA(readers_wait);
+
+			LA(run_busy);
+			LA(write_busy);
+			LA(slots_full);
+			LA(buf_full);
+
+			LA(ready_wait);
+			LA(callbacks_preempt);
+			LA(callbacks_fetch);
+			LA(callbacks_run);
+			LA(loop_barrier);
+#undef LA
+		}
+	}
+
+	return ret;
 }
 
 

@@ -269,6 +269,8 @@ void config_load_ext(int *argc, char ***argv, GOptionEntry *app_entries, const c
 		{ "codec-chain-runners",0,0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->codec_chain_runners,"Number of chain runners per codec","INT"		},
 		{ "codec-chain-concurrency",0,0,G_OPTION_ARG_INT,	&rtpe_common_config_ptr->codec_chain_concurrency,"Max concurrent codec jobs per runner","INT"	},
 		{ "codec-chain-async",0,0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->codec_chain_async,"Number of background callback threads","INT"	},
+		{ "codec-chain-nonblock",0,0,	G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->codec_chain_nonblock,"Non-blocking operation of async codecs",NULL},
+		{ "codec-chain-interval",0,0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->codec_chain_interval,"Microseconds between runs",	"INT"	},
 		{ "codec-chain-opus-application",0,0,G_OPTION_ARG_STRING,&opus_application,			"Opus application",			"default|VoIP|audio|low-delay"	},
 		{ "codec-chain-opus-complexity",0,0,G_OPTION_ARG_INT,	&rtpe_common_config_ptr->codec_chain_opus_complexity,"Opus encoding complexity (0..10)","INT"	},
 #endif
@@ -494,6 +496,9 @@ out:
 
 	if (rtpe_common_config_ptr->codec_chain_async < 0)
 		rtpe_common_config_ptr->codec_chain_async = 0;
+
+	if (rtpe_common_config_ptr->codec_chain_interval <= 0)
+		rtpe_common_config_ptr->codec_chain_interval = 10000;
 
 	if (rtpe_common_config_ptr->codec_chain_opus_complexity == -1)
 		rtpe_common_config_ptr->codec_chain_opus_complexity = 10;

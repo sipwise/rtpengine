@@ -44,6 +44,8 @@ struct rtpengine_common_config {
 	int codec_chain_runners;
 	int codec_chain_concurrency;
 	int codec_chain_async;
+	gboolean codec_chain_nonblock;
+	int codec_chain_interval;
 	int codec_chain_opus_application;
 	int codec_chain_opus_complexity;
 };

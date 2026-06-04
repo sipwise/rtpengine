@@ -454,6 +454,43 @@ void frame_fill_dtmf_samples(enum AVSampleFormat fmt, void *samples, unsigned in
 
 #ifdef HAVE_CODEC_CHAIN
 
+typedef struct {
+	unsigned int ctx_idx;
+
+	unsigned int runs;
+	unsigned int slots;
+	uint64_t run_wait;
+	uint64_t writers_wait;
+	uint64_t compute_wait;
+	uint64_t readers_wait;
+
+	unsigned int run_busy;
+	unsigned int write_busy;
+	unsigned int slots_full;
+	unsigned int buf_full;
+
+	uint64_t ready_wait;
+	uint64_t callbacks_preempt;
+	uint64_t callbacks_fetch;
+	uint64_t callbacks_run;
+	uint64_t loop_barrier;
+} codec_cc_context_stats;
+
+TYPED_GQUEUE(codec_cc_context, codec_cc_context_stats);
+
+typedef struct {
+	char name[32];
+
+	unsigned int async_busy;
+	unsigned int async_blocked;
+	unsigned int async_retry;
+
+	codec_cc_context_q contexts;
+} codec_cc_stats_entry;
+
+TYPED_GQUEUE(codec_cc_stats, codec_cc_stats_entry);
+
+
 extern codec_cc_t *(*codec_cc_new)(codec_def_t *src, format_t *src_format, codec_def_t *dst,
 		format_t *dst_format, int bitrate, int ptime,
 		void *(*init_async)(void *, void *, void *),
@@ -462,6 +499,8 @@ void cc_init_chain(codec_def_t *src, format_t *src_format, codec_def_t *dst,
 		format_t *dst_format);
 void codec_cc_stop(codec_cc_t *);
 void codec_cc_free(codec_cc_t **);
+
+codec_cc_stats_q codec_cc_stats(void);
 
 #else
 
