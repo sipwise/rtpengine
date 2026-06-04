@@ -17,7 +17,9 @@ cp -ra backports debian
 echo "- Remove ngcp- prefix"
 find debian -maxdepth 2 -type f -exec \
   sed -i -e 's/ngcp-rtpengine/rtpengine/g' \
-  -e 's/ngcp\\-rtpengine/rtpengine/g' {} \;
+  -e 's/ngcp\\-rtpengine/rtpengine/g' \
+  -e 's/ngcp-python/python/g' \
+  {} \;
 
 ## remove same file on links
 while read -r file; do
