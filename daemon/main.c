@@ -1746,6 +1746,16 @@ static void kernel_setup(void) {
 		       die("Failed to initialise kernel media player");
 	}
 
+	unsigned int num_senders = rtpe_config.kernel_num_threads < 0
+		? rtpe_config.num_threads : rtpe_config.kernel_num_threads;
+
+	if (rtpe_config.kernel_slots <= 0)
+		num_senders = 0;
+
+	rtpe_config.kernel_num_threads = num_senders;
+
+	kernel_init_pollers(num_senders);
+
 	return;
 
 fallback:
@@ -2104,13 +2114,8 @@ int main(int argc, char **argv) {
 	}
 
 
-	if (kernel.is_open && rtpe_config.kernel_num_threads != 0 && rtpe_config.kernel_slots > 0) {
-		unsigned int num = rtpe_config.kernel_num_threads < 0
-			? rtpe_config.num_threads : rtpe_config.kernel_num_threads;
-
-		kernel_init_pollers(num);
-
-		for (unsigned int idx = 0; idx < num; ++idx)
+	if (kernel.is_open && rtpe_config.kernel_num_threads > 0 && rtpe_config.kernel_slots > 0) {
+		for (unsigned int idx = 0; idx < rtpe_config.kernel_num_threads; ++idx)
 			thread_create_detach_prio(
 					kernel_poller_loop,
 					GUINT_TO_POINTER(idx),
