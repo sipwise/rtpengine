@@ -1707,6 +1707,7 @@ static void early_init(void) {
 static void clib_init(void) {
 	media_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free);
 	uring_thread_init();
+	kernel_thread_init();
 }
 static void clib_cleanup(void) {
 	bufferpool_destroy(media_bufferpool);
