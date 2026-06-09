@@ -761,6 +761,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	int delete_delay = 30;
 	int media_expire = 0;
 	int db_expire = 0;
+	int cache_expire = 0;
 	int rtcp_interval = 0;
 	int redis_disable_time = 10;
 	int mqtt_publish_interval = 5000;
@@ -928,7 +929,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "db-media-cache",0,0,	G_OPTION_ARG_FILENAME,	&rtpe_config.db_media_cache,"Directory to store media loaded from database","PATH"},
 		{ "preload-db-cache",0,0,G_OPTION_ARG_STRING_ARRAY,&rtpe_config.preload_db_cache,"Preload media from database for playback into file cache","INT"},
 		{ "db-cache-reload",0,0,G_OPTION_ARG_INT,	&rtpe_config.cache_refresh,"Refresh/reload cached media from DB at a certain interval","SECONDS"},
-		{ "db-cache-expire",0,0,G_OPTION_ARG_INT,	&rtpe_config.cache_expire,"Maximum age of unused cached DB entries in files","SECONDS"},
+		{ "db-cache-expire",0,0,G_OPTION_ARG_INT,	&cache_expire,"Maximum age of unused cached DB entries in files","SECONDS"},
 		{ "audio-buffer-length",0,0,	G_OPTION_ARG_INT,&rtpe_config.audio_buffer_length,"Length in milliseconds of audio buffer","INT"},
 		{ "audio-buffer-delay",0,0,	G_OPTION_ARG_INT,&rtpe_config.audio_buffer_delay,"Initial delay in milliseconds for buffered audio","INT"},
 		{ "audio-player",0,0,	G_OPTION_ARG_STRING,	&use_audio_player,	"When to enable the internal audio player","on-demand|play-media|transcoding|always"},
@@ -1235,6 +1236,10 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	rtpe_config.media_expire_us = media_expire * 1000000LL;
 	if (rtpe_config.media_expire_us < 0)
 		die("Invalid negative media-files-expire");
+
+	rtpe_config.cache_expire_us = cache_expire * 1000000LL;
+	if (rtpe_config.cache_expire_us < 0)
+		die("Invalid negative db-cache-expire");
 
 	rtpe_config.db_expire_us = db_expire * 1000000LL;
 	if (rtpe_config.db_expire_us < 0)

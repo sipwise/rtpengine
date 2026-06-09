@@ -92,7 +92,6 @@ enum endpoint_learning {
 	X(db_refresh) \
 	X(cache_refresh) \
 	X(expiry_timer) \
-	X(cache_expire) \
 	X(timer_accuracy) \
 	X(ng_client_timeout) \
 	X(ng_client_retries) \
@@ -107,6 +106,7 @@ enum endpoint_learning {
 	X(offer_timeout_us) \
 	X(delete_delay_us) \
 	X(media_expire_us) \
+	X(cache_expire_us) \
 	X(db_expire_us) \
 	X(rtcp_interval_us) \
 	X(redis_disable_time_us) \

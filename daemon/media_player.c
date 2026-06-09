@@ -2911,7 +2911,7 @@ static void media_player_expire_cache_entry(unsigned long long id, unsigned int 
 	int64_t mtime, atime;
 	if (!media_player_get_cache_times(id, &mtime, &atime))
 		return;
-	int64_t limit = rtpe_now - (rtpe_config.cache_expire * 1000000LL); // db-cache-expire
+	int64_t limit = rtpe_now - rtpe_config.cache_expire_us; // db-cache-expire
 	if (atime >= limit)
 		return;
 	if (media_player_evict_cache(id))
@@ -2919,7 +2919,7 @@ static void media_player_expire_cache_entry(unsigned long long id, unsigned int 
 }
 
 static void media_player_expire_caches(void) {
-	if (rtpe_config.cache_expire <= 0) // db-cache-expire
+	if (rtpe_config.cache_expire_us <= 0) // db-cache-expire
 		return;
 
 	unsigned int ret = 0;
