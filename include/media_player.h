@@ -27,7 +27,7 @@ typedef struct {
 	unsigned int block_egress:1,
 				moh:1;
 	str file, blob;
-	long long db_id;
+	unsigned long long db_id;
 } media_player_opts_t;
 
 
@@ -41,7 +41,7 @@ struct media_player_media_file;
 
 struct media_player_content_index {
 	enum { MP_OTHER = 0, MP_FILE = 1, MP_DB, MP_BLOB } type;
-	long long db_id;
+	unsigned long long db_id;
 	str file; // file name or binary blob
 };
 
