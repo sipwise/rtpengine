@@ -1212,6 +1212,9 @@ void media_player_set_media(struct media_player *mp, struct call_media *media) {
 		struct ssrc_entry_call *ssrc_ctx = get_ssrc(mp->ssrc, &media->ssrc_hash_out);
 		if (ssrc_ctx)
 			ssrc_ctx->next_rtcp = rtpe_now;
+		/* get_ssrc() returns an owned reference.
+		 * hence release previous ssrc, to no leak on media changes */
+		ssrc_entry_release(mp->ssrc_out);
 		mp->ssrc_out = ssrc_ctx;
 	}
 }
