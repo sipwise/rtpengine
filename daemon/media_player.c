@@ -639,7 +639,7 @@ static void media_player_kernel_player_start_now(struct media_player *mp) {
 	mp->sink.handler->out->kernel(&info.encrypt, mp->sink.sink);
 
 	unsigned int idx = kernel_start_stream_player(&info);
-	if (idx == -1)
+	if (idx == KERNEL_IDX_NONE)
 		ilog(LOG_ERR, "Failed to start kernel media player (index %i): %s", info.packet_stream_idx, strerror(errno));
 	else
 		mp->kernel_idx = idx;
