@@ -27,7 +27,6 @@
 #include "arena.h"
 
 #define DEFAULT_AVIO_BUFSIZE 4096
-#define KERNEL_IDX_NONE UINT_MAX
 
 typedef enum {
 	MPC_OK = 0,

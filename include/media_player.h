@@ -17,6 +17,7 @@ struct packet_stream;
 struct codec_packet;
 struct media_player;
 
+#define KERNEL_IDX_NONE UINT_MAX
 
 typedef struct {
 	long long start_pos;
