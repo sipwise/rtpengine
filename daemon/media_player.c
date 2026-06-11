@@ -2238,7 +2238,7 @@ void media_player_launch(void) {
 }
 void send_timer_launch(void) {
 	//ilog(LOG_DEBUG, "send_timer_loop");
-	timerthread_launch(&send_timer_thread, rtpe_config.scheduling, rtpe_config.priority, "media player");
+	timerthread_launch(&send_timer_thread, rtpe_config.scheduling, rtpe_config.priority, "send timer");
 }
 
 bool media_player_preload_files(char **files) {
