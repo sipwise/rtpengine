@@ -6018,6 +6018,7 @@ int codec_store_accept_one(struct codec_store *cs, const str_q *accept, bool acc
 	// local codec-accept routine: accept first supported codec, or first from "accept" list
 	// if given
 
+	bool accept_all = false;
 	rtp_payload_type *accept_pt = NULL;
 
 	for (auto_iter(l, accept->head); l; l = l->next) {
@@ -6025,6 +6026,10 @@ int codec_store_accept_one(struct codec_store *cs, const str_q *accept, bool acc
 		str *codec = l->data;
 		if (!str_cmp(codec, "any")) {
 			accept_any = true;
+			continue;
+		}
+		if (!str_cmp(codec, "all")) {
+			accept_all = true;
 			continue;
 		}
 		GQueue *pts = t_hash_table_lookup(cs->codec_names, codec);
@@ -6045,6 +6050,9 @@ int codec_store_accept_one(struct codec_store *cs, const str_q *accept, bool acc
 			break;
 	}
 
+	if (accept_all && accept_any)
+		return 0;
+
 	if (!accept_pt) {
 		// none found yet - pick the first one
 		for (__auto_type l = cs->codec_prefs.head; l; l = l->next) {
@@ -6064,11 +6072,27 @@ int codec_store_accept_one(struct codec_store *cs, const str_q *accept, bool acc
 		return -1;
 	}
 
-	// delete all codecs except the accepted one
+	// delete all codecs except the accepted one, preserving supplemental codecs
+	// that match the accepted codec's clock rate
 	__auto_type link = cs->codec_prefs.head;
 	while (link) {
 		rtp_payload_type *pt = link->data;
 		if (pt == accept_pt) {
+			link = link->next;
+			continue;
+		}
+		ensure_codec_def(pt, cs->media);
+		if (accept_all) {
+			if (codec_def_supported(pt->codec_def)
+					|| (pt->codec_def && pt->codec_def->supplemental))
+			{
+				link = link->next;
+				continue;
+			}
+		}
+		else if (pt->codec_def && pt->codec_def->supplemental
+				&& pt->clock_rate == accept_pt->clock_rate)
+		{
 			link = link->next;
 			continue;
 		}
@@ -6415,6 +6439,8 @@ void codec_store_synthesise(struct codec_store *dst, struct codec_store *opposit
 bool codec_store_is_full_answer(const struct codec_store *src, const struct codec_store *dst) {
 	for (auto_iter(l, src->codec_prefs.head); l; l = l->next) {
 		const rtp_payload_type *src_pt = l->data;
+		if (src_pt->codec_def && src_pt->codec_def->supplemental)
+			continue;
 		const rtp_payload_type *dst_pt = t_hash_table_lookup(dst->codecs,
 				GINT_TO_POINTER(src_pt->payload_type));
 		if (!dst_pt || !rtp_payload_type_eq_compat(src_pt, dst_pt)) {

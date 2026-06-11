@@ -4392,5 +4392,276 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
+
+# publish with RED supplemental codec preserved alongside primary codec
+
+($sock_a, $sock_b) =
+	new_call([qw(198.51.100.14 6160)], [qw(198.51.100.14 6162)]);
+
+($port_a) = publish('publish w RED supplemental',
+	{ codec => { accept => ['any'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6160 RTP/AVP 8 97 101
+c=IN IP4 198.51.100.14
+a=sendonly
+a=rtpmap:97 RED/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+----------------------------------
+v=0
+o=- SDP_VERSION IN IP4 203.0.113.1
+s=RTPE_VERSION
+t=0 0
+m=audio PORT RTP/AVP 8 97 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 RED/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=recvonly
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_a, rtp(8, 2000, 4000, 0x3456, "\x00" x 160));
+
+($ftr, $ttr, undef, undef, undef, $port_b) = subscribe_request('publish w RED supplemental',
+	{ 'from-tag' => ft() }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 97 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 RED/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ftr, ft(), 'from-tag matches';
+
+subscribe_answer('publish w RED supplemental',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6162 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+snd($sock_a, $port_a, rtp(8, 2001, 4160, 0x3456, "\x00" x 160));
+rcv($sock_b, $port_b, rtpm(8, 2001, 4160, 0x3456, "\x00" x 160));
+
+
+
+# publish with mixed-clockrate supplementals: only matching clockrate kept
+
+($sock_a, $sock_b) =
+	new_call([qw(198.51.100.14 6164)], [qw(198.51.100.14 6166)]);
+
+($port_a) = publish('publish supplemental clockrate filter',
+	{ codec => { accept => ['any'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6164 RTP/AVP 8 96 97 101 110
+c=IN IP4 198.51.100.14
+a=sendonly
+a=rtpmap:96 RED/8000
+a=rtpmap:97 RED/48000
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:110 telephone-event/48000
+----------------------------------
+v=0
+o=- SDP_VERSION IN IP4 203.0.113.1
+s=RTPE_VERSION
+t=0 0
+m=audio PORT RTP/AVP 8 96 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 RED/8000
+a=rtpmap:101 telephone-event/8000
+a=recvonly
+a=rtcp:PORT
+SDP
+
+($ftr, $ttr, undef, undef, undef, $port_b) = subscribe_request('publish supplemental clockrate filter',
+	{ 'from-tag' => ft() }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 96 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 RED/8000
+a=rtpmap:101 telephone-event/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ftr, ft(), 'from-tag matches';
+
+subscribe_answer('publish supplemental clockrate filter',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6166 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+snd($sock_a, $port_a, rtp(8, 2000, 4000, 0x3456, "\x00" x 160));
+rcv($sock_b, $port_b, rtpm(8, 2000, 4000, 0x3456, "\x00" x 160));
+
+
+
+# publish with accept all: keep all codecs including unsupported ones
+
+($sock_a, $sock_b) =
+	new_call([qw(198.51.100.14 6168)], [qw(198.51.100.14 6170)]);
+
+($port_a) = publish('publish accept all',
+	{ codec => { accept => ['all', 'any'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6168 RTP/AVP 8 0 101
+c=IN IP4 198.51.100.14
+a=sendonly
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+----------------------------------
+v=0
+o=- SDP_VERSION IN IP4 203.0.113.1
+s=RTPE_VERSION
+t=0 0
+m=audio PORT RTP/AVP 8 0 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=recvonly
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_a, rtp(8, 2000, 4000, 0x3456, "\x00" x 160));
+
+($ftr, $ttr, undef, undef, undef, $port_b) = subscribe_request('publish accept all',
+	{ 'from-tag' => ft() }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ftr, ft(), 'from-tag matches';
+
+subscribe_answer('publish accept all',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6170 RTP/AVP 8 0 101
+c=IN IP4 198.51.100.14
+a=recvonly
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+SDP
+
+snd($sock_a, $port_a, rtp(8, 2001, 4160, 0x3456, "\x00" x 160));
+rcv($sock_b, $port_b, rtpm(8, 2001, 4160, 0x3456, "\x00" x 160));
+
+
+
+# publish with accept all-supported: keep only supported codecs and supplementals
+
+($sock_a, $sock_b) =
+	new_call([qw(198.51.100.14 6172)], [qw(198.51.100.14 6174)]);
+
+($port_a) = publish('publish accept all-supported',
+	{ codec => { accept => ['all'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6172 RTP/AVP 8 0 96 101
+c=IN IP4 198.51.100.14
+a=sendonly
+a=rtpmap:96 unsupported-codec/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+----------------------------------
+v=0
+o=- SDP_VERSION IN IP4 203.0.113.1
+s=RTPE_VERSION
+t=0 0
+m=audio PORT RTP/AVP 8 0 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=recvonly
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_a, rtp(8, 2000, 4000, 0x3456, "\x00" x 160));
+
+($ftr, $ttr, undef, undef, undef, $port_b) = subscribe_request('publish accept all-supported',
+	{ 'from-tag' => ft() }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ftr, ft(), 'from-tag matches';
+
+subscribe_answer('publish accept all-supported',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6174 RTP/AVP 8 0 101
+c=IN IP4 198.51.100.14
+a=recvonly
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+SDP
+
+snd($sock_a, $port_a, rtp(8, 2001, 4160, 0x3456, "\x00" x 160));
+rcv($sock_b, $port_b, rtpm(8, 2001, 4160, 0x3456, "\x00" x 160));
+
 done_testing();
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
