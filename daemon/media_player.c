@@ -289,10 +289,10 @@ static void __send_timer_free(void *p) {
 
 static void __send_timer_send_now(struct timerthread_queue *ttq, void *p) {
 	send_timer_send_nolock((void *) ttq, p);
-};
+}
 static void __send_timer_send_later(struct timerthread_queue *ttq, void *p) {
 	send_timer_send_lock((void *) ttq, p);
-};
+}
 
 // call->master_lock held in W
 struct send_timer *send_timer_new(struct packet_stream *ps) {
