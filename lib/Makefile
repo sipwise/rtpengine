@@ -17,7 +17,11 @@ SRCS += netfilter_api.c oauth.c poller.c resample.c
 SRCS += rtplib.c s3utils.c socket.c
 SRCS += ssllib.c str.c streambuf.c uring.c
 
+CC_ARCH := $(firstword $(subst -, ,$(shell $(CC) -dumpmachine 2>/dev/null)))
+
+ifeq ($(CC_ARCH),x86_64)
 ASM := mix_in_x64_avx2.S mix_in_x64_avx512bw.S mix_in_x64_sse2.S mvr2s_x64_avx2.S mvr2s_x64_avx512.S
+endif
 
 include common.Makefile
 

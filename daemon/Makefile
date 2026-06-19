@@ -74,6 +74,8 @@ endif
 CFLAGS += $(CFLAGS_MQTT)
 LDLIBS += $(LDLIBS_MQTT)
 
+CC_ARCH := $(firstword $(subst -, ,$(shell $(CC) -dumpmachine 2>/dev/null)))
+
 SRCS := main.c kernel.c helpers.c control_tcp.c call.c control_udp.c redis.c \
 		cookie_cache.c udp_listener.c control_ng_flags_parser.c control_ng.c sdp.strhash.c stun.c rtcp.c \
 		crypto.c rtp.c call_interfaces.c dtls.c log.c cli.strhash.c graphite.c ice.c \
@@ -87,7 +89,9 @@ LIBSRCS := loglib.c auxlib.c rtplib.c str.c socket.c streambuf.c ssllib.c dtmfli
 		bufferpool.c bencode.c netfilter_api.c
 ifeq ($(with_transcoding),yes)
 LIBSRCS += codeclib.strhash.c resample.c
+ifeq ($(CC_ARCH),x86_64)
 LIBASM := mvr2s_x64_avx2.S mvr2s_x64_avx512.S mix_in_x64_avx2.S mix_in_x64_avx512bw.S mix_in_x64_sse2.S
+endif
 endif
 ifneq ($(have_liburing),yes)
 LIBSRCS += uring.c
