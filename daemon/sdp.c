@@ -1601,6 +1601,8 @@ static bool __rtp_payload_types(struct stream_params *sp, struct sdp_media *medi
 
 	if (!proto_is_rtp(sp->protocol))
 		return true;
+	if (sp->rtp_endpoint.port == 0)
+		return true;
 
 	/* first go through a=rtpmap and build a hash table of attrs */
 	g_autoptr(GHashTable) ht_rtpmap = g_hash_table_new(g_direct_hash, g_direct_equal);
@@ -2246,7 +2248,10 @@ static void print_codec_list(GString *s, struct call_media *media) {
 
 	if (media->codecs.codec_prefs.length == 0) {
 		// legacy protocol, usage error, or allow-no-codec-media set. Print something and bail
-		g_string_append(s, "0");
+		if (media->format_str.len)
+			print_format_str(s, media);
+		else
+			g_string_append(s, "0");
 		return;
 	}
 
