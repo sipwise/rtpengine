@@ -1,6 +1,12 @@
 .DEFAULT_GOAL := all
 
+ifeq (,$(filter pkg.ngcp-rtpengine.no-transcoding pkg.rtpengine.no-transcoding,$(DEB_BUILD_PROFILES)))
 with_transcoding ?= yes
+else
+with_transcoding ?= no
+endif
+
+export with_transcoding
 
 export top_srcdir = $(CURDIR)
 
