@@ -72,7 +72,7 @@ a=rtpmap:0 PCMU/8000
 a=sendrecv
 a=rtcp:PORT
 a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
-m=video 0 RTP/AVP 0
+m=video 0 RTP/AVP 97
 c=IN IP4 0.0.0.0
 SDP
 
@@ -141,7 +141,7 @@ a=rtpmap:97 H264/90000
 a=fmtp:97 0-15
 a=sendrecv
 a=rtcp:PORT
-m=foobar 0 RTP/AVP 0
+m=foobar 0 RTP/AVP 10
 c=IN IP4 0.0.0.0
 SDP
 
