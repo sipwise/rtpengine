@@ -5960,7 +5960,7 @@ a=ssrc:1948313614 cname:Kk01/qU0PWi9Cacd
 a=content:main
 a=sendrecv
 a=rtcp:PORT
-m=application 0 RTP/AVP 0
+m=application 0 RTP/AVP 100
 c=IN IP4 0.0.0.0
 a=mid:5
 SDP
@@ -6257,7 +6257,7 @@ a=content:main
 a=sendrecv
 a=rtcp:PORT
 a=rtcp-mux
-m=application 0 RTP/AVP 0
+m=application 0 RTP/AVP 100
 c=IN IP4 0.0.0.0
 a=mid:5
 SDP
@@ -6313,7 +6313,7 @@ c=IN IP6 ::
 b=TIAS:5952000
 a=mid:2
 a=label:11
-m=application 0 RTP/SAVP 96
+m=application 0 RTP/SAVP 0
 c=IN IP4 0.0.0.0
 a=mid:5
 SDP
@@ -11986,7 +11986,7 @@ c=IN IP4 203.0.113.1
 a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
-m=audio 0 RTP/AVP 8
+m=audio 0 RTP/AVP 0
 c=IN IP4 0.0.0.0
 SDP
 # ^ technically fishy - rejected stream should not do offer/answer and should just
@@ -27695,7 +27695,7 @@ c=IN IP4 203.0.113.1
 a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
-m=video 0 RTP/AVP 0
+m=video 0 RTP/AVP 97
 c=IN IP4 0.0.0.0
 SDP
 
