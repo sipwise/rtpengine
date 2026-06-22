@@ -2485,7 +2485,8 @@ static void codecs_offer(struct call_media *media, struct call_media *other_medi
 				.codec_set = flags->codec_set,
 				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 	codec_store_strip(&other_media->codecs, &flags->codec_ignore, flags->codec_except);
-	codec_store_check_empty(&other_media->codecs, &sp->codecs, flags);
+	if (sp->rtp_endpoint.port != 0)
+		codec_store_check_empty(&other_media->codecs, &sp->codecs, flags);
 	codec_store_accept(&other_media->codecs, &flags->codec_accept, NULL);
 	codec_store_accept(&other_media->codecs, &flags->codec_consume, &sp->codecs);
 	codec_store_track(&other_media->codecs, &flags->codec_mask);
@@ -2518,7 +2519,8 @@ static void codecs_offer(struct call_media *media, struct call_media *other_medi
 	codec_store_strip(&media->codecs, &flags->codec_mask, flags->codec_except);
 	codec_store_offer(&media->codecs, &flags->codec_offer, &sp->codecs);
 	codec_store_transcode(&media->codecs, &flags->codec_transcode, &sp->codecs);
-	codec_store_check_empty(&media->codecs, &sp->codecs, flags);
+	if (sp->rtp_endpoint.port != 0)
+		codec_store_check_empty(&media->codecs, &sp->codecs, flags);
 	codec_store_synthesise(&media->codecs, &other_media->codecs);
 
 	// update supp codecs based on actions so far
@@ -2571,7 +2573,8 @@ static void codecs_answer(struct call_media *media, struct call_media *other_med
 				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 	codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
 	codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
-	codec_store_check_empty(&other_media->codecs, &sp->codecs, flags);
+	if (sp->rtp_endpoint.port != 0)
+		codec_store_check_empty(&other_media->codecs, &sp->codecs, flags);
 
 	// restore list of originally offered codecs
 	codec_store_copy(&media->codecs, &media->offered_codecs);
