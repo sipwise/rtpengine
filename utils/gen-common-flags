@@ -70,25 +70,28 @@ echo "export LDFLAGS_DEFAULT := ${LDFLAGS_DEFAULT}"
 gen-pkgconf-flags GLIB                glib-2.0
 gen-pkgconf-flags GTHREAD             gthread-2.0
 gen-pkgconf-flags JSON_GLIB           json-glib-1.0
-gen-pkgconf-flags LIBAVCODEC          libavcodec
-gen-pkgconf-flags LIBAVFILTER         libavfilter
-gen-pkgconf-flags LIBAVFORMAT         libavformat
-gen-pkgconf-flags LIBAVUTIL           libavutil
 gen-pkgconf-flags LIBCURL             libcurl
 gen-pkgconf-flags LIBCRYPTO           libcrypto
 gen-pkgconf-flags LIBEVENT            libevent_pthreads
 gen-pkgconf-flags LIBPCRE             libpcre2-8
 echo "CFLAGS_LIBPCRE += -DPCRE2_CODE_UNIT_WIDTH=8"
-gen-pkgconf-flags LIBSWRESAMPLE       libswresample
 gen-pkgconf-flags LIBWEBSOCKETS       libwebsockets
 gen-pkgconf-flags LIBZ                zlib
 gen-pkgconf-flags NCURSESW            ncursesw
 gen-pkgconf-flags OPENSSL             openssl
 gen-pkgconf-flags OPUS                opus
-gen-pkgconf-flags SPANDSP             spandsp
 gen-pkgconf-flags LIBJWT              libjwt
 gen-pkgconf-flags LIBHIREDIS          hiredis
 gen-pkgconf-flags LIBPCAP             libpcap
+
+if [ "${with_transcoding:-yes}" = yes ]; then
+  gen-pkgconf-flags LIBAVCODEC          libavcodec
+  gen-pkgconf-flags LIBAVFILTER         libavfilter
+  gen-pkgconf-flags LIBAVFORMAT         libavformat
+  gen-pkgconf-flags LIBAVUTIL           libavutil
+  gen-pkgconf-flags LIBSWRESAMPLE       libswresample
+  gen-pkgconf-flags SPANDSP             spandsp
+fi
 
 if pkg-config --exists libmosquitto; then
   gen-pkgconf-flags MQTT              libmosquitto

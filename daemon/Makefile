@@ -4,7 +4,13 @@ export top_srcdir = ..
 
 include ../lib/deps.Makefile
 
+ifeq (,$(filter pkg.ngcp-rtpengine.no-transcoding pkg.rtpengine.no-transcoding,$(DEB_BUILD_PROFILES)))
 with_transcoding ?= yes
+else
+with_transcoding ?= no
+endif
+
+export with_transcoding
 
 include ../lib/flags.Makefile
 
