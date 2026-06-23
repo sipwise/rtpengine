@@ -6455,7 +6455,7 @@ static void monologue_stop(struct call_monologue *ml, bool stop_media_subscriber
 
 // call must be locked in W.
 // unlocks the call and releases the reference prior to returning, even on error.
-int call_delete_branch(call_t *c, const str *branch,
+int call_delete_branch(call_t *c, const str *callid, const str *branch,
 	const str *fromtag, const str *totag, ng_command_ctx_t *ctx, int64_t delete_delay)
 {
 	struct call_monologue *ml;
@@ -6596,7 +6596,7 @@ int call_delete_branch_by_id(const str *callid, const str *branch,
 		ilog(LOG_INFO, "Call-ID to delete not found");
 		return -1;
 	}
-	return call_delete_branch(c, branch, fromtag, totag, ctx, delete_delay);
+	return call_delete_branch(c, callid, branch, fromtag, totag, ctx, delete_delay);
 }
 
 struct call_media *call_make_transform_media(struct call_monologue *ml, const str *type, enum media_type type_id,

@@ -939,10 +939,14 @@ bool monologue_call_create(struct call_monologue *, sdp_ng_flags *);
 __attribute__((nonnull(1, 2)))
 bool monologue_call_create_answer(struct call_monologue *, sdp_ng_flags *, sdp_streams_q *streams);
 void monologue_destroy(struct call_monologue *ml);
+
+__attribute__((nonnull(1)))
 int call_delete_branch_by_id(const str *callid, const str *branch,
 	const str *fromtag, const str *totag, ng_command_ctx_t *, int64_t delete_delay);
-int call_delete_branch(call_t *, const str *branch,
+__attribute__((nonnull(1, 2)))
+int call_delete_branch(call_t *, const str *callid, const str *branch,
 	const str *fromtag, const str *totag, ng_command_ctx_t *, int64_t delete_delay);
+
 void call_destroy(call_t *);
 struct call_media *call_media_new(call_t *call);
 void call_media_free(struct call_media **mdp);

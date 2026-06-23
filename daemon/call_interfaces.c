@@ -751,7 +751,7 @@ const char *call_delete_ng(ng_command_ctx_t *ctx) {
 	if (rtpp_flags.discard_recording)
 		recording_discard(c);
 
-	if (call_delete_branch(c, &rtpp_flags.via_branch,
+	if (call_delete_branch(c, &rtpp_flags.call_id, &rtpp_flags.via_branch,
 				&rtpp_flags.from_tag,
 				(rtpp_flags.to_tag_flag ? &rtpp_flags.to_tag : NULL),
 				ctx, rtpp_flags.delete_delay))
