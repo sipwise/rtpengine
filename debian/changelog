@@ -1,3 +1,15 @@
+ngcp-rtpengine (13.5.1.17+0~mr13.5.1.17) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [cf012e7] MT#55283 refcount ICE stream_fds
+  * [152ab9a] MT#55283 fix silence detection typo/bug
+  * [6ffb39f] MT#55283 iterate correct list
+
+  [ Donat Zenichev ]
+  * [b21f72d] MT#61856 media_socket: make `release_reserved_port()` non-fragile
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 24 Jun 2026 21:13:06 +0200
+
 ngcp-rtpengine (13.5.1.16+0~mr13.5.1.16) unstable; urgency=medium
 
   [ Richard Fuchs ]
