@@ -3834,6 +3834,10 @@ static void stream_fd_readable(int fd, void *p) {
 				"discarding packet", strikes);
 		// Polling is edge-triggered so we won't immediately get here again.
 		// We could remove ourselves from the poller though. Maybe call stream_fd_closed?
+
+		// reset active_read_events to let other threads know
+		// there is no one handling this socket
+		g_atomic_int_set(&sfd->active_read_events, 0);
 		return;
 	}
 
