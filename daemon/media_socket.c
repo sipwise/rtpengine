@@ -2311,6 +2311,8 @@ static bool extmap_short_is_valid_data(unsigned int id, size_t len) {
 	// valid ranges for short form?
 	if (id <= 0 || id >= 15)
 		return false;
+	if (len == 0)
+		return false;
 	if (len > 16)
 		return false;
 	return true;
