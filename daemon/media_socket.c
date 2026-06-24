@@ -785,16 +785,16 @@ static void release_reserved_port(struct port_pool *pp, ports_q *list, unsigned 
 
 			assert(port == GPOINTER_TO_UINT(t_queue_peek_head(list)));
 
-			pp = l->data;
-			if (!port_is_in_range(pp, port))
+			struct port_pool *opp = l->data;
+			if (!port_is_in_range(opp, port))
 				continue;
 
 			// remove top link from list
 			link = t_queue_pop_head_link(list);
 
-			LOCK(&pp->free_list_lock);
-			t_queue_push_tail_link(&pp->free_ports_q, link);
-			free_ports_link(pp, port) = link;
+			LOCK(&opp->free_list_lock);
+			t_queue_push_tail_link(&opp->free_ports_q, link);
+			free_ports_link(opp, port) = link;
 		}
 	}
 }
