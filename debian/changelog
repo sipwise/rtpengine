@@ -1,3 +1,18 @@
+ngcp-rtpengine (14.1.1.14+0~mr14.1.1.14) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [f52fa3b] MT#55283 fix bencode buffer alignment
+  * [b2aa424] MT#55283 refcount ICE stream_fds
+
+  [ Andrew Yager ]
+  * [de94f85] MT#55283 kernel-module: detect nft_expr_ops.validate signature via compile test
+
+  [ Donat Zenichev ]
+  * [8bb8237] MT#61856 media_socket: make `release_reserved_port()` non-fragile
+  * [bc1e98b] MT#61856 media_socket: `extmap_short_is_valid_data()` no 0 len
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 24 Jun 2026 21:13:14 +0200
+
 ngcp-rtpengine (14.1.1.13+0~mr14.1.1.13) unstable; urgency=medium
 
   [ Richard Fuchs ]
