@@ -2072,19 +2072,21 @@ void mqtt_timer_start(struct mqtt_timer **mqtp, call_t *call, struct call_media 
 
 
 // master lock held in W
+__attribute__((nonnull(1)))
 static void codec_timer_stop(struct codec_timer **ctp) {
-	if (!ctp)
-		return;
 	obj_release(*ctp);
 }
+
 // master lock held in W
+__attribute__((nonnull(1)))
 void rtcp_timer_stop(struct rtcp_timer **rtp) {
 	codec_timer_stop((struct codec_timer **) rtp);
 }
+
+__attribute__((nonnull(1)))
 void mqtt_timer_stop(struct mqtt_timer **mqtp) {
 	codec_timer_stop((struct codec_timer **) mqtp);
 }
-
 
 
 
@@ -3500,9 +3502,13 @@ static void dtx_packet_free(struct dtx_packet *dtxp) {
 	ssrc_entry_release(dtxp->input_handler);
 	g_free(dtxp);
 }
+
+__attribute__((nonnull(1)))
 static void delay_buffer_stop(struct delay_buffer **pcmbp) {
 	codec_timer_stop((struct codec_timer **) pcmbp);
 }
+
+__attribute__((nonnull(1)))
 static void dtx_buffer_stop(struct dtx_buffer **dtxbp) {
 	codec_timer_stop((struct codec_timer **) dtxbp);
 }
