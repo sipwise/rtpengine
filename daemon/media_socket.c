@@ -1225,9 +1225,12 @@ struct socket_port_link get_specific_port(unsigned int port,
 {
 	if (!port_is_in_range(&spec->port_pool, port)) {
 		ilog(LOG_DEBUG, "A specific out-of-pool port is requested: '%d'", port);
-		struct socket_port_link spl = {0};
-		add_socket(&spl.socket, port, spec, label);
-		return spl;
+
+		struct socket_port_link spl = { .socket = { .fd = -1 } };
+		if (add_socket(&spl.socket, port, spec, label))
+			return spl;
+
+		return (struct socket_port_link) { .socket = { .fd = -1 } };
 	}
 
 	ilog(LOG_DEBUG, "A specific in-pool port is requested: '%d'", port);
