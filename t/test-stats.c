@@ -5257,9 +5257,9 @@ int main(void) {
 	const str callid1 = STR_CONST("test1");
 	const str callid2 = STR_CONST("test2");
 	call_t *call1 = call_get_or_create(&callid1, true);
-	struct call_monologue *ml1 = call_get_or_create_monologue(call1, &callid1);
+	struct call_monologue *ml1 = call_get_or_create_monologue(call1, &callid1, &callid1);
 	call_t *call2 = call_get_or_create(&callid2, true);
-	struct call_monologue *ml2 = call_get_or_create_monologue(call2, &callid2);
+	struct call_monologue *ml2 = call_get_or_create_monologue(call2, &callid2, &callid2);
 	call1->created = ml1->started = 157 * 1000000LL;
 	call2->created = ml2->started = 57 * 1000000LL;
 

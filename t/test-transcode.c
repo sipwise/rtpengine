@@ -101,8 +101,8 @@ static void __start(const char *file, int line) {
 	call.callid = STR("test-call");
 	bencode_buffer_init(&call.buffer);
 	call_memory_arena_set(&call);
-	ml_A = __monologue_create(&call);
-	ml_B = __monologue_create(&call);
+	ml_A = __monologue_create(&call, &call.callid);
+	ml_B = __monologue_create(&call, &call.callid);
 	media_A = call_media_new(&call); // originator
 	media_B = call_media_new(&call); // output destination
 	t_queue_push_tail(&media_A->streams, ps_new(media_A));

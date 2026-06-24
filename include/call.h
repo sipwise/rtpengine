@@ -602,7 +602,8 @@ TYPED_GPTRARRAY(medias_arr, struct call_media)
  * A regular A/B call has two call_monologue objects with each subscribed to the other.
  */
 struct call_monologue {
-	call_t		*call;			/* RO */
+	call_t			*call;			/* RO */
+	str			call_id;		// RO - in case of merged calls with ID aliases
 	unsigned int		unique_id;		/* RO */
 
 	str			tag;
@@ -838,7 +839,9 @@ extern __thread call_t *call_memory_arena;
 int call_init(void);
 void call_free(void);
 
-struct call_monologue *__monologue_create(call_t *call);
+__attribute__((nonnull(1, 2)))
+struct call_monologue *__monologue_create(call_t *call, const str *callid);
+
 void __monologue_free(struct call_monologue *m);
 void __monologue_tag(struct call_monologue *ml, const str *tag);
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
@@ -874,16 +877,25 @@ G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(subscription_q, media_subscriptions_clear)
 call_t *call_get_or_create(const str *callid, bool exclusive);
 call_t *call_get_opmode(const str *callid, enum ng_opmode opmode);
 void call_make_own_foreign(call_t *c, bool foreign);
-int call_get_mono_dialogue(struct call_monologue *monologues[2], call_t *call,
+
+__attribute__((nonnull(1, 2, 3, 4)))
+int call_get_mono_dialogue(struct call_monologue *monologues[2],
+		call_t *call,
+		const str *callid,
 		const str *fromtag,
 		const str *totag,
 		const str *viabranch,
 		sdp_ng_flags *, const endpoint_t *);
+
 struct call_monologue *call_get_monologue(call_t *call, const str *fromtag);
-struct call_monologue *call_get_or_create_monologue(call_t *call, const str *fromtag);
+
+__attribute__((nonnull(1, 2, 3)))
+struct call_monologue *call_get_or_create_monologue(call_t *call, const str *callid, const str *fromtag);
+
 __attribute__((nonnull(1, 2, 4, 5, 6)))
 struct call_media *call_make_transform_media(struct call_monologue *ml, const str *type, enum media_type type_id,
 		const str *media_id, const endpoint_t *remote, const str *interface);
+
 __attribute__((nonnull(1)))
 call_t *call_get(const str *callid);
 __attribute__((nonnull(1)))

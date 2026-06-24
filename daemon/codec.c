@@ -648,7 +648,7 @@ static const char *__make_transform_handler(struct codec_handler *handler) {
 
 		// create dedicated monologue and dedicated call_media to send media to the
 		// remote rtpengine and forward received media to its designated destination
-		tfh->transform_ml = call_get_or_create_monologue(call, STR_PTR("transform handler"));
+		tfh->transform_ml = call_get_or_create_monologue(call, &ml->call_id, STR_PTR("transform handler"));
 
 		tfh->transform_media = call_make_transform_media(tfh->transform_ml, &media->type, media->type_id,
 				&STR_NULL, &tcc->transform, &tcc->local_interface);

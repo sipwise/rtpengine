@@ -5875,13 +5875,14 @@ call_t *call_get_opmode(const str *callid, enum ng_opmode opmode) {
  *
  * Must be called with call->master_lock held in W.
  */
-struct call_monologue *__monologue_create(call_t *call) {
+struct call_monologue *__monologue_create(call_t *call, const str *callid) {
 	struct call_monologue *ret;
 
 	dbg_int("creating new monologue");
 	ret = uid_alloc(&call->monologues);
 
 	ret->call = call;
+	ret->call_id = call_str_cpy(callid);
 	ret->created_us = rtpe_now;
 	ret->associated_tags = g_hash_table_new(g_direct_hash, g_direct_equal);
 	ret->medias = medias_arr_new();
@@ -6139,10 +6140,10 @@ static struct call_monologue *call_get_monologue_alias(call_t *call, const str *
  *
  * Must be called with call->master_lock held in W.
  */
-struct call_monologue *call_get_or_create_monologue(call_t *call, const str *fromtag) {
+struct call_monologue *call_get_or_create_monologue(call_t *call, const str *callid, const str *fromtag) {
 	struct call_monologue *ret = call_get_monologue(call, fromtag);
 	if (!ret) {
-		ret = __monologue_create(call);
+		ret = __monologue_create(call, callid);
 		__monologue_tag(ret, fromtag);
 	}
 	return ret;
@@ -6190,7 +6191,10 @@ static bool call_monologues_associations_left(call_t * c) {
  *
  * `dialogue` must be initialised to zero.
  */
-static int call_get_monologue_new(struct call_monologue *monologues[2], call_t *call,
+__attribute__((nonnull(1, 2, 3, 4)))
+static int call_get_monologue_new(struct call_monologue *monologues[2],
+		call_t *call,
+		const str *callid,
 		const str *fromtag,
 		const str *totag,
 		const str *viabranch,
@@ -6204,7 +6208,7 @@ static int call_get_monologue_new(struct call_monologue *monologues[2], call_t *
 	ret = call_get_monologue_alias(call, fromtag, flags, &flags->sdp, ep);
 	if (!ret) {
 		/* this is a brand new offer */
-		ret = __monologue_create(call);
+		ret = __monologue_create(call, callid);
 		__monologue_tag(ret, fromtag);
 		goto new_branch;
 	}
@@ -6238,7 +6242,7 @@ static int call_get_monologue_new(struct call_monologue *monologues[2], call_t *
 	 * another monologue without to-tag (to be filled in later) */
 new_branch:
 	dbg_int("create new \"other side\" monologue for viabranch "STR_FORMAT, STR_FMT0(viabranch));
-	os = __monologue_create(call);
+	os = __monologue_create(call, callid);
 	__monologue_viabranch(os, viabranch);
 	goto finish;
 
@@ -6282,7 +6286,10 @@ finish:
  *
  * `dialogue` must be initialised to zero.
  */
-static int call_get_dialogue(struct call_monologue *monologues[2], call_t *call,
+__attribute__((nonnull(1, 2, 3, 4)))
+static int call_get_dialogue(struct call_monologue *monologues[2],
+		call_t *call,
+		const str *callid,
 		const str *fromtag,
 		const str *totag,
 		const str *viabranch,
@@ -6290,7 +6297,7 @@ static int call_get_dialogue(struct call_monologue *monologues[2], call_t *call,
 {
 	struct call_monologue *ft, *tt;
 
-	dbg_int("getting dialogue for tags '"STR_FORMAT"'<>'"STR_FORMAT"' in call '"STR_FORMAT"'",
+	dbg_int("getting dialogue for tags '" STR_FORMAT "'<>'" STR_FORMAT "' in call '" STR_FORMAT "'",
 			STR_FMT(fromtag), STR_FMT(totag), STR_FMT(&call->callid));
 
 	/* ft - is always this side's tag (in offer it's message's from-tag, in answer it's message's to-tag)
@@ -6300,7 +6307,7 @@ static int call_get_dialogue(struct call_monologue *monologues[2], call_t *call,
 	/* we start with the to-tag. if it's not known, we treat it as a branched offer */
 	tt = call_get_monologue(call, totag);
 	if (!tt)
-		return call_get_monologue_new(monologues, call, fromtag, totag, viabranch, flags, ep);
+		return call_get_monologue_new(monologues, call, callid, fromtag, totag, viabranch, flags, ep);
 
 	/* if the from-tag is known already, return that */
 	ft = call_get_monologue_alias(call, fromtag, flags, &flags->sdp, ep);
@@ -6353,14 +6360,14 @@ static int call_get_dialogue(struct call_monologue *monologues[2], call_t *call,
 	 * hence `ft->tag` has to be empty at this stage.
 	 */
 	if (!ft)
-		ft = __monologue_create(call);
+		ft = __monologue_create(call, callid);
 	else if (ft->tag.s) {
 		// Allow an updated/changed to-tag in answers unless the flag to
 		// suppress this feature is set. A changed to-tag will be stored
 		// as a tag alias.
 		if (!flags || flags->opmode != OP_ANSWER || flags->new_branch
 				|| (ML_ISSET(ft, FINAL_RESPONSE) && !flags->provisional))
-			ft = __monologue_create(call);
+			ft = __monologue_create(call, callid);
 	}
 
 tag_setup:
@@ -6388,7 +6395,9 @@ done:
 /* fromtag and totag strictly correspond to the directionality of the message, not to the actual
  * SIP headers. IOW, the fromtag corresponds to the monologue sending this message, even if the
  * tag is actually from the TO header of the SIP message (as it would be in a 200 OK) */
-int call_get_mono_dialogue(struct call_monologue *monologues[2], call_t *call,
+int call_get_mono_dialogue(struct call_monologue *monologues[2],
+		call_t *call,
+		const str *callid,
 		const str *fromtag,
 		const str *totag,
 		const str *viabranch,
@@ -6396,9 +6405,9 @@ int call_get_mono_dialogue(struct call_monologue *monologues[2], call_t *call,
 {
 	/* initial offer */
 	if (!totag || !totag->s)
-		return call_get_monologue_new(monologues, call, fromtag, NULL, viabranch, flags, ep);
+		return call_get_monologue_new(monologues, call, callid, fromtag, NULL, viabranch, flags, ep);
 
-	return call_get_dialogue(monologues, call, fromtag, totag, viabranch, flags, ep);
+	return call_get_dialogue(monologues, call, callid, fromtag, totag, viabranch, flags, ep);
 }
 
 static void media_stop(struct call_media *m) {

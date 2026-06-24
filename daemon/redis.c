@@ -1557,7 +1557,7 @@ static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 	for (i = 0; i < tags->len; i++) {
 		rh = &tags->rh[i];
 
-		ml = __monologue_create(c);
+		ml = __monologue_create(c, &c->callid);
 		if (!ml)
 			return -1;
 
@@ -1565,6 +1565,8 @@ static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 			return -1;
 		if (!redis_hash_get_str(&s, rh, "tag"))
 			__monologue_tag(ml, &s);
+		if (!redis_hash_get_str(&s, rh, "call_id"))
+			ml->call_id = call_str_cpy(&s);
 		if (!redis_hash_get_str(&s, rh, "via-branch"))
 			__monologue_viabranch(ml, &s);
 		if (!redis_hash_get_str(&s, rh, "label"))
@@ -2639,6 +2641,8 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 
 				if (ml->tag.s)
 					JSON_SET_SIMPLE_STR("tag", &ml->tag);
+				if (ml->call_id.s)
+					JSON_SET_SIMPLE_STR("call_id", &ml->tag);
 				if (ml->viabranch.s)
 					JSON_SET_SIMPLE_STR("via-branch", &ml->viabranch);
 				if (ml->label.s)

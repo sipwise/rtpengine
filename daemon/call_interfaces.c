@@ -180,7 +180,7 @@ static str call_update_lookup_udp(char **out, enum ng_opmode opmode, const char*
 
 	updated_created_from(c, addr);
 
-	if (call_get_mono_dialogue(monologues, c, &fromtag, &totag, NULL, NULL, NULL))
+	if (call_get_mono_dialogue(monologues, c, &callid, &fromtag, &totag, NULL, NULL, NULL))
 		goto ml_fail;
 
 	struct call_monologue *from_ml = monologues[0];
@@ -339,7 +339,7 @@ static str call_request_lookup_tcp(char **out, enum ng_opmode opmode) {
 		str_swap(&fromtag, &totag);
 	}
 
-	if (call_get_mono_dialogue(monologues, c, &fromtag, &totag, NULL, NULL, NULL)) {
+	if (call_get_mono_dialogue(monologues, c, &callid, &fromtag, &totag, NULL, NULL, NULL)) {
 		ilog(LOG_WARNING, "Invalid dialogue association");
 		goto out2;
 	}
@@ -621,7 +621,7 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char *addr)
 	call_ngb_hold_ref(call, ctx->ngbuf);
 
 	errstr = "Invalid dialogue association";
-	if (call_get_mono_dialogue(monologues, call, &flags.from_tag, &flags.to_tag,
+	if (call_get_mono_dialogue(monologues, call, &flags.call_id, &flags.from_tag, &flags.to_tag,
 			flags.via_branch.s ? &flags.via_branch : NULL, &flags,
 			streams.length ? &streams.head->data->rtp_endpoint : NULL)) {
 		goto out;
@@ -2121,7 +2121,7 @@ const char *call_publish_ng(ng_command_ctx_t *ctx, const char *addr) {
 		return NULL;
 
 	updated_created_from(call, addr);
-	struct call_monologue *ml = call_get_or_create_monologue(call, &flags.from_tag);
+	struct call_monologue *ml = call_get_or_create_monologue(call, &flags.call_id, &flags.from_tag);
 
 	ret = monologue_publish(ml, &streams, &flags);
 	if (ret)
@@ -2191,7 +2191,7 @@ const char *call_subscribe_request_ng(ng_command_ctx_t *ctx) {
 
 	g_autoptr(call_t) call = t_queue_pop_head(&calls);
 
-	struct call_monologue *dest_ml = call_get_or_create_monologue(call, &flags.to_tag);
+	struct call_monologue *dest_ml = call_get_or_create_monologue(call, &flags.call_id, &flags.to_tag);
 
 	int ret = monologue_subscribe_request(&mq, dest_ml, &flags);
 	if (ret)
@@ -2430,7 +2430,7 @@ const char *call_connect_ng(ng_command_ctx_t *ctx) {
 	if (!call)
 		return "Failed to merge two calls into one (tag collision)";
 
-	struct call_monologue *dest_ml = call_get_or_create_monologue(call, &flags.to_tag);
+	struct call_monologue *dest_ml = call_get_or_create_monologue(call, &flags.call_id, &flags.to_tag);
 	if (!dest_ml)
 		return "To-tag not found";
 
@@ -2496,7 +2496,7 @@ const char *call_transform_ng(ng_command_ctx_t *ctx) {
 		flags.from_tag = STR_LEN(rand_hex_str(rand_from_tag, 32), 64);
 
 	call = call_get_or_create(&flags.call_id, false);
-	struct call_monologue *ml = call_get_or_create_monologue(call, &flags.from_tag);
+	struct call_monologue *ml = call_get_or_create_monologue(call, &flags.call_id, &flags.from_tag);
 
 	g_auto(medias_q) mq = TYPED_GQUEUE_INIT;
 	if (!monologue_transform(ml, &flags, &mq))
@@ -2546,7 +2546,7 @@ const char *call_create_ng(ng_command_ctx_t *ctx) {
 		flags.from_tag = STR_LEN(rand_hex_str(rand_from_tag, 32), 64);
 
 	call = call_get_or_create(&flags.call_id, false);
-	struct call_monologue *ml = call_get_or_create_monologue(call, &flags.from_tag);
+	struct call_monologue *ml = call_get_or_create_monologue(call, &flags.call_id, &flags.from_tag);
 	if (!monologue_call_create(ml, &flags))
 		return "failed to set up call/monologue";
 
