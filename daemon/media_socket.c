@@ -1383,13 +1383,6 @@ bool get_consecutive_ports(socket_port_q *out, unsigned int num_ports, struct lo
 	return __get_consecutive_ports(out, num_ports, loc->spec, label);
 }
 
-void free_socket_intf_list(struct socket_intf_list *il) {
-	struct socket_port_link *spl;
-
-	while ((spl = i_queue_pop_head(&il->list)))
-		free_port(spl);
-	g_free(il);
-}
 void free_sfd_intf_list(struct sfd_intf_list *il) {
 	t_queue_clear(&il->list);
 	g_free(il);
