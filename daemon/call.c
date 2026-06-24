@@ -6065,16 +6065,13 @@ static void __tags_unassociate(struct call_monologue *a, struct call_monologue *
 /**
  * Marks the monologue for destruction, or destroys it immediately.
  * It also iterates through the associated monologues and does the same for them.
- *
- * Returns `true`, if we need to update Redis.
  */
-static bool monologue_delete_iter(struct call_monologue *a, int64_t delete_delay_us) {
+static void monologue_delete_iter(struct call_monologue *a, int64_t delete_delay_us) {
 	call_t *call = a->call;
 	if (!call)
-		return 0;
+		return;
 
 	GList *associated = g_hash_table_get_values(a->associated_tags);
-	bool update_redis = false;
 
 	if (delete_delay_us > 0) {
 		ilog(LOG_INFO, "Scheduling deletion of call branch '" STR_FORMAT_M "' "
@@ -6088,7 +6085,6 @@ static bool monologue_delete_iter(struct call_monologue *a, int64_t delete_delay
 		ilog(LOG_INFO, "Deleting call branch '" STR_FORMAT_M "' (via-branch '" STR_FORMAT_M "')",
 				STR_FMT_M(&a->tag), STR_FMT0_M(&a->viabranch));
 		monologue_destroy(a);
-		update_redis = true;
 	}
 
 	/* Look into all associated monologues: cascade deletion to those,
@@ -6103,7 +6099,6 @@ static bool monologue_delete_iter(struct call_monologue *a, int64_t delete_delay
 	}
 
 	g_list_free(associated);
-	return update_redis;
 }
 
 /**
@@ -6170,7 +6165,7 @@ static void __tags_associate(struct call_monologue *a, struct call_monologue *b)
 static bool call_monologues_associations_left(call_t * c) {
 	for (__auto_type l = c->monologues.head; l; l = l->next)
 	{
-		struct call_monologue * ml = l->data;
+		struct call_monologue *ml = l->data;
 		if (g_hash_table_size(ml->associated_tags) > 0)
 			return true;
 	}
@@ -6485,15 +6480,50 @@ static int call_delete_full(call_t *c, const str *callid, ng_command_ctx_t *ctx,
 }
 
 
+// call must be locked in W and will be unlocked upon returning
+__attribute__((nonnull(1, 2)))
+static int call_delete_monologue(call_t *c, const str *callid, struct call_monologue *ml,
+		const str *fromtag, const str *totag,
+		ng_command_ctx_t *ctx, int64_t delete_delay)
+{
+	c->destroyed = rtpe_now;
+
+	/* stop media player and all medias of ml.
+	 * same for media subscribers */
+	monologue_stop(ml, true);
+
+	/* check, if we have some associated monologues left, which have own associations
+	 * which means they need a media to flow */
+	monologue_delete_iter(ml, delete_delay);
+
+	/* if there are no associated dialogs, which still require media, then additionally
+	 * ensure, whether we can afford to destroy the whole call now.
+	 * Maybe some of them still need a media to flow */
+	bool del_stop = false;
+	del_stop = call_monologues_associations_left(c);
+
+	if (!del_stop)
+		return call_delete_full(c, callid, ctx, delete_delay);
+
+	if (ctx)
+		ng_call_stats(ctx, c, fromtag, totag, NULL);
+
+	rwlock_unlock_w(&c->master_lock);
+
+	redis_update_onekey(c, rtpe_redis_write);
+	obj_release(c);
+
+	return 0;
+}
+
+
 // call must be locked in W.
 // unlocks the call and releases the reference prior to returning, even on error.
 int call_delete_branch(call_t *c, const str *callid, const str *branch,
 	const str *fromtag, const str *totag, ng_command_ctx_t *ctx, int64_t delete_delay)
 {
 	struct call_monologue *ml;
-	int ret;
 	const str *match_tag;
-	bool update = false;
 
 	if (delete_delay < 0)
 		delete_delay = rtpe_config.delete_delay_us;
@@ -6513,83 +6543,48 @@ int call_delete_branch(call_t *c, const str *callid, const str *branch,
 		// try a via-branch match
 		ml = t_hash_table_lookup(c->viabranches, branch);
 		if (ml)
-			goto do_delete;
+			return call_delete_monologue(c, callid, ml, fromtag, totag, ctx, delete_delay);
 	}
 
 	match_tag = (totag && totag->len) ? totag : fromtag;
 
 	ml = call_get_monologue(c, match_tag);
-	if (!ml) {
-		if (branch && branch->len) {
-			// also try a via-branch match here
-			ml = t_hash_table_lookup(c->viabranches, branch);
-			if (ml)
-				goto do_delete;
-		}
+	if (ml)
+		return call_delete_monologue(c, callid, ml, fromtag, totag, ctx, delete_delay);
 
-		/* IMPORTANT!
-		 * last resort: try the from-tag, if we tried the to-tag before and see,
-		 * if the associated dialogue has an empty tag (unknown).
-		 * If that condition is met, then we delete the entire call.
-		 *
-		 * A use case for that is: `delete` done with from-tag and to-tag,
-		 * right away after an `offer` without the to-tag and without use of via-branch.
-		 * Then, looking up the offer side of the call through the from-tag
-		 * and then checking, if the call has not been answered (answer side has an empty to-tag),
-		 * gives a clue whether to delete an entire call. */
-		if (match_tag == totag) {
-			ml = call_get_monologue(c, fromtag);
-			if (ml) {
-				struct call_monologue * sub_ml = ml_medias_subscribed_to_single_ml(ml);
-				if (sub_ml && !sub_ml->tag.len)
-					goto do_delete;
-			}
-		}
-
-		ilog(LOG_INFO, "Tag '"STR_FORMAT"' in delete message not found, ignoring",
-				STR_FMT(match_tag));
-		goto err;
+	if (branch && branch->len) {
+		// also try a via-branch match here
+		ml = t_hash_table_lookup(c->viabranches, branch);
+		if (ml)
+			return call_delete_monologue(c, callid, ml, fromtag, totag, ctx, delete_delay);
 	}
 
-do_delete:
-	c->destroyed = rtpe_now;
+	/* IMPORTANT!
+	 * last resort: try the from-tag, if we tried the to-tag before and see,
+	 * if the associated dialogue has an empty tag (unknown).
+	 * If that condition is met, then we delete the entire call.
+	 *
+	 * A use case for that is: `delete` done with from-tag and to-tag,
+	 * right away after an `offer` without the to-tag and without use of via-branch.
+	 * Then, looking up the offer side of the call through the from-tag
+	 * and then checking, if the call has not been answered (answer side has an empty to-tag),
+	 * gives a clue whether to delete an entire call. */
+	if (match_tag == totag) {
+		ml = call_get_monologue(c, fromtag);
+		if (ml) {
+			struct call_monologue *sub_ml = ml_medias_subscribed_to_single_ml(ml);
+			if (sub_ml && !sub_ml->tag.len)
+				return call_delete_monologue(c, callid, ml, fromtag, totag, ctx, delete_delay);
+		}
+	}
 
-	/* stop media player and all medias of ml.
-	 * same for media subscribers */
-	monologue_stop(ml, true);
-
-	/* check, if we have some associated monologues left, which have own associations
-	 * which means they need a media to flow */
-	update = monologue_delete_iter(ml, delete_delay);
-
-	/* if there are no associated dialogs, which still require media, then additionally
-	 * ensure, whether we can afford to destroy the whole call now.
-	 * Maybe some of them still need a media to flow */
-	bool del_stop = false;
-	del_stop = call_monologues_associations_left(c);
-
-	if (!del_stop)
-		return call_delete_full(c, callid, ctx, delete_delay);
-
-	if (ctx)
-		ng_call_stats(ctx, c, fromtag, totag, NULL);
+	ilog(LOG_INFO, "Tag '" STR_FORMAT "' in delete message not found, ignoring",
+			STR_FMT(match_tag));
 
 	rwlock_unlock_w(&c->master_lock);
-
-	ret = 0;
-	goto out;
-
-err:
-	rwlock_unlock_w(&c->master_lock);
-	ret = -1;
-	goto out;
-
-out:
-	if (update)
-		redis_update_onekey(c, rtpe_redis_write);
 	obj_release(c);
 
-	return ret;
+	return -1;
 }
 
 
