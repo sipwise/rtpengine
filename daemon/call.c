@@ -6453,6 +6453,38 @@ static void monologue_stop(struct call_monologue *ml, bool stop_media_subscriber
 }
 
 
+// call must be locked in W and will be unlocked upon returning
+__attribute__((nonnull(1)))
+static int call_delete_full(call_t *c, const str *callid, ng_command_ctx_t *ctx, int64_t delete_delay) {
+	if (ctx)
+		ng_call_stats(ctx, c, NULL, NULL, NULL);
+
+	for (__auto_type i = c->monologues.head; i; i = i->next) {
+		__auto_type ml = i->data;
+		monologue_stop(ml, false);
+	}
+
+	c->destroyed = rtpe_now;
+
+	if (delete_delay > 0) {
+		ilog(LOG_INFO, "Scheduling deletion of entire call in %" PRId64 " seconds", delete_delay / 1000000L);
+		c->deleted_us = rtpe_now + delete_delay;
+		rwlock_unlock_w(&c->master_lock);
+
+		redis_update_onekey(c, rtpe_redis_write);
+	}
+	else {
+		ilog(LOG_INFO, "Deleting entire call");
+		rwlock_unlock_w(&c->master_lock);
+		call_destroy(c);
+	}
+
+	obj_release(c);
+
+	return 0;
+}
+
+
 // call must be locked in W.
 // unlocks the call and releases the reference prior to returning, even on error.
 int call_delete_branch(call_t *c, const str *callid, const str *branch,
@@ -6475,7 +6507,7 @@ int call_delete_branch(call_t *c, const str *callid, const str *branch,
 	}
 
 	if (!fromtag || !fromtag->len)
-		goto del_all;
+		return call_delete_full(c, callid, ctx, delete_delay);
 
 	if ((!totag || !totag->len) && branch && branch->len) {
 		// try a via-branch match
@@ -6537,40 +6569,13 @@ do_delete:
 	del_stop = call_monologues_associations_left(c);
 
 	if (!del_stop)
-		goto del_all;
+		return call_delete_full(c, callid, ctx, delete_delay);
 
 	if (ctx)
 		ng_call_stats(ctx, c, fromtag, totag, NULL);
 
-	goto success_unlock;
-
-del_all:
-	if (ctx)
-		ng_call_stats(ctx, c, NULL, NULL, NULL);
-
-	for (__auto_type i = c->monologues.head; i; i = i->next) {
-		ml = i->data;
-		monologue_stop(ml, false);
-	}
-
-	c->destroyed = rtpe_now;
-
-	if (delete_delay > 0) {
-		ilog(LOG_INFO, "Scheduling deletion of entire call in %" PRId64 " seconds", delete_delay / 1000000L);
-		c->deleted_us = rtpe_now + delete_delay;
-		rwlock_unlock_w(&c->master_lock);
-	}
-	else {
-		ilog(LOG_INFO, "Deleting entire call");
-		rwlock_unlock_w(&c->master_lock);
-		call_destroy(c);
-		update = false;
-	}
-	goto success;
-
-success_unlock:
 	rwlock_unlock_w(&c->master_lock);
-success:
+
 	ret = 0;
 	goto out;
 
