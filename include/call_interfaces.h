@@ -293,6 +293,7 @@ RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 		     pierce_nat:1,
 		     directional:1,
 		     fatal:1,
+		     fast:1,
 		     new_branch:1,
 		     provisional:1,
 		     /* to_tag is used especially by delete handling */
