@@ -754,6 +754,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	g_autoptr(char) templates_section = NULL;
 	g_autoptr(char) interfaces_config = NULL;
 	g_autoptr(char) transcode_config = NULL;
+	g_autoptr(char) ssrc_reporting = NULL;
 	int silent_timeout = 0;
 	int timeout = 0;
 	int final_timeout = 0;
@@ -954,6 +955,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 #endif
 		{ "mos",0,0,		G_OPTION_ARG_STRING_ARRAY,&mos_options,		"MOS calculation options",		"CQ|LQ"},
 		{ "measure-rtp",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.measure_rtp,"Enable measuring RTP statistics and VoIP metrics",NULL},
+		{ "ssrc-reporting",0,0,	G_OPTION_ARG_STRING,	&ssrc_reporting,	"Format of SSRC stats returned by delete/query","full|inline|global|none"},
 #ifdef SO_INCOMING_CPU
 		{ "socket-cpu-affinity",0,0,G_OPTION_ARG_INT,	&rtpe_config.cpu_affinity,"CPU affinity for media sockets","INT"},
 #endif
@@ -1536,6 +1538,19 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 			rtpe_config.control_pmtu = PMTU_DISC_DONT;
 		else
 			die("Invalid --control-pmtu option ('%s')", control_pmtu);
+	}
+
+	if (ssrc_reporting) {
+		if (!strcasecmp(ssrc_reporting, "full"))
+			rtpe_config.ssrc_reporting = SRP_FULL;
+		else if (!strcasecmp(ssrc_reporting, "inline"))
+			rtpe_config.ssrc_reporting = SRP_INLINE;
+		else if (!strcasecmp(ssrc_reporting, "global"))
+			rtpe_config.ssrc_reporting = SRP_GLOBAL;
+		else if (!strcasecmp(ssrc_reporting, "none"))
+			rtpe_config.ssrc_reporting = SRP_NONE;
+		else
+			die("Invalid --ssrc-reporting option ('%s')", ssrc_reporting);
 	}
 
 #define STR_LEN_INIT(x) if (rtpe_config.x.s) rtpe_config.x.len = strlen(rtpe_config.x.s)
