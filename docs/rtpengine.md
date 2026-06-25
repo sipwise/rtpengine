@@ -1496,6 +1496,25 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     Enable measuring RTP metrics even for plain RTP passthrough scenarios. Without
     that option, RTP metrics are measured only in transcoding scenarios.
 
+- __\-\ssrc-reporting=full__\|__inline__\|__global__\|__none__
+
+    Controls the format the SSRC statistics (primarily relevant for MOS and
+    other RTP metrics) in the responses to __delete__ and __query__ messages.
+
+    The __inline__ format puts the statistics of media sources relevant to a
+    media stream within the reporting section that belongs to that media
+    stream.
+
+    The __global__ format only lists the numeric SSRC identifiers relevant to a
+    media stream within its own section, and puts the actual statistics in a
+    global section, indexed by the SSRC identifiers.
+
+    The __full__ format combines both of the above, resulting in a duplication
+    of all statistics and therefore a significant increase in message size.
+
+    The current default is __full__ as this is the legacy format, and is
+    required by some controlling agents.
+
 - __\-\-rtcp-interval=__*INT*
 
     Delay in milliseconds between RTCP packets when generate-rtcp flag is on. The
