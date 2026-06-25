@@ -1117,10 +1117,7 @@ static void release_port_poller(struct socket_port_link *spl, struct poller *pol
 static void release_port(struct socket_port_link *spl) {
 	release_port_poller(spl, NULL);
 }
-static void free_port(struct socket_port_link *spl) {
-	release_port(spl);
-	g_free(spl);
-}
+
 /**
  * Logic responsible for devastating the `ports_to_release` queue.
  * It's being called by main poller.
@@ -1213,7 +1210,6 @@ static bool open_port_link_sockets(socket_port_q *out, struct intf_spec *spec, c
 		if (!add_socket(&spl->socket, port, spec, label)) {
 			/* if something has been left in the `ports_to_engage` queue, release it right away */
 			release_reserved_ports(out);
-			/* ports which are already bound to a socket, will be freed by `free_port()` */
 			return false;
 		}
 	}
