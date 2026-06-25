@@ -1699,6 +1699,12 @@ of zero or more strings. The following flags are defined:
 	result in an error reply (i.e. `"result": "error"`). The default is to reply with a warning only
 	(i.e. `"result": "ok", "warning": ...`).
 
+* `fast`
+
+    Omit adding statistics to the response message. This makes processing of
+    the delete message more light-weight and produces a smaller response
+    message, which is beneficial if the statistics aren't needed.
+
 * `to-tag`
 
 	This flag controls whether the `"To"` tag's value is honoured or ignored when handling
