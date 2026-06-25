@@ -943,9 +943,11 @@ void monologue_destroy(struct call_monologue *ml);
 __attribute__((nonnull(1)))
 int call_delete_branch_by_id(const str *callid, const str *branch,
 	const str *fromtag, const str *totag, ng_command_ctx_t *, int64_t delete_delay);
+
 __attribute__((nonnull(1, 2)))
 int call_delete_branch(call_t *, const str *callid, const str *branch,
-	const str *fromtag, const str *totag, ng_command_ctx_t *, int64_t delete_delay);
+	const str *fromtag, const str *totag, ng_command_ctx_t *, int64_t delete_delay,
+	bool stats);
 
 void call_destroy(call_t *);
 struct call_media *call_media_new(call_t *call);

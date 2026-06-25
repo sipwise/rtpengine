@@ -6450,8 +6450,10 @@ static void monologue_stop(struct call_monologue *ml, bool stop_media_subscriber
 
 // call must be locked in W and will be unlocked upon returning
 __attribute__((nonnull(1)))
-static int call_delete_full(call_t *c, const str *callid, ng_command_ctx_t *ctx, int64_t delete_delay) {
-	if (ctx)
+static int call_delete_full(call_t *c, const str *callid, ng_command_ctx_t *ctx, int64_t delete_delay,
+		bool stats)
+{
+	if (ctx && stats)
 		ng_call_stats(ctx, c, NULL, NULL, NULL);
 
 	for (__auto_type i = c->monologues.head; i; i = i->next) {
@@ -6484,7 +6486,8 @@ static int call_delete_full(call_t *c, const str *callid, ng_command_ctx_t *ctx,
 __attribute__((nonnull(1, 2)))
 static int call_delete_monologue(call_t *c, const str *callid, struct call_monologue *ml,
 		const str *fromtag, const str *totag,
-		ng_command_ctx_t *ctx, int64_t delete_delay)
+		ng_command_ctx_t *ctx, int64_t delete_delay,
+		bool stats)
 {
 	c->destroyed = rtpe_now;
 
@@ -6503,9 +6506,9 @@ static int call_delete_monologue(call_t *c, const str *callid, struct call_monol
 	del_stop = call_monologues_associations_left(c);
 
 	if (!del_stop)
-		return call_delete_full(c, callid, ctx, delete_delay);
+		return call_delete_full(c, callid, ctx, delete_delay, stats);
 
-	if (ctx)
+	if (ctx && stats)
 		ng_call_stats(ctx, c, fromtag, totag, NULL);
 
 	rwlock_unlock_w(&c->master_lock);
@@ -6520,7 +6523,8 @@ static int call_delete_monologue(call_t *c, const str *callid, struct call_monol
 // call must be locked in W.
 // unlocks the call and releases the reference prior to returning, even on error.
 int call_delete_branch(call_t *c, const str *callid, const str *branch,
-	const str *fromtag, const str *totag, ng_command_ctx_t *ctx, int64_t delete_delay)
+	const str *fromtag, const str *totag, ng_command_ctx_t *ctx, int64_t delete_delay,
+	bool stats)
 {
 	struct call_monologue *ml;
 	const str *match_tag;
@@ -6537,26 +6541,26 @@ int call_delete_branch(call_t *c, const str *callid, const str *branch,
 	}
 
 	if (!fromtag || !fromtag->len)
-		return call_delete_full(c, callid, ctx, delete_delay);
+		return call_delete_full(c, callid, ctx, delete_delay, stats);
 
 	if ((!totag || !totag->len) && branch && branch->len) {
 		// try a via-branch match
 		ml = t_hash_table_lookup(c->viabranches, branch);
 		if (ml)
-			return call_delete_monologue(c, callid, ml, fromtag, totag, ctx, delete_delay);
+			return call_delete_monologue(c, callid, ml, fromtag, totag, ctx, delete_delay, stats);
 	}
 
 	match_tag = (totag && totag->len) ? totag : fromtag;
 
 	ml = call_get_monologue(c, match_tag);
 	if (ml)
-		return call_delete_monologue(c, callid, ml, fromtag, totag, ctx, delete_delay);
+		return call_delete_monologue(c, callid, ml, fromtag, totag, ctx, delete_delay, stats);
 
 	if (branch && branch->len) {
 		// also try a via-branch match here
 		ml = t_hash_table_lookup(c->viabranches, branch);
 		if (ml)
-			return call_delete_monologue(c, callid, ml, fromtag, totag, ctx, delete_delay);
+			return call_delete_monologue(c, callid, ml, fromtag, totag, ctx, delete_delay, stats);
 	}
 
 	/* IMPORTANT!
@@ -6574,7 +6578,7 @@ int call_delete_branch(call_t *c, const str *callid, const str *branch,
 		if (ml) {
 			struct call_monologue *sub_ml = ml_medias_subscribed_to_single_ml(ml);
 			if (sub_ml && !sub_ml->tag.len)
-				return call_delete_monologue(c, callid, ml, fromtag, totag, ctx, delete_delay);
+				return call_delete_monologue(c, callid, ml, fromtag, totag, ctx, delete_delay, stats);
 		}
 	}
 
@@ -6596,7 +6600,7 @@ int call_delete_branch_by_id(const str *callid, const str *branch,
 		ilog(LOG_INFO, "Call-ID to delete not found");
 		return -1;
 	}
-	return call_delete_branch(c, callid, branch, fromtag, totag, ctx, delete_delay);
+	return call_delete_branch(c, callid, branch, fromtag, totag, ctx, delete_delay, false);
 }
 
 struct call_media *call_make_transform_media(struct call_monologue *ml, const str *type, enum media_type type_id,
