@@ -754,7 +754,8 @@ const char *call_delete_ng(ng_command_ctx_t *ctx) {
 	if (call_delete_branch(c, &rtpp_flags.via_branch,
 				&rtpp_flags.from_tag,
 				(rtpp_flags.to_tag_flag ? &rtpp_flags.to_tag : NULL),
-				ctx, rtpp_flags.delete_delay))
+				ctx, rtpp_flags.delete_delay,
+				!rtpp_flags.fast))
 	{
 		goto err;
 	}

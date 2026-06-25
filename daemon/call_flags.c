@@ -750,6 +750,9 @@ const char *call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 		case CSH_LOOKUP("fatal"):
 			out->fatal = true;
 			break;
+		case CSH_LOOKUP("fast"):
+			out->fast = true;
+			break;
 		case CSH_LOOKUP("fragment"):
 			out->fragment = true;
 			break;
