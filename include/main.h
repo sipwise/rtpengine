@@ -212,7 +212,8 @@ enum endpoint_learning {
 	X(dtls_signature) \
 	X(use_audio_player) \
 	X(mqtt_publish_scope) \
-	X(mos)
+	X(mos) \
+	X(ssrc_reporting) \
 
 struct rtpengine_config {
 	rwlock_t		keyspaces_lock;
@@ -295,6 +296,12 @@ RTPE_CONFIG_CHARPP_PARAMS
 		MOS_CQ = 0,
 		MOS_LQ,
 	}			mos;
+	enum {
+		SRP_FULL = 0x0, // none disabled
+		SRP_INLINE = 0x1, // global (0x1) disabled - shall become the default in a future version
+		SRP_GLOBAL = 0x2, // inline (0x2) disabled
+		SRP_NONE = 0x3, // both disabled
+	}			ssrc_reporting;
 };
 
 
