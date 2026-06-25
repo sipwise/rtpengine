@@ -6448,6 +6448,11 @@ static void monologue_stop(struct call_monologue *ml, bool stop_media_subscriber
 }
 
 
+__attribute__((nonnull(1)))
+static int call_delete_by_id(call_t *c, const str *callid, ng_command_ctx_t *ctx, int64_t delete_delay,
+		bool stats);
+
+
 // call must be locked in W and will be unlocked upon returning
 __attribute__((nonnull(1)))
 static int call_do_delete_full(call_t *c, int64_t delete_delay) {
@@ -6478,6 +6483,10 @@ static int call_delete_full(call_t *c, const str *callid, ng_command_ctx_t *ctx,
 		ng_call_stats(ctx, c, NULL, NULL, NULL);
 
 	c->destroyed = rtpe_now;
+
+	// short-cut is possible only if there are no call ID aliases
+	if (c->callid_aliases.length != 0)
+		return call_delete_by_id(c, callid, ctx, delete_delay, stats);
 
 	for (__auto_type i = c->monologues.head; i; i = i->next) {
 		__auto_type ml = i->data;
@@ -6516,6 +6525,31 @@ static int call_delete_monologue(call_t *c, const str *callid, struct call_monol
 
 	if (ctx && stats)
 		ng_call_stats(ctx, c, fromtag, totag, NULL);
+
+	rwlock_unlock_w(&c->master_lock);
+
+	redis_update_onekey(c, rtpe_redis_write);
+	obj_release(c);
+
+	return 0;
+}
+
+
+// call must be locked in W and will be unlocked upon returning
+static int call_delete_by_id(call_t *c, const str *callid, ng_command_ctx_t *ctx, int64_t delete_delay,
+		bool stats)
+{
+	for (__auto_type i = c->monologues.head; i; i = i->next) {
+		__auto_type ml = i->data;
+		if (str_cmp_str(&ml->call_id, callid))
+			continue;
+
+		monologue_stop(ml, true);
+		monologue_delete_iter(ml, delete_delay);
+	}
+
+	if (!call_monologues_associations_left(c))
+		return call_do_delete_full(c, delete_delay);
 
 	rwlock_unlock_w(&c->master_lock);
 
