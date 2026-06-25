@@ -3133,6 +3133,9 @@ static void ng_stats_ssrc_1(const ng_parser_t *parser, parser_arg ent, struct ss
 static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, parser_arg list,
 		const struct ssrc_hash *ht)
 {
+	if (rtpe_config.ssrc_reporting == SRP_NONE)
+		return;
+
 	for (GList *l = ht->nq.head; l; l = l->next) {
 		struct ssrc_entry_call *se = l->data;
 		char tmp[12];
@@ -3142,7 +3145,8 @@ static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, parser_arg
 
 		parser->dict_add_int(ent, "SSRC", se->h.ssrc);
 
-		ng_stats_ssrc_1(parser, ent, se);
+		if ((rtpe_config.ssrc_reporting & 0x2) == 0)
+			ng_stats_ssrc_1(parser, ent, se);
 
 		if (dict.gen && !parser->dict_contains(dict, tmp)) {
 			ent = parser->dict_add_dict_dup(dict, tmp);
@@ -3181,7 +3185,9 @@ void ng_call_stats(ng_command_ctx_t *ctx, call_t *call, const str *fromtag, cons
 	if (call->metadata.s)
 		parser->dict_add_str(ctx->resp, "metadata", &call->metadata);
 
-	ssrc = parser->dict_add_dict(ctx->resp, "SSRC");
+	if ((rtpe_config.ssrc_reporting & 0x1) == 0)
+		ssrc = parser->dict_add_dict(ctx->resp, "SSRC");
+
 	tags = parser->dict_add_dict(ctx->resp, "tags");
 
 stats:
