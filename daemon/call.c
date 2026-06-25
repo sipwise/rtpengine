@@ -6450,19 +6450,7 @@ static void monologue_stop(struct call_monologue *ml, bool stop_media_subscriber
 
 // call must be locked in W and will be unlocked upon returning
 __attribute__((nonnull(1)))
-static int call_delete_full(call_t *c, const str *callid, ng_command_ctx_t *ctx, int64_t delete_delay,
-		bool stats)
-{
-	if (ctx && stats)
-		ng_call_stats(ctx, c, NULL, NULL, NULL);
-
-	for (__auto_type i = c->monologues.head; i; i = i->next) {
-		__auto_type ml = i->data;
-		monologue_stop(ml, false);
-	}
-
-	c->destroyed = rtpe_now;
-
+static int call_do_delete_full(call_t *c, int64_t delete_delay) {
 	if (delete_delay > 0) {
 		ilog(LOG_INFO, "Scheduling deletion of entire call in %" PRId64 " seconds", delete_delay / 1000000L);
 		c->deleted_us = rtpe_now + delete_delay;
@@ -6479,6 +6467,24 @@ static int call_delete_full(call_t *c, const str *callid, ng_command_ctx_t *ctx,
 	obj_release(c);
 
 	return 0;
+}
+
+// call must be locked in W and will be unlocked upon returning
+__attribute__((nonnull(1)))
+static int call_delete_full(call_t *c, const str *callid, ng_command_ctx_t *ctx, int64_t delete_delay,
+		bool stats)
+{
+	if (ctx && stats)
+		ng_call_stats(ctx, c, NULL, NULL, NULL);
+
+	c->destroyed = rtpe_now;
+
+	for (__auto_type i = c->monologues.head; i; i = i->next) {
+		__auto_type ml = i->data;
+		monologue_stop(ml, false);
+	}
+
+	return call_do_delete_full(c, delete_delay);
 }
 
 
