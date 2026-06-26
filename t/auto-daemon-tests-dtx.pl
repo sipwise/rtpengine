@@ -9,14 +9,13 @@ use Test::More;
 use POSIX;
 
 
+$ENV{RTPENGINE_EXTENDED_TESTS} or exit;
+
+
 autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
 			-n 2223 -f -L 7 -E --silence-detect=1 --dtx-delay=10
 			--max-dtx=10))
 		or die;
-
-
-my $amr_tests = $ENV{RTPENGINE_EXTENDED_TESTS};
-#my $amr_tests = 0;
 
 
 
@@ -24,11 +23,6 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 	$sock_ax, $sock_bx, $port_ax, $port_bx,
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev,
 	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq);
-
-
-
-
-if ($amr_tests) {
 
 
 
@@ -1702,7 +1696,6 @@ rcv($sock_b, $port_a, rtpm(96, $seq + 11, 9880, $ssrc, "\xf1\x58\x43\x02\x1c\x1c
 
 rtpe_req('delete', 'AMR w reverse DTMF', { 'from-tag' => ft() });
 
-}
 
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.10 5000)], [qw(198.51.100.10 5002)]);

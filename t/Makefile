@@ -131,7 +131,8 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-transcode-config daemon-tests-codec-prefs daemon-tests-http daemon-tests-heuristic \
 	daemon-tests-asymmetric daemon-tests-rtcp daemon-tests-redis-subscribe daemon-tests-rtp-ext \
 	daemon-tests-bundle daemon-tests-dtls \
-	daemon-tests-recording daemon-tests-create
+	daemon-tests-recording daemon-tests-create \
+	daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-dtx-no-shift
 
 daemon-test-deps:	tests-preload.so
 	$(MAKE) -C ../daemon
