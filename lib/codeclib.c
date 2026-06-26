@@ -3732,12 +3732,70 @@ static int cn_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	if (ptime <= 0)
 		ptime = 20; // ?
 	int samples = dec->in_format.clockrate * ptime / 1000;
-	dec->avc.avcctx->frame_size = samples;
-	int ret = avc_decoder_input(dec, data, out);
-	if (ret)
-		return ret;
-	if (!out->length)
-		return -1;
+	int max_size = dec->avc.avcctx->frame_size;
+
+	AVFrame *aframe = NULL;
+
+	do {
+		if (samples < max_size)
+			dec->avc.avcctx->frame_size = samples;
+		int ret = avc_decoder_input(dec, data, out);
+		dec->avc.avcctx->frame_size = max_size;
+
+		if (ret)
+			return ret;
+		if (!out->length)
+			return -1;
+
+		AVFrame *oframe = out->head->data;
+
+		// one-shot handling if fewer samples than the CNG's frame size are requested
+		if (!aframe && out->length == 1) {
+			if (oframe->nb_samples >= samples) {
+				oframe->nb_samples = samples;
+				return 0;
+			}
+		}
+
+		// consume frames and merge into single output frame
+
+		if (!aframe) {
+			aframe = av_frame_alloc();
+			aframe->nb_samples = samples;
+			assert(oframe->format == AV_SAMPLE_FMT_S16);
+			aframe->format = oframe->format;
+			assert(oframe->sample_rate == 8000);
+			aframe->sample_rate = oframe->sample_rate;
+			aframe->CH_LAYOUT = oframe->CH_LAYOUT; // should be mono
+			aframe->pts = oframe->pts;
+			aframe->pkt_dts = oframe->pkt_dts;
+			if (av_frame_get_buffer(aframe, 0) < 0)
+				abort();
+
+			aframe->nb_samples = 0; // to track progress
+		}
+
+		while (out->length) {
+			oframe = g_queue_pop_head(out);
+
+			if (oframe->nb_samples <= 0) // error
+				return -1; // XXX leaves frames in `out`
+
+			// use as much as we have and as much as we need
+			int rsamples = MIN(oframe->nb_samples, samples);
+
+			memcpy(aframe->extended_data[0] + aframe->nb_samples * 2,
+					oframe->extended_data[0], rsamples * 2);
+
+			aframe->nb_samples += rsamples;
+			samples -= rsamples; // drop to zero when finished
+
+			av_frame_free(&oframe);
+		};
+	} while (samples > 0);
+
+	g_queue_push_tail(out, aframe);
+
 	return 0;
 }
 
