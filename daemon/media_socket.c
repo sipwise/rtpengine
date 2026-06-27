@@ -1631,6 +1631,9 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 		// nothing to forward
 		s->non_forwarding = true;
 		s->blackhole = true;
+		reti->non_forwarding = 1;
+		reti->decrypt.cipher = REC_NULL;
+		reti->decrypt.hmac = REH_NULL;
 		return NULL;
 	}
 
