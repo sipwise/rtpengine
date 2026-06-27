@@ -23,7 +23,7 @@ our $port;
 BEGIN {
 	require Exporter;
 	@ISA = qw(Exporter);
-	our @EXPORT = qw(autotest_start new_call new_call_nc offer answer ft tt cid snd srtp_snd rtp rcv srtp_rcv rcv_no rcv_maybe
+	our @EXPORT = qw(autotest_start new_call new_call_nc offer answer ft tt cid snd snd_no srtp_snd rtp rcv srtp_rcv rcv_no rcv_maybe
 		srtp_dec escape rtpm rtpmre reverse_tags new_ft new_tt crlf sdp_split rtpe_req offer_answer
 		autotest_init subscribe_request subscribe_answer publish create create_answer
 		use_json rtpe_raw_req);
@@ -222,6 +222,10 @@ sub create_answer {
 sub snd {
 	my ($sock, $dest, $packet, $addr) = @_;
 	$sock->send($packet, 0, pack_sockaddr_in($dest, inet_aton($addr // '203.0.113.1'))) or die;
+}
+sub snd_no {
+	my ($sock, $dest, $packet, $addr) = @_;
+	ok(!$sock->send($packet, 0, pack_sockaddr_in($dest, inet_aton($addr // '203.0.113.1'))), "send to closed port fails");
 }
 sub srtp_snd {
 	my ($sock, $dest, $packet, $srtp_ctx, $addr) = @_;
