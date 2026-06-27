@@ -1637,7 +1637,7 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 
 	int ret = handler->in->kernel(&reti->decrypt, stream);
 	if (ret) {
-		ilog(LOG_NOTICE, "SRTP not yet negotiated");
+		ilog(LOG_NOTICE, "Decryption SRTP not yet negotiated");
 		return NULL;
 	}
 	if (!reti->decrypt.cipher || !reti->decrypt.hmac)
@@ -1870,7 +1870,14 @@ static const char *kernelize_one(kernelize_state *s,
 		}
 	}
 
-	handler->out->kernel(&redi->output.encrypt, sink);
+	int ret = handler->out->kernel(&redi->output.encrypt, sink);
+	if (ret) {
+		if (sink != stream)
+			mutex_unlock(&sink->lock);
+		g_free(credi);
+		ilog(LOG_NOTICE, "Encryption SRTP not yet negotiated");
+		return NULL;
+	}
 	sink_handler->rtpext->kernel(&redi->output, media, sink_media);
 
 	if (sink != stream)
