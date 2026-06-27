@@ -381,7 +381,7 @@ rtpe_req('unsubscribe', 'extended connect w "all" bidirectional', {
 		flags => [],
 });
 
-snd($sock_a, $port_b, rtp (0, 1011, 4760, 0x1234, "\x11" x 160));
+snd_no($sock_a, $port_b, rtp (0, 1011, 4760, 0x1234, "\x11" x 160));
 rcv_no($sock_a);
 rcv_no($sock_b);
 rcv_no($sock_c);
@@ -766,7 +766,7 @@ rtpe_req('unsubscribe', 'extended connect w from-tags bidirectional', {
 		flags => [],
 });
 
-snd($sock_a, $port_b, rtp (0, 1011, 4760, 0x1234, "\x11" x 160));
+snd_no($sock_a, $port_b, rtp (0, 1011, 4760, 0x1234, "\x11" x 160));
 rcv_no($sock_a);
 rcv_no($sock_b);
 rcv_no($sock_c);
@@ -1144,7 +1144,7 @@ rtpe_req('unsubscribe', 'extended connect w from-tags', {
 		flags => [],
 });
 
-snd($sock_a, $port_b, rtp (0, 1011, 4760, 0x1234, "\x11" x 160));
+snd_no($sock_a, $port_b, rtp (0, 1011, 4760, 0x1234, "\x11" x 160));
 rcv_no($sock_a);
 rcv_no($sock_b);
 rcv_no($sock_c);
@@ -1703,7 +1703,7 @@ rtpe_req('unsubscribe', 'extended connect bidirectional', {
 		flags => [],
 });
 
-snd($sock_a, $port_b, rtp (0, 1011, 4760, 0x1234, "\x11" x 160));
+snd_no($sock_a, $port_b, rtp (0, 1011, 4760, 0x1234, "\x11" x 160));
 rcv_no($sock_a);
 rcv_no($sock_b);
 rcv_no($sock_c);
@@ -2249,7 +2249,7 @@ rtpe_req('unsubscribe', 'extended connect', {
 		flags => [],
 });
 
-snd($sock_a, $port_b, rtp (0, 1011, 4760, 0x1234, "\x11" x 160));
+snd_no($sock_a, $port_b, rtp (0, 1011, 4760, 0x1234, "\x11" x 160));
 rcv_no($sock_a);
 rcv_no($sock_b);
 rcv_no($sock_c);
