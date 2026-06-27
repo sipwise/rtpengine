@@ -227,19 +227,8 @@ rcv_no($sock_b);
 rcv_no($sock_c);
 rcv_no($sock_d);
 
-
-snd($sock_c, $port_d, rtp (0, 5002, 7320, 0x1234, "\x33" x 160));
-rcv_no($sock_a);
-rcv_no($sock_b);
-rcv_no($sock_c);
-rcv_no($sock_d);
-
-snd($sock_d, $port_c, rtp (0, 7002, 9320, 0x1a04, "\x44" x 160));
-rcv_no($sock_a);
-rcv_no($sock_b);
-rcv_no($sock_c);
-rcv_no($sock_d);
-
+snd_no($sock_c, $port_d, rtp (0, 5002, 7320, 0x1234, "\x33" x 160));
+snd_no($sock_d, $port_c, rtp (0, 7002, 9320, 0x1a04, "\x44" x 160));
 
 
 
@@ -429,18 +418,8 @@ rcv_no($sock_d);
 
 rtpe_req('delete', 'delete alias rev', { 'call-id' => $cid1, 'delete-delay' => 0 });
 
-snd($sock_a, $port_b, rtp (0, 1002, 3320, 0x1234, "\x11" x 160));
-rcv_no($sock_a);
-rcv_no($sock_b);
-rcv_no($sock_c);
-rcv_no($sock_d);
-
-snd($sock_b, $port_a, rtp (0, 3002, 5320, 0x1a04, "\x22" x 160));
-rcv_no($sock_a);
-rcv_no($sock_b);
-rcv_no($sock_c);
-rcv_no($sock_d);
-
+snd_no($sock_a, $port_b, rtp (0, 1002, 3320, 0x1234, "\x11" x 160));
+snd_no($sock_b, $port_a, rtp (0, 3002, 5320, 0x1a04, "\x22" x 160));
 
 snd($sock_c, $port_d, rtp (0, 5002, 7320, 0x1234, "\x33" x 160));
 rcv($sock_d, $port_c, rtpm(0, 5002, 7320, 0x1234, "\x33" x 160));
