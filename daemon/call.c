@@ -910,7 +910,7 @@ static void __assign_stream_fds(struct call_media *media, sfd_intf_list_q *intf_
 		// use opaque pointer to detect changes
 		void *old_selected_sfd = ps->selected_sfd;
 
-		t_queue_clear(&ps->sfds);
+		t_queue_clear_full(&ps->sfds, stream_fd_dec);
 		bool sfd_found = false;
 		stream_fd *intf_sfd = NULL;
 
@@ -3511,10 +3511,12 @@ static void monologue_bundle_set_fds(struct call_monologue *ml) {
 			dtls_shutdown(ms);
 
 			// XXX close sockets that are not needed?
-			t_queue_clear(&ms->sfds);
+			t_queue_clear_full(&ms->sfds, stream_fd_dec);
 
-			for (__auto_type sl = bs->sfds.head; sl; sl = sl->next)
+			for (__auto_type sl = bs->sfds.head; sl; sl = sl->next) {
+				stream_fd_inc(sl->data);
 				t_queue_push_tail(&ms->sfds, sl->data);
+			}
 
 			ms->selected_sfd = bs->selected_sfd;
 
