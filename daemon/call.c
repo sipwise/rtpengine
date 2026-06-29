@@ -183,6 +183,12 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 
 		if (!ps->media)
 			goto next;
+
+		if (MEDIA_ISSET(ps->media, IGNORE_TIMEOUT)) {
+			ilog(LOG_DEBUG, "Ignoring timeout for subscribed media idx=%u", ps->media->index);
+			goto next;
+		}
+
 		sfd = ps->selected_sfd;
 		if (!sfd)
 			goto no_sfd;
@@ -371,7 +377,7 @@ retry:
 
 		xmlrpc_env_init(&e);
 		xmlrpc_client_setup_global_const(&e);
-		xmlrpc_client_create(&e, XMLRPC_CLIENT_NO_FLAGS, "ngcp-rtpengine", RTPENGINE_VERSION,
+		xmlrpc_client_create(&e, XMLRPC_CLIENT_NO_FLAGS, "rtpengine", RTPENGINE_VERSION,
 			NULL, 0, &c);
 		if (e.fault_occurred)
 			goto fault;
@@ -3467,6 +3473,9 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		else
 			MEDIA_CLEAR(dst_media, SEND);
 		MEDIA_CLEAR(dst_media, RECV);
+
+                if (flags->ignore_timeout)
+		        MEDIA_SET(dst_media, IGNORE_TIMEOUT);
 
 		__rtcp_mux_set(flags, dst_media);
 		__generate_crypto(flags, dst_media, src_media);

@@ -1085,6 +1085,9 @@ void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 		case CSH_LOOKUP("inactive"):
 			out->inactive = 1;
 			break;
+		case CSH_LOOKUP("ignore-timeout"):
+			out->ignore_timeout = 1;
+			break;
 		case CSH_LOOKUP("inject-DTMF"):
 		case CSH_LOOKUP("inject-dtmf"):
 			out->inject_dtmf = 1;
