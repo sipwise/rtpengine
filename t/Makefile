@@ -290,7 +290,7 @@ test-mix-buffer:	test-mix-buffer.o \
 	../daemon/ssrc.o \
 	../lib/bencode.o \
 	../lib/bufferpool.o \
-	../lib/codeclib.strhash.o \
+	../lib/codeclib.o \
 	../lib/dtmflib.o \
 	../lib/mix_buffer.o \
 	../lib/mix_in_x64_avx2.o \
@@ -315,8 +315,9 @@ spandsp_raw_fax_tests: spandsp_send_fax_pcm spandsp_recv_fax_pcm spandsp_send_fa
 
 test-amr-decode: test-amr-decode.o \
 	$(COMMONOBJS) \
+	../lib/amr.strhash.o \
 	../lib/bencode.o \
-	../lib/codeclib.strhash.o \
+	../lib/codeclib.o \
 	../lib/dtmflib.o \
 	../lib/mvr2s_x64_avx2.o \
 	../lib/mvr2s_x64_avx512.o \
@@ -325,8 +326,9 @@ test-amr-decode: test-amr-decode.o \
 
 test-amr-encode: test-amr-encode.o \
 	$(COMMONOBJS) \
+	../lib/amr.strhash.o \
 	../lib/bencode.o \
-	../lib/codeclib.strhash.o \
+	../lib/codeclib.o \
 	../lib/dtmflib.o \
 	../lib/mvr2s_x64_avx2.o \
 	../lib/mvr2s_x64_avx512.o \
@@ -386,7 +388,7 @@ test-stats:	test-stats.o \
 	../daemon/websocket.o \
 	../lib/bencode.o \
 	../lib/bufferpool.o \
-	../lib/codeclib.strhash.o \
+	../lib/codeclib.o \
 	../lib/dtmflib.o \
 	../lib/mix_buffer.o \
 	../lib/mix_in_x64_avx2.o \
@@ -443,17 +445,23 @@ test-transcode:	test-transcode.o \
 	../daemon/timerthread.o \
 	../daemon/udp_listener.o \
 	../daemon/websocket.o \
+	../lib/amr.strhash.o \
 	../lib/bencode.o \
 	../lib/bufferpool.o \
-	../lib/codeclib.strhash.o \
+	../lib/codeclib.o \
 	../lib/dtmflib.o \
+	../lib/g711.o \
+	../lib/g722.o \
+	../lib/gsm.o \
 	../lib/mix_buffer.o \
 	../lib/mix_in_x64_avx2.o \
 	../lib/mix_in_x64_avx512bw.o \
 	../lib/mix_in_x64_sse2.o \
 	../lib/mvr2s_x64_avx2.o \
 	../lib/mvr2s_x64_avx512.o \
+	../lib/opus.strhash.o \
 	../lib/poller.o \
+	../lib/pseudo.o \
 	../lib/resample.o \
 	../lib/socket.o \
 	../lib/streambuf.o \
@@ -463,7 +471,7 @@ test-transcode:	test-transcode.o \
 test-resample:	test-resample.o \
 	$(COMMONOBJS) \
 	../lib/bencode.o \
-	../lib/codeclib.strhash.o \
+	../lib/codeclib.o \
 	../lib/dtmflib.o \
 	../lib/mvr2s_x64_avx2.o \
 	../lib/mvr2s_x64_avx512.o \
@@ -478,7 +486,7 @@ test-payload-tracker: test-payload-tracker.o \
 	../daemon/ssrc.o \
 	../lib/bencode.o \
 	../lib/bufferpool.o \
-	../lib/codeclib.strhash.o \
+	../lib/codeclib.o \
 	../lib/dtmflib.o \
 	../lib/mvr2s_x64_avx2.o \
 	../lib/mvr2s_x64_avx512.o \

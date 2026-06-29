@@ -45,8 +45,9 @@ CFLAGS += $(CFLAGS_CODEC_CHAIN)
 LDLIBS += $(LDLIBS_CODEC_CHAIN)
 
 SRCS := main.c log.c
-LIBSRCS := codeclib.strhash.c loglib.c auxlib.c resample.c str.c dtmflib.c rtplib.c poller.c ssllib.c bufferpool.c \
+LIBSRCS := codeclib.c loglib.c auxlib.c resample.c str.c dtmflib.c rtplib.c poller.c ssllib.c bufferpool.c \
 	  bencode.c uring.c
+LIBSRCS += $(CODEC_SRCS)
 LIBASM := mvr2s_x64_avx2.S mvr2s_x64_avx512.S
 
 include ../lib/common.Makefile

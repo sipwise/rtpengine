@@ -11,7 +11,7 @@ ifeq ($(with_transcoding),yes)
 CFLAGS += $(CFLAGS_OPUS)
 endif
 
-SRCS := auxlib.c bencode.c bufferpool.c codeclib.strhash.c dtmflib.c
+SRCS := auxlib.c bencode.c bufferpool.c codeclib.c dtmflib.c
 SRCS += http.c loglib.c mix_buffer.c
 SRCS += netfilter_api.c oauth.c poller.c resample.c
 SRCS += rtplib.c s3utils.c socket.c
