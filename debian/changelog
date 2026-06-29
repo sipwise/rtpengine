@@ -1,3 +1,12 @@
+ngcp-rtpengine (11.5.1.53+0~mr11.5.1.53) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [1f2f257] MT#55283 fix bencode buffer alignment
+  * [24ff07b] MT#55283 fix silence detection typo/bug
+  * [9ab433d] MT#55283 fix ffmpeg CNG usage
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 29 Jun 2026 16:24:27 +0200
+
 ngcp-rtpengine (11.5.1.52+0~mr11.5.1.52) unstable; urgency=medium
 
   [ Orgad Shaneh ]
