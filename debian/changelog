@@ -1,3 +1,19 @@
+ngcp-rtpengine (26.1.1.3+0~mr26.1.1.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [4f80205] MT#65392 add "fast" flag for delete processing
+  * [5ab0f10] MT#55283 fix ffmpeg CNG usage
+  * [3119af2] MT#55283 more leniency for rejected streams
+  * [fc0d056] MT#65392 add ssrc-reporting config option
+  * [b326623] MT#55283 protect against NULL ssrc_in
+
+  [ Alexander Bakker ]
+  * [a72a2db] MT#55283 Set valid decrypt fields for non-forwarding kernel targets
+  * [1cd46dd] MT#55283 Defuse kernelize error for SRTP encryption not yet negotiated
+  * [6ae6d65] MT#55283 Unref ports after re-subscribe
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 29 Jun 2026 16:23:41 +0200
+
 ngcp-rtpengine (26.1.1.2+0~mr26.1.1.2) unstable; urgency=medium
 
   [ Donat Zenichev ]
