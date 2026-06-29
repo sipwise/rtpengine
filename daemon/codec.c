@@ -5026,6 +5026,9 @@ void codec_calc_jitter(struct ssrc_entry_call *ssrc, unsigned long ts, unsigned 
 		ssrc->jitter += d - ((ssrc->jitter + 8) >> 4);
 }
 static void codec_calc_lost(struct ssrc_entry_call *ssrc, uint16_t seq) {
+	if (!ssrc)
+		return;
+
 	LOCK(&ssrc->h.lock);
 
 	// XXX shared code from kernel module
