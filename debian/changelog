@@ -1,3 +1,11 @@
+ngcp-rtpengine (12.5.1.55+0~mr12.5.1.55) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [6c2e4c6] MT#55283 fix silence detection typo/bug
+  * [0a2c99a] MT#55283 fix ffmpeg CNG usage
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 29 Jun 2026 16:24:16 +0200
+
 ngcp-rtpengine (12.5.1.54+0~mr12.5.1.54) unstable; urgency=medium
 
   [ Richard Fuchs ]
