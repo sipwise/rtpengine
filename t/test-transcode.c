@@ -1182,7 +1182,7 @@ int main(void) {
 	transcode(GSM);
 	offer();
 	expect(A, "104/SILK/16000 9/G722/8000 0/PCMU/8000 8/PCMA/8000 101/telephone-event/8000 13/CN/8000 118/CN/16000");
-	expect(B, "9/G722/8000 8/PCMA/8000 3/GSM/8000 101/telephone-event/8000 13/CN/8000");
+	expect(B, "104/SILK/16000 9/G722/8000 8/PCMA/8000 3/GSM/8000 101/telephone-event/8000 13/CN/8000 118/CN/16000");
 	sdp_pt(8, PCMA, 8000);
 	sdp_pt(101, telephone-event, 8000);
 	answer();
@@ -1202,7 +1202,7 @@ int main(void) {
 	transcode(GSM);
 	offer();
 	expect(A, "104/SILK/16000 9/G722/8000 0/PCMU/8000 8/PCMA/8000 101/telephone-event/8000 13/CN/8000 118/CN/16000");
-	expect(B, "9/G722/8000 8/PCMA/8000 3/GSM/8000 101/telephone-event/8000 13/CN/8000");
+	expect(B, "104/SILK/16000 9/G722/8000 8/PCMA/8000 3/GSM/8000 101/telephone-event/8000 13/CN/8000 118/CN/16000");
 	sdp_pt(8, PCMA, 8000);
 	sdp_pt(3, GSM, 8000);
 	sdp_pt(101, telephone-event, 8000);
@@ -1228,7 +1228,7 @@ int main(void) {
 	c_consume(PCMU);
 	offer();
 	expect(A, "104/SILK/16000 9/G722/8000 0/PCMU/8000 8/PCMA/8000 101/telephone-event/8000 13/CN/8000 118/CN/16000");
-	expect(B, "9/G722/8000 8/PCMA/8000 101/telephone-event/8000 13/CN/8000");
+	expect(B, "104/SILK/16000 9/G722/8000 8/PCMA/8000 101/telephone-event/8000 13/CN/8000 118/CN/16000");
 	sdp_pt(8, PCMA, 8000);
 	sdp_pt(101, telephone-event, 8000);
 	answer();
@@ -1248,7 +1248,7 @@ int main(void) {
 	transcode(GSM);
 	offer();
 	expect(A, "104/SILK/16000 9/G722/8000 0/PCMU/8000 8/PCMA/8000 101/telephone-event/8000 13/CN/8000 118/CN/16000");
-	expect(B, "9/G722/8000 8/PCMA/8000 3/GSM/8000 101/telephone-event/8000 13/CN/8000");
+	expect(B, "104/SILK/16000 9/G722/8000 8/PCMA/8000 3/GSM/8000 101/telephone-event/8000 13/CN/8000 118/CN/16000");
 	sdp_pt(8, PCMA, 8000);
 	sdp_pt(101, telephone-event, 8000);
 	answer();
@@ -1268,7 +1268,7 @@ int main(void) {
 	transcode(GSM);
 	offer();
 	expect(A, "104/SILK/16000 9/G722/8000 0/PCMU/8000 8/PCMA/8000 101/telephone-event/8000 13/CN/8000 118/CN/16000");
-	expect(B, "9/G722/8000 8/PCMA/8000 3/GSM/8000 101/telephone-event/8000 13/CN/8000");
+	expect(B, "104/SILK/16000 9/G722/8000 8/PCMA/8000 3/GSM/8000 101/telephone-event/8000 13/CN/8000 118/CN/16000");
 	sdp_pt(8, PCMA, 8000);
 	sdp_pt(3, GSM, 8000);
 	sdp_pt(101, telephone-event, 8000);
@@ -1288,7 +1288,7 @@ int main(void) {
 	c_accept(PCMU);
 	offer();
 	expect(A, "104/SILK/16000 9/G722/8000 0/PCMU/8000 8/PCMA/8000 101/telephone-event/8000 13/CN/8000 118/CN/16000");
-	expect(B, "9/G722/8000 0/PCMU/8000 8/PCMA/8000 101/telephone-event/8000 13/CN/8000");
+	expect(B, "104/SILK/16000 9/G722/8000 0/PCMU/8000 8/PCMA/8000 101/telephone-event/8000 13/CN/8000 118/CN/16000");
 	sdp_pt(8, PCMA, 8000);
 	sdp_pt(101, telephone-event, 8000);
 	answer();
@@ -1308,7 +1308,7 @@ int main(void) {
 	transcode(GSM);
 	offer();
 	expect(A, "104/SILK/16000 9/G722/8000 0/PCMU/8000 8/PCMA/8000 101/telephone-event/8000 13/CN/8000 118/CN/16000");
-	expect(B, "9/G722/8000 0/PCMU/8000 8/PCMA/8000 3/GSM/8000 101/telephone-event/8000 13/CN/8000");
+	expect(B, "104/SILK/16000 9/G722/8000 0/PCMU/8000 8/PCMA/8000 3/GSM/8000 101/telephone-event/8000 13/CN/8000 118/CN/16000");
 	sdp_pt(8, PCMA, 8000);
 	sdp_pt(101, telephone-event, 8000);
 	answer();
@@ -1328,7 +1328,7 @@ int main(void) {
 	transcode(GSM);
 	offer();
 	expect(A, "104/SILK/16000 9/G722/8000 0/PCMU/8000 8/PCMA/8000 101/telephone-event/8000 13/CN/8000 118/CN/16000");
-	expect(B, "9/G722/8000 0/PCMU/8000 8/PCMA/8000 3/GSM/8000 101/telephone-event/8000 13/CN/8000");
+	expect(B, "104/SILK/16000 9/G722/8000 0/PCMU/8000 8/PCMA/8000 3/GSM/8000 101/telephone-event/8000 13/CN/8000 118/CN/16000");
 	sdp_pt(8, PCMA, 8000);
 	sdp_pt(3, GSM, 8000);
 	sdp_pt(101, telephone-event, 8000);
@@ -1348,7 +1348,7 @@ int main(void) {
 	c_accept(G722);
 	offer();
 	expect(A, "104/SILK/16000 9/G722/8000 0/PCMU/8000 8/PCMA/8000 101/telephone-event/8000 13/CN/8000 118/CN/16000");
-	expect(B, "9/G722/8000 0/PCMU/8000 8/PCMA/8000 101/telephone-event/8000 13/CN/8000");
+	expect(B, "104/SILK/16000 9/G722/8000 0/PCMU/8000 8/PCMA/8000 101/telephone-event/8000 13/CN/8000 118/CN/16000");
 	sdp_pt(8, PCMA, 8000);
 	sdp_pt(101, telephone-event, 8000);
 	answer();
@@ -1744,6 +1744,45 @@ int main(void) {
 	answer();
 	expect(A, "96/opus/48000/2");
 	expect(B, "8/PCMA/8000");
+	end();
+
+	start();
+	sdp_pt_s(96, dummy, 48000);
+	sdp_pt(8, PCMA, 8000);
+	transcode(PCMU);
+	offer();
+	expect(A, "96/dummy/48000/2 8/PCMA/8000");
+	expect(B, "96/dummy/48000/2 8/PCMA/8000 0/PCMU/8000");
+	sdp_pt(8, PCMA, 8000);
+	answer();
+	expect(A, "8/PCMA/8000");
+	expect(B, "8/PCMA/8000");
+	end();
+
+	start();
+	sdp_pt_s(96, dummy, 48000);
+	sdp_pt(8, PCMA, 8000);
+	transcode(PCMU);
+	offer();
+	expect(A, "96/dummy/48000/2 8/PCMA/8000");
+	expect(B, "96/dummy/48000/2 8/PCMA/8000 0/PCMU/8000");
+	sdp_pt(0, PCMU, 8000);
+	answer();
+	expect(A, "8/PCMA/8000");
+	expect(B, "0/PCMU/8000");
+	end();
+
+	start();
+	sdp_pt_s(96, dummy, 48000);
+	sdp_pt(8, PCMA, 8000);
+	transcode(PCMU);
+	offer();
+	expect(A, "96/dummy/48000/2 8/PCMA/8000");
+	expect(B, "96/dummy/48000/2 8/PCMA/8000 0/PCMU/8000");
+	sdp_pt_s(96, dummy, 48000);
+	answer();
+	expect(A, "96/dummy/48000/2");
+	expect(B, "96/dummy/48000/2");
 	end();
 
 	statistics_free();

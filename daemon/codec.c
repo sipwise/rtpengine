@@ -1874,22 +1874,6 @@ next:
 		if (a.reset_transcoding && ms)
 			ms->attrs.transcoding = true;
 
-		for (__auto_type l = source->codecs.codec_prefs.head; l; ) {
-			rtp_payload_type *pt = l->data;
-
-			if (codec_def_supported(pt->codec_def)) {
-				// supported
-				l = l->next;
-				continue;
-			}
-
-			ilogs(codec, LOG_DEBUG, "Stripping unsupported codec " STR_FORMAT
-					" due to active transcoding",
-					STR_FMT(&pt->encoding));
-			codec_touched(&source->codecs, pt);
-			l = __codec_store_delete_link(l, &source->codecs);
-		}
-
 		if (!use_audio_player || !pref_dest_codec) {
 			// we have to translate RTCP packets
 			source->rtcp_handler = rtcp_transcode_handler;

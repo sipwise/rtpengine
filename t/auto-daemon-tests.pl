@@ -12288,8 +12288,10 @@ v=0
 o=- 1545997027 1 IN IP4 172.17.0.2
 s=tester
 t=0 0
-m=audio PORT RTP/AVP 104 110 102 108 8 0 105 100
+m=audio PORT RTP/AVP 109 104 110 102 108 8 0 105 100
 c=IN IP4 203.0.113.1
+a=rtpmap:109 EVS/16000
+a=fmtp:109 br=5.9-24.4; bw=nb-swb; max-red=220; cmr=1; ch-aw-recv=3
 a=rtpmap:104 speex/16000
 a=fmtp:104 max-red=0; mode-change-capability=2
 a=rtpmap:110 speex/16000
