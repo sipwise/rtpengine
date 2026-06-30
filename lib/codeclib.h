@@ -392,6 +392,8 @@ extern void (*codeclib_thread_init)(void);
 extern void (*codeclib_thread_cleanup)(void);
 extern void (*codeclib_thread_loop)(void);
 
+void *dlsym_assert(void *handle, const char *sym, const char *fn);
+
 void codeclib_init(int);
 void codeclib_free(void);
 

@@ -290,6 +290,7 @@ test-mix-buffer:	test-mix-buffer.o \
 	../daemon/ssrc.o \
 	../lib/bencode.o \
 	../lib/bufferpool.o \
+	../lib/cchain.o \
 	../lib/codeclib.o \
 	../lib/dtmflib.o \
 	../lib/mix_buffer.o \
@@ -317,6 +318,7 @@ test-amr-decode: test-amr-decode.o \
 	$(COMMONOBJS) \
 	../lib/amr.strhash.o \
 	../lib/bencode.o \
+	../lib/cchain.o \
 	../lib/codeclib.o \
 	../lib/dtmflib.o \
 	../lib/mvr2s_x64_avx2.o \
@@ -328,6 +330,7 @@ test-amr-encode: test-amr-encode.o \
 	$(COMMONOBJS) \
 	../lib/amr.strhash.o \
 	../lib/bencode.o \
+	../lib/cchain.o \
 	../lib/codeclib.o \
 	../lib/dtmflib.o \
 	../lib/mvr2s_x64_avx2.o \
@@ -388,6 +391,7 @@ test-stats:	test-stats.o \
 	../daemon/websocket.o \
 	../lib/bencode.o \
 	../lib/bufferpool.o \
+	../lib/cchain.o \
 	../lib/codeclib.o \
 	../lib/dtmflib.o \
 	../lib/mix_buffer.o \
@@ -448,6 +452,7 @@ test-transcode:	test-transcode.o \
 	../lib/amr.strhash.o \
 	../lib/bencode.o \
 	../lib/bufferpool.o \
+	../lib/cchain.o \
 	../lib/codeclib.o \
 	../lib/dtmflib.o \
 	../lib/g711.o \
@@ -471,6 +476,7 @@ test-transcode:	test-transcode.o \
 test-resample:	test-resample.o \
 	$(COMMONOBJS) \
 	../lib/bencode.o \
+	../lib/cchain.o \
 	../lib/codeclib.o \
 	../lib/dtmflib.o \
 	../lib/mvr2s_x64_avx2.o \
@@ -486,6 +492,7 @@ test-payload-tracker: test-payload-tracker.o \
 	../daemon/ssrc.o \
 	../lib/bencode.o \
 	../lib/bufferpool.o \
+	../lib/cchain.o \
 	../lib/codeclib.o \
 	../lib/dtmflib.o \
 	../lib/mvr2s_x64_avx2.o \

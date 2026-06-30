@@ -27,8 +27,6 @@ int codeclib_set_av_opt_int(encoder_t *enc, const char *opt, int64_t val);
 void codeclib_key_value_parse(const str *instr, bool need_value,
 		void (*cb)(str *key, str *value, void *data), void *data);
 
-void *dlsym_assert(void *handle, const char *sym, const char *fn);
-
 
 void codeclib_register_codec(const codec_def_t *);
 

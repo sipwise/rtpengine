@@ -92,7 +92,7 @@ endif
 LIBSRCS := loglib.c auxlib.c rtplib.c str.c socket.c streambuf.c ssllib.c dtmflib.c mix_buffer.c poller.c \
 		bufferpool.c bencode.c netfilter_api.c
 ifeq ($(with_transcoding),yes)
-LIBSRCS += codeclib.c resample.c
+LIBSRCS += codeclib.c resample.c cchain.c
 LIBSRCS += $(CODEC_SRCS)
 LIBASM := mvr2s_x64_avx2.S mvr2s_x64_avx512.S mix_in_x64_avx2.S mix_in_x64_avx512bw.S mix_in_x64_sse2.S
 endif

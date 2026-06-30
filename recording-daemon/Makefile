@@ -42,7 +42,7 @@ SRCS := epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c packet.c
 		decoder.c output.c mix.c db.c log.c forward.c tag.c custom_poller.c notify.c tls_send.c s3.c \
 		gcs.c
 LIBSRCS := loglib.c auxlib.c rtplib.c codeclib.c resample.c str.c socket.c streambuf.c ssllib.c \
-		dtmflib.c bufferpool.c bencode.c http.c s3utils.c oauth.c
+		dtmflib.c bufferpool.c bencode.c http.c s3utils.c oauth.c cchain.c
 LIBSRCS += $(CODEC_SRCS)
 LIBASM := mvr2s_x64_avx2.S mvr2s_x64_avx512.S mix_in_x64_avx2.S mix_in_x64_avx512bw.S mix_in_x64_sse2.S
 
