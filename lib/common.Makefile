@@ -41,7 +41,7 @@ $(OBJS):	Makefile ../include/* ../lib/*.h ../kernel-module/*.h
 			-M "date:$(BUILD_DATE)" \
 			-o "$@"
 
-resample.c codeclib.c mix.c packet.c:	../lib/fix_frame_channel_layout.compat
+resample.c codeclib.c mix.c packet.c g729.c opus.c evs.c pseudo.c:	../lib/fix_frame_channel_layout.compat
 
 ifeq ($(with_transcoding),yes)
 ../daemon/codec.c codec.c:	../lib/dtmf_rx_fillin.compat

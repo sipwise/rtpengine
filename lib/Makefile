@@ -21,4 +21,4 @@ ASM := mix_in_x64_avx2.S mix_in_x64_avx512bw.S mix_in_x64_sse2.S mvr2s_x64_avx2.
 
 include common.Makefile
 
-all: $(ALLOBJS)
+all: $(OBJS)
