@@ -371,7 +371,7 @@ static bool __send_timer_send_1(struct rtp_header *rh, struct packet_stream *sin
 	req->buf = bufferpool_ref(cp->s.s);
 	uring_methods.sendmsg(&sink_fd->socket, &req->msg, &sink->endpoint, &req->sin, &req->req);
 
-	if (sink->call->recording && rtpe_config.rec_egress) {
+	if (sink->call->recording && (rtpe_config.rec_egress || rtpe_config.rec_both)) {
 		// fill in required members
 		struct media_packet mp = {
 			.call = sink->call,
@@ -379,6 +379,7 @@ static bool __send_timer_send_1(struct rtp_header *rh, struct packet_stream *sin
 			.media = sink->media,
 			.sfd = sink_fd,
 			.fsin = sink->endpoint,
+			.recording_egress = true,
 		};
 		dump_packet(&mp, cp->plain.s ? &cp->plain : &cp->s);
 	}

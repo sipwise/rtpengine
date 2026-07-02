@@ -752,7 +752,7 @@ static void rec_pcap_recording_finish_file(struct recording *recording) {
 // "out" must be at least inp->len + MAX_PACKET_HEADER_LEN bytes
 static unsigned int fake_ip_header(unsigned char *out, struct media_packet *mp, const str *inp) {
 	endpoint_t *src_endpoint, *dst_endpoint;
-        if (!rtpe_config.rec_egress) {
+        if (!mp->recording_egress) {
                 src_endpoint = &mp->fsin;
                 dst_endpoint = &mp->sfd->socket.local;
         }

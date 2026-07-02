@@ -125,6 +125,7 @@ enum endpoint_learning {
 	X(no_redis_required) \
 	X(active_switchover) \
 	X(rec_egress) \
+	X(rec_both) \
 	X(xtables) \
 	X(nftables_append) \
 	X(log_keys) \

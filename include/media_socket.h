@@ -308,6 +308,7 @@ struct media_packet {
 	struct call_media *media_out; // output media
 	struct sink_handler sink;
 	struct media_player_cache_entry *cache_entry;
+	bool recording_egress;
 
 	struct rtp_header *rtp;
 	struct rtcp_packet *rtcp;
