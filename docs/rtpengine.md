@@ -877,6 +877,27 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     possible to include manipulated and generated media (such as from the __play
     media__ command) in the recordings.
 
+- __\-\-record-both__
+
+    Apply media recording to **both** ingress (received) and egress (sent) media
+    streams simultaneously.
+
+    By default, without either __\-\-record-egress__ or __\-\-record-both__, only
+    ingress media (packets as they arrive at __rtpengine__) is recorded. When
+    __\-\-record-egress__ is used alone, only egress media (packets as they leave
+    __rtpengine__) is recorded instead.
+
+    With __\-\-record-both__, neither direction is excluded: every packet is
+    recorded twice — once on ingress and once on egress — so that the recording
+    captures the full picture.
+
+    This option implies the behaviour of __\-\-record-egress__ in addition to the
+    default ingress recording.  It takes effect wherever a recording is active
+    (i.e. the `record-call` flag has been set on the call).
+
+    __\-\-record-both__ supersedes __\-\-record-egress__: if both flags are
+    supplied, the behaviour is identical to __\-\-record-both__ alone.
+
 - __\-\-iptables-chain=__*STRING*
 
     This option enables explicit management of an iptables chain.

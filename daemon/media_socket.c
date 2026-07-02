@@ -3084,7 +3084,7 @@ int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, s
 	LOCK(&out->lock);
 
 	IQUEUE_FOREACH(&mp->packets_out, p) {
-		if (mp->call->recording && rtpe_config.rec_egress && CALL_ISSET(mp->call, RECORDING_ON)) {
+		if (mp->call->recording && (rtpe_config.rec_egress || rtpe_config.rec_both) && CALL_ISSET(mp->call, RECORDING_ON)) {
 			p->plain = STR_LEN(bufferpool_alloc(media_bufferpool, p->s.len), p->s.len);
 			memcpy(p->plain.s, p->s.s, p->s.len);
 			p->plain_free_func = bufferpool_unref;
@@ -3557,7 +3557,8 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	}
 
 	// If recording pcap dumper is set, then we record the call.
-	if (phc->mp.call->recording && !rtpe_config.rec_egress)
+	phc->mp.recording_egress = false;
+	if (phc->mp.call->recording && (!rtpe_config.rec_egress || rtpe_config.rec_both))
 		dump_packet(&phc->mp, &phc->s);
 
 	phc->mp.raw = phc->s;
