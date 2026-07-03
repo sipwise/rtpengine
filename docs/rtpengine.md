@@ -977,6 +977,16 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     (but different address) is seen, that address is used. Otherwise, the source
     address of any incoming packet seen is used.
 
+- __\-\-endpoint-learning-heuristic-disable-early-return__
+
+    When __endpoint-learning=heuristic__ is in use, an incoming RTP packet whose
+    source address and port exactly match the address advertised in the SDP causes
+    immediate endpoint confirmation, without waiting for the usual 3-second learning
+    period. Enable this option to disable that early return and restore the previous
+    behaviour of waiting out the full learning period before confirming, even when
+    an SDP-matching packet is seen. Has no effect unless __heuristic__ endpoint
+    learning is active. Disabled by default.
+
 - __\-\-jitter-buffer=__*INT*
 
     Size of (incoming) jitter buffer in packets. A value of zero (the default)

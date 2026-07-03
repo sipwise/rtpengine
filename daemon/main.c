@@ -882,6 +882,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "mysql-pass",	0,   0,	G_OPTION_ARG_STRING,	&rtpe_config.mysql_pass,"MySQL connection credentials",		"PASSWORD"	},
 		{ "mysql-query",0,   0,	G_OPTION_ARG_STRING,	&rtpe_config.mysql_query,"MySQL select query",			"STRING"	},
 		{ "endpoint-learning",0,0,G_OPTION_ARG_STRING,	&endpoint_learning,	"RTP endpoint learning algorithm",	"delayed|immediate|off|heuristic"	},
+		{ "endpoint-learning-heuristic-disable-early-return",0,0,G_OPTION_ARG_NONE,	&rtpe_config.el_heuristic_disable_early_return, "Disable early return on heuristic endpoint-learning when there is a match that equals SDP address", NULL },
 		{ "jitter-buffer",0, 0,	G_OPTION_ARG_INT,	&rtpe_config.jb_length,	"Size of jitter buffer",		"INT" },
 		{ "jb-clock-drift",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.jb_clock_drift,"Compensate for source clock drift",NULL },
 		{ "jb-adaptive",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.jb_adaptive,"Enable adaptive jitter buffer sizing",NULL },
