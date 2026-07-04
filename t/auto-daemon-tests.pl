@@ -13067,8 +13067,6 @@ a=rtcp:PORT
 m=audio 0 RTP/AVP 0
 c=IN IP4 0.0.0.0
 SDP
-# ^ technically fishy - rejected stream should not do offer/answer and should just
-# pass through 0 instead
 
 
 
