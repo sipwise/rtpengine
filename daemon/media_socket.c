@@ -3151,8 +3151,6 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 		}
 	}
 
-	PS_SET(phc->mp.stream, RECEIVED);
-
 	endpoint_t *update_endpoint = &phc->mp.stream->endpoint;
 	// don't update the "to" address endpoint for asymmetric streams
 	if (MEDIA_ISSET(phc->mp.media, ASYMMETRIC))
@@ -3513,6 +3511,8 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 	if (media_packet_address_check(phc))
 		goto drop;
+
+	PS_SET(phc->mp.stream, RECEIVED);
 
 	if (rtpe_config.active_switchover && IS_FOREIGN_CALL(phc->mp.call))
 		call_make_own_foreign(phc->mp.call, false);
