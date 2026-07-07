@@ -1968,6 +1968,7 @@ no_kernel_warn:
 			"(interface to kernel module not open)");
 no_kernel:
 	stream->kernel_time_us = rtpe_now;
+	PS_SET(stream, KERNELIZED);
 	PS_SET(stream, NO_KERNEL_SUPPORT);
 	return;
 
