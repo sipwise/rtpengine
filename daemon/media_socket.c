@@ -2037,6 +2037,8 @@ static void kernelize(struct packet_stream *stream) {
 
 no_kernel:
 	stream->kernel_time_us = rtpe_now;
+	if (stream->selected_sfd)
+		stream->selected_sfd->kernelized = true;
 	PS_SET(stream, NO_KERNEL_SUPPORT);
 	return;
 
