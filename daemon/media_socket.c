@@ -1908,8 +1908,10 @@ static void kernelize(struct packet_stream *stream) {
 		goto no_kernel;
 
 	const char *err = kernelize_target(&s, stream);
-	if (err)
+	if (err) {
 		ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
+		goto no_kernel;
+	}
 
 	// primary RTP sinks
 	for (__auto_type l = stream->rtp_sinks.head; l; l = l->next) {
