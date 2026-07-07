@@ -1641,7 +1641,7 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 	int ret = handler->in->kernel(&reti->decrypt, stream);
 	if (ret) {
 		ilog(LOG_NOTICE, "Decryption SRTP not yet negotiated");
-		return NULL;
+		return "";
 	}
 	if (!reti->decrypt.cipher || !reti->decrypt.hmac)
 		return "decryption cipher or HMAC not supported by kernel module";
@@ -1966,7 +1966,8 @@ static void kernelize(struct packet_stream *stream) {
 
 	const char *err = kernelize_target(&s, stream);
 	if (err) {
-		ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
+		if (*err)
+			ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
 		goto no_kernel;
 	}
 
