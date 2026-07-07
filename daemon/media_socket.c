@@ -3489,7 +3489,10 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	if (stun_ret == 0) // packet processed
 		goto out;
 	if (stun_ret == 1) {
-		media_packet_kernel_check(phc);
+		phc->kernelize = true;
+		phc->unkernelize_subscriptions = true;
+		phc->unkernelize = "ICE negotiation event";
+		phc->update = true;
 		goto drop;
 	}
 
@@ -3746,18 +3749,16 @@ next:
 		ssrc_entry_release(phc->mp.ssrc_out);
 	}
 
-	///////////////// INGRESS POST-PROCESSING HANDLING
-
-	if (phc->unkernelize) // for RTCP packet index updates
-		unkernelize(phc->mp.stream, phc->unkernelize);
-	if (phc->kernelize)
-		media_packet_kernel_check(phc);
-
 drop:
 	ret = 0;
 	handler_ret = 0;
 
 out:
+	if (phc->unkernelize)
+		unkernelize(phc->mp.stream, phc->unkernelize);
+	if (phc->kernelize)
+		media_packet_kernel_check(phc);
+
 	if (phc->unconfirm) {
 		stream_unconfirm(phc->mp.stream, "peer address unconfirmed");
 		unconfirm_sinks(&phc->mp.stream->rtp_sinks, "peer address unconfirmed");
