@@ -1966,8 +1966,10 @@ static void kernelize(struct packet_stream *stream) {
 		goto no_kernel;
 
 	const char *err = kernelize_target(&s, stream);
-	if (err)
+	if (err) {
 		ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
+		goto no_kernel;
+	}
 
 	__auto_type reti = &s.reti.target;
 
