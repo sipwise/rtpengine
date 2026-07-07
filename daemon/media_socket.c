@@ -2004,13 +2004,15 @@ struct ssrc_entry_call *__hunt_ssrc_ctx(uint32_t ssrc, struct ssrc_entry_call *l
 
 /* must be called with ps->lock held or call->master_lock held in W */
 void __unkernelize(struct packet_stream *p, const char *reason) {
+	bool no_supp = PS_CLEAR(p, NO_KERNEL_SUPPORT);
+
 	if (!p->selected_sfd)
 		return;
 
 	if (!PS_ISSET(p, KERNELIZED))
 		return;
 
-	if (kernel.is_open && !PS_ISSET(p, NO_KERNEL_SUPPORT)) {
+	if (kernel.is_open && !no_supp) {
 		ilog(LOG_INFO, "Removing media stream from kernel: local %s (%s)",
 				endpoint_print_buf(&p->selected_sfd->socket.local),
 				reason);
@@ -2020,7 +2022,6 @@ void __unkernelize(struct packet_stream *p, const char *reason) {
 	}
 
 	PS_CLEAR(p, KERNELIZED);
-	PS_CLEAR(p, NO_KERNEL_SUPPORT);
 }
 
 
