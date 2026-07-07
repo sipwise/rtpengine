@@ -232,6 +232,10 @@ static bool log_errors = 0;
 module_param(log_errors, bool, 0644);
 MODULE_PARM_DESC(log_errors, "generate kernel log lines from forwarding errors");
 
+static bool api_debug;
+module_param(api_debug, bool, 0644);
+MODULE_PARM_DESC(api_debug, "log verbose errors for incorrect API usage (EINVAL errors)");
+
 
 
 #define log_err(fmt, ...) do { if (log_errors) printk(KERN_NOTICE "rtpengine[%s:%i]: " fmt, \
@@ -2625,6 +2629,14 @@ err:
 	return err;
 }
 
+
+#define ret_einval(msg, fmt...) do { \
+	if (api_debug) \
+		printk(KERN_WARNING msg "\n", ##fmt); \
+	return -EINVAL; \
+} while (0)
+
+
 static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_info *i) {
 	unsigned char hi, lo;
 	unsigned int rda_hash, rh_it;
@@ -2646,35 +2658,43 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	if (!t->rtpe_stats)
 		return -EIO;
 	if (!is_valid_address(&i->local))
-		return -EINVAL;
+		ret_einval("invalid local address");
 	if (i->num_destinations > RTPE_MAX_FORWARD_DESTINATIONS)
-		return -EINVAL;
+		ret_einval("too many destinations (%u)", i->num_destinations);
 	if (i->num_payload_types > RTPE_NUM_PAYLOAD_TYPES)
-		return -EINVAL;
+		ret_einval("too many payload types (%u)", i->num_payload_types);
 	if (!i->non_forwarding) {
 		if (!i->num_destinations)
-			return -EINVAL;
+			ret_einval("forwarding target but zero destinations");
 		for (u = 0; u < RTPE_NUM_OUTPUT_MEDIA; u++) {
 			if (i->media_output_idxs[u].rtp_start_idx >= i->num_destinations)
-				return -EINVAL;
+				ret_einval("invalid RTP start index for output [%u] (%u >= %u)",
+						u, i->media_output_idxs[u].rtp_start_idx, i->num_destinations);
 			if (i->media_output_idxs[u].rtp_end_idx > i->num_destinations)
-				return -EINVAL;
+				ret_einval("invalid RTP end index for output [%u] (%u > %u)",
+						u, i->media_output_idxs[u].rtp_end_idx, i->num_destinations);
 			if (i->media_output_idxs[u].rtp_end_idx < i->media_output_idxs[u].rtp_start_idx)
-				return -EINVAL;
+				ret_einval("invalid RTP end index for output [%u] (%u < %u)",
+						u, i->media_output_idxs[u].rtp_end_idx,
+						i->media_output_idxs[u].rtp_start_idx);
 			if (i->media_output_idxs[u].rtcp_start_idx >= i->num_destinations)
-				return -EINVAL;
+				ret_einval("invalid RTCP start index for output [%u] (%u >= %u)",
+						u, i->media_output_idxs[u].rtcp_start_idx, i->num_destinations);
 			if (i->media_output_idxs[u].rtcp_end_idx > i->num_destinations)
-				return -EINVAL;
+				ret_einval("invalid RTCP end index for output [%u] (%u > %u)",
+						u, i->media_output_idxs[u].rtcp_end_idx, i->num_destinations);
 			if (i->media_output_idxs[u].rtcp_end_idx < i->media_output_idxs[u].rtcp_start_idx)
-				return -EINVAL;
+				ret_einval("invalid RTCP end index for output [%u] (%u < %u)",
+						u, i->media_output_idxs[u].rtcp_end_idx,
+						i->media_output_idxs[u].rtcp_start_idx);
 		}
 	}
 	else {
 		if (i->num_destinations)
-			return -EINVAL;
+			ret_einval("non forwarding target but %u destinations", i->num_destinations);
 	}
 	if (validate_srtp(&i->decrypt))
-		return -EINVAL;
+		ret_einval("decrypt info not valid");
 
 	iface_stats = shm_map_resolve(t, i->iface_stats, sizeof(*iface_stats));
 	if (!iface_stats)
@@ -2687,7 +2707,7 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 		if (!pt_stats[u])
 			return -EFAULT;
 		if (i->pt_media_idx[u] > RTPE_NUM_OUTPUT_MEDIA)
-			return -EINVAL;
+			ret_einval("PT index [%u] not valid (%u)", u, i->pt_media_idx[u]);
 	}
 	for (u = 0; u < RTPE_NUM_SSRC_TRACKING; u++) {
 		if (!i->ssrc[u])
@@ -2852,13 +2872,14 @@ static int table_add_destination(struct rtpengine_table *t, struct rtpengine_des
 	// validate input
 
 	if (!is_valid_address(&i->output.src_addr))
-		return -EINVAL;
+		ret_einval("invalid source address");
 	if (!is_valid_address(&i->output.dst_addr))
-		return -EINVAL;
+		ret_einval("invalid destination address");
 	if (i->output.src_addr.family != i->output.dst_addr.family)
-		return -EINVAL;
+		ret_einval("address family mismatch (%u <> %u)", i->output.src_addr.family,
+				i->output.dst_addr.family);
 	if (validate_srtp(&i->output.encrypt))
-		return -EINVAL;
+		ret_einval("encrypt info not valid");
 
 	iface_stats = shm_map_resolve(t, i->output.iface_stats, sizeof(*iface_stats));
 	if (!iface_stats)
