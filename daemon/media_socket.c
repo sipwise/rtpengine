@@ -2078,12 +2078,14 @@ struct ssrc_entry_call *__hunt_ssrc_ctx(uint32_t ssrc, struct ssrc_entry_call *l
 void __unkernelize(struct packet_stream *p, const char *reason) {
 	stream_fd *sfd = p->selected_sfd;
 
+	bool no_supp = PS_CLEAR(p, NO_KERNEL_SUPPORT);
+
 	if (!sfd)
 		return;
 	if (!sfd->kernelized)
 		return;
 
-	if (kernel.is_open && !PS_ISSET(p, NO_KERNEL_SUPPORT)) {
+	if (kernel.is_open && !no_supp) {
 		ilog(LOG_INFO, "Removing media stream from kernel: local %s (%s)",
 				endpoint_print_buf(&sfd->socket.local),
 				reason);
@@ -2093,7 +2095,6 @@ void __unkernelize(struct packet_stream *p, const char *reason) {
 	}
 
 	sfd->kernelized = false;
-	PS_CLEAR(p, NO_KERNEL_SUPPORT);
 }
 
 
