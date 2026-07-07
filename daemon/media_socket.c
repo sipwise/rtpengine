@@ -1952,8 +1952,11 @@ static void kernelize(struct packet_stream *stream) {
 		goto no_kernel;
 	if (!kernel.is_wanted)
 		goto no_kernel;
-	if (!kernel.is_open)
-		goto no_kernel_warn;
+	if (!kernel.is_open) {
+		ilog(LOG_WARNING, "No support for kernel packet forwarding available "
+				"(interface to kernel module not open)");
+		goto no_kernel;
+	}
 	if (MEDIA_ISSET(media, GENERATOR))
 		goto no_kernel;
 	if (ML_ISSET(media->monologue, BLOCK_MEDIA) || CALL_ISSET(call, BLOCK_MEDIA))
@@ -2029,9 +2032,6 @@ static void kernelize(struct packet_stream *stream) {
 
 	return;
 
-no_kernel_warn:
-	ilog(LOG_WARNING, "No support for kernel packet forwarding available "
-			"(interface to kernel module not open)");
 no_kernel:
 	stream->kernel_time_us = rtpe_now;
 	PS_SET(stream, NO_KERNEL_SUPPORT);
