@@ -294,10 +294,12 @@ static struct ice_candidate_pair *__pair_candidate(stream_fd *sfd, struct ice_ag
 	t_hash_table_insert(ag->pair_hash, pair, pair);
 	rtpe_g_tree_insert_coll(ag->all_pairs, pair, pair, __tree_coll_callback);
 
-	ilogs(ice, LOG_DEBUG, "Created candidate pair "PAIR_FORMAT" between %s and %s%s%s, type %s", PAIR_FMT(pair),
+	ilogs(ice, LOG_DEBUG, "Created candidate pair " PAIR_FORMAT
+				" between %s and %s%s%s, type %s prio %lu/%" PRIu64, PAIR_FMT(pair),
 			sockaddr_print_buf(&sfd->socket.local.address),
 			FMT_M(endpoint_print_buf(&cand->endpoint)),
-			ice_candidate_type_str(cand->type));
+			ice_candidate_type_str(cand->type),
+			cand->priority, pair->pair_priority);
 
 	return pair;
 }
@@ -1269,9 +1271,10 @@ int ice_request(stream_fd *sfd, const endpoint_t *src,
 	struct ice_candidate_pair *pair;
 	int ret;
 
-	ilogs(ice, LOG_DEBUG, "Received ICE/STUN request from %s on %s",
-			endpoint_print_buf(src),
-			endpoint_print_buf(&sfd->socket.local));
+	ilogs(ice, LOG_DEBUG, "Received ICE/STUN request from %s%s%s on %s (prio %" PRIu32 ")",
+			FMT_M(endpoint_print_buf(src)),
+			endpoint_print_buf(&sfd->socket.local),
+			attrs->priority);
 
 	ag = media->ice_agent;
 	if (!ag)
