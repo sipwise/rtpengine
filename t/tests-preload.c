@@ -478,9 +478,20 @@ int close(int fd) {
 		goto do_close;
 
 	s->open = 0;
-	s->connected = 0;
-	if (s->used_domain == AF_UNIX && s->wanted_domain != AF_UNIX && s->unix_path[0])
-		unlink(s->unix_path);
+
+	if (!s->mock) {
+		s->connected = 0;
+		if (s->used_domain == AF_UNIX && s->wanted_domain != AF_UNIX && s->unix_path[0])
+			unlink(s->unix_path);
+		goto do_close;
+	}
+
+	s->mock = 0;
+
+	int msg = MOCK_CLOSE;
+	ssize_t r = real_send(fd, &msg, sizeof(msg), 0);
+	assert(r == sizeof(msg));
+
 	goto do_close;
 
 do_close_warn:
@@ -959,11 +970,20 @@ found:
 	int fd = real_socket(AF_UNIX, SOCK_DGRAM, 0);
 	if (fd == -1)
 		return -1;
+
+	// bind as abstract socket
+	sa_family_t fam = AF_UNIX;
+	int ret = real_bind(fd, (struct sockaddr *) &fam, sizeof(fam));
+	if (ret) {
+		close(fd);
+		return -1;
+	}
+
 	struct sockaddr_un sun = { .sun_family = AF_UNIX };
 	assert(strlen(mock_peer) < sizeof(sun.sun_path));
 	strcpy(sun.sun_path, mock_peer);
 
-	int ret = real_connect(fd, (struct sockaddr *) &sun, sizeof(sun));
+	ret = real_connect(fd, (struct sockaddr *) &sun, sizeof(sun));
 	if (ret) {
 		close(fd);
 		return -1;
@@ -1018,6 +1038,35 @@ ssize_t write(int fd, const void *buf, size_t len) {
 	socket_t *s = &real_sockets[fd];
 	if (!s->open || !s->mock)
 		goto do_write;
+
+	int msg = MOCK_WRITE;
+	struct iovec iov[2] = {
+		{
+			.iov_base = &msg,
+			.iov_len = sizeof(msg),
+		},
+		{
+			.iov_base = (void *) buf,
+			.iov_len = len,
+		},
+	};
+	struct msghdr m = {
+		.msg_iov = iov,
+		.msg_iovlen = 2,
+	};
+	ssize_t ret = real_sendmsg(fd, &m, 0);
+	if (ret <= 0)
+		return ret;
+
+	struct {
+		int msg;
+		int code;
+	} n;
+	ret = real_recvfrom(fd, &n, sizeof(n), 0, NULL, NULL);
+	assert(ret == sizeof(n));
+	assert(n.msg == MOCK_WRITE);
+
+	return len;
 
 do_write:
 	return real_write(fd, buf, len);
