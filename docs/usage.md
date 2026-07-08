@@ -24,8 +24,7 @@ For these reasons, *rtpengine* provides a kernel module to offload the bulk of t
 duties from user space to kernel space. Using this technique, a large percentage of the overhead can be
 eliminated, CPU usage greatly reduced and the number of concurrent calls possible to be handled increased.
 
-In-kernel packet forwarding is implemented as an *nftables* module
-(or more precisely, an *x\_tables* module). As such, it requires two parts
+In-kernel packet forwarding is implemented as an *nftables* module. As such, it requires two parts
 for proper operation. One part is the actual kernel module called
 `nft_rtpengine`. The second part is a rule in the local *nftables* chains that
 gets hit by UDP packets so that they can be processed by the kernel module.
@@ -38,7 +37,7 @@ In short, the prerequisites for in-kernel packet forwarding are:
    auto-loading when correctly installed.
 2. A rule added to an *nftables* chain that gets called by an *input* hook in
    the *filter* table, which sends packets
-   to the `RTPENGINE` target. This rule should be limited to UDP packets, but otherwise there
+   to the `rtpengine` target. This rule should be limited to UDP packets, but otherwise there
    are no restrictions. The *rtpengine* daemon manages creation and deletion of this rule.
 3. The `rtpengine` daemon must be running.
 4. All of the above must be set up with the same forwarding table ID (see below).
@@ -50,7 +49,7 @@ The sequence of events for a newly established media stream is then:
    based on the info received
    from the SIP proxy. Only userspace forwarding is set up, nothing is pushed to the kernel module yet.
 3. An RTP packet is received on the local port.
-4. It traverses the *nftables* chains and gets passed to the *xt\_RTPENGINE* module.
+4. It traverses the *nftables* chains and gets passed to the *nft\_rtpengine* module.
 5. The module doesn't recognize it as belonging to an established stream and thus ignores it.
 6. The packet continues normal processing and eventually ends up in the daemon's receive queue.
 7. The daemon reads it, processes it and forwards it. It also updates some internal data.
