@@ -25,6 +25,7 @@ typedef struct {
 	struct sockaddr_storage sockname,
 				peername;
 	unsigned int open:1,
+		     mock:1,
 	             bound:1,
 		     connected:1,
 		     pktinfo:1;
@@ -53,6 +54,17 @@ static const struct sockaddr *addr_find(const struct sockaddr *addr, socklen_t *
 
 static const char *p_prefix;
 
+#define MAX_MOCK_FILES 16
+static const char *mock_files[MAX_MOCK_FILES];
+static const char *mock_peer;
+
+enum mock_msg {
+	MOCK_OPEN = 1,
+	MOCK_READ = 2,
+	MOCK_WRITE = 3,
+	MOCK_CLOSE = 4,
+};
+
 int (*real_socket)(int, int, int);
 int (*real_bind)(int, const struct sockaddr *, socklen_t);
 int (*real_close)(int);
@@ -68,10 +80,14 @@ ssize_t (*real_send)(int, const void *, size_t, int);
 ssize_t (*real_sendto)(int, const void *, size_t, int, const struct sockaddr *, socklen_t);
 ssize_t (*real_sendmsg)(int, const struct msghdr *, int);
 int (*real_setsockopt)(int, int, int, const void *, socklen_t);
+int (*real_open)(const char *, int, mode_t);
+ssize_t (*real_read)(int, void *, size_t);
+ssize_t (*real_write)(int, const void *, size_t);
 
 static void do_init(void) {
 	setenv("RTPE_PRELOAD_TEST_ACTIVE", "1", 1);
 	p_prefix = getenv("TEST_SOCKET_PATH");
+	mock_peer = getenv("MOCK_PEER");
 
 	real_socket = dlsym(RTLD_NEXT, "socket");
 	real_bind = dlsym(RTLD_NEXT, "bind");
@@ -88,6 +104,18 @@ static void do_init(void) {
 	real_sendto = dlsym(RTLD_NEXT, "sendto");
 	real_sendmsg = dlsym(RTLD_NEXT, "sendmsg");
 	real_setsockopt = dlsym(RTLD_NEXT, "setsockopt");
+	real_open = dlsym(RTLD_NEXT, "open");
+	real_read = dlsym(RTLD_NEXT, "read");
+	real_write = dlsym(RTLD_NEXT, "write");
+
+	for (unsigned int i = 0; i < MAX_MOCK_FILES; i++) {
+		char var[64];
+		sprintf(var, "MOCK_%u", i);
+		char *mpath = getenv(var);
+		if (!mpath)
+			break;
+		mock_files[i] = mpath;
+	}
 }
 static void do_exit(void) {
 	for (int i = 0; i < MAX_SOCKETS; i++) {
@@ -908,4 +936,89 @@ do_set_warn:
 	fprintf(stderr, "preload setsockopt(): %s (fd %i)\n", err, fd);
 do_set:
 	return real_setsockopt(fd, level, optname, optval, optlen);
+}
+
+int open(const char *fn, int flags, mode_t mode) {
+	unsigned int i;
+
+	for (i = 0; i < MAX_MOCK_FILES; i++) {
+		if (!mock_files[i])
+			break;
+		if (strcmp(fn, mock_files[i]))
+			continue;
+
+		goto found;
+	}
+
+	return real_open(fn, flags, mode);
+
+found:
+	if (!mock_peer)
+		return -1;
+
+	int fd = real_socket(AF_UNIX, SOCK_DGRAM, 0);
+	if (fd == -1)
+		return -1;
+	struct sockaddr_un sun = { .sun_family = AF_UNIX };
+	assert(strlen(mock_peer) < sizeof(sun.sun_path));
+	strcpy(sun.sun_path, mock_peer);
+
+	int ret = real_connect(fd, (struct sockaddr *) &sun, sizeof(sun));
+	if (ret) {
+		close(fd);
+		return -1;
+	}
+
+	struct {
+		int msg;
+		char fn[sizeof(sun.sun_path)];
+	} m = { .msg = MOCK_OPEN };
+	strcpy(m.fn, fn);
+
+	ssize_t r = real_send(fd, &m, sizeof(m), 0);
+	assert(r == sizeof(m));
+
+	struct {
+		int msg;
+		int code;
+	} n;
+	r = real_recvfrom(fd, &n, sizeof(n), 0, NULL, NULL);
+	assert(r == sizeof(n));
+	assert(n.msg == MOCK_OPEN);
+
+	if (n.code != 0) {
+		real_close(fd);
+		return -1;
+	}
+
+	real_sockets[fd] = (socket_t) {
+		.open = 1,
+		.mock = 1,
+	};
+
+	return fd;
+}
+
+ssize_t read(int fd, void *buf, size_t len) {
+	if (fd < 0 || fd >= MAX_SOCKETS)
+		goto do_read;
+
+	socket_t *s = &real_sockets[fd];
+	if (!s->open || !s->mock)
+		goto do_read;
+
+do_read:
+	return real_read(fd, buf, len);
+}
+
+ssize_t write(int fd, const void *buf, size_t len) {
+	if (fd < 0 || fd >= MAX_SOCKETS)
+		goto do_write;
+
+	socket_t *s = &real_sockets[fd];
+	if (!s->open || !s->mock)
+		goto do_write;
+
+do_write:
+	return real_write(fd, buf, len);
 }
