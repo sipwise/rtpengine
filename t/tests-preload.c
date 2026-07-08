@@ -537,10 +537,11 @@ int accept4(int fd, struct sockaddr *addr, socklen_t *addrlen, int flags) {
 	const char *err;
 	int (*real_accept4)(int, struct sockaddr *, socklen_t *, int) = dlsym(RTLD_NEXT, "accept4");
 
+	socket_t *s = NULL;
 	err = "fd out of bounds";
 	if (fd < 0 || fd >= MAX_SOCKETS)
 		goto do_accept_warn;
-	socket_t *s = &real_sockets[fd];
+	s = &real_sockets[fd];
 	err = "fd not open";
 	if (!s->open)
 		goto do_accept_warn;
@@ -564,7 +565,8 @@ do_accept:;
 
 	assert(sun.sun_family == AF_UNIX);
 	socket_t *new_s = &real_sockets[new_fd];
-	*new_s = *s;
+	if (s)
+		*new_s = *s;
 	assert(sun_len < sizeof(new_s->sockname));
 	assert(sizeof(new_s->unix_path) >= strlen(sun.sun_path));
 	strcpy(new_s->unix_path, sun.sun_path);
@@ -579,7 +581,7 @@ do_accept:;
 	memset(addr, 0, *addrlen);
 	memcpy(addr, &sst, socklen);
 	*addrlen = socklen;
-	assert(s->wanted_domain == addr->sa_family);
+	assert(!s || s->wanted_domain == addr->sa_family);
 	new_s->peername = sst;
 
 	return new_fd;
