@@ -51,8 +51,43 @@ static void do_exit(void) __attribute__((destructor));
 static socklen_t anon_addr(int domain, struct sockaddr_storage *sst, unsigned int id, unsigned int id2);
 static const struct sockaddr *addr_find(const struct sockaddr *addr, socklen_t *addrlen);
 
+static const char *p_prefix;
+
+int (*real_socket)(int, int, int);
+int (*real_bind)(int, const struct sockaddr *, socklen_t);
+int (*real_close)(int);
+int (*real_getsockname)(int, struct sockaddr *, socklen_t *);
+int (*real_getpeername)(int, struct sockaddr *, socklen_t *);
+int (*real_connect)(int, const struct sockaddr *, socklen_t);
+int (*real_accept4)(int, struct sockaddr *, socklen_t *, int);
+int (*real_dup)(int);
+int (*real_dup2)(int, int);
+ssize_t (*real_recvfrom)(int, void *, size_t, int, struct sockaddr *, socklen_t *);
+ssize_t (*real_recvmsg)(int, struct msghdr *, int);
+ssize_t (*real_send)(int, const void *, size_t, int);
+ssize_t (*real_sendto)(int, const void *, size_t, int, const struct sockaddr *, socklen_t);
+ssize_t (*real_sendmsg)(int, const struct msghdr *, int);
+int (*real_setsockopt)(int, int, int, const void *, socklen_t);
+
 static void do_init(void) {
 	setenv("RTPE_PRELOAD_TEST_ACTIVE", "1", 1);
+	p_prefix = getenv("TEST_SOCKET_PATH");
+
+	real_socket = dlsym(RTLD_NEXT, "socket");
+	real_bind = dlsym(RTLD_NEXT, "bind");
+	real_close = dlsym(RTLD_NEXT, "close");
+	real_getsockname = dlsym(RTLD_NEXT, "getsockname");
+	real_getpeername = dlsym(RTLD_NEXT, "getpeername");
+	real_connect = dlsym(RTLD_NEXT, "connect");
+	real_accept4 = dlsym(RTLD_NEXT, "accept4");
+	real_dup = dlsym(RTLD_NEXT, "dup");
+	real_dup2 = dlsym(RTLD_NEXT, "dup2");
+	real_recvfrom = dlsym(RTLD_NEXT, "recvfrom");
+	real_recvmsg = dlsym(RTLD_NEXT, "recvmsg");
+	real_send = dlsym(RTLD_NEXT, "send");
+	real_sendto = dlsym(RTLD_NEXT, "sendto");
+	real_sendmsg = dlsym(RTLD_NEXT, "sendmsg");
+	real_setsockopt = dlsym(RTLD_NEXT, "setsockopt");
 }
 static void do_exit(void) {
 	for (int i = 0; i < MAX_SOCKETS; i++) {
@@ -68,10 +103,7 @@ static void do_exit(void) {
 }
 
 static const char *path_prefix(void) {
-	char *ret = getenv("TEST_SOCKET_PATH");
-	if (ret)
-		return ret;
-	return "/tmp";
+	return p_prefix ?: "/tmp";
 }
 
 int socket(int domain, int type, int protocol) {
@@ -83,7 +115,6 @@ int socket(int domain, int type, int protocol) {
 		use_protocol = 0;
 	}
 
-	int (*real_socket)(int, int, int) = dlsym(RTLD_NEXT, "socket");
 	int fd = real_socket(use_domain, type, use_protocol);
 	if (fd < 0 || fd >= MAX_SOCKETS) {
 		fprintf(stderr, "preload socket(): fd out of bounds (fd %i)\n", fd);
@@ -293,7 +324,6 @@ got_peer:
 
 int bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 	const char *err;
-	int (*real_bind)(int, const struct sockaddr *, socklen_t) = dlsym(RTLD_NEXT, "bind");
 	err = "fd out of bounds";
 	if (fd < 0 || fd >= MAX_SOCKETS)
 		goto do_bind_warn;
@@ -402,7 +432,6 @@ static void check_bind(int fd) {
 	assert(sizeof(real_sockets[fd].unix_path) >= strlen(sun.sun_path));
 	strcpy(real_sockets[fd].unix_path, sun.sun_path);
 
-	int (*real_bind)(int, const struct sockaddr *, socklen_t) = dlsym(RTLD_NEXT, "bind");
 	if (real_bind(fd, (struct sockaddr *) &sun, sizeof(sun)))
 		fprintf(stderr, "preload socket(): failed to bind to anon (fd %i): %s\n",
 				fd, strerror(errno));
@@ -413,7 +442,6 @@ static void check_bind(int fd) {
 
 int close(int fd) {
 	const char *err;
-	int (*real_close)(int) = dlsym(RTLD_NEXT, "close");
 	err = "fd out of bounds";
 	if (fd < 0 || fd >= MAX_SOCKETS)
 		goto do_close_warn;
@@ -437,7 +465,6 @@ int getsockname(int fd, struct sockaddr *addr, socklen_t *addrlen) {
 	check_bind(fd);
 
 	const char *err;
-	int (*real_getsockname)(int, struct sockaddr *, socklen_t *) = dlsym(RTLD_NEXT, "getsockname");
 	err = "fd out of bounds";
 	if (fd < 0 || fd >= MAX_SOCKETS)
 		goto do_getsockname_warn;
@@ -478,7 +505,6 @@ int getpeername(int fd, struct sockaddr *addr, socklen_t *addrlen) {
 	check_bind(fd);
 
 	const char *err;
-	int (*real_getpeername)(int, struct sockaddr *, socklen_t *) = dlsym(RTLD_NEXT, "getpeername");
 	err = "fd out of bounds";
 	if (fd < 0 || fd >= MAX_SOCKETS)
 		goto do_getpeername_warn;
@@ -522,7 +548,6 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 
 	socket_t *s = NULL;
 	const char *err;
-	int (*real_connect)(int, const struct sockaddr *, socklen_t) = dlsym(RTLD_NEXT, "connect");
 	err = "fd out of bounds";
 	if (fd < 0 || fd >= MAX_SOCKETS)
 		goto do_connect_warn;
@@ -571,7 +596,6 @@ do_connect:;
 
 int accept4(int fd, struct sockaddr *addr, socklen_t *addrlen, int flags) {
 	const char *err;
-	int (*real_accept4)(int, struct sockaddr *, socklen_t *, int) = dlsym(RTLD_NEXT, "accept4");
 
 	socket_t *s = NULL;
 	err = "fd out of bounds";
@@ -628,7 +652,6 @@ int accept(int fd, struct sockaddr *addr, socklen_t *addrlen) {
 }
 
 int dup(int fd) {
-	int (*real_dup)(int) = dlsym(RTLD_NEXT, "dup");
 	int ret = real_dup(fd);
 	if (fd < 0 || fd >= MAX_SOCKETS || ret < 0 || ret >= MAX_SOCKETS) {
 		fprintf(stderr, "preload dup(): fd out of bounds (%i/%i)\n", fd, ret);
@@ -639,7 +662,6 @@ int dup(int fd) {
 }
 
 int dup2(int oldfd, int newfd) {
-	int (*real_dup2)(int, int) = dlsym(RTLD_NEXT, "dup2");
 	int ret = real_dup2(oldfd, newfd);
 	if (ret != newfd || oldfd < 0 || oldfd >= MAX_SOCKETS || newfd < 0 || newfd >= MAX_SOCKETS) {
 		fprintf(stderr, "preload dup(): fd out of bounds (%i/%i/%i)\n", oldfd, newfd, ret);
@@ -655,8 +677,6 @@ int dup2(int oldfd, int newfd) {
 
 ssize_t recvfrom(int fd, void *buf, size_t len, int flags, struct sockaddr *addr, socklen_t *socklen) {
 	const char *err;
-	ssize_t (*real_recvfrom)(int, void *, size_t, int, struct sockaddr *, socklen_t *)
-		= dlsym(RTLD_NEXT, "recvfrom");
 	err = "fd out of bounds";
 	if (fd < 0 || fd >= MAX_SOCKETS)
 		goto do_recvfrom_warn;
@@ -696,7 +716,6 @@ do_recvfrom:
 
 ssize_t recvmsg(int fd, struct msghdr *msg, int flags) {
 	const char *err;
-	ssize_t (*real_recvmsg)(int, struct msghdr *, int) = dlsym(RTLD_NEXT, "recvmsg");
 	err = "fd out of bounds";
 	if (fd < 0 || fd >= MAX_SOCKETS)
 		goto do_recvmsg_warn;
@@ -746,7 +765,6 @@ do_recvmsg:
 
 ssize_t send(int fd, const void *buf, size_t len, int flags) {
 	check_bind(fd);
-	ssize_t (*real_send)(int, const void *, size_t, int) = dlsym(RTLD_NEXT, "send");
 	return real_send(fd, buf, len, flags);
 }
 
@@ -811,8 +829,6 @@ static const struct sockaddr *addr_send_translate(const struct sockaddr *addr, i
 ssize_t sendto(int fd, const void *buf, size_t len, int flags, const struct sockaddr *addr, socklen_t addrlen) {
 	const char *err;
 	check_bind(fd);
-	ssize_t (*real_sendto)(int, const void *, size_t, int, const struct sockaddr *, socklen_t)
-		= dlsym(RTLD_NEXT, "sendto");
 	err = "fd out of bounds";
 	if (fd < 0 || fd >= MAX_SOCKETS)
 		goto do_send_warn;
@@ -831,7 +847,6 @@ do_send:
 ssize_t sendmsg(int fd, const struct msghdr *msg, int flags) {
 	const char *err;
 	check_bind(fd);
-	ssize_t (*real_sendmsg)(int, const struct msghdr *, int) = dlsym(RTLD_NEXT, "sendmsg");
 	err = "fd out of bounds";
 	if (fd < 0 || fd >= MAX_SOCKETS)
 		goto do_send_warn;
@@ -851,7 +866,6 @@ do_send:
 
 int setsockopt(int fd, int level, int optname, const void *optval, socklen_t optlen) {
 	const char *err;
-	int (*real_setsockopt)(int, int, int, const void *, socklen_t) = dlsym(RTLD_NEXT, "setsockopt");
 	err = "fd out of bounds";
 	if (fd < 0 || fd >= MAX_SOCKETS)
 		goto do_set_warn;
