@@ -1202,6 +1202,7 @@ static int __check_valid(struct ice_agent *ag) {
 			if (sfd->local_intf != pair->local_intf)
 				continue;
 			ps->selected_sfd = sfd;
+			PS_SET(ps, CONFIRMED);
 			if (ps->component == 1)
 				ilogs(ice, LOG_INFO, "ICE negotiated: local interface %s",
 						sockaddr_print_buf(&pair->local_intf->spec->local_address.addr));
