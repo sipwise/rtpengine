@@ -3146,6 +3146,8 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 		return false;
 	}
 
+	bool has_ice = MEDIA_ISSET(phc->mp.media, ICE) && phc->mp.media->ice_agent;
+
 	// GH #697 - apparent Asterisk bug where it sends stray RTCP to the RTP port.
 	// work around this by detecting this situation and ignoring the packet for
 	// confirmation purposes when needed. This is regardless of whether rtcp-mux
@@ -3164,7 +3166,7 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 	if (MEDIA_ISSET(phc->mp.media, ASYMMETRIC))
 		update_endpoint = &phc->mp.stream->learned_endpoint;
 
-	if (phc->mp.stream->el_flags == EL_OFF)
+	if (phc->mp.stream->el_flags == EL_OFF || has_ice)
 		phc->mp.sfd->confirmed = true;
 
 	/* confirm sinks for unidirectional streams in order to kernelize */
@@ -3180,7 +3182,8 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 	if (phc->mp.sfd->confirmed) {
 		/* see if we need to compare the source address with the known endpoint */
 		if (PS_ISSET2(phc->mp.stream, STRICT_SOURCE, MEDIA_HANDOVER)) {
-			bool matched = memcmp(&phc->mp.fsin, update_endpoint, sizeof(phc->mp.fsin)) == 0;
+			bool matched = memcmp(&phc->mp.fsin, update_endpoint, sizeof(phc->mp.fsin)) == 0
+				&& phc->mp.sfd == phc->mp.stream->selected_sfd;
 
 			if (!matched && PS_ISSET(phc->mp.stream, MEDIA_HANDOVER)) {
 				/* out_lock remains locked */
@@ -3196,17 +3199,21 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 			// try some other options before dropping
 			if (!matched && !MEDIA_ISSET(phc->mp.media, ASYMMETRIC))
 				matched = memcmp(&phc->mp.fsin, &phc->orig_stream->endpoint,
-						sizeof(phc->mp.fsin)) == 0;
+						sizeof(phc->mp.fsin)) == 0
+					&& phc->mp.sfd == phc->mp.stream->selected_sfd;
 			if (!matched)
 				matched = memcmp(&phc->mp.fsin, &phc->orig_stream->learned_endpoint,
-						sizeof(phc->mp.fsin)) == 0;
+						sizeof(phc->mp.fsin)) == 0
+					&& phc->mp.sfd == phc->mp.stream->selected_sfd;
 
 			if (!matched && PS_ISSET(phc->mp.stream, STRICT_SOURCE)) {
 				ilog(LOG_INFO | LOG_FLAG_LIMIT, "Drop due to strict-source attribute; "
-						"got %s%s%s, "
-						"expected %s%s%s",
+						"got %s%s%s -> %s, "
+						"expected %s%s%s -> %s",
 					FMT_M(endpoint_print_buf(&phc->mp.fsin)),
-					FMT_M(endpoint_print_buf(update_endpoint)));
+					endpoint_print_buf(&phc->mp.sfd->socket.local),
+					FMT_M(endpoint_print_buf(update_endpoint)),
+					endpoint_print_buf(&phc->mp.stream->selected_sfd->socket.local));
 				atomic64_inc_na(&phc->mp.stream->stats_in->errors);
 				atomic64_inc_na(&phc->mp.sfd->local_intf->stats->in.errors);
 				ret = true;
@@ -3224,7 +3231,7 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 
 	const struct endpoint *use_endpoint_confirm = &phc->mp.fsin;
 
-	if (phc->mp.stream->el_flags == EL_IMMEDIATE)
+	if (phc->mp.stream->el_flags == EL_IMMEDIATE || has_ice)
 		goto confirm_now;
 
 	if (phc->mp.stream->el_flags == EL_HEURISTIC
