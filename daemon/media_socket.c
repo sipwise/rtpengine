@@ -1571,9 +1571,13 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 	if (s->blackhole)
 		s->non_forwarding = true;
 
+	stream_fd *sfd = stream->selected_sfd;
+	if (!sfd || !sfd->socket.family)
+		return "socket not open";
+
 	ilog(LOG_INFO, "Kernelizing media stream: remote %s%s%s -> local %s",
 			FMT_M(endpoint_print_buf(&stream->endpoint)),
-			endpoint_print_buf(&stream->selected_sfd->socket.local));
+			endpoint_print_buf(&sfd->socket.local));
 
 	// fill input
 	__auto_type reti = &s->reti;
@@ -1586,8 +1590,8 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 			reti->src_mismatch = MSM_PROPAGATE;
 	}
 
-	__re_address_translate_ep(&reti->local, &stream->selected_sfd->socket.local);
-	reti->iface_stats = stream->selected_sfd->local_intf->stats;
+	__re_address_translate_ep(&reti->local, &sfd->socket.local);
+	reti->iface_stats = sfd->local_intf->stats;
 	reti->stats = stream->stats_in;
 	reti->rtcp = PS_ISSET(stream, RTCP);
 	reti->dtls = MEDIA_ISSET(media, DTLS);
@@ -1764,7 +1768,7 @@ static const char *kernelize_one(kernelize_state *s,
 	__auto_type reti = &s->reti;
 
 	// any output at all?
-	if (s->non_forwarding || !sink->selected_sfd)
+	if (s->non_forwarding || !sink->selected_sfd || !sink->selected_sfd->socket.family)
 		return NULL; // no output
 	if (!PS_ISSET(sink, FILLED))
 		return NULL;
@@ -1900,7 +1904,7 @@ static void kernelize(struct packet_stream *stream) {
 		goto no_kernel_warn;
 	if (MEDIA_ISSET(media, GENERATOR))
 		goto no_kernel;
-	if (!stream->selected_sfd)
+	if (!stream->selected_sfd || !stream->selected_sfd->socket.family)
 		goto no_kernel;
 	if (ML_ISSET(media->monologue, BLOCK_MEDIA) || CALL_ISSET(call, BLOCK_MEDIA))
 		goto no_kernel;
@@ -2006,7 +2010,7 @@ struct ssrc_entry_call *__hunt_ssrc_ctx(uint32_t ssrc, struct ssrc_entry_call *l
 void __unkernelize(struct packet_stream *p, const char *reason) {
 	bool no_supp = PS_CLEAR(p, NO_KERNEL_SUPPORT);
 
-	if (!p->selected_sfd)
+	if (!p->selected_sfd || !p->selected_sfd->socket.family)
 		return;
 
 	if (!PS_ISSET(p, KERNELIZED))
