@@ -1583,6 +1583,8 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 		s->non_forwarding = true;
 
 	stream_fd *sfd = stream->selected_sfd;
+	if (!sfd || !sfd->socket.family)
+		return "socket not open";
 
 	ilog(LOG_INFO, "Kernelizing media stream: remote %s%s%s -> local %s",
 			FMT_M(endpoint_print_buf(&stream->endpoint)),
@@ -1803,7 +1805,7 @@ static const char *kernelize_one(kernelize_state *s,
 	__auto_type reti = &s->reti.target;
 
 	// any output at all?
-	if (s->non_forwarding || !sink->selected_sfd)
+	if (s->non_forwarding || !sink->selected_sfd || !sink->selected_sfd->socket.family)
 		return NULL; // no output
 	if (!PS_ISSET(sink, FILLED))
 		return NULL;
@@ -1942,7 +1944,7 @@ static void kernelize(struct packet_stream *stream) {
 
 	LOCK(&stream->lock);
 
-	if (!stream->selected_sfd)
+	if (!stream->selected_sfd || !stream->selected_sfd->socket.family)
 		goto no_kernel;
 
 	{
@@ -2080,7 +2082,7 @@ void __unkernelize(struct packet_stream *p, const char *reason) {
 
 	bool no_supp = PS_CLEAR(p, NO_KERNEL_SUPPORT);
 
-	if (!sfd)
+	if (!sfd || !sfd->socket.family)
 		return;
 	if (!sfd->kernelized)
 		return;
