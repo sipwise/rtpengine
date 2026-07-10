@@ -1584,12 +1584,14 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 	// fill input
 	__auto_type reti = &s->reti.target;
 
-	if (PS_ISSET2(stream, STRICT_SOURCE, MEDIA_HANDOVER)) {
+	reti->stun = MEDIA_ISSET(media, ICE) && media->ice_agent ? 1 : 0;
+
+	if (PS_ISSET2(stream, STRICT_SOURCE, MEDIA_HANDOVER) || reti->stun) {
 		__re_address_translate_ep(&reti->expected_src, MEDIA_ISSET(media, ASYMMETRIC) ? &stream->learned_endpoint : &stream->endpoint);
-		if (PS_ISSET(stream, STRICT_SOURCE))
-			reti->src_mismatch = MSM_DROP;
-		else if (PS_ISSET(stream, MEDIA_HANDOVER))
+		if (PS_ISSET(stream, MEDIA_HANDOVER) || reti->stun)
 			reti->src_mismatch = MSM_PROPAGATE;
+		else if (PS_ISSET(stream, STRICT_SOURCE))
+			reti->src_mismatch = MSM_DROP;
 	}
 
 	__re_address_translate_ep(&reti->local, &sfd->socket.local);
@@ -1597,7 +1599,6 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 	reti->stats = stream->stats_in;
 	reti->rtcp = PS_ISSET(stream, RTCP);
 	reti->dtls = MEDIA_ISSET(media, DTLS);
-	reti->stun = media->ice_agent ? 1 : 0;
 	reti->non_forwarding = s->non_forwarding ? 1 : 0;
 	reti->blackhole = s->blackhole ? 1 : 0;
 	reti->rtp_stats = (rtpe_config.measure_rtp
@@ -3178,14 +3179,28 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 		}
 	}
 
+	/* wait at least 3 seconds after last signal before committing to a particular
+	 * endpoint address */
+	bool wait_time = false;
+	if (!phc->mp.call->last_signal_us || rtpe_now <= phc->mp.call->last_signal_us + 3000000LL)
+		wait_time = true;
+
 	/* if we have already updated the endpoint in the past ... */
 	if (phc->mp.sfd->confirmed) {
 		/* see if we need to compare the source address with the known endpoint */
-		if (PS_ISSET2(phc->mp.stream, STRICT_SOURCE, MEDIA_HANDOVER)) {
+		if (PS_ISSET2(phc->mp.stream, STRICT_SOURCE, MEDIA_HANDOVER) || has_ice) {
 			bool matched = memcmp(&phc->mp.fsin, update_endpoint, sizeof(phc->mp.fsin)) == 0
 				&& phc->mp.sfd == phc->mp.stream->selected_sfd;
 
-			if (!matched && PS_ISSET(phc->mp.stream, MEDIA_HANDOVER)) {
+			if (!matched && has_ice) {
+				// rate-limit for ICE to avoid rapid flip-flop
+				if (wait_time)
+					matched = true;
+				else
+					phc->mp.call->last_signal_us = rtpe_now;
+			}
+
+			if (!matched && (PS_ISSET(phc->mp.stream, MEDIA_HANDOVER) || has_ice)) {
 				/* out_lock remains locked */
 				ilog(LOG_INFO | LOG_FLAG_LIMIT, "Peer address changed to %s%s%s",
 						FMT_M(endpoint_print_buf(&phc->mp.fsin)));
@@ -3222,12 +3237,6 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 		phc->kernelize = true;
 		return ret;
 	}
-
-	/* wait at least 3 seconds after last signal before committing to a particular
-	 * endpoint address */
-	bool wait_time = false;
-	if (!phc->mp.call->last_signal_us || rtpe_now <= phc->mp.call->last_signal_us + 3000000LL)
-		wait_time = true;
 
 	const struct endpoint *use_endpoint_confirm = &phc->mp.fsin;
 
