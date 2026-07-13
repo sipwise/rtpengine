@@ -2869,6 +2869,8 @@ static void rtp_ext_mid_kernel(kernelize_state *s, unsigned int component, struc
 		return;
 	if (!bundle->extmap_id[RTP_EXT_MID])
 		return;
+	if (!media->extmap_id[RTP_EXT_MID])
+		return;
 	if (bundle->extmap_id[RTP_EXT_MID]->id != media->extmap_id[RTP_EXT_MID]->id)
 		return;
 
