@@ -3005,6 +3005,9 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc) {
 	if (unkern)
 		phc->unkernelize = unkern;
 
+	if (!phc->mp.ssrc_in)
+		return;
+
 	if (phc->mp.media->bundle) {
 		if (phc->media_set)
 			phc->mp.ssrc_in->media = phc->mp.media;
