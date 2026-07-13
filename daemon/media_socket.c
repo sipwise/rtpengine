@@ -1,22 +1,15 @@
 #include "media_socket.h"
 
-#include <stdio.h>
-#include <string.h>
-#include <glib.h>
 #include <errno.h>
 #include <netinet/in.h>
 
-#include "str.h"
 #include "ice.h"
-#include "socket.h"
 #include "redis.h"
 #include "rtp.h"
-#include "ice.h"
 #include "stun.h"
 #include "kernel.h"
 #include "rtcp.h"
 #include "sdp.h"
-#include "helpers.h"
 #include "log_d.h"
 #include "poller.h"
 #include "recording.h"
@@ -25,15 +18,12 @@
 #include "ssrc.h"
 #include "iptables.h"
 #include "main.h"
-#include "codec.h"
 #include "media_player.h"
 #include "jitter_buffer.h"
 #include "dtmf.h"
 #include "mqtt.h"
 #include "janus.h"
 #include "bufferpool.h"
-
-#include "nft_rtpengine.h"
 
 #ifndef PORT_RANDOM_MIN
 #define PORT_RANDOM_MIN 6
