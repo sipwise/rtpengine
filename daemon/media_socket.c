@@ -829,7 +829,7 @@ static void __append_free_ports_to_int(struct intf_spec *spec) {
 		return;
 	}
 
-	int port_values[ports_amount];
+	unsigned int *port_values = g_new(unsigned int, ports_amount);
 
 	/* create an array to store the initial values within the range */
 	for (int i = 0; i < ports_amount; i++)
@@ -854,6 +854,8 @@ static void __append_free_ports_to_int(struct intf_spec *spec) {
 		port_values[j] = port_values[count - 1];
 		count--;
 	}
+
+	g_free(port_values);
 }
 // called during single-threaded startup only
 static void __add_intf_rr_1(struct logical_intf *lif, str *name_base, sockfamily_t *fam) {
