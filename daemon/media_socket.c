@@ -951,7 +951,10 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 		// create one if not found
 		if (ifa->port_min == 0 || ifa->port_max == 0 || ifa->port_min > 65535
 				|| ifa->port_max > 65535 || ifa->port_min > ifa->port_max)
-			die("Invalid RTP port range (%d > %d)", ifa->port_min, ifa->port_max);
+		{
+			die("Invalid RTP port range (%u-%u): it must be within 1-65535 and min < max",
+					ifa->port_min, ifa->port_max);
+		}
 
 		spec = g_new0(__typeof(*spec), 1);
 		spec->local_address = ifa->local_address;
@@ -961,13 +964,15 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 
 		mutex_init(&spec->port_pool.free_list_lock);
 
-		/* pre-fill the range of used ports */
+		/* pre-fill the range of free ports */
 		__append_free_ports_to_int(spec);
 
 		for (GList *l = ifa->exclude_ports; l; l = l->next) {
 			unsigned int port = GPOINTER_TO_UINT(l->data);
-			if (port > 65535)
+			if (port > 65535) {
+				ilog(LOG_WARNING, "Ignoring invalid excluded RTP port %u", port);
 				continue;
+			}
 			reserve_port(&spec->port_pool, port);
 		}
 
