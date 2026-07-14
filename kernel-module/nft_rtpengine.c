@@ -3011,6 +3011,8 @@ static ssize_t proc_main_control_write(struct file *file, const char __user *buf
 	if (copy_from_user(&b, buf, buflen))
 		return -EFAULT;
 
+	b[buflen] = '\0';
+
 	if (!strncmp(b, "add ", 4)) {
 		id = simple_strtoul(b + 4, &endp, 10);
 		if (endp == b + 4)
