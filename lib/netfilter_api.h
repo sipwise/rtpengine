@@ -44,15 +44,18 @@ void nfapi_add_attr(nfapi_buf *b, uint16_t type, const void *data, size_t len, c
 	nfapi_add_attr(b, t, &__u, sizeof(__u), f, ##__VA_ARGS__); \
 } while (0)
 
-#define nfapi_add_binary_str_attr(b, type, s, fmt, ...) \
-	nfapi_add_attr(b, type, &(struct { \
-			uint16_t len; \
-			char buf[sizeof(s)]; \
-		}) { \
-			.len = htons(sizeof(s)), \
-			.buf = s, \
-		}, 2 + sizeof(s), \
-		fmt, ##__VA_ARGS__)
+#define nfapi_add_binary_str_attr(b, type, s, fmt, ...) do { \
+	struct { \
+		uint16_t len; \
+		char buf[64]; \
+	} __attr; \
+	ssize_t __len = strlen(s); \
+	assert(__len < sizeof(__attr.buf)); \
+	__attr.len = htons(__len + 1); \
+	strcpy(__attr.buf, (s)); \
+	nfapi_add_attr(b, type, &__attr, 2 + __len + 1, \
+		fmt, ##__VA_ARGS__); \
+} while (0)
 
 
 void nfapi_nested_begin(nfapi_buf *, uint16_t type, const char *name);
