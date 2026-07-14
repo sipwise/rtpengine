@@ -644,6 +644,10 @@ struct re_ring_buffer_pair {
 	struct task_struct *sender;
 };
 
+struct nft_rtpengine_info {
+	struct rtpengine_table *table;
+};
+
 
 static struct proc_dir_entry *my_proc_root;
 static struct proc_dir_entry *proc_list;
@@ -7402,14 +7406,14 @@ static unsigned int rtpe_xt_rtpengine6(struct sk_buff *oskb, const struct xt_act
 
 
 static int check(const struct xt_tgchk_param *par) {
-	const struct xt_rtpengine_info *pinfo = par->targinfo;
+	const struct nft_rtpengine_info *pinfo = par->targinfo;
 
 	if (!my_proc_root) {
 		printk(KERN_WARNING "nft_rtpengine check() without proc_root\n");
 		return -EINVAL;
 	}
-	if (pinfo->id >= MAX_ID) {
-		printk(KERN_WARNING "nft_rtpengine ID too high (%u >= %u)\n", pinfo->id, MAX_ID);
+	if (!pinfo->table) {
+		printk(KERN_WARNING "nft_rtpengine without table\n");
 		return -EINVAL;
 	}
 
@@ -7421,25 +7425,17 @@ static int check(const struct xt_tgchk_param *par) {
 static void rtpengine_ipv4_expr_eval(const struct nft_expr *expr, struct nft_regs *regs,
 		const struct nft_pktinfo *pkt)
 {
-	struct xt_rtpengine_info *info = (struct xt_rtpengine_info *) expr->data;
-	int verdict = NFT_CONTINUE;
-	struct rtpengine_table *t = get_table(info->id);
-	if (t)
-		verdict = rtpengine4(pkt->skb, PKTINFO_NET(pkt), t);
+	struct nft_rtpengine_info *info = (struct nft_rtpengine_info *) expr->data;
+	int verdict = rtpengine4(pkt->skb, PKTINFO_NET(pkt), info->table);
 	regs->verdict.code = verdict;
-	table_put(t);
 }
 
 static void rtpengine_ipv6_expr_eval(const struct nft_expr *expr, struct nft_regs *regs,
 		const struct nft_pktinfo *pkt)
 {
-	struct xt_rtpengine_info *info = (struct xt_rtpengine_info *) expr->data;
-	int verdict = NFT_CONTINUE;
-	struct rtpengine_table *t = get_table(info->id);
-	if (t)
-		verdict = rtpengine6(pkt->skb, PKTINFO_NET(pkt), t);
+	struct nft_rtpengine_info *info = (struct nft_rtpengine_info *) expr->data;
+	int verdict = rtpengine6(pkt->skb, PKTINFO_NET(pkt), info->table);
 	regs->verdict.code = verdict;
-	table_put(t);
 }
 
 static void rtpengine_inet_expr_eval(const struct nft_expr *expr, struct nft_regs *regs,
@@ -7459,7 +7455,7 @@ static int rtpengine_expr_init(const struct nft_ctx *ctx, const struct nft_expr 
 		const struct nlattr * const tb[])
 {
 	uint32_t table;
-	struct xt_rtpengine_info *info = (struct xt_rtpengine_info *) expr->data;
+	struct nft_rtpengine_info *info = (struct nft_rtpengine_info *) expr->data;
 
 	if (!tb[RTPEA_RTPENGINE_TABLE])
 		return -EINVAL;
@@ -7469,9 +7465,16 @@ static int rtpengine_expr_init(const struct nft_ctx *ctx, const struct nft_expr 
 	if (table >= MAX_ID)
 		return -ERANGE;
 
-	info->id = table;
+	info->table = get_table(table);
+	if (!info->table)
+		return -ENOENT;
 
 	return 0;
+}
+
+static void rtpengine_expr_destroy(const struct nft_ctx *ctx, const struct nft_expr *expr) {
+	struct nft_rtpengine_info *info = (struct nft_rtpengine_info *) expr->data;
+	table_put(info->table);
 }
 
 static int rtpengine_expr_dump(struct sk_buff *skb, const struct nft_expr *expr
@@ -7482,9 +7485,9 @@ static int rtpengine_expr_dump(struct sk_buff *skb, const struct nft_expr *expr
 #endif
 )
 {
-	struct xt_rtpengine_info *info = (struct xt_rtpengine_info *) expr->data;
+	struct nft_rtpengine_info *info = (struct nft_rtpengine_info *) expr->data;
 
-	nla_put_u32(skb, RTPEA_RTPENGINE_TABLE, info->id);
+	nla_put_u32(skb, RTPEA_RTPENGINE_TABLE, info->table->id);
 
 	return 0;
 }
@@ -7505,9 +7508,10 @@ static struct nft_expr_type rtpengine_ipv6_expr;
 
 static const struct nft_expr_ops rtpengine_inet_ops = {
 	.type			= &rtpengine_inet_expr,
-	.size			= NFT_EXPR_SIZE(sizeof(struct xt_rtpengine_info)),
+	.size			= NFT_EXPR_SIZE(sizeof(struct nft_rtpengine_info)),
 	.eval			= rtpengine_inet_expr_eval,
 	.init			= rtpengine_expr_init,
+	.destroy		= rtpengine_expr_destroy,
 	.dump			= rtpengine_expr_dump,
 	.validate		= rtpengine_expr_validate,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0) && LINUX_VERSION_CODE < KERNEL_VERSION(7,1,0)
@@ -7517,9 +7521,10 @@ static const struct nft_expr_ops rtpengine_inet_ops = {
 
 static const struct nft_expr_ops rtpengine_ipv4_ops = {
 	.type			= &rtpengine_ipv4_expr,
-	.size			= NFT_EXPR_SIZE(sizeof(struct xt_rtpengine_info)),
+	.size			= NFT_EXPR_SIZE(sizeof(struct nft_rtpengine_info)),
 	.eval			= rtpengine_ipv4_expr_eval,
 	.init			= rtpengine_expr_init,
+	.destroy		= rtpengine_expr_destroy,
 	.dump			= rtpengine_expr_dump,
 	.validate		= rtpengine_expr_validate,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0) && LINUX_VERSION_CODE < KERNEL_VERSION(7,1,0)
@@ -7529,9 +7534,10 @@ static const struct nft_expr_ops rtpengine_ipv4_ops = {
 
 static const struct nft_expr_ops rtpengine_ipv6_ops = {
 	.type			= &rtpengine_ipv6_expr,
-	.size			= NFT_EXPR_SIZE(sizeof(struct xt_rtpengine_info)),
+	.size			= NFT_EXPR_SIZE(sizeof(struct nft_rtpengine_info)),
 	.eval			= rtpengine_ipv6_expr_eval,
 	.init			= rtpengine_expr_init,
+	.destroy		= rtpengine_expr_destroy,
 	.dump			= rtpengine_expr_dump,
 	.validate		= rtpengine_expr_validate,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0) && LINUX_VERSION_CODE < KERNEL_VERSION(7,1,0)
