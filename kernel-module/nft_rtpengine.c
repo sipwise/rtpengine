@@ -7283,7 +7283,6 @@ do_stats:
 	}
 
 	target_put(g);
-	table_put(t);
 	if (skb)
 		kfree_skb(skb);
 
@@ -7300,7 +7299,6 @@ out:
 	target_put(g);
 out_no_target:
 	kfree_skb(skb);
-	table_put(t);
 	return error_nf_action;
 }
 
@@ -7309,26 +7307,21 @@ out_no_target:
 
 
 
-static int rtpengine4(struct sk_buff *oskb, struct net *net, uint32_t table_id) {
+static int rtpengine4(struct sk_buff *oskb, struct net *net, struct rtpengine_table *t) {
 	struct sk_buff *skb;
 	struct iphdr *ih;
-	struct rtpengine_table *t;
 	struct re_address src, dst;
-
-	t = get_table(table_id);
-	if (!t)
-		goto skip;
 
 	skb = skb_copy_expand(oskb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
 	if (!skb)
-		goto skip3;
+		return NFT_CONTINUE;
 
 	skb_gso_reset(skb);
 	skb_reset_network_header(skb);
 	ih = ip_hdr(skb);
 	skb_pull(skb, (ih->ihl << 2));
 	if (ih->protocol != IPPROTO_UDP)
-		goto skip2;
+		goto out;
 
 	memset(&src, 0, sizeof(src));
 	memset(&dst, 0, sizeof(dst));
@@ -7339,35 +7332,36 @@ static int rtpengine4(struct sk_buff *oskb, struct net *net, uint32_t table_id) 
 
 	return rtpengine46(skb, oskb, t, &src, &dst, (uint8_t)ih->tos, net);
 
-skip2:
+out:
 	kfree_skb(skb);
-skip3:
-	table_put(t);
-skip:
 	return NFT_CONTINUE;
 }
 
 static unsigned int rtpe_xt_rtpengine4(struct sk_buff *oskb, const struct xt_action_param *par) {
 	const struct xt_rtpengine_info *pinfo = par->targinfo;
-	return rtpengine4(oskb, PAR_STATE_NET(par), pinfo->id);
+	unsigned int ret;
+	struct rtpengine_table *t = get_table(pinfo->id);
+	if (!t)
+		return NFT_CONTINUE;
+
+	ret = rtpengine4(oskb, PAR_STATE_NET(par), t);
+
+	table_put(t);
+
+	return ret;
 }
 
 
 
 
-static int rtpengine6(struct sk_buff *oskb, struct net *net, uint32_t table_id) {
+static int rtpengine6(struct sk_buff *oskb, struct net *net, struct rtpengine_table *t) {
 	struct sk_buff *skb;
 	struct ipv6hdr *ih;
-	struct rtpengine_table *t;
 	struct re_address src, dst;
-
-	t = get_table(table_id);
-	if (!t)
-		goto skip;
 
 	skb = skb_copy_expand(oskb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
 	if (!skb)
-		goto skip3;
+		return NFT_CONTINUE;
 
 	skb_gso_reset(skb);
 	skb_reset_network_header(skb);
@@ -7375,7 +7369,7 @@ static int rtpengine6(struct sk_buff *oskb, struct net *net, uint32_t table_id) 
 
 	skb_pull(skb, sizeof(*ih));
 	if (ih->nexthdr != IPPROTO_UDP)
-		goto skip2;
+		goto out;
 
 	memset(&src, 0, sizeof(src));
 	memset(&dst, 0, sizeof(dst));
@@ -7386,17 +7380,23 @@ static int rtpengine6(struct sk_buff *oskb, struct net *net, uint32_t table_id) 
 
 	return rtpengine46(skb, oskb, t, &src, &dst, ipv6_get_dsfield(ih), net);
 
-skip2:
+out:
 	kfree_skb(skb);
-skip3:
-	table_put(t);
-skip:
 	return NFT_CONTINUE;
 }
 
 static unsigned int rtpe_xt_rtpengine6(struct sk_buff *oskb, const struct xt_action_param *par) {
 	const struct xt_rtpengine_info *pinfo = par->targinfo;
-	return rtpengine6(oskb, PAR_STATE_NET(par), pinfo->id);
+	unsigned int ret;
+	struct rtpengine_table *t = get_table(pinfo->id);
+	if (!t)
+		return NFT_CONTINUE;
+
+	ret = rtpengine6(oskb, PAR_STATE_NET(par), t);
+
+	table_put(t);
+
+	return ret;
 }
 
 
@@ -7422,16 +7422,24 @@ static void rtpengine_ipv4_expr_eval(const struct nft_expr *expr, struct nft_reg
 		const struct nft_pktinfo *pkt)
 {
 	struct xt_rtpengine_info *info = (struct xt_rtpengine_info *) expr->data;
-	int verdict = rtpengine4(pkt->skb, PKTINFO_NET(pkt), info->id);
+	int verdict = NFT_CONTINUE;
+	struct rtpengine_table *t = get_table(info->id);
+	if (t)
+		verdict = rtpengine4(pkt->skb, PKTINFO_NET(pkt), t);
 	regs->verdict.code = verdict;
+	table_put(t);
 }
 
 static void rtpengine_ipv6_expr_eval(const struct nft_expr *expr, struct nft_regs *regs,
 		const struct nft_pktinfo *pkt)
 {
 	struct xt_rtpengine_info *info = (struct xt_rtpengine_info *) expr->data;
-	int verdict = rtpengine6(pkt->skb, PKTINFO_NET(pkt), info->id);
+	int verdict = NFT_CONTINUE;
+	struct rtpengine_table *t = get_table(info->id);
+	if (t)
+		verdict = rtpengine6(pkt->skb, PKTINFO_NET(pkt), t);
 	regs->verdict.code = verdict;
+	table_put(t);
 }
 
 static void rtpengine_inet_expr_eval(const struct nft_expr *expr, struct nft_regs *regs,
