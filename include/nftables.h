@@ -8,6 +8,8 @@ typedef struct {
 	int family;
 	bool append;
 	bool xtables;
+	bool may_exist;
+	bool created;
 } nftables_args;
 
 char *nftables_setup(const char *chain, const char *base_chain, nftables_args);

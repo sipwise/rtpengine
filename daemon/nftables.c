@@ -62,6 +62,8 @@ struct add_rule_callbacks {
 	int table;
 	bool append;
 	bool xtables;
+	bool may_exist;
+	bool *created;
 };
 
 
@@ -501,6 +503,15 @@ static const char *target_base_nft_expr(nfapi_buf *b, struct add_rule_callbacks 
 			nfapi_add_u32_attr(b, RTPEA_RTPENGINE_TABLE, callbacks->table,
 					"table %u", callbacks->table);
 
+			if (!*callbacks->created) {
+				nfapi_add_attr(b, RTPEA_RTPENGINE_CREAT, NULL, 0, "creat");
+
+				if (!callbacks->may_exist)
+					nfapi_add_attr(b, RTPEA_RTPENGINE_EXCL, NULL, 0, "excl");
+
+				*callbacks->created = true;
+			}
+
 		nfapi_nested_end(b);
 
 	nfapi_nested_end(b);
@@ -772,6 +783,8 @@ static char *nftables_setup_family(nfapi_socket *nl, int family,
 				.table = args->table,
 				.append = args->append,
 				.xtables = args->xtables,
+				.created = &args->created,
+				.may_exist = args->may_exist,
 			});
 		if (err)
 			return err;
@@ -797,6 +810,8 @@ static char *nftables_setup_family(nfapi_socket *nl, int family,
 				.table = args->table,
 				.append = args->append,
 				.xtables = args->xtables,
+				.created = &args->created,
+				.may_exist = args->may_exist,
 			});
 		if (err)
 			return err;

@@ -1094,6 +1094,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 						.append = rtpe_config.nftables_append,
 						.family = rtpe_config.nftables_family,
 						.xtables = rtpe_config.xtables,
+						.may_exist = true,
 					});
 		}
 		else // nftables_stop
@@ -1762,12 +1763,14 @@ static void kernel_setup(void) {
 	}
 #endif
 
-	if (!kernel_create_table(rtpe_config.kernel_table)) {
-		ilog(LOG_ERR, "FAILED TO CREATE KERNEL TABLE %i (%s), KERNEL FORWARDING DISABLED",
-				rtpe_config.kernel_table, strerror(errno));
-		if (rtpe_config.no_fallback)
-			die("Userspace fallback disallowed - exiting");
-		goto fallback;
+	if (rtpe_config.xtables) {
+		if (!kernel_create_table(rtpe_config.kernel_table)) {
+			ilog(LOG_ERR, "FAILED TO CREATE KERNEL TABLE %i (%s), KERNEL FORWARDING DISABLED",
+					rtpe_config.kernel_table, strerror(errno));
+			if (rtpe_config.no_fallback)
+				die("Userspace fallback disallowed - exiting");
+			goto fallback;
+		}
 	}
 
 	if (!kernel_setup_table(rtpe_config.kernel_table)) {

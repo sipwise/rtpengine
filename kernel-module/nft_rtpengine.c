@@ -7465,9 +7465,24 @@ static int rtpengine_expr_init(const struct nft_ctx *ctx, const struct nft_expr 
 	if (table >= MAX_ID)
 		return -ERANGE;
 
+	bool crt = !!tb[RTPEA_RTPENGINE_CREAT];
+	bool excl = !!tb[RTPEA_RTPENGINE_EXCL];
+
 	info->table = get_table(table);
-	if (!info->table)
-		return -ENOENT;
+	if (!info->table) {
+		if (!crt)
+			return -ENOENT;
+		info->table = new_table_link(table);
+		if (!info->table)
+			return -EBUSY;
+	}
+	else {
+		if (excl) {
+			table_put(info->table);
+			info->table = NULL;
+			return -EEXIST;
+		}
+	}
 
 	return 0;
 }
@@ -7547,6 +7562,8 @@ static const struct nft_expr_ops rtpengine_ipv6_ops = {
 
 static const struct nla_policy rtpengine_policy[RTPEA_RTPENGINE_MAX + 1] = {
 	[RTPEA_RTPENGINE_TABLE]		= { .type = NLA_U32 },
+	[RTPEA_RTPENGINE_CREAT]		= { .type = NLA_FLAG },
+	[RTPEA_RTPENGINE_EXCL]		= { .type = NLA_FLAG },
 };
 
 static struct nft_expr_type rtpengine_inet_expr __read_mostly = {
