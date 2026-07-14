@@ -19,7 +19,8 @@
 
 #include "nft_rtpengine.h"
 
-#define HANDLER_COMMENT "rtpengine UDP handler"
+#define HANDLER_COMMENT_PREFIX "rtpengine UDP handler"
+#define HANDLER_COMMENT_FMT HANDLER_COMMENT_PREFIX " table %u"
 
 struct iterate_callbacks {
 	// called for each expression
@@ -112,7 +113,8 @@ static void check_matched_queue(struct iterate_callbacks *callbacks) {
 	//    use the rtpengine statement directly
 	//    are the dummy comment rule
 	if (!callbacks->rule_scratch.imm_jump_matched && !callbacks->rule_scratch.rtpengine_matched) {
-		if (!callbacks->rule_scratch.comment || strcmp(callbacks->rule_scratch.comment, HANDLER_COMMENT))
+		if (!callbacks->rule_scratch.comment
+				|| !g_str_has_prefix(callbacks->rule_scratch.comment, HANDLER_COMMENT_PREFIX))
 			return;
 	}
 
@@ -533,7 +535,10 @@ static const char *target_base_xt(nfapi_buf *b, struct add_rule_callbacks *callb
 
 static const char *comment(nfapi_buf *b, int family, struct add_rule_callbacks *callbacks) {
 	nfapi_add_str_attr(b, NFTA_RULE_CHAIN, callbacks->chain, "chain '%s'", callbacks->chain);
-	nfapi_add_binary_str_attr(b, NFTA_RULE_USERDATA, HANDLER_COMMENT, "comment '%s'", HANDLER_COMMENT);
+
+	char s[64];
+	snprintf(s, sizeof(s), HANDLER_COMMENT_FMT, callbacks->table);
+	nfapi_add_binary_str_attr(b, NFTA_RULE_USERDATA, s, "comment '%s'", s);
 
 	nfapi_nested_begin(b, NFTA_RULE_EXPRESSIONS, "expr");
 
