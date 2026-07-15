@@ -1409,7 +1409,7 @@ static int proc_status_show(struct seq_file *m, void *v) {
 		return -ENOENT;
 
 	read_lock_irqsave(&t->target_lock, flags);
-	seq_printf(m, "Refcount:    %u\n", atomic_read(&t->refcnt) - 1);
+	seq_printf(m, "Refcount:    %u\n", atomic_read(&t->refcnt));
 	seq_printf(m, "Control PID: %u\n", t->pid);
 	seq_printf(m, "Targets:     %u\n", t->num_targets);
 	read_unlock_irqrestore(&t->target_lock, flags);
@@ -3075,6 +3075,9 @@ static int proc_control_open(struct inode *inode, struct file *file) {
 	unsigned long flags;
 	int err;
 
+	if (file->private_data)
+		return -ENXIO;
+
 	if ((err = proc_generic_open_modref(inode, file)))
 		return err;
 
@@ -3092,7 +3095,7 @@ static int proc_control_open(struct inode *inode, struct file *file) {
 	t->pid = current->tgid;
 	write_unlock_irqrestore(&table_lock, flags);
 
-	table_put(t);
+	file->private_data = t;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,1,0)
 	return stream_open(inode, file);
 #else
@@ -3101,12 +3104,10 @@ static int proc_control_open(struct inode *inode, struct file *file) {
 }
 
 static int proc_control_close(struct inode *inode, struct file *file) {
-	uint32_t id;
 	struct rtpengine_table *t;
 	unsigned long flags;
 
-	id = (uint32_t) (unsigned long) PDE_DATA(inode);
-	t = get_table(id);
+	t = file->private_data;
 	if (!t)
 		return 0;
 
@@ -3114,6 +3115,7 @@ static int proc_control_close(struct inode *inode, struct file *file) {
 	t->pid = 0;
 	write_unlock_irqrestore(&table_lock, flags);
 
+	file->private_data = NULL;
 	table_put(t);
 
 	proc_generic_close_modref(inode, file);
@@ -5188,8 +5190,6 @@ static int rtpengine_init_table(struct rtpengine_table *t, struct rtpengine_init
 static inline ssize_t proc_control_read_write(struct file *file, char __user *ubuf, size_t buflen,
 		int writeable)
 {
-	struct inode *inode;
-	uint32_t id;
 	struct rtpengine_table *t;
 	int err;
 	enum rtpengine_command cmd;
@@ -5249,9 +5249,7 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 		msg.storage = scratchbuf;
 
 	// get our table
-	inode = file->f_path.dentry->d_inode;
-	id = (uint32_t) (unsigned long) PDE_DATA(inode);
-	t = get_table(id);
+	t = file->private_data;
 	err = -ENOENT;
 	if (!t)
 		goto err_free;
@@ -5259,7 +5257,7 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 	// copy in the entire request
 	err = -EFAULT;
 	if (copy_from_user(msg.storage, ubuf, buflen))
-		goto err_table_free;
+		goto err_free;
 
 	// execute command
 	err = 0;
@@ -5349,8 +5347,6 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 			break;
 	}
 
-	table_put(t);
-
 	if (err)
 		goto err_free;
 
@@ -5365,8 +5361,6 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 
 	return buflen;
 
-err_table_free:
-	table_put(t);
 err_free:
 	if (msg.storage != scratchbuf)
 		kfree(msg.storage);
