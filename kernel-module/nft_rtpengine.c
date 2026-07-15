@@ -592,7 +592,7 @@ struct re_play_stream {
 	struct re_play_stream_packet *position;
 	struct re_timer_thread *timer_thread;
 	uint64_t tree_index;
-	unsigned int table_id;
+	struct rtpengine_table *table;
 	struct list_head table_entry;
 };
 
@@ -1149,7 +1149,8 @@ static void clear_table_player(struct rtpengine_table *t) {
 
 	list_for_each_entry_safe(stream, ts, &t->play_streams, table_entry) {
 		spin_lock(&stream->lock);
-		stream->table_id = -1;
+		table_put(stream->table);
+		stream->table = NULL;
 		idx = stream->idx;
 		spin_unlock(&stream->lock);
 		write_lock(&media_player_lock);
@@ -4527,7 +4528,7 @@ static int timer_worker(void *p) {
 
 			spin_lock(&stream->lock);
 
-			if (stream->table_id == -1) {
+			if (!stream->table) {
 				// we've been descheduled
 				spin_unlock(&stream->lock);
 				unref_play_stream(stream);
@@ -4552,7 +4553,7 @@ static int timer_worker(void *p) {
 
 				spin_lock(&stream->lock);
 
-				if (stream->table_id != -1)
+				if (stream->table)
 					play_stream_next_packet(stream);
 				else
 					stream->position = NULL;
@@ -4891,7 +4892,8 @@ static int play_stream(struct rtpengine_table *t, const struct rtpengine_play_st
 
 	INIT_LIST_HEAD(&play_stream->table_entry);
 	play_stream->info = *info;
-	play_stream->table_id = t->id;
+	play_stream->table = t;
+	ref_get(t);
 	atomic_set(&play_stream->refcnt, 1);
 	spin_lock_init(&play_stream->lock);
 	play_stream->info.stats = stats;
@@ -4988,19 +4990,22 @@ out:
 static void end_of_stream(struct re_play_stream *stream) {
 	struct rtpengine_table *t;
 
-	if (stream->table_id != -1 && !list_empty(&stream->table_entry)) {
-		t = get_table(stream->table_id);
-		if (t) {
-			//printk(KERN_WARNING "removing stream %p from table\n", stream);
-			spin_lock(&t->player_lock);
-			list_del_init(&stream->table_entry);
-			t->num_play_streams--;
-			spin_unlock(&t->player_lock);
-			table_put(t);
-			unref_play_stream(stream);
-		}
-	}
-	stream->table_id = -1;
+	if (list_empty(&stream->table_entry))
+		return;
+
+	t = stream->table;
+	if (!t)
+		return;
+
+	//printk(KERN_WARNING "removing stream %p from table\n", stream);
+	spin_lock(&t->player_lock);
+	list_del_init(&stream->table_entry);
+	t->num_play_streams--;
+	spin_unlock(&t->player_lock);
+	unref_play_stream(stream);
+
+	table_put(t);
+	stream->table = NULL;
 }
 
 // stream lock is not held, reference must be held
