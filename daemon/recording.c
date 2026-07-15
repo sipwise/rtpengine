@@ -890,10 +890,16 @@ static int vappend_meta_chunk_iov(struct recording *recording, struct iovec *in_
 	if (fd == -1)
 		return -1;
 
-	char label[128];
-	int lablen = vsnprintf(label, sizeof(label), label_fmt, ap);
-	char infix[128];
-	int inflen = snprintf(infix, sizeof(infix), "\n%u:\n", str_len);
+	g_autoptr(char)label = g_strdup_vprintf(label_fmt, ap);
+	g_autoptr(char)infix = g_strdup_printf("\n%u:\n", str_len);
+
+	if (!label || !infix) {
+		close(fd);
+		return -1;
+	}
+
+	size_t lablen = strlen(label);
+	size_t inflen = strlen(infix);
 
 	// use writev for an atomic write
 	struct iovec iov[iovcnt + 3];
@@ -905,8 +911,16 @@ static int vappend_meta_chunk_iov(struct recording *recording, struct iovec *in_
 	iov[iovcnt + 2].iov_base = "\n\n";
 	iov[iovcnt + 2].iov_len = 2;
 
-	if (writev(fd, iov, iovcnt + 3) != (str_len + lablen + inflen + 2))
-		ilog(LOG_WARN, "writev return value incorrect");
+	ssize_t ret = writev(fd, iov, iovcnt + 3);
+	ssize_t expected = str_len + lablen + inflen + 2;
+
+	if (ret != expected) {
+		if (ret < 0)
+			ilog(LOG_WARN, "Failed to write recording metadata chunk: '%s'", strerror(errno));
+		else
+			ilog(LOG_WARN, "Incomplete recording metadata chunk write: '%zd' of '%zd' bytes",
+					ret, expected);
+	}
 
 	close(fd); // this triggers the inotify
 
