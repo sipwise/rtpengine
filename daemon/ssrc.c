@@ -706,17 +706,18 @@ void ssrc_collect_metrics(struct call_media *media) {
 		// exclude zero values - technically possible but unlikely and probably just unset
 		if (!s->jitter)
 			continue;
+		uint32_t jitter = s->jitter >> 4;
 
 		if (s->tracker.most_len > 0 && s->tracker.most[0] != 255) {
 			const rtp_payload_type *rpt = get_rtp_payload_type(s->tracker.most[0],
 					&media->codecs);
 			if (rpt && rpt->clock_rate)
-				s->jitter = s->jitter * 1000 / rpt->clock_rate;
+				jitter = (uint64_t) jitter * 1000 / rpt->clock_rate;
 		}
 
 		if (media->streams.head) {
 			LOCK(&media->streams.head->data->lock);
-			RTPE_SAMPLE_SFD(jitter_measured, s->jitter, media->streams.head->data->selected_sfd);
+			RTPE_SAMPLE_SFD(jitter_measured, jitter, media->streams.head->data->selected_sfd);
 		}
 	}
 }

@@ -306,7 +306,7 @@ static void mqtt_ssrc_stats(struct ssrc_entry_call *ssrc, JsonBuilder *json, str
 
 	if (clockrate) {
 		json_builder_set_member_name(json, "jitter");
-		json_builder_add_double_value(json, (double) jitter * 1000.0 / (double) clockrate);
+		json_builder_add_double_value(json, (double) (jitter >> 4) * 1000.0 / (double) clockrate);
 	}
 
 	if (mos != -1 && mos != 0) {
