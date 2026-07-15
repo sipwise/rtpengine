@@ -56,7 +56,16 @@ static bool kernel_create_table(unsigned int id) {
 }
 
 static bool kernel_delete_table(unsigned int id) {
-	return kernel_action_table("del", id);
+	for (unsigned int i = 0; i < 5; i++) {
+		bool ok = kernel_action_table("del", id);
+		if (ok)
+			return true;
+		if (errno != EBUSY)
+			return false;
+		usleep(20000);
+	}
+
+	return false;
 }
 
 static void kernel_pin_memory(void *b, size_t len) {

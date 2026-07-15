@@ -1251,7 +1251,6 @@ static void table_put(struct rtpengine_table *t) {
 		release_shm(&t->shms[i]);
 	kfree(t->shms);
 
-	clear_table_proc_files(t);
 #ifdef KERNEL_PLAYER
 	clear_table_player(t);
 #endif
@@ -1346,10 +1345,6 @@ static void call_put(struct re_call *call) {
 
 static int unlink_table(struct rtpengine_table *t) {
 	unsigned long flags;
-	struct re_call *call;
-
-	if (t->id >= MAX_ID)
-		return -EINVAL;
 
 	DBG("Unlinking table %u\n", t->id);
 
@@ -1362,9 +1357,44 @@ static int unlink_table(struct rtpengine_table *t) {
 		write_unlock_irqrestore(&table_lock, flags);
 		return -EBUSY;
 	}
+	// this ref and the entry in rtpe_table
+	if (atomic_read(&t->refcnt) != 2) {
+		write_unlock_irqrestore(&table_lock, flags);
+		return -EBUSY;
+	}
 	rtpe_table[t->id] = NULL;
-	t->id = -1;
+	t->id = -1u;
 	write_unlock_irqrestore(&table_lock, flags);
+	table_put(t);
+
+	// safe to clear, nothing else could be open any more
+	clear_table_proc_files(t);
+
+	// last ref -> free
+	table_put(t);
+
+	return 0;
+}
+
+static int kill_table(struct rtpengine_table *t) {
+	unsigned long flags;
+	struct re_call *call;
+
+	DBG("Killing table %u\n", t->id);
+
+	write_lock_irqsave(&table_lock, flags);
+	if (t->id >= MAX_ID || rtpe_table[t->id] != t) {
+		write_unlock_irqrestore(&table_lock, flags);
+		return -EINVAL;
+	}
+	if (t->pid) {
+		write_unlock_irqrestore(&table_lock, flags);
+		return -EBUSY;
+	}
+	rtpe_table[t->id] = NULL;
+	t->id = -1u;
+	write_unlock_irqrestore(&table_lock, flags);
+	table_put(t);
 
 	_w_lock(&calls.lock, flags);
 	while (!list_empty(&t->calls)) {
@@ -1375,12 +1405,14 @@ static int unlink_table(struct rtpengine_table *t) {
 	}
 	_w_unlock(&calls.lock, flags);
 
+	// *should* be the last ref
 	clear_table_proc_files(t);
+
+	// last ref -> free
 	table_put(t);
 
 	return 0;
 }
-
 
 
 
@@ -3066,7 +3098,20 @@ static ssize_t proc_main_control_write(struct file *file, const char __user *buf
 		if (!t)
 			return -ENOENT;
 		err = unlink_table(t);
-		table_put(t);
+		t = NULL;
+		if (err)
+			return err;
+	}
+	else if (!strncmp(b, "kill ", 5)) {
+		id = simple_strtoul(b + 5, &endp, 10);
+		if (endp == b + 5)
+			return -EINVAL;
+		if (id >= MAX_ID)
+			return -EINVAL;
+		t = get_table((uint32_t) id);
+		if (!t)
+			return -ENOENT;
+		err = kill_table(t);
 		t = NULL;
 		if (err)
 			return err;
