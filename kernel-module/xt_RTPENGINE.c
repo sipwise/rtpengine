@@ -5122,6 +5122,11 @@ static int send_proxy_packet(struct sk_buff *skb, struct re_address *src, struct
 		goto drop;
 	}
 
+	/* This skb was received from the network but is now being reinjected as
+	 * a new locally generated packet. Drop inherited routing, conntrack, and
+	 * netfilter metadata before handing it to the IP output path. */
+	skb_scrub_packet(skb, true);
+
 	switch (src->family) {
 		case AF_INET:
 			return send_proxy_packet4(skb, src, dst, tos, par);
