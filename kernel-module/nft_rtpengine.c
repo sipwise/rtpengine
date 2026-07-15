@@ -260,6 +260,7 @@ static int proc_generic_seqrelease_modref(struct inode *inode, struct file *file
 static int proc_generic_singlerelease_modref(struct inode *inode, struct file *file);
 
 static int proc_list_open(struct inode *, struct file *);
+static int proc_list_close(struct inode *inode, struct file *file);
 
 static void *proc_list_start(struct seq_file *, loff_t *);
 static void proc_list_stop(struct seq_file *, void *);
@@ -718,7 +719,7 @@ static const struct PROC_OP_STRUCT proc_list_ops = {
 	.PROC_OPEN		= proc_list_open,
 	.PROC_READ		= seq_read,
 	.PROC_LSEEK		= seq_lseek,
-	.PROC_RELEASE		= proc_generic_seqrelease_modref,
+	.PROC_RELEASE		= proc_list_close,
 };
 
 static const struct seq_operations proc_list_seq_ops = {
@@ -1679,18 +1680,26 @@ static int proc_list_open(struct inode *i, struct file *f) {
 	t = get_table(id);
 	if (!t)
 		return -ENOENT;
-	table_put(t);
 
 	err = seq_open(f, &proc_list_seq_ops);
-	if (err)
+	if (err) {
+		table_put(t);
 		return err;
+	}
 
 	p = f->private_data;
-	p->private = (void *) (unsigned long) id;
+	p->private = t;
 
 	return 0;
 }
 
+static int proc_list_close(struct inode *inode, struct file *file) {
+	struct seq_file *p = file->private_data;
+	struct rtpengine_table *t = p ? p->private : NULL;
+	if (t)
+		table_put(t);
+	return proc_generic_seqrelease_modref(inode, file);
+}
 
 
 
@@ -1702,15 +1711,13 @@ static void proc_list_stop(struct seq_file *f, void *v) {
 }
 
 static void *proc_list_next(struct seq_file *f, void *v, loff_t *o) {
-	uint32_t id = (uint32_t) (unsigned long) f->private;
-	struct rtpengine_table *t;
+	struct rtpengine_table *t = f->private;
 	struct rtpengine_target *g;
 	int port, addr_bucket;
 
 	addr_bucket = ((int) *o) >> 17;
 	port = ((int) *o) & 0x1ffff;
 
-	t = get_table(id);
 	if (!t)
 		return NULL;
 
@@ -1720,7 +1727,6 @@ static void *proc_list_next(struct seq_file *f, void *v, loff_t *o) {
 	g = find_next_target(t, &addr_bucket, &port);
 
 	*o = (addr_bucket << 17) | port;
-	table_put(t);
 
 	if (!g) // EOF
 		*o = 256 << 17;
