@@ -409,7 +409,7 @@ struct re_auto_array {
 struct re_call {
 	atomic_t			refcnt;
 	struct rtpengine_call_info	info;
-	unsigned int			table_id;
+	struct rtpengine_table		*table;
 	u32				hash_bucket;
 	int				deleted; /* protected by calls.lock */
 
@@ -1335,6 +1335,8 @@ static void call_put(struct re_call *call) {
 
 	DBG("clearing call proc files\n");
 	clear_proc(&call->root);
+
+	table_put(call->table);
 
 	kfree(call);
 }
@@ -3212,7 +3214,7 @@ static struct re_call *get_call(struct rtpengine_table *table, unsigned int idx)
 	ret = calls.array[idx];
 	if (!ret)
 		return NULL;
-	if (table && ret->table_id != table->id)
+	if (table && ret->table != table)
 		return NULL;
 	if (ret->deleted)
 		return NULL;
@@ -3304,7 +3306,8 @@ static int table_new_call(struct rtpengine_table *table, struct rtpengine_call_i
 		return -ENOMEM;
 
 	atomic_set(&call->refcnt, 1);
-	call->table_id = table->id;
+	call->table = table;
+	ref_get(table);
 	INIT_LIST_HEAD(&call->streams);
 	INIT_LIST_HEAD(&call->table_entry);
 
