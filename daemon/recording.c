@@ -1041,8 +1041,6 @@ static void setup_stream_proc(struct packet_stream *stream) {
 	struct call_monologue *ml = media->monologue;
 	call_t *call = stream->call;
 	struct recording *recording = call->recording;
-	char buf[128];
-	int len;
 	unsigned int media_rec_slot;
 	unsigned int media_rec_slots;
 
@@ -1057,8 +1055,8 @@ static void setup_stream_proc(struct packet_stream *stream) {
 
 	ilog(LOG_INFO, "media_rec_slot=%u, media_rec_slots=%u, stream=%u", media->media_rec_slot, call->media_rec_slots, stream->unique_id);
 
-	// If no slots have been specified or someone has tried to use slott 0 then we set the variables up so that the mix
-	// channels will be used in sequence as each SSRC is seen. (see mix.c for the algorithm)
+	/* If no slots have been specified or someone has tried to use slott 0 then we set the variables up so that the mix
+	 * channels will be used in sequence as each SSRC is seen. (see mix.c for the algorithm) */
 	if(call->media_rec_slots < 1 || media->media_rec_slot < 1) {
 		media_rec_slot = 1;
 		media_rec_slots = 1;
@@ -1068,26 +1066,33 @@ static void setup_stream_proc(struct packet_stream *stream) {
 	}
 
 	if(media_rec_slot > media_rec_slots) {
-		ilog(LOG_ERR, "slot %i is greater than the total number of slots available %i, setting to slot %i", media->media_rec_slot, call->media_rec_slots, media_rec_slots);
+		ilog(LOG_ERR, "slot %i is greater than the total number of slots available %i, setting to slot %i",
+				media->media_rec_slot, call->media_rec_slots, media_rec_slots);
 		media_rec_slot = media_rec_slots;
 	}
 
-	len = snprintf(buf, sizeof(buf), "TAG %u MEDIA %u COMPONENT %u FLAGS %" PRIu64 " MEDIA-SDP-ID %i MEDIA-REC-SLOT %i MEDIA-REC-SLOTS %i",
-				   ml->unique_id, media->unique_id, stream->component,
-				   atomic64_get_na(&stream->ps_flags), media->media_sdp_id, media_rec_slot, media_rec_slots);
-	append_meta_chunk(recording, buf, len, "STREAM %u details", stream->unique_id);
+	/* id */
+	g_autoptr(char)buf_id = g_strdup_printf("TAG %u MEDIA %u COMPONENT %u FLAGS %" PRIu64 " MEDIA-SDP-ID %i MEDIA-REC-SLOT %i MEDIA-REC-SLOTS %i",
+						ml->unique_id, media->unique_id, stream->component,
+						atomic64_get_na(&stream->ps_flags), media->media_sdp_id, media_rec_slot, media_rec_slots);
+	append_meta_chunk_s(recording, buf_id, "STREAM %u details", stream->unique_id);
 
-	len = snprintf(buf, sizeof(buf), "tag-%u-media-%u-component-%u-%s-id-%u",
-			ml->unique_id, media->index, stream->component,
-			(PS_ISSET(stream, RTCP) && !PS_ISSET(stream, RTP)) ? "RTCP" : "RTP",
-			stream->unique_id);
-	stream->recording.proc.stream_idx = kernel_add_intercept_stream(recording->proc.call_idx, buf);
+	/* the rest of things */
+	g_autoptr(char)buf_other = g_strdup_printf("tag-%u-media-%u-component-%u-%s-id-%u",
+						ml->unique_id, media->index, stream->component,
+						(PS_ISSET(stream, RTCP) && !PS_ISSET(stream, RTP)) ? "RTCP" : "RTP",
+						stream->unique_id);
+
+	/* add stream to kernel iface */
+	stream->recording.proc.stream_idx = kernel_add_intercept_stream(recording->proc.call_idx, buf_other);
 	if (stream->recording.proc.stream_idx == UNINIT_IDX) {
 		ilog(LOG_ERR, "Failed to add stream to kernel recording interface: %s", strerror(errno));
 		return;
 	}
+
 	ilog(LOG_DEBUG, "kernel stream idx is %u", stream->recording.proc.stream_idx);
-	append_meta_chunk(recording, buf, len, "STREAM %u interface", stream->unique_id);
+
+	append_meta_chunk_s(recording, buf_other, "STREAM %u interface", stream->unique_id);
 }
 
 static void setup_monologue_proc(struct call_monologue *ml) {
