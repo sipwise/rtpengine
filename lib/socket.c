@@ -880,6 +880,7 @@ bool reset_socket(socket_t *r) {
 		return false;
 
 	r->fd = -1;
+	r->family = NULL;
 	ZERO(r->local);
 	ZERO(r->remote);
 
