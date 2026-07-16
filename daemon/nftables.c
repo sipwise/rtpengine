@@ -735,9 +735,7 @@ static char *add_table(nfapi_socket *nl, int family) {
 static char *nftables_setup_family(nfapi_socket *nl, int family,
 		const char *chain, const char *base_chain, nftables_args *args)
 {
-	char *err = nftables_shutdown_family(nl, family, chain, base_chain, args);
-	if (err)
-		return err;
+	char *err;
 
 	// create the table in case it doesn't exist
 	err = add_table(nl, family);

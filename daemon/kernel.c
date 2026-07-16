@@ -51,11 +51,11 @@ fail:
 	return false;
 }
 
-static bool kernel_create_table(unsigned int id) {
+bool kernel_create_table(unsigned int id) {
 	return kernel_action_table("add", id);
 }
 
-static bool kernel_delete_table(unsigned int id) {
+bool kernel_delete_table(unsigned int id) {
 	for (unsigned int i = 0; i < 5; i++) {
 		bool ok = kernel_action_table("del", id);
 		if (ok)
@@ -178,16 +178,6 @@ bool kernel_setup_table(unsigned int id) {
 
 	kernel.is_wanted = true;
 
-	if (!kernel_delete_table(id) && errno != ENOENT) {
-		ilog(LOG_ERR, "FAILED TO DELETE KERNEL TABLE %i (%s), KERNEL FORWARDING DISABLED",
-				id, strerror(errno));
-		return false;
-	}
-	if (!kernel_create_table(id)) {
-		ilog(LOG_ERR, "FAILED TO CREATE KERNEL TABLE %i (%s), KERNEL FORWARDING DISABLED",
-				id, strerror(errno));
-		return false;
-	}
 	int fd = kernel_open_table(id);
 	if (fd == -1) {
 		ilog(LOG_ERR, "FAILED TO OPEN KERNEL TABLE %i (%s), KERNEL FORWARDING DISABLED",

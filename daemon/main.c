@@ -1082,7 +1082,12 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 					});
 			exit(xv);
 		}
-		if (nftables_start)
+		if (nftables_start) {
+			nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
+					(nftables_args) {
+						.table = rtpe_config.kernel_table,
+						.family = rtpe_config.nftables_family,
+					});
 			err = nftables_setup(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
 					(nftables_args) {
 						.table = rtpe_config.kernel_table,
@@ -1090,6 +1095,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 						.family = rtpe_config.nftables_family,
 						.xtables = rtpe_config.xtables,
 					});
+		}
 		else // nftables_stop
 			err = nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
 					(nftables_args) {
@@ -1721,8 +1727,27 @@ static void clib_loop(void) {
 
 static void kernel_setup(void) {
 	g_autoptr(char) err = NULL;
+
 	if (rtpe_config.kernel_table < 0)
 		goto fallback;
+
+#ifndef WITHOUT_NFTABLES
+	// ignore errors
+	nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
+			(nftables_args) {
+				.table = rtpe_config.kernel_table,
+				.family = rtpe_config.nftables_family,
+			});
+#endif
+
+	if (!kernel_delete_table(rtpe_config.kernel_table) && errno != ENOENT) {
+		ilog(LOG_ERR, "FAILED TO DELETE KERNEL TABLE %i (%s), KERNEL FORWARDING DISABLED",
+				rtpe_config.kernel_table, strerror(errno));
+		if (rtpe_config.no_fallback)
+			die("Userspace fallback disallowed - exiting");
+		goto fallback;
+	}
+
 #ifndef WITHOUT_NFTABLES
 	err = nftables_setup(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
 			(nftables_args) {.table = rtpe_config.kernel_table,
@@ -1736,6 +1761,15 @@ static void kernel_setup(void) {
 				"%s", err);
 	}
 #endif
+
+	if (!kernel_create_table(rtpe_config.kernel_table)) {
+		ilog(LOG_ERR, "FAILED TO CREATE KERNEL TABLE %i (%s), KERNEL FORWARDING DISABLED",
+				rtpe_config.kernel_table, strerror(errno));
+		if (rtpe_config.no_fallback)
+			die("Userspace fallback disallowed - exiting");
+		goto fallback;
+	}
+
 	if (!kernel_setup_table(rtpe_config.kernel_table)) {
 		if (rtpe_config.no_fallback)
 			die("Userspace fallback disallowed - exiting");

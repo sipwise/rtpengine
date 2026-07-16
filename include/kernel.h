@@ -47,6 +47,8 @@ struct kernel_ring_buf {
 
 
 bool kernel_setup_table(unsigned int);
+bool kernel_create_table(unsigned int);
+bool kernel_delete_table(unsigned int);
 bool kernel_init_table(void);
 void kernel_shutdown_table(void);
 
