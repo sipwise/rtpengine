@@ -461,7 +461,6 @@ struct re_shm {
 struct rtpengine_table {
 	atomic_t			refcnt;
 	rwlock_t			target_lock;
-	pid_t				pid;
 
 	unsigned int			id;
 	struct proc_dir_entry		*proc_root;
@@ -1357,10 +1356,6 @@ static int unlink_table(struct rtpengine_table *t) {
 		write_unlock_irqrestore(&table_lock, flags);
 		return -EINVAL;
 	}
-	if (t->pid) {
-		write_unlock_irqrestore(&table_lock, flags);
-		return -EBUSY;
-	}
 	// this ref and the entry in rtpe_table
 	if (atomic_read(&t->refcnt) != 2) {
 		write_unlock_irqrestore(&table_lock, flags);
@@ -1390,10 +1385,6 @@ static int kill_table(struct rtpengine_table *t) {
 	if (t->id >= MAX_ID || rtpe_table[t->id] != t) {
 		write_unlock_irqrestore(&table_lock, flags);
 		return -EINVAL;
-	}
-	if (t->pid) {
-		write_unlock_irqrestore(&table_lock, flags);
-		return -EBUSY;
 	}
 	rtpe_table[t->id] = NULL;
 	t->id = -1u;
@@ -1451,7 +1442,6 @@ static int proc_status_show(struct seq_file *m, void *v) {
 
 	read_lock_irqsave(&t->target_lock, flags);
 	seq_printf(m, "Refcount:    %u\n", atomic_read(&t->refcnt));
-	seq_printf(m, "Control PID: %u\n", t->pid);
 	seq_printf(m, "Targets:     %u\n", t->num_targets);
 	read_unlock_irqrestore(&t->target_lock, flags);
 
@@ -3145,15 +3135,6 @@ static int proc_control_open(struct inode *inode, struct file *file) {
 	if (!t)
 		return -ENOENT;
 
-	write_lock_irqsave(&table_lock, flags);
-	if (t->pid) {
-		write_unlock_irqrestore(&table_lock, flags);
-		table_put(t);
-		return -EBUSY;
-	}
-	t->pid = current->tgid;
-	write_unlock_irqrestore(&table_lock, flags);
-
 	file->private_data = t;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,1,0)
 	return stream_open(inode, file);
@@ -3169,10 +3150,6 @@ static int proc_control_close(struct inode *inode, struct file *file) {
 	t = file->private_data;
 	if (!t)
 		return 0;
-
-	write_lock_irqsave(&table_lock, flags);
-	t->pid = 0;
-	write_unlock_irqrestore(&table_lock, flags);
 
 	file->private_data = NULL;
 	table_put(t);
