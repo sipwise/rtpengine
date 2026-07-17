@@ -7010,31 +7010,34 @@ static int rtpengine46(struct sk_buff *oskb,
 	unsigned int output_group_idx = 0;
 	struct rtpengine_output_group *output_group;
 
-	skb = skb_copy_expand(oskb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
-	if (!skb)
-		return NFT_CONTINUE;
-
-	skb_gso_reset(skb);
-
-	// pull to transport (UDP) header
-	skb_pull(skb, skb->transport_header - skb->network_header);
-
-	uh = udp_hdr(skb);
-	skb_pull(skb, sizeof(*uh));
-
-	datalen = ntohs(uh->len);
-	if (datalen < sizeof(*uh))
-		goto out_no_target;
-	datalen -= sizeof(*uh);
-	DBG("udp payload = %u\n", datalen);
-	skb_trim(skb, datalen);
+	uh = udp_hdr(oskb);
 
 	src->port = ntohs(uh->source);
 	dst->port = ntohs(uh->dest);
 
 	g = get_target(t, dst);
 	if (!g)
-		goto out_no_target;
+		return NFT_CONTINUE;
+
+	DBG("target found, local " MIPF "\n", MIPP(g->target.local));
+	DBG("target decrypt RTP hmac and cipher are %s and %s", g->decrypt_rtp.hmac->name,
+			g->decrypt_rtp.cipher->name);
+
+	datalen = ntohs(uh->len);
+	if (datalen < sizeof(*uh))
+		goto out_target;
+	datalen -= sizeof(*uh);
+	DBG("udp payload = %u\n", datalen);
+
+	skb = skb_copy_expand(oskb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
+	if (!skb)
+		goto out_target;
+
+	skb_gso_reset(skb);
+
+	// pull and trim to data
+	skb_pull(skb, skb->transport_header - skb->network_header + sizeof(*uh));
+	skb_trim(skb, datalen);
 
 	// all our outputs filled?
 	_r_lock(&g->outputs_lock, flags);
@@ -7044,10 +7047,6 @@ static int rtpengine46(struct sk_buff *oskb,
 		goto out;
 	}
 	_r_unlock(&g->outputs_lock, flags);
-
-	DBG("target found, local " MIPF "\n", MIPP(g->target.local));
-	DBG("target decrypt RTP hmac and cipher are %s and %s", g->decrypt_rtp.hmac->name,
-			g->decrypt_rtp.cipher->name);
 
 	if (is_stun(g, datalen, skb->data))
 		goto out;
@@ -7289,9 +7288,9 @@ out_error:
 out:
 	error_nf_action = ring_buffer_insert(error_nf_action, t, g, &g->raw_ring_buf,
 			g->target.raw_ring_buf.num, src, &g->target.local, skb, ktime_to_us(oskb->tstamp));
-	target_put(g);
-out_no_target:
 	kfree_skb(skb);
+out_target:
+	target_put(g);
 	return error_nf_action;
 }
 
