@@ -6982,10 +6982,11 @@ static int ring_buffer_insert(int action, struct rtpengine_table *t, struct rtpe
 }
 
 
-static int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
+static int rtpengine46(struct sk_buff *oskb,
 		struct rtpengine_table *t, struct re_address *src,
 		struct re_address *dst, uint8_t in_tos, struct net *net)
 {
+	struct sk_buff *skb;
 	struct udphdr *uh;
 	struct rtpengine_target *g;
 	struct sk_buff *skb2;
@@ -7009,7 +7010,15 @@ static int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 	unsigned int output_group_idx = 0;
 	struct rtpengine_output_group *output_group;
 
-	skb_reset_transport_header(skb);
+	skb = skb_copy_expand(oskb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
+	if (!skb)
+		return NFT_CONTINUE;
+
+	skb_gso_reset(skb);
+
+	// pull to transport (UDP) header
+	skb_pull(skb, skb->transport_header - skb->network_header);
+
 	uh = udp_hdr(skb);
 	skb_pull(skb, sizeof(*uh));
 
@@ -7292,22 +7301,13 @@ out_no_target:
 
 
 static int rtpengine4(struct sk_buff *oskb, struct net *net, struct rtpengine_table *t) {
-	struct sk_buff *skb;
 	struct iphdr *ih;
 	struct re_address src, dst;
 
-	skb = skb_copy_expand(oskb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
-	if (!skb)
-		return NFT_CONTINUE;
-
-	skb_gso_reset(skb);
-	ih = ip_hdr(skb);
+	ih = ip_hdr(oskb);
 
 	if (ih->protocol != IPPROTO_UDP)
-		goto out;
-
-	// pull to transport (UDP) header
-	skb_pull(skb, skb->transport_header - skb->network_header);
+		return NFT_CONTINUE;
 
 	memset(&src, 0, sizeof(src));
 	memset(&dst, 0, sizeof(dst));
@@ -7316,11 +7316,7 @@ static int rtpengine4(struct sk_buff *oskb, struct net *net, struct rtpengine_ta
 	dst.family = AF_INET;
 	dst.u.ipv4 = ih->daddr;
 
-	return rtpengine46(skb, oskb, t, &src, &dst, (uint8_t)ih->tos, net);
-
-out:
-	kfree_skb(skb);
-	return NFT_CONTINUE;
+	return rtpengine46(oskb, t, &src, &dst, (uint8_t)ih->tos, net);
 }
 
 static unsigned int rtpe_xt_rtpengine4(struct sk_buff *oskb, const struct xt_action_param *par) {
@@ -7341,22 +7337,13 @@ static unsigned int rtpe_xt_rtpengine4(struct sk_buff *oskb, const struct xt_act
 
 
 static int rtpengine6(struct sk_buff *oskb, struct net *net, struct rtpengine_table *t) {
-	struct sk_buff *skb;
 	struct ipv6hdr *ih;
 	struct re_address src, dst;
 
-	skb = skb_copy_expand(oskb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
-	if (!skb)
-		return NFT_CONTINUE;
-
-	skb_gso_reset(skb);
-	ih = ipv6_hdr(skb);
+	ih = ipv6_hdr(oskb);
 
 	if (ih->nexthdr != IPPROTO_UDP)
-		goto out;
-
-	// pull to transport (UDP) header
-	skb_pull(skb, skb->transport_header - skb->network_header);
+		return NFT_CONTINUE;
 
 	memset(&src, 0, sizeof(src));
 	memset(&dst, 0, sizeof(dst));
@@ -7365,11 +7352,7 @@ static int rtpengine6(struct sk_buff *oskb, struct net *net, struct rtpengine_ta
 	dst.family = AF_INET6;
 	memcpy(&dst.u.ipv6, &ih->daddr, sizeof(dst.u.ipv6));
 
-	return rtpengine46(skb, oskb, t, &src, &dst, ipv6_get_dsfield(ih), net);
-
-out:
-	kfree_skb(skb);
-	return NFT_CONTINUE;
+	return rtpengine46(oskb, t, &src, &dst, ipv6_get_dsfield(ih), net);
 }
 
 static unsigned int rtpe_xt_rtpengine6(struct sk_buff *oskb, const struct xt_action_param *par) {
