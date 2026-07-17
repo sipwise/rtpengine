@@ -1,3 +1,16 @@
+ngcp-rtpengine (26.1.1.5+0~mr26.1.1.5) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [07d3fe8] MT#55283 altered endpoint learning with ICE
+  * [c498e31] MT#55283 tests for Ieac289335
+  * [e1dc1ee] MT#55283 ensure null termination
+  * [bba3cf7] MT#55283 add missing socket reset flag
+
+  [ Idan Freiberg ]
+  * [2083cbb] MT#55283 kernel-module: scrub forwarded skb metadata
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 17 Jul 2026 13:55:37 +0200
+
 ngcp-rtpengine (26.1.1.4+0~mr26.1.1.4) unstable; urgency=medium
 
   [ Richard Fuchs ]
