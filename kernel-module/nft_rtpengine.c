@@ -7301,11 +7301,13 @@ static int rtpengine4(struct sk_buff *oskb, struct net *net, struct rtpengine_ta
 		return NFT_CONTINUE;
 
 	skb_gso_reset(skb);
-	skb_reset_network_header(skb);
 	ih = ip_hdr(skb);
-	skb_pull(skb, (ih->ihl << 2));
+
 	if (ih->protocol != IPPROTO_UDP)
 		goto out;
+
+	// pull to transport (UDP) header
+	skb_pull(skb, skb->transport_header - skb->network_header);
 
 	memset(&src, 0, sizeof(src));
 	memset(&dst, 0, sizeof(dst));
@@ -7348,12 +7350,13 @@ static int rtpengine6(struct sk_buff *oskb, struct net *net, struct rtpengine_ta
 		return NFT_CONTINUE;
 
 	skb_gso_reset(skb);
-	skb_reset_network_header(skb);
 	ih = ipv6_hdr(skb);
 
-	skb_pull(skb, sizeof(*ih));
 	if (ih->nexthdr != IPPROTO_UDP)
 		goto out;
+
+	// pull to transport (UDP) header
+	skb_pull(skb, skb->transport_header - skb->network_header);
 
 	memset(&src, 0, sizeof(src));
 	memset(&dst, 0, sizeof(dst));
