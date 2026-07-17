@@ -7381,14 +7381,14 @@ static unsigned int rtpe_xt_rtpengine6(struct sk_buff *oskb, const struct xt_act
 
 
 static int check(const struct xt_tgchk_param *par) {
-	const struct nft_rtpengine_info *pinfo = par->targinfo;
+	const struct xt_rtpengine_info *pinfo = par->targinfo;
 
 	if (!my_proc_root) {
 		printk(KERN_WARNING "nft_rtpengine check() without proc_root\n");
 		return -EINVAL;
 	}
-	if (!pinfo->table) {
-		printk(KERN_WARNING "nft_rtpengine without table\n");
+	if (pinfo->id >= MAX_ID) {
+		printk(KERN_WARNING "nft_rtpengine ID too high (%u >= %u)\n", pinfo->id, MAX_ID);
 		return -EINVAL;
 	}
 
