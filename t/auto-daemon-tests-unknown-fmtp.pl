@@ -207,4 +207,196 @@ a=rtcp:PORT
 SDP
 
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
+
+# AMR-WB with octet-align=0 in offer, answer without fmtp (defaults match)
+new_call;
+
+offer('AMR-WB octet-align=0 offer, answer missing fmtp - should match', {
+    'rtpp-flags' => 'replace-origin address-family=IP4 transport-protocol=RTP/AVP',
+    'from-tag' => ft(),
+    }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 96 101
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=0
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 101
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=0
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# Answer without fmtp: per RFC 4867 s8.1, missing fmtp = defaults = octet-align=0
+# This should match the offer's octet-align=0
+answer('AMR-WB octet-align=0 offer, answer missing fmtp - should match', {
+    'rtpp-flags' => 'replace-origin address-family=IP4 transport-protocol=RTP/AVP',
+    'from-tag' => ft(),
+    'to-tag' => tt(),
+    }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 96 101
+a=rtpmap:96 AMR-WB/16000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 101
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# AMR-WB with octet-align=1 in offer, answer without fmtp (incompatible)
+new_call;
+
+offer('AMR-WB octet-align=1 offer, answer missing fmtp - incompatible', {
+    'rtpp-flags' => 'replace-origin address-family=IP4 transport-protocol=RTP/AVP',
+    'from-tag' => ft(),
+    }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 96 0 101
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 0 101
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# Answer without fmtp: missing = defaults = octet-align=0, which != octet-align=1
+# AMR-WB should be rejected, PCMU should remain
+answer('AMR-WB octet-align=1 offer, answer missing fmtp - incompatible', {
+    'rtpp-flags' => 'replace-origin address-family=IP4 transport-protocol=RTP/AVP',
+    'from-tag' => ft(),
+    'to-tag' => tt(),
+    }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 96 0 101
+a=rtpmap:96 AMR-WB/16000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 101
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# AMR-WB with no fmtp in both offer and answer (both use defaults, should match)
+new_call;
+
+offer('AMR-WB no fmtp in offer or answer - defaults match', {
+    'rtpp-flags' => 'replace-origin address-family=IP4 transport-protocol=RTP/AVP',
+    'from-tag' => ft(),
+    }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 96 101
+a=rtpmap:96 AMR-WB/16000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 101
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('AMR-WB no fmtp in offer or answer - defaults match', {
+    'rtpp-flags' => 'replace-origin address-family=IP4 transport-protocol=RTP/AVP',
+    'from-tag' => ft(),
+    'to-tag' => tt(),
+    }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 96 101
+a=rtpmap:96 AMR-WB/16000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 101
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
 done_testing();
