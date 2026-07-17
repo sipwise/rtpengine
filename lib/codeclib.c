@@ -964,8 +964,6 @@ bool codec_parse_fmtp(codec_def_t *def, struct rtp_codec_format *fmtp, const str
 		return false;
 	if (!def->format_parse)
 		return true;
-	if (!fmtp_string)
-		return true;
 	if (!fmtp) {
 		ZERO(fmtp_store);
 		fmtp = &fmtp_store;
@@ -975,6 +973,8 @@ bool codec_parse_fmtp(codec_def_t *def, struct rtp_codec_format *fmtp, const str
 			*copy = fmtp->parsed;
 		return true;
 	}
+	// Call format_parse even without fmtp_string so that codecs can populate defaults and set
+	// fmtp_parsed = true (e.g. AMR with RFC 4867 defaults).
 	bool ret = def->format_parse(fmtp, fmtp_string);
 	if (ret) {
 		fmtp->fmtp_parsed = true;
@@ -2666,6 +2666,8 @@ static void opus_format_answer(struct rtp_payload_type *p, const struct rtp_payl
 
 
 static bool ilbc_format_parse(struct rtp_codec_format *f, const str *fmtp) {
+	if (!fmtp || !fmtp->len)
+		return false;
 	switch (__csh_lookup(fmtp)) {
 		case CSH_LOOKUP("mode=20"):
 			f->parsed.ilbc.mode = 20;
@@ -2907,7 +2909,11 @@ static void amr_parse_format_cb(str *key, str *token, void *data) {
 	}
 }
 static bool amr_format_parse(struct rtp_codec_format *f, const str *fmtp) {
-	codeclib_key_value_parse(fmtp, true, amr_parse_format_cb, f);
+	// Per RFC 4867 section 8.1, missing fmtp parameters use defaults (bandwidth-efficient mode, no
+	// CRC, no robust-sorting, no interleaving). Parse whatever is present. Absent fields keep their
+	// defaults.
+	if (fmtp && fmtp->len)
+		codeclib_key_value_parse(fmtp, true, amr_parse_format_cb, f);
 	return true;
 }
 static void amr_set_encdec_options(codec_options_t *opts, codec_def_t *def) {
