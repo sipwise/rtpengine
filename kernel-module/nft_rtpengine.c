@@ -3121,7 +3121,6 @@ static ssize_t proc_main_control_write(struct file *file, const char __user *buf
 static int proc_control_open(struct inode *inode, struct file *file) {
 	uint32_t id;
 	struct rtpengine_table *t;
-	unsigned long flags;
 	int err;
 
 	if (file->private_data)
@@ -3145,7 +3144,6 @@ static int proc_control_open(struct inode *inode, struct file *file) {
 
 static int proc_control_close(struct inode *inode, struct file *file) {
 	struct rtpengine_table *t;
-	unsigned long flags;
 
 	t = file->private_data;
 	if (!t)
