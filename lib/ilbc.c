@@ -3,6 +3,8 @@
 
 
 static bool ilbc_format_parse(struct rtp_codec_format *f, const str *fmtp) {
+	if (!fmtp || !fmtp->len)
+		return false;
 	switch (__csh_lookup(fmtp)) {
 		case CSH_LOOKUP("mode=20"):
 			f->parsed.ilbc.mode = 20;

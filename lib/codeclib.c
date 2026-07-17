@@ -149,8 +149,6 @@ bool codec_parse_fmtp(codec_def_t *def, struct rtp_codec_format *fmtp, const str
 		return false;
 	if (!def->format_parse)
 		return true;
-	if (!fmtp_string)
-		return true;
 	if (!fmtp) {
 		ZERO(fmtp_store);
 		fmtp = &fmtp_store;
@@ -160,6 +158,8 @@ bool codec_parse_fmtp(codec_def_t *def, struct rtp_codec_format *fmtp, const str
 			*copy = fmtp->parsed;
 		return true;
 	}
+	// Call format_parse even without fmtp_string so that codecs can populate defaults and set
+	// fmtp_parsed = true (e.g. AMR with RFC 4867 defaults).
 	bool ret = def->format_parse(fmtp, fmtp_string);
 	if (ret) {
 		fmtp->fmtp_parsed = true;
