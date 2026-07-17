@@ -1123,9 +1123,9 @@ static void setup_media_proc(struct call_media *media) {
 
 	rtp_payload_type *pt;
 	while (t_hash_table_iter_next(&iter, NULL, &pt)) {
-		append_meta_chunk(recording, pt->encoding_with_params.s, pt->encoding_with_params.len,
+		append_meta_chunk_str(recording, &pt->encoding_with_params,
 				"MEDIA %u PAYLOAD TYPE %u", media->unique_id, pt->payload_type);
-		append_meta_chunk(recording, pt->format_parameters.s, pt->format_parameters.len,
+		append_meta_chunk_str(recording, &pt->format_parameters,
 				"MEDIA %u FMTP %u", media->unique_id, pt->payload_type);
 	}
 }
