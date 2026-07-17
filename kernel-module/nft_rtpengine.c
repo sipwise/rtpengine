@@ -6874,8 +6874,9 @@ static int ring_buffer_insert(int action, struct rtpengine_table *t, struct rtpe
 		struct re_ring_buffer *rr;
 
 		unsigned int idx = (iter + cur) % num;
+		int buf_idx;
 		pair = rc->ring_buffers[idx];
-		int buf_idx = atomic_read(pair->buf_idx);
+		buf_idx = atomic_read(pair->buf_idx);
 
 		if (buf_idx != 0 && buf_idx != 1) {
 			atomic_inc(&pair->errors);
@@ -7431,6 +7432,8 @@ static int rtpengine_expr_init(const struct nft_ctx *ctx, const struct nft_expr 
 {
 	uint32_t table;
 	struct nft_rtpengine_info *info = (struct nft_rtpengine_info *) expr->data;
+	bool crt;
+	bool excl;
 
 	if (!tb[RTPEA_RTPENGINE_TABLE])
 		return -EINVAL;
@@ -7440,8 +7443,8 @@ static int rtpengine_expr_init(const struct nft_ctx *ctx, const struct nft_expr 
 	if (table >= MAX_ID)
 		return -ERANGE;
 
-	bool crt = !!tb[RTPEA_RTPENGINE_CREAT];
-	bool excl = !!tb[RTPEA_RTPENGINE_EXCL];
+	crt = !!tb[RTPEA_RTPENGINE_CREAT];
+	excl = !!tb[RTPEA_RTPENGINE_EXCL];
 
 	info->table = get_table(table);
 	if (!info->table) {
