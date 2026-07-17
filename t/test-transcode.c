@@ -119,6 +119,7 @@ static void __start(const char *file, int line) {
 }
 
 #define transcode(codec) t_queue_push_tail(&flags.codec_transcode, sdup(#codec))
+#define transcode_s(s) t_queue_push_tail(&flags.codec_transcode, sdup(s))
 #define c_accept(codec) t_queue_push_tail(&flags.codec_accept, sdup(#codec))
 #define c_consume(codec) t_queue_push_tail(&flags.codec_consume, sdup(#codec))
 #define c_mask(codec) t_queue_push_tail(&flags.codec_mask, sdup(#codec))
@@ -620,6 +621,49 @@ int main(void) {
 			packet_seq_nf(B, 0, PCMU_payload, 160, 1, 96, AMR_WB_payload_noe);
 			packet_seq(A, 96, AMR_WB_payload_noe, 0, 0, -1, ""); // nothing due to resampling/decoding buffer
 			packet_seq_nf(A, 96, AMR_WB_payload_noe, 320, 1, 0, PCMU_payload);
+			end();
+
+			// forward AMR-WB, answer without fmtp (missing = defaults = octet-align=0)
+			// offer has octet-align=0, answer omits fmtp -> should match
+			start();
+			sdp_pt(0, PCMU, 8000);
+			transcode_s("AMR-WB/16000/1///octet-align=0");
+			offer();
+			expect(A, "0/PCMU/8000");
+			expect(B, "0/PCMU/8000 96/AMR-WB/16000/octet-align=0");
+			sdp_pt(96, AMR-WB, 16000); // answer without fmtp
+			answer();
+			expect(A, "0/PCMU/8000");
+			expect(B, "96/AMR-WB/16000");
+			end();
+
+			// forward AMR-WB, answer without fmtp but offer has octet-align=1
+			// these are incompatible
+			start();
+			sdp_pt(0, PCMU, 8000);
+			transcode(AMR-WB);
+			offer();
+			expect(A, "0/PCMU/8000");
+			expect(B, "0/PCMU/8000 96/AMR-WB/16000/octet-align=1;mode-change-capability=2");
+			sdp_pt(0, PCMU, 8000);
+			sdp_pt(96, AMR-WB, 16000); // answer with PCMU + AMR-WB (no fmtp implies octet-align=0)
+			answer();
+			// AMR-WB should be rejected as incompatible (octet-align=0 != octet-align=1), only PCMU remains
+			expect(A, "0/PCMU/8000");
+			expect(B, "0/PCMU/8000");
+			end();
+
+			// forward AMR-WB, answer with matching octet-align=1
+			start();
+			sdp_pt(0, PCMU, 8000);
+			transcode(AMR-WB);
+			offer();
+			expect(A, "0/PCMU/8000");
+			expect(B, "0/PCMU/8000 96/AMR-WB/16000/octet-align=1;mode-change-capability=2");
+			sdp_pt_fmt(96, AMR-WB, 16000, "octet-align=1");
+			answer();
+			expect(A, "0/PCMU/8000");
+			expect(B, "96/AMR-WB/16000/octet-align=1");
 			end();
 		}
 	}
