@@ -1083,11 +1083,11 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 			exit(xv);
 		}
 		if (nftables_start) {
-			nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
+			g_free(nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
 					(nftables_args) {
 						.table = rtpe_config.kernel_table,
 						.family = rtpe_config.nftables_family,
-					});
+					}));
 			err = nftables_setup(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
 					(nftables_args) {
 						.table = rtpe_config.kernel_table,
@@ -1734,11 +1734,11 @@ static void kernel_setup(void) {
 
 #ifndef WITHOUT_NFTABLES
 	// ignore errors
-	nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
+	g_free(nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
 			(nftables_args) {
 				.table = rtpe_config.kernel_table,
 				.family = rtpe_config.nftables_family,
-			});
+			}));
 #endif
 
 	if (!kernel_delete_table(rtpe_config.kernel_table) && errno != ENOENT) {
