@@ -39,7 +39,7 @@ CFLAGS += $(CFLAGS_BCG729)
 LDLIBS += $(LDLIBS_BCG729)
 
 SRCS := epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c packet.c \
-		decoder.c output.c mix.c db.c log.c forward.c tag.c custom_poller.c notify.c tls_send.c s3.c \
+		decoder.c output.c mix.c db.c log.c forward.c tag.c custom_poller.c notify.c notify_events.c tls_send.c s3.c \
 		gcs.c
 LIBSRCS := loglib.c auxlib.c rtplib.c codeclib.c resample.c str.c socket.c streambuf.c ssllib.c \
 		dtmflib.c bufferpool.c bencode.c http.c s3utils.c oauth.c cchain.c

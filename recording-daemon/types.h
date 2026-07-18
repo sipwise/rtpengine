@@ -17,6 +17,7 @@
 #include "socket.h"
 #include "containers.h"
 #include "obj.h"
+#include "notify_events.h"
 
 
 struct iphdr;
@@ -189,6 +190,8 @@ struct metafile_s {
 	unsigned int db_metadata_done:1;
 	unsigned int skip_db:1;
 	unsigned int started:1;
+	unsigned int notify_call_started:1;
+	unsigned int notify_call_terminal:1;
 };
 
 
@@ -217,6 +220,14 @@ struct output_s {
 		 actual_format;
 
 	content_t *content;
+
+	/* lifecycle notify state */
+	metafile_t *metafile;
+	char *output_id;
+	unsigned int notify_opened:1;
+	unsigned int notify_started:1;
+	unsigned int notify_terminal:1;
+	int64_t first_write_time_us;
 };
 
 
@@ -254,6 +265,7 @@ struct notif_req_s {
 		// notify command
 		struct {
 			char **argv;
+			char **envp;
 		};
 
 		// db writer
@@ -267,10 +279,35 @@ struct notif_req_s {
 		};
 	};
 
+	/* Outside the action union so HTTP + command can both use JSON payloads. */
+	char *json_body;
+
 	// used by multiple actions
 	unsigned long long db_id;
 	content_t *content;
 	char *object_name;
+
+	enum notify_event event;
+	unsigned int terminal:1;
+	char *call_id;
+	char *file_name;
+	char *file_format;
+	char *kind;
+	char *full_filename;
+	char *output_id;
+	char *metadata;
+	char *tag_name;
+	char *tag_label;
+	char *tag_metadata;
+	char *error_code;
+	char *error_message;
+	double call_start;
+	double stream_start;
+	unsigned long long call_db_id;
+	int64_t file_size;
+	int64_t duration_ms;
+	int sample_rate;
+	int channels;
 
 	const notif_action_t *action;
 
