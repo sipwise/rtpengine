@@ -59,6 +59,8 @@ static bool nont_inflight_try_inc(void) {
 static void req_free_fields(notif_req_t *req) {
 	if (!req)
 		return;
+	/* Lifecycle snapshot strings only. Action-owned fields (headers/argv/
+	 * content/object_name/content_sha256) are released by action->cleanup. */
 	g_free(req->call_id);
 	g_free(req->file_name);
 	g_free(req->file_format);
@@ -72,7 +74,6 @@ static void req_free_fields(notif_req_t *req) {
 	g_free(req->error_code);
 	g_free(req->error_message);
 	g_free(req->json_body);
-	g_free(req->object_name);
 }
 
 static bool do_notify_http(notif_req_t *req) {
@@ -242,16 +243,25 @@ static int notify_req_cmp(const void *A, const void *B) {
 }
 
 void notify_setup(void) {
-	if ((!notify_uri && !notify_command) || notify_threads <= 0)
+	/*
+	 * The thread pool is shared by HTTP/command notify and by other
+	 * notif_action_t users (S3, GCS, DB). Do not gate on notify_uri /
+	 * notify_command or those storage actions silently stop working.
+	 */
+	if (notify_threads <= 0)
 		return;
+
 	notify_threadpool = g_thread_pool_new(do_notify, NULL, notify_threads, false, NULL);
+
 	notify_timers = g_tree_new(notify_req_cmp);
 	int ret = pthread_create(&notify_waiter, NULL, notify_timer, NULL);
 	if (ret)
 		ilog(LOG_ERR, "Failed to launch thread for HTTP notification");
-	ilog(LOG_INFO, "Recording notify enabled (events mask=0x%x json=%s cmd_fmt=%d queue_limit=%d)",
-			notify_events_mask, notify_json ? "true" : "false",
-			notify_command_format, notify_queue_limit);
+
+	if (notify_uri || notify_command)
+		ilog(LOG_INFO, "Recording notify enabled (events mask=0x%x json=%s cmd_fmt=%d queue_limit=%d)",
+				notify_events_mask, notify_json ? "true" : "false",
+				notify_command_format, notify_queue_limit);
 }
 
 void notify_cleanup(void) {
