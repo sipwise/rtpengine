@@ -6472,12 +6472,12 @@ static inline int is_stun(struct rtpengine_target *g, unsigned int datalen, unsi
 	return 1; // probably STUN
 }
 
-static inline int is_dtls(struct sk_buff *skb) {
-	if (skb->len < 1)
+static inline int is_dtls(unsigned int datalen, const char *data) {
+	if (datalen < 1)
 		return 0;
-	if (skb->data[0] < 20)
+	if (data[0] < 20)
 		return 0;
-	if (skb->data[0] > 63)
+	if (data[0] > 63)
 		return 0;
 	return 1;
 }
@@ -7000,7 +7000,7 @@ static int rtpengine46(struct sk_buff *oskb,
 		struct rtpengine_table *t, struct re_address *src,
 		struct re_address *dst, uint8_t in_tos, struct net *net)
 {
-	struct sk_buff *skb;
+	struct sk_buff *skb = NULL;
 	struct udphdr *uh;
 	struct rtpengine_target *g;
 	struct sk_buff *skb2;
@@ -7009,6 +7009,7 @@ static int rtpengine46(struct sk_buff *oskb,
 	int nf_action = NF_DROP;
 	int rtp_pt_idx = -2;
 	int ssrc_idx = -1;
+	unsigned char *data;
 	unsigned int datalen, datalen_out;
 	struct rtp_parsed rtp, rtp2;
 	ssize_t offset;
@@ -7043,23 +7044,19 @@ static int rtpengine46(struct sk_buff *oskb,
 	datalen -= sizeof(*uh);
 	DBG("udp payload = %u\n", datalen);
 
-	skb = skb_copy_expand(oskb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
-	if (!skb)
-		goto out_target;
-
-	rtpe_pull_trim(skb, datalen);
+	data = ((unsigned char *) uh) + sizeof(*uh);
 
 	// all our outputs filled?
 	_r_lock(&g->outputs_lock, flags);
 	if (g->outputs_unfilled) {
 		// pass to application
 		_r_unlock(&g->outputs_lock, flags);
-		goto out;
+		goto out_target;
 	}
 	_r_unlock(&g->outputs_lock, flags);
 
-	if (is_stun(g, datalen, skb->data))
-		goto out;
+	if (is_stun(g, datalen, data))
+		goto out_target;
 
 	// source checks;
 	if (g->target.src_mismatch == MSM_IGNORE)
@@ -7067,7 +7064,7 @@ static int rtpengine46(struct sk_buff *oskb,
 	else if (!memcmp(&g->target.expected_src, src, sizeof(*src)))
 		; // source matched
 	else if (g->target.src_mismatch == MSM_PROPAGATE)
-		goto out; // source mismatched, pass to userspace
+		goto out_target; // source mismatched, pass to userspace
 	else {
 		/* MSM_DROP */
 		error_nf_action = NF_DROP;
@@ -7075,15 +7072,21 @@ static int rtpengine46(struct sk_buff *oskb,
 		goto out_error;
 	}
 
-	packet_ts = ktime_to_us(skb->tstamp);
+	packet_ts = ktime_to_us(oskb->tstamp);
 
-	if (g->target.dtls && is_dtls(skb))
-		goto out;
+	if (g->target.dtls && is_dtls(datalen, data))
+		goto out_target;
 	if (g->target.non_forwarding && !g->target.do_intercept) {
 		if (g->target.blackhole)
 			goto do_stats; // and drop
-		goto out; // pass to userspace
+		goto out_target; // pass to userspace
 	}
+
+	skb = skb_copy_expand(oskb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
+	if (!skb)
+		goto out_target;
+
+	rtpe_pull_trim(skb, datalen);
 
 	// RTP processing
 	rtp.ok = 0;
@@ -7097,17 +7100,17 @@ static int rtpengine46(struct sk_buff *oskb,
 			else if (g->target.rtcp_fw)
 				is_rtcp = RTCP_FORWARD; // forward, mark, and pass to userspace
 			else
-				goto out; // just pass to userspace
+				goto out_action; // just pass to userspace
 
 			parse_rtcp(&rtp, skb);
 			if (!rtp.rtcp)
-				goto out;
+				goto out_action;
 		}
 		else {
 			// not RTCP
 			parse_rtp(&rtp, skb);
 			if (!rtp.ok && g->target.rtp_only)
-				goto out; // pass to userspace
+				goto out_action; // pass to userspace
 		}
 	}
 	if (rtp.ok) {
@@ -7136,7 +7139,7 @@ static int rtpengine46(struct sk_buff *oskb,
 		// if RTP, only forward packets of known/passthrough payload types
 		if (rtp_pt_idx < 0) {
 			if (g->target.pt_filter)
-				goto out;
+				goto out_action;
 		}
 		else {
 			if (output_group_idx == -1u)
@@ -7295,10 +7298,13 @@ out_error:
 	atomic64_inc(&g->target.stats->errors);
 	atomic64_inc(&g->target.iface_stats->in.errors);
 	atomic64_inc(&t->rtpe_stats->errors_kernel);
-out:
-	error_nf_action = ring_buffer_insert(error_nf_action, t, g, &g->raw_ring_buf,
-			g->target.raw_ring_buf.num, src, &g->target.local, skb, ktime_to_us(oskb->tstamp));
-	kfree_skb(skb);
+out_action:
+	if (skb) {
+		error_nf_action = ring_buffer_insert(error_nf_action, t, g, &g->raw_ring_buf,
+				g->target.raw_ring_buf.num, src, &g->target.local,
+				skb, ktime_to_us(oskb->tstamp));
+		kfree_skb(skb);
+	}
 out_target:
 	target_put(g);
 	return error_nf_action;
