@@ -7309,17 +7309,15 @@ do_stats:
 		atomic64_inc(&g->target.iface_stats->in.errors);
 	}
 
-	target_put(g);
-	if (skb)
-		kfree_skb(skb);
-
-	return nf_action;
+	// no error
+	goto out_action;
 
 out_error:
 	log_err("x_tables action failed: %s", errstr);
 	atomic64_inc(&g->target.stats->errors);
 	atomic64_inc(&g->target.iface_stats->in.errors);
 	atomic64_inc(&t->rtpe_stats->errors_kernel);
+
 out_action:
 	if (skb) {
 		nf_action = ring_buffer_insert(nf_action, t, g, &g->raw_ring_buf,
@@ -7327,6 +7325,7 @@ out_action:
 				skb, ktime_to_us(oskb->tstamp));
 		kfree_skb(skb);
 	}
+
 out_target:
 	target_put(g);
 	return nf_action;
