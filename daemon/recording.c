@@ -1000,17 +1000,21 @@ static void sdp_after_proc(struct recording *recording, const str *sdp, struct c
 
 static void finish_proc(call_t *call, bool discard) {
 	struct recording *recording = call->recording;
-	if (!kernel.is_open)
-		return;
-	if (recording->proc.call_idx != UNINIT_IDX) {
+
+	if (kernel.is_open && recording->proc.call_idx != UNINIT_IDX)
 		kernel_del_call(recording->proc.call_idx);
-		recording->proc.call_idx = UNINIT_IDX;
-	}
+
+	recording->proc.call_idx = UNINIT_IDX;
+
 	for (__auto_type l = call->streams.head; l; l = l->next) {
 		struct packet_stream *ps = l->data;
 		ps->recording.proc.stream_idx = UNINIT_IDX;
 	}
 
+	if (!recording->proc.meta_filepath)
+		return;
+
+	/* rename / unlink / free */
 	const char *unlink_fn = recording->proc.meta_filepath;
 	g_autoptr(char) discard_fn = NULL;
 	if (discard) {
