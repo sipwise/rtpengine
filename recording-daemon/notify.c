@@ -93,6 +93,7 @@ static bool do_notify_http(notif_req_t *req) {
 	if (!c)
 		goto fail;
 
+	/* POST vs GET */
 	bool do_post = notify_post || req->json_body || req->content;
 	if (do_post) {
 		err = "setting CURLOPT_POST";
@@ -138,6 +139,7 @@ static bool do_notify_http(notif_req_t *req) {
 	if (code < 200 || code >= 300)
 		goto fail;
 
+	/* success */
 	ilog(LOG_NOTICE, "HTTP notification (%s) for '%s%s%s' was successful",
 			notify_event_name(req->event), FMT_M(req->name));
 	return true;
@@ -156,6 +158,7 @@ static void failed_http(notif_req_t *req) {
 }
 
 static bool do_notify_command(notif_req_t *req) {
+	/* legacy callers may leave argv unset */
 	if (!req->argv)
 		return true;
 	ilog(LOG_DEBUG, "Executing notification command (%s) for '%s%s%s'",
@@ -178,6 +181,7 @@ static void do_notify(void *p, void *u) {
 
 	if (!ok) {
 		if (notify_retries >= 0 && req->retries < (unsigned int) notify_retries) {
+			/* schedule retry */
 			req->retries++;
 			metric_inc(&notify_metric_retry);
 			ilog(LOG_INFO, "Failure while sending notification (%s) for '%s%s%s': "
@@ -191,7 +195,7 @@ static void do_notify(void *p, void *u) {
 				g_tree_insert(notify_timers, req, req);
 				pthread_cond_signal(&timer_cond);
 				pthread_mutex_unlock(&timer_lock);
-				return;
+				return; // skip cleanup
 			}
 			pthread_mutex_unlock(&timer_lock);
 		}
@@ -213,20 +217,36 @@ static void do_notify(void *p, void *u) {
 
 static void *notify_timer(void *p) {
 	pthread_mutex_lock(&timer_lock);
+
+	// notify_timers being NULL acts as our shutdown flag
 	while (notify_timers) {
+		ilog(LOG_DEBUG, "Notification timer thread looping");
+
+		// grab first entry in list, check retry time, sleep if it's in the future
+
 		notif_req_t *first = rtpe_g_tree_first(notify_timers);
 		if (!first) {
+			ilog(LOG_DEBUG, "No scheduled notification retries, sleeping");
 			pthread_cond_wait(&timer_cond, &timer_lock);
 			continue;
 		}
 		int64_t now = now_us();
 		if (now < first->retry_time) {
+			ilog(LOG_DEBUG, "Sleeping until next scheduled notification retry in %" PRId64 " seconds",
+					(first->retry_time - now) / 1000000L);
 			cond_timedwait(&timer_cond, &timer_lock, first->retry_time);
 			continue;
 		}
+
+		// first entry is ready to run
+
 		g_tree_remove(notify_timers, first);
+		ilog(LOG_DEBUG, "Notification retry for '%s%s%s' is scheduled now", FMT_M(first->name));
 		g_thread_pool_push(notify_threadpool, first, NULL);
 	}
+
+	// clean up
+
 	pthread_mutex_unlock(&timer_lock);
 	pthread_mutex_destroy(&timer_lock);
 	pthread_cond_destroy(&timer_cond);
@@ -235,10 +255,15 @@ static void *notify_timer(void *p) {
 
 static int notify_req_cmp(const void *A, const void *B) {
 	const notif_req_t *a = A, *b = B;
-	if (a->retry_time < b->retry_time) return -1;
-	if (a->retry_time > b->retry_time) return 1;
-	if (a < b) return -1;
-	if (a > b) return 1;
+
+	if (a->retry_time < b->retry_time)
+		return -1;
+	if (a->retry_time > b->retry_time)
+		return 1;
+	if (a < b)
+		return -1;
+	if (a > b)
+		return 1;
 	return 0;
 }
 
@@ -266,6 +291,7 @@ void notify_setup(void) {
 
 void notify_cleanup(void) {
 	if (notify_waiter && notify_timers) {
+		// get lock, free GTree, signal thread to shut down
 		pthread_mutex_lock(&timer_lock);
 		if (notify_timers) {
 			while (true) {
