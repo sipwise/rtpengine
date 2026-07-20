@@ -5439,6 +5439,14 @@ static int send_proxy_packet4(struct sk_buff *skb, const struct re_address *src,
 
 	datalen = skb->len;
 
+	if (skb_headroom(skb) < sizeof(*uh) + sizeof(*ih)) {
+		struct sk_buff *skb2 = skb_copy_expand(skb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
+		if (!skb2)
+			goto drop;
+		kfree_skb(skb);
+		skb = skb2;
+	}
+
 	uh = (void *) skb_push(skb, sizeof(*uh));
 	skb_reset_transport_header(skb);
 	ih = (void *) skb_push(skb, sizeof(*ih));
@@ -5546,6 +5554,14 @@ static int send_proxy_packet6(struct sk_buff *skb, const struct re_address *src,
 		goto drop;
 
 	datalen = skb->len;
+
+	if (skb_headroom(skb) < sizeof(*uh) + sizeof(*ih)) {
+		struct sk_buff *skb2 = skb_copy_expand(skb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
+		if (!skb2)
+			goto drop;
+		kfree_skb(skb);
+		skb = skb2;
+	}
 
 	uh = (void *) skb_push(skb, sizeof(*uh));
 	skb_reset_transport_header(skb);
@@ -6672,6 +6688,15 @@ static struct sk_buff *proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpe
 			rtp->rtp_header->ssrc = o->output.ssrc_out[ssrc_idx];
 	}
 
+	// copy to encrypt/authenticate needed?
+	if (o->output.encrypt.hmac != REH_NULL || o->encrypt_rtp.cipher->encrypt_rtp) {
+		struct sk_buff *skb2 = rtpe_skb_cpy(skb, rtp, rtp);
+		if (!skb2)
+			goto drop;
+		kfree_skb(skb);
+		skb = skb2;
+	}
+
 	pkt_idx = proxy_packet_srtp_encrypt(skb, &o->encrypt_rtp, &o->output.encrypt,
 			rtp, ssrc_idx, o->output.ssrc_stats);
 
@@ -7136,13 +7161,6 @@ static int rtpengine46(struct sk_buff *oskb,
 		}
 	}
 
-	skb = rtpe_skb_cpy(oskb, &rtp, &rtp);
-	if (!skb)
-		goto out_target;
-
-	rtpe_pull_trim(skb, datalen);
-	data = skb->data;
-
 	if (rtp.ok) {
 		// RTP ok
 		rtp_pt_idx = rtp_payload_type(rtp.rtp_header, &g->target, &g->last_pt);
@@ -7161,6 +7179,15 @@ static int rtpengine46(struct sk_buff *oskb,
 
 		pkt_idx = rtp_packet_index(&g->decrypt_rtp, &g->target.decrypt, rtp.rtp_header, ssrc_idx,
 				g->target.ssrc_stats);
+
+		// copy to decrypt/authenticate needed?
+		if (g->target.decrypt.hmac != REH_NULL || g->decrypt_rtp.cipher->decrypt_rtp) {
+			errstr = "out of memory";
+			skb = rtpe_skb_cpy(oskb, &rtp, &rtp);
+			if (!skb)
+				goto out_error;
+		}
+
 		errstr = "SRTP authentication tag mismatch";
 		if (srtp_auth_validate(&g->decrypt_rtp, &g->target.decrypt, &rtp, &pkt_idx, ssrc_idx,
 					g->target.ssrc_stats))
@@ -7186,6 +7213,16 @@ static int rtpengine46(struct sk_buff *oskb,
 		err = srtp_decrypt(&g->decrypt_rtp, &g->target.decrypt, &rtp, &pkt_idx);
 		if (err < 0)
 			goto out_error;
+
+		// everything passed, we will definitely handle this packet
+		nf_action = NF_DROP;
+
+		// if we haven't made a copy yet, we can use the original skb directly
+		if (!skb)
+			skb = skb_get(oskb);
+
+		rtpe_pull_trim(skb, datalen);
+
 		if (err == 1)
 			update_packet_index(&g->decrypt_rtp, &g->target.decrypt, pkt_idx, ssrc_idx,
 					g->target.ssrc_stats);
@@ -7201,11 +7238,19 @@ static int rtpengine46(struct sk_buff *oskb,
 				rtp.payload[8], rtp.payload[9], rtp.payload[10], rtp.payload[11],
 				rtp.payload[12], rtp.payload[13], rtp.payload[14], rtp.payload[15],
 				rtp.payload[16], rtp.payload[17], rtp.payload[18], rtp.payload[19]);
-
-		nf_action = NF_DROP;
 	}
 	else if (is_rtcp != NOT_RTCP && rtp.rtcp) {
 		pkt_idx = 0;
+
+		// always make a copy for RTCP
+		// (even if technically not needed for NF_DROP case below)
+		errstr = "out of memory";
+		skb = rtpe_skb_cpy(oskb, &rtp, &rtp);
+		if (!skb)
+			goto out_error;
+
+		rtpe_pull_trim(skb, datalen);
+
 		err = srtcp_auth_validate(&g->decrypt_rtcp, &g->target.decrypt, &rtp, &pkt_idx);
 		errstr = "SRTCP authentication tag mismatch";
 		if (err == -1)
@@ -7224,8 +7269,13 @@ static int rtpengine46(struct sk_buff *oskb,
 		else
 			nf_action = NF_DROP;
 	}
-	else
+	else {
+		// forward non-RTP/RTCP. no copy needed
+		skb = skb_get(oskb);
 		nf_action = NF_DROP;
+
+		rtpe_pull_trim(skb, datalen);
+	}
 
 	if (g->target.do_intercept) {
 		DBG("do_intercept is set\n");
