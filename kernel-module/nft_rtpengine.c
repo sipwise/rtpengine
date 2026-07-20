@@ -7031,8 +7031,7 @@ static int rtpengine46(struct sk_buff *oskb,
 	struct rtpengine_target *g;
 	struct sk_buff *skb2;
 	int err;
-	int error_nf_action = NFT_CONTINUE;
-	int nf_action = NF_DROP;
+	int nf_action = NFT_CONTINUE;
 	int rtp_pt_idx = -2;
 	int ssrc_idx = -1;
 	unsigned char *data;
@@ -7092,7 +7091,7 @@ static int rtpengine46(struct sk_buff *oskb,
 		goto out_target; // source mismatched, pass to userspace
 	else {
 		/* MSM_DROP */
-		error_nf_action = NF_DROP;
+		nf_action = NF_DROP;
 		errstr = "source address mismatch";
 		goto out_error;
 	}
@@ -7102,8 +7101,10 @@ static int rtpengine46(struct sk_buff *oskb,
 	if (g->target.dtls && is_dtls(datalen, data))
 		goto out_target;
 	if (g->target.non_forwarding && !g->target.do_intercept) {
-		if (g->target.blackhole)
+		if (g->target.blackhole) {
+			nf_action = NF_DROP;
 			goto do_stats; // and drop
+		}
 		goto out_target; // pass to userspace
 	}
 
@@ -7198,6 +7199,8 @@ static int rtpengine46(struct sk_buff *oskb,
 				rtp.payload[8], rtp.payload[9], rtp.payload[10], rtp.payload[11],
 				rtp.payload[12], rtp.payload[13], rtp.payload[14], rtp.payload[15],
 				rtp.payload[16], rtp.payload[17], rtp.payload[18], rtp.payload[19]);
+
+		nf_action = NF_DROP;
 	}
 	else if (is_rtcp != NOT_RTCP && rtp.rtcp) {
 		pkt_idx = 0;
@@ -7215,9 +7218,12 @@ static int rtpengine46(struct sk_buff *oskb,
 		if (is_rtcp == RTCP_FORWARD) {
 			// mark packet as "handled" with negative timestamp
 			oskb->tstamp = (ktime_t) {-ktime_to_ns(oskb->tstamp)};
-			nf_action = NFT_CONTINUE;
 		}
+		else
+			nf_action = NF_DROP;
 	}
+	else
+		nf_action = NF_DROP;
 
 	if (g->target.do_intercept) {
 		DBG("do_intercept is set\n");
@@ -7316,14 +7322,14 @@ out_error:
 	atomic64_inc(&t->rtpe_stats->errors_kernel);
 out_action:
 	if (skb) {
-		error_nf_action = ring_buffer_insert(error_nf_action, t, g, &g->raw_ring_buf,
+		nf_action = ring_buffer_insert(nf_action, t, g, &g->raw_ring_buf,
 				g->target.raw_ring_buf.num, src, &g->target.local,
 				skb, ktime_to_us(oskb->tstamp));
 		kfree_skb(skb);
 	}
 out_target:
 	target_put(g);
-	return error_nf_action;
+	return nf_action;
 }
 
 
