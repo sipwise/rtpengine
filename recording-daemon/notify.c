@@ -59,8 +59,14 @@ static bool nont_inflight_try_inc(void) {
 static void req_free_fields(notif_req_t *req) {
 	if (!req)
 		return;
-	/* Lifecycle snapshot strings only. Action-owned fields (headers/argv/
-	 * content/object_name/content_sha256) are released by action->cleanup. */
+	/*
+	 * IMPORTANT: Only free the snapshot strings that notify.c owns.
+	 *
+	 * Fields that are created and managed by specific actions (HTTP, command,
+	 * S3, GCS, ...) such as headers / argv / content / object_name /
+	 * content_sha256 are released in action->cleanup(). If we also free them
+	 * here we will double-free and crash.
+	 */
 	g_free(req->call_id);
 	g_free(req->file_name);
 	g_free(req->file_format);
@@ -117,10 +123,13 @@ static bool do_notify_http(notif_req_t *req) {
 		curl_mimepart *part;
 		mime = curl_mime_init(c);
 		part = curl_mime_addpart(mime);
+
 		if ((ret = curl_mime_name(part, "ngfile")) != CURLE_OK)
 			goto fail;
+
 		if ((ret = curl_mime_data(part, req->content->s->str, req->content->s->len)) != CURLE_OK)
 			goto fail;
+
 		if ((ret = curl_easy_setopt(c, CURLOPT_MIMEPOST, mime)) != CURLE_OK)
 			goto fail;
 	}
@@ -149,6 +158,7 @@ fail:
 			"Error while %s: %s",
 			notify_event_name(req->event), FMT_M(req->name),
 			err, curl_easy_strerror(ret));
+			
 	return false;
 }
 
@@ -167,16 +177,19 @@ static bool do_notify_command(notif_req_t *req) {
 	bool success = g_spawn_sync(NULL, req->argv, req->envp,
 			G_SPAWN_SEARCH_PATH | G_SPAWN_STDOUT_TO_DEV_NULL | G_SPAWN_STDERR_TO_DEV_NULL,
 			NULL, NULL, NULL, NULL, NULL, &err);
+
 	if (!success) {
 		ilog(LOG_ERR, "Failed to execute notification command (%s) for '%s%s%s': %s",
 			notify_event_name(req->event), FMT_M(req->name), err->message);
 		g_error_free(err);
 	}
+
 	return success;
 }
 
 static void do_notify(void *p, void *u) {
 	notif_req_t *req = p;
+
 	bool ok = req->action->perform(req);
 
 	if (!ok) {
@@ -188,8 +201,10 @@ static void do_notify(void *p, void *u) {
 					"Will retry in %" PRId64 " seconds (#%u)",
 					notify_event_name(req->event), FMT_M(req->name),
 					req->falloff_us / 1000000L, req->retries);
+
 			req->retry_time = now_us() + req->falloff_us;
 			req->falloff_us *= 2;
+
 			pthread_mutex_lock(&timer_lock);
 			if (notify_timers) {
 				g_tree_insert(notify_timers, req, req);
@@ -200,8 +215,12 @@ static void do_notify(void *p, void *u) {
 			pthread_mutex_unlock(&timer_lock);
 		}
 		metric_inc(&notify_metric_giveup);
+
 		ilog(LOG_ERR, "Failure while sending notification (%s) for '%s%s%s' after %u retries. "
-				"Giving up", notify_event_name(req->event), FMT_M(req->name), req->retries);
+				"Giving up",
+				notify_event_name(req->event), FMT_M(req->name),
+				req->retries);
+				
 		if (req->action->failed)
 			req->action->failed(req);
 	}
