@@ -1048,6 +1048,8 @@ static void setup_stream_proc(struct packet_stream *stream) {
 		return;
 	if (!kernel.is_open)
 		return;
+	if (recording->proc.call_idx == UNINIT_IDX)
+		return;
 	if (stream->recording.proc.stream_idx != UNINIT_IDX)
 		return;
 	if (ML_ISSET(ml, NO_RECORDING))
