@@ -7107,13 +7107,6 @@ static int rtpengine46(struct sk_buff *oskb,
 		goto out_target; // pass to userspace
 	}
 
-	skb = rtpe_skb_cpy(oskb, &rtp, &rtp);
-	if (!skb)
-		goto out_target;
-
-	rtpe_pull_trim(skb, datalen);
-	data = skb->data;
-
 	// RTP processing
 	rtp.ok = 0;
 	rtp.rtcp = 0;
@@ -7139,6 +7132,14 @@ static int rtpengine46(struct sk_buff *oskb,
 				goto out_action; // pass to userspace
 		}
 	}
+
+	skb = rtpe_skb_cpy(oskb, &rtp, &rtp);
+	if (!skb)
+		goto out_target;
+
+	rtpe_pull_trim(skb, datalen);
+	data = skb->data;
+
 	if (rtp.ok) {
 		// RTP ok
 		rtp_pt_idx = rtp_payload_type(rtp.rtp_header, &g->target, &g->last_pt);
