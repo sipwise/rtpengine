@@ -1,3 +1,10 @@
+ngcp-rtpengine (14.1.1.18+0~mr14.1.1.18) unstable; urgency=medium
+
+  [ Donat Zenichev ]
+  * [b58e8b1] MT#55283 call: add a socket family guard
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 21 Jul 2026 14:26:59 +0200
+
 ngcp-rtpengine (14.1.1.17+0~mr14.1.1.17) unstable; urgency=medium
 
   [ Richard Fuchs ]
