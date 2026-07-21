@@ -701,9 +701,11 @@ static char *recording_open_pcap_file(struct recording *recording, char *path) {
 
 	recording->pcap.recording_pd = pcap_open_dead(rec_pcap_format->linktype, 65535);
 	recording->pcap.recording_pdumper = pcap_dump_open(recording->pcap.recording_pd, path);
+
 	if (recording->pcap.recording_pdumper == NULL) {
 		pcap_close(recording->pcap.recording_pd);
 		recording->pcap.recording_pd = NULL;
+		recording->pcap.recording_path = NULL;
 		ilog(LOG_INFO, "Failed to write recording file: %s", path);
 	} else {
 		ilog(LOG_INFO, "Writing recording file: %s", path);
@@ -832,6 +834,8 @@ static void response_pcap(struct recording *recording, const ng_parser_t *parser
 	if (!recording)
 		return;
 	if (!recording->pcap.recording_path)
+		return;
+	if (!recording->pcap.recording_pdumper)
 		return;
 
 	parser_arg recordings = parser->dict_add_list(output, "recordings");
