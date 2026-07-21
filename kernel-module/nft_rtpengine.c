@@ -6625,7 +6625,7 @@ static uint32_t proxy_packet_srtp_encrypt(struct sk_buff *skb, struct re_crypto_
 
 #include "extmap_filter.inc.c"
 
-static bool proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_output *o,
+static struct sk_buff *proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_output *o,
 		int rtp_pt_idx,
 		struct rtp_parsed *rtp, int ssrc_idx)
 {
@@ -6634,7 +6634,7 @@ static bool proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_outpu
 
 	if (!rtp->ok) {
 		proxy_packet_output_rtcp(skb, o, rtp, ssrc_idx);
-		return true;
+		return skb;
 	}
 
 	if (o->output.extmap)
@@ -6643,12 +6643,12 @@ static bool proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_outpu
 	if (rtp_pt_idx >= 0) {
 		// blackhole?
 		if (o->output.pt_output[rtp_pt_idx].blackhole)
-			return false;
+			goto drop;
 
 		// pattern rewriting
 		if (o->output.pt_output[rtp_pt_idx].min_payload_len
 				&& rtp->payload_len < o->output.pt_output[rtp_pt_idx].min_payload_len)
-			return false;
+			goto drop;
 
 		if (o->output.pt_output[rtp_pt_idx].replace_pattern_len) {
 			if (o->output.pt_output[rtp_pt_idx].replace_pattern_len == 1)
@@ -6682,7 +6682,11 @@ static bool proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_outpu
 		atomic_set(&o->output.ssrc_stats[ssrc_idx]->timestamp, ntohl(rtp->rtp_header->timestamp));
 	}
 
-	return true;
+	return skb;
+
+drop:
+	kfree_skb(skb);
+	return NULL;
 }
 
 static int send_proxy_packet_output(struct sk_buff *skb, struct rtpengine_target *g,
@@ -6690,11 +6694,9 @@ static int send_proxy_packet_output(struct sk_buff *skb, struct rtpengine_target
 		struct rtpengine_output *o, struct rtp_parsed *rtp, int ssrc_idx,
 		struct net *net)
 {
-	bool send_or_not = proxy_packet_output_rtXp(skb, o, rtp_pt_idx, rtp, ssrc_idx);
-	if (!send_or_not) {
-		kfree_skb(skb);
+	skb = proxy_packet_output_rtXp(skb, o, rtp_pt_idx, rtp, ssrc_idx);
+	if (!skb)
 		return 0;
-	}
 	return send_proxy_packet(skb, &o->output.src_addr, &o->output.dst_addr, o->output.tos, net);
 }
 
