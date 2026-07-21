@@ -1036,9 +1036,14 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 				&& ep.address.family != ps->selected_sfd->socket.family)
 		{
 			if (ep.address.family && !is_trickle_ice_address(&ep))
+			{
+				const char *socket_family = ps->selected_sfd->socket.family
+								? ps->selected_sfd->socket.family->name : "none";
+
 				ilog(LOG_WARN, "Ignoring updated remote endpoint %s%s%s as the local "
 						"socket is %s", FMT_M(endpoint_print_buf(&ep)),
-						ps->selected_sfd->socket.family->name);
+						socket_family);
+			}
 			return;
 		}
 
