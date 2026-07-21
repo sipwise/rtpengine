@@ -1777,8 +1777,17 @@ static const char *kernelize_one(kernelize_state *s,
 	if (MEDIA_ISSET(sink_media, BLOCK_EGRESS))
 		return NULL;
 
-	if (!sink->endpoint.address.family)
+	/* XXX nested lock, avoid possible deadlock. should be reworked not to
+	 * require a nested lock */
+	if (sink != stream && mutex_trylock(&sink->lock)) {
+		return ""; // indicate deadlock
+	}
+
+	if (!sink->endpoint.address.family) {
+		if (sink != stream)
+			mutex_unlock(&sink->lock);
 		return NULL;
+	}
 
 	if (sink->selected_sfd)
 		ilog(LOG_INFO, "Kernelizing media stream: %s%s%s -> %s | %s -> %s%s%s",
@@ -1793,16 +1802,25 @@ static const char *kernelize_one(kernelize_state *s,
 
 	const struct streamhandler *handler = determine_sink_handler(stream, sink_handler);
 
-	if (!handler->out->kernel)
+	if (!handler->out->kernel) {
+		if (sink != stream)
+			mutex_unlock(&sink->lock);
 		return "protocol not supported by kernel module";
+	}
 
 	__auto_type reti = &s->reti.target;
 
 	// any output at all?
-	if (s->non_forwarding || !sink->selected_sfd || !sink->selected_sfd->socket.family)
+	if (s->non_forwarding || !sink->selected_sfd || !sink->selected_sfd->socket.family) {
+		if (sink != stream)
+			mutex_unlock(&sink->lock);
 		return NULL; // no output
-	if (!PS_ISSET(sink, FILLED))
+	}
+	if (!PS_ISSET(sink, FILLED)) {
+		if (sink != stream)
+			mutex_unlock(&sink->lock);
 		return NULL;
+	}
 
 	// fill output struct
 	__auto_type credi = g_new0(struct rtpengine_command_destination, 1);
@@ -1842,13 +1860,6 @@ static const char *kernelize_one(kernelize_state *s,
 
 	if (MEDIA_ISSET(media, ECHO) || sink_handler->attrs.transcoding)
 		redi->output.ssrc_subst = 1;
-
-	// XXX nested lock, avoid possible deadlock. should be reworked not to
-	// require a nested lock
-	if (sink != stream && mutex_trylock(&sink->lock)) {
-		g_free(credi);
-		return ""; // indicate deadlock
-	}
 
 	__re_address_translate_ep(&redi->output.dst_addr, &sink->endpoint);
 	__re_address_translate_ep(&redi->output.src_addr, &sink->selected_sfd->socket.local);
