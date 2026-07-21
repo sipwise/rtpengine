@@ -686,6 +686,8 @@ static void rec_pcap_meta_discard_file(call_t *call) {
 
 	unlink(recording->pcap.recording_path);
 	unlink(recording->pcap.meta_filepath);
+
+	mutex_destroy(&recording->pcap.recording_lock);
 	g_clear_pointer(&recording->pcap.meta_filepath, free);
 }
 
