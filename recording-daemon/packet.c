@@ -13,6 +13,7 @@
 #include "rtcplib.h"
 #include "main.h"
 #include "output.h"
+#include "notify.h"
 #include "db.h"
 #include "streambuf.h"
 #include "resample.h"
@@ -85,6 +86,10 @@ out:
 		}
 
 		db_do_stream(mf, ret->output, stream, ssrc);
+		if (ret->output && !mf->notify_call_started) {
+			mf->notify_call_started = 1;
+			notify_push_call_event(NOTIFY_EVT_CALL_STARTED, mf);
+		}
 	}
 
 	tls_fwd_init(stream, mf, ret);
