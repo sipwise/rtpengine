@@ -6961,13 +6961,17 @@ static int ring_buffer_insert(int action, struct rtpengine_table *t, struct rtpe
 		// If we want to be notified to run as soon as possible, do
 		// it now. Otherwise, notify if somebody is waiting to run.
 		if (pair->run_now_event)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,8,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,8,0) || \
+    (LINUX_VERSION_CODE >= KERNEL_VERSION(5,14,0) && \
+     defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9,0))
 			eventfd_signal_mask(pair->run_now_event, EPOLLIN);
 #else
 			eventfd_signal(pair->run_now_event, 1);
 #endif
 		else if (readers != 0 && pair->writers_done_event)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,8,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,8,0) || \
+    (LINUX_VERSION_CODE >= KERNEL_VERSION(5,14,0) && \
+     defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9,0))
 			eventfd_signal_mask(pair->writers_done_event, EPOLLIN);
 #else
 			eventfd_signal(pair->writers_done_event, 1);
