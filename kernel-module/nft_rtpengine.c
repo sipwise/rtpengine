@@ -6988,6 +6988,14 @@ static int ring_buffer_insert(int action, struct rtpengine_table *t, struct rtpe
 }
 
 
+// pull past the transport (UDP) header and trim to correct length
+static void rtpe_pull_trim(struct sk_buff *skb, unsigned int datalen) {
+	skb_gso_reset(skb);
+	skb_pull(skb, skb->transport_header - skb->network_header + sizeof(struct udphdr));
+	skb_trim(skb, datalen);
+}
+
+
 static int rtpengine46(struct sk_buff *oskb,
 		struct rtpengine_table *t, struct re_address *src,
 		struct re_address *dst, uint8_t in_tos, struct net *net)
@@ -7039,11 +7047,7 @@ static int rtpengine46(struct sk_buff *oskb,
 	if (!skb)
 		goto out_target;
 
-	skb_gso_reset(skb);
-
-	// pull and trim to data
-	skb_pull(skb, skb->transport_header - skb->network_header + sizeof(*uh));
-	skb_trim(skb, datalen);
+	rtpe_pull_trim(skb, datalen);
 
 	// all our outputs filled?
 	_r_lock(&g->outputs_lock, flags);
