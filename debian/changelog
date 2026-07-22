@@ -1,3 +1,10 @@
+ngcp-rtpengine (26.0.1.19+0~mr26.0.1.19) unstable; urgency=medium
+
+  [ Donat Zenichev ]
+  * [194aba1] MT#55283 media_socket: lock sink earlier when kernelizing
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 22 Jul 2026 11:02:10 +0200
+
 ngcp-rtpengine (26.0.1.18+0~mr26.0.1.18) unstable; urgency=medium
 
   [ Donat Zenichev ]
