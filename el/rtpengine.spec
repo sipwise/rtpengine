@@ -1,5 +1,5 @@
 Name:		ngcp-rtpengine
-Version:	14.1.1.18+0~mr14.1.1.18
+Version:	14.1.1.19+0~mr14.1.1.19
 Release:	1%{?dist}
 Summary:	The Sipwise NGCP rtpengine daemon
 Group:		System Environment/Daemons
