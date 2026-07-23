@@ -118,7 +118,7 @@ struct rtpengine_target_info {
 	struct rtpengine_srtp		decrypt;
 	uint32_t			ssrc[RTPE_NUM_SSRC_TRACKING]; // Expose the SSRC to userspace when we resync.
 	struct ssrc_stats		*ssrc_stats[RTPE_NUM_SSRC_TRACKING]; // pinned memory
-	unsigned int			ssrc_media_idx[RTPE_NUM_PAYLOAD_TYPES]; // same idx as ssrc
+	unsigned int			ssrc_media_idx[RTPE_NUM_SSRC_TRACKING]; // same idx as ssrc
 
 	struct rtp_stats		*pt_stats[RTPE_NUM_PAYLOAD_TYPES]; // must be sorted by PT, pinned memory
 	unsigned int			pt_media_idx[RTPE_NUM_PAYLOAD_TYPES]; // same idx as pt_stats
