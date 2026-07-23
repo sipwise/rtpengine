@@ -412,21 +412,31 @@ sub use_json {
 	$c->{json} = $bool;
 }
 
+sub shut_rtpe {
+	my ($cb) = @_;
+
+	return unless $rtpe_pid;
+
+	kill('INT', $rtpe_pid) or terminate("cannot interrupt rtpe");
+
+	$cb and $cb->();
+
+	# wait for daemon to terminate
+	my $status = -1;
+	for (1 .. 50) {
+		$status = waitpid($rtpe_pid, WNOHANG);
+		last if $status != 0;
+		Time::HiRes::usleep(100000); # 100 ms x 50 = 5 sec
+	}
+	kill('KILL', $rtpe_pid) if $status == 0;
+	$status == $rtpe_pid or terminate("cannot wait for process $rtpe_pid: $status: $!");
+	$? == 0 or terminate("process exited with $?");
+
+	undef $rtpe_pid;
+}
 
 END {
-	if ($rtpe_pid) {
-		kill('INT', $rtpe_pid) or terminate("cannot interrupt rtpe");
-		# wait for daemon to terminate
-		my $status = -1;
-		for (1 .. 50) {
-			$status = waitpid($rtpe_pid, WNOHANG);
-			last if $status != 0;
-			Time::HiRes::usleep(100000); # 100 ms x 50 = 5 sec
-		}
-		kill('KILL', $rtpe_pid) if $status == 0;
-		$status == $rtpe_pid or terminate("cannot wait for process $rtpe_pid: $status: $!");
-		$? == 0 or terminate("process exited with $?");
-	}
+	shut_rtpe();
 }
 
 
