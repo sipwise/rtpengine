@@ -1550,10 +1550,16 @@ const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg v
 		case CSH_LOOKUP("dtls"):
 			switch (__csh_lookup_n(1, &s)) {
 				case CSH_LOOKUP_N(1, "passive"):
-					out->dtls_passive = true;
+					if (out->opmode == OP_ANSWER)
+						ilog(LOG_NOTICE, "Ignoring DTLS=passive flag in answer as it is too late");
+					else
+						out->dtls_passive = true;
 					break;
 				case CSH_LOOKUP_N(1, "active"):
-					out->dtls_passive = 0;
+					if (out->opmode == OP_ANSWER)
+						ilog(LOG_NOTICE, "Ignoring DTLS=active flag in answer as it is too late");
+					else
+						out->dtls_passive = false;
 					break;
 				case CSH_LOOKUP_N(1, "no"):
 				case CSH_LOOKUP_N(1, "off"):
@@ -1576,16 +1582,20 @@ const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg v
 		case CSH_LOOKUP("dtls-reverse"):
 		case CSH_LOOKUP("DTLS reverse"):
 		case CSH_LOOKUP("dtls reverse"):
-			switch (__csh_lookup_n(1, &s)) {
-				case CSH_LOOKUP_N(1, "passive"):
-					out->dtls_reverse_passive = true;
-					break;
-				case CSH_LOOKUP_N(1, "active"):
-					out->dtls_reverse_passive = 0;
-					break;
-				default:
-					ilog(LOG_WARN, "Unknown 'DTLS-reverse' flag encountered: '" STR_FORMAT "'",
-							STR_FMT(&s));
+			if (out->opmode == OP_ANSWER)
+				ilog(LOG_NOTICE, "Ignoring DTLS-reverse option in answer as it is too late");
+			else {
+				switch (__csh_lookup_n(1, &s)) {
+					case CSH_LOOKUP_N(1, "passive"):
+						out->dtls_reverse_passive = true;
+						break;
+					case CSH_LOOKUP_N(1, "active"):
+						out->dtls_reverse_passive = false;
+						break;
+					default:
+						ilog(LOG_WARN, "Unknown 'DTLS-reverse' flag encountered: '" STR_FORMAT "'",
+								STR_FMT(&s));
+				}
 			}
 			break;
 		case CSH_LOOKUP("DTMF-delay"):
