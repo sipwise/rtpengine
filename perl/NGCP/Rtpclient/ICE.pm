@@ -817,6 +817,48 @@ sub get_send_component {
 				$pair->{components}->[$component]->{remote}->{packed_peer});
 }
 
+
+sub stun_req {
+	my ($controlling, $pref, $comp, $my_ufrag, $other_ufrag, $other_pwd, $use) = @_;
+
+	my $tid = NGCP::Rtpclient::ICE::random_string(12);
+
+	my @attrs;
+	unshift(@attrs, NGCP::Rtpclient::ICE::attr(0x8022, 'perltester'));
+
+	unshift(@attrs, NGCP::Rtpclient::ICE::attr($controlling ? 0x802a : 0x8029, NGCP::Rtpclient::ICE::random_string(8)));
+
+	unshift(@attrs, NGCP::Rtpclient::ICE::attr(0x0024, pack('N', NGCP::Rtpclient::ICE::calc_priority('prflx',
+				$pref, $comp))));
+	unshift(@attrs, NGCP::Rtpclient::ICE::attr(0x0006, "$other_ufrag:$my_ufrag"));
+
+	if ($use) {
+		unshift(@attrs, NGCP::Rtpclient::ICE::attr(0x0025, ''));
+	}
+
+	NGCP::Rtpclient::ICE::integrity(\@attrs, 1, $tid, $other_pwd);
+	NGCP::Rtpclient::ICE::fingerprint(\@attrs, 1, $tid);
+
+	my $packet = join('', @attrs);
+	$packet = pack('nnNa12', 1, length($packet), 0x2112A442, $tid) . $packet;
+
+	return ($packet, $tid);
+}
+
+sub stun_succ {
+	my ($port, $tid, $my_pwd) = @_;
+	my $sw = NGCP::Rtpclient::ICE::attr(0x8022, 'perltester');
+	my $xor_addr = NGCP::Rtpclient::ICE::attr(0x0020, pack('nna4', 1, $port ^ 0x2112, pack('CCCC', 203,0,113,1) ^ "\x21\x12\xa4\x42"));
+	my $attrs = [$sw, $xor_addr];
+	NGCP::Rtpclient::ICE::integrity($attrs, 257, $tid, $my_pwd);
+	NGCP::Rtpclient::ICE::fingerprint($attrs, 257, $tid);
+	my $pack = join('', @{$attrs});
+	my $packet = pack('nnNa12', 257, length($pack), 0x2112A442, $tid) . $pack;
+	#print(unpack('H*', $packet)."\n");
+	return $packet;
+}
+
+
 package NGCP::Rtpclient::ICE::Candidate;
 
 sub debug {
