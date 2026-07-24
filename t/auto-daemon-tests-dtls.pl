@@ -25,7 +25,7 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev, $ufrag_a, $ufrag_b,
 	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq, $has_recv, $tmp_blob,
 	$pwd_a, $pwd_b, $packet, $tls_id_a, $tls_id_b, $dtls, $mux, $fingerprint,
-	$fingerprint_a, $fingerprint_b, @components);
+	$fingerprint_a, $fingerprint_b, @components, $packet, $tid);
 
 
 
@@ -47,8 +47,120 @@ sub mux_input {
 		$comp->{_connected} or return;
 	}
 
+	ok(1, 'DTLS connected');
 	$mux->endloop();
 };
+
+
+
+
+($sock_a) = new_call([qw(198.51.100.35 3032)]);
+
+$mux = IO::Multiplex->new();
+$mux->set_callback_object(__PACKAGE__);
+$dtls = NGCP::Rtpclient::DTLS::Group->new($mux, $dtls_func, [[$sock_a]]);
+$fingerprint = $dtls->[0]->fingerprint();
+
+($port_a, $port_ax, undef, $tls_id_a, $ufrag_a, $pwd_a, undef, $port_b) = offer('ICE + DTLS fwd early start', {
+	'transport-protocol' => 'RTP/SAVP',
+	SDES => 'off',
+	'rtcp-mux' => 'require',
+	ICE => 'force',
+}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3000 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+a=setup:actpass
+a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+SDP
+
+is($port_a, $port_b, 'same port');
+
+# send check and receive response
+($packet, $tid) = NGCP::Rtpclient::ICE::stun_req(0, 65534, 1, 'ydfgd', $ufrag_a, $pwd_a);
+snd($sock_a, $port_a, $packet);
+rcv($sock_a, -1, qr/^\x01\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
+
+# active connect
+$mux->add($sock_a);
+@components = ([$sock_a, $port_a]);
+$dtls->connect();
+$mux->loop();
+
+rtpe_req('delete', 'delete');
+
+
+
+done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
+
+($sock_a) = new_call([qw(198.51.100.35 3028)]);
+
+$mux = IO::Multiplex->new();
+$mux->set_callback_object(__PACKAGE__);
+$dtls = NGCP::Rtpclient::DTLS::Group->new($mux, $dtls_func, [[$sock_a]]);
+$fingerprint = $dtls->[0]->fingerprint();
+
+offer('ICE + DTLS bkw early start', {
+	'transport-protocol' => 'RTP/AVP',
+	ICE => 'remove',
+	'rtcp-mux' => 'demux',
+}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3028 RTP/SAVP 0
+a=setup:actpass
+a=fingerprint:sha-256 $fingerprint
+a=tls-id:xxxxxxxxxxxxxxxx
+a=ice-pwd:bd5e8b
+a=ice-ufrag:q275
+a=candidate:aaa 1 UDP 2130706431 198.51.100.35 3028 typ host
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# receive check and respond
+@ret1 = rcv($sock_a, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine.*?\x00\x06\x00\x0dq275:(........)\x00\x00\x00\x80\x29\x00\x08........\x00\x24\x00\x04\x6e\xff\xff\xff\x00\x08\x00\x14....................\x80\x28\x00\x04....$/s);
+snd($sock_a, $ret1[0], NGCP::Rtpclient::ICE::stun_succ($ret1[0], $ret1[2], 'bd5e8b'));
+
+# passive connect (accept) DTLS
+$mux->add($sock_a);
+@components = ([$sock_a, $ret1[0]]);
+$dtls->accept();
+$mux->loop();
+
+rtpe_req('delete', 'delete');
+
+
 
 ($sock_a, $sock_ax, $sock_b, $sock_bx) = new_call([qw(198.51.100.35 3008)], [qw(198.51.100.35 3009)],
 							[qw(198.51.100.35 3010)], [qw(198.51.100.35 3011)]);
