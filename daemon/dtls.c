@@ -646,6 +646,8 @@ static long dtls_bio_callback(BIO *bio, int oper, const char *argp, size_t len, 
 	struct stream_fd *sfd = d->sfd;
 	if (!sfd)
 		return ret;
+	if (!sfd->socket.family)
+		return ret;
 
 	__DBG("dtls packet output: len %zu %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
 		len,
