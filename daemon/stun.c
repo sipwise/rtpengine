@@ -314,8 +314,7 @@ static void output_finish_src(struct msghdr *mh) {
 }
 
 static void software(struct msghdr *mh, struct software *sw) {
-	int i;
-	i = snprintf(sw->str, sizeof(sw->str), "%s", rtpe_config.software_id);
+	size_t i = rtpe_snprintf(sw->str, sizeof(sw->str), "%s", rtpe_config.software_id);
 	output_add_data_len_pad(mh, sw, STUN_SOFTWARE, sw->str, i);
 }
 

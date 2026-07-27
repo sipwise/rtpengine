@@ -154,6 +154,11 @@ INLINE void add_c_str_to_ht(const char *key, char *value, charp_ht ht) {
 	t_hash_table_insert(ht, g_strdup(key), value); // hash table takes ownership of both
 }
 
+#define rtpe_snprintf(o, l, f, ...) ({ \
+	ssize_t __r = snprintf(o, l, f, ##__VA_ARGS__); \
+	__r >= 0 ? MIN((l) - 1, __r) : (l) - 1; \
+})
+
 /*** MUTEX ABSTRACTION ***/
 
 typedef pthread_mutex_t mutex_t;

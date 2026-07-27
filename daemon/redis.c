@@ -2421,14 +2421,14 @@ err:
 }
 
 #define JSON_ADD_LIST_STRING(f,...) do { \
-		int len = snprintf(tmp,sizeof(tmp), f, __VA_ARGS__); \
+		size_t len = rtpe_snprintf(tmp,sizeof(tmp), f, __VA_ARGS__); \
 		char enc[len * 3 + 1]; \
 		str encstr = parser->escape(enc, tmp, len); \
 		parser->list_add_str_dup(inner, &encstr); \
 	} while (0)
 #define JSON_SET_NSTRING(a,b,c,...) do { \
 		char tmp1[128]; \
-		int len = snprintf(tmp1, sizeof(tmp1), c, __VA_ARGS__); \
+		size_t len = rtpe_snprintf(tmp1, sizeof(tmp1), c, __VA_ARGS__); \
 		char enc[len * 3 + 1]; \
 		str encstr = parser->escape(enc, tmp1, len); \
 		char tmp2[256]; \
@@ -2445,7 +2445,7 @@ err:
 	} while (0)
 #define JSON_SET_SIMPLE(a,c,...) do { \
 		char tbuf[128]; \
-		int len = snprintf(tbuf, sizeof(tbuf), c, __VA_ARGS__); \
+		size_t len = rtpe_snprintf(tbuf, sizeof(tbuf), c, __VA_ARGS__); \
 		char enc[len * 3 + 1]; \
 		str encstr = parser->escape(enc, tbuf, len); \
 		parser->dict_add_str_dup(inner, a, &encstr); \
