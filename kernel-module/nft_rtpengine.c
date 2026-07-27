@@ -6554,6 +6554,32 @@ static struct sk_buff *intercept_skb_copy(struct sk_buff *oskb, const struct re_
 	return ret;
 }
 
+
+static struct sk_buff *rtpe_skb_cpy(const struct sk_buff *oskb, const struct rtp_parsed *rtp,
+		struct rtp_parsed *rtp2)
+{
+	struct sk_buff *skb;
+	long offset;
+
+	skb = skb_copy_expand(oskb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
+	if (!skb)
+		return NULL;
+
+	// adjust RTP pointers
+	*rtp2 = *rtp;
+	offset = skb->data - oskb->data;
+	if (rtp->rtp_header)
+		rtp2->rtp_header = (void *) (((char *) rtp2->rtp_header) + offset);
+	rtp2->payload = (void *) (((char *) rtp2->payload) + offset);
+	if (rtp2->extension)
+		rtp2->extension = (void *) (((char *) rtp2->extension) + offset);
+	if (rtp2->ext_hdr)
+		rtp2->ext_hdr = (void *) (((char *) rtp2->ext_hdr) + offset);
+
+	return skb;
+}
+
+
 static void proxy_packet_output_rtcp(struct sk_buff *skb, struct rtpengine_output *o,
 		struct rtp_parsed *rtp, int ssrc_idx)
 {
@@ -7012,7 +7038,6 @@ static int rtpengine46(struct sk_buff *oskb,
 	unsigned char *data;
 	unsigned int datalen, datalen_out;
 	struct rtp_parsed rtp, rtp2;
-	ssize_t offset;
 	uint32_t pkt_idx;
 	struct re_stream *stream;
 	struct re_stream_packet *packet;
@@ -7082,7 +7107,7 @@ static int rtpengine46(struct sk_buff *oskb,
 		goto out_target; // pass to userspace
 	}
 
-	skb = skb_copy_expand(oskb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
+	skb = rtpe_skb_cpy(oskb, &rtp, &rtp);
 	if (!skb)
 		goto out_target;
 
@@ -7223,11 +7248,11 @@ static int rtpengine46(struct sk_buff *oskb,
 		if (i == (end_idx - 1)) {
 			skb2 = skb; // last iteration - use original
 			skb = NULL;
-			offset = 0;
+			rtp2 = rtp;
 		}
 		else {
 			// make copy
-			skb2 = skb_copy_expand(skb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
+			skb2 = rtpe_skb_cpy(skb, &rtp, &rtp2);
 			if (!skb2) {
 				log_err("out of memory while creating skb copy");
 				atomic64_inc(&g->target.stats->errors);
@@ -7235,18 +7260,7 @@ static int rtpengine46(struct sk_buff *oskb,
 				atomic64_inc(&t->rtpe_stats->errors_kernel);
 				continue;
 			}
-			skb_gso_reset(skb2);
-			offset = skb2->data - skb->data;
 		}
-		// adjust RTP pointers
-		rtp2 = rtp;
-		if (rtp.rtp_header)
-			rtp2.rtp_header = (void *) (((char *) rtp2.rtp_header) + offset);
-		rtp2.payload = (void *) (((char *) rtp2.payload) + offset);
-		if (rtp2.extension)
-			rtp2.extension = (void *) (((char *) rtp2.extension) + offset);
-		if (rtp2.ext_hdr)
-			rtp2.ext_hdr = (void *) (((char *) rtp2.ext_hdr) + offset);
 
 		datalen_out = skb2->len;
 
