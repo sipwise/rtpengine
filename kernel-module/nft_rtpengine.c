@@ -304,9 +304,9 @@ static int srtcp_decrypt_aes_gcm(struct re_crypto_context *, struct rtpengine_sr
 static int send_proxy_packet_output(struct sk_buff *skb, struct rtpengine_target *g,
 		int rtp_pt_idx,
 		struct rtpengine_output *o, struct rtp_parsed *rtp, int ssrc_idx,
-		struct net *);
+		struct net *, struct rtpengine_table *t);
 static int send_proxy_packet(struct sk_buff *skb, const struct re_address *src, const struct re_address *dst,
-		unsigned char tos, struct net *);
+		unsigned char tos, struct net *, struct rtpengine_table *);
 static uint32_t proxy_packet_srtp_encrypt(struct sk_buff *skb, struct re_crypto_context *ctx,
 		struct rtpengine_srtp *srtp,
 		struct rtp_parsed *rtp, int ssrc_idx,
@@ -488,6 +488,9 @@ struct rtpengine_table {
 	unsigned long			shm_total;
 
 	struct global_stats_counter	*rtpe_stats;
+
+	atomic64_t			skb_refs;
+	atomic64_t			skb_copies;
 
 	spinlock_t			player_lock;
 	struct list_head		play_streams;
@@ -1446,6 +1449,9 @@ static int proc_status_show(struct seq_file *m, void *v) {
 	seq_printf(m, "Opencount:   %u\n", atomic_read(&t->opencnt));
 	seq_printf(m, "Targets:     %u\n", t->num_targets);
 	read_unlock_irqrestore(&t->target_lock, flags);
+
+	seq_printf(m, "Skb refs:    %lu\n", (unsigned long) atomic64_read(&t->skb_refs));
+	seq_printf(m, "Skb copies:  %lu\n", (unsigned long) atomic64_read(&t->skb_copies));
 
 	// unlocked/unsafe read
 	seq_printf(m, "Players:     %u\n", t->num_play_streams);
@@ -4089,7 +4095,7 @@ static bool re_ring_send(const void *payload, size_t length,
 	data = skb_put(skb, length);
 	memcpy(data, payload, length);
 
-	send_proxy_packet(skb, src, dst, tos, NULL);
+	send_proxy_packet(skb, src, dst, tos, NULL, NULL);
 
 	return true;
 }
@@ -4128,7 +4134,7 @@ static int re_ring_sender(void *p) {
 			struct rtpengine_buf_slot *slot = &slots[s];
 			struct rtpengine_buf_metadata *metaslot = &metadata[s];
 
-			if (! re_ring_send(slot->steps[0].offset + buf->head, slot->steps[0].length,
+			if (!re_ring_send(slot->steps[0].offset + buf->head, slot->steps[0].length,
 					&metaslot->src, &metaslot->dst, metaslot->tos))
 				atomic_inc(&pair->errors);
 		}
@@ -4501,7 +4507,7 @@ static void play_stream_send_packet(struct re_play_stream *stream, struct re_pla
 	rtp.rtcp = 0;
 
 	proxy_packet_srtp_encrypt(skb, &stream->encrypt, &stream->info.encrypt, &rtp, 0, &stream->info.ssrc_stats);
-	send_proxy_packet(skb, &stream->info.src_addr, &stream->info.dst_addr, stream->info.tos, NULL);
+	send_proxy_packet(skb, &stream->info.src_addr, &stream->info.dst_addr, stream->info.tos, NULL, NULL);
 
 	atomic64_inc(&stream->info.stats->packets);
 	atomic64_add(packet->len, &stream->info.stats->bytes);
@@ -5425,7 +5431,7 @@ static ssize_t proc_control_read(struct file *file, char __user *ubuf, size_t bu
 
 
 static int send_proxy_packet4(struct sk_buff *skb, const struct re_address *src, const struct re_address *dst,
-		unsigned char tos, struct net *net)
+		unsigned char tos, struct net *net, struct rtpengine_table *t)
 {
 	struct iphdr *ih;
 	struct udphdr *uh;
@@ -5443,6 +5449,8 @@ static int send_proxy_packet4(struct sk_buff *skb, const struct re_address *src,
 		struct sk_buff *skb2 = skb_copy_expand(skb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
 		if (!skb2)
 			goto drop;
+		if (t)
+			atomic64_inc(&t->skb_copies);
 		kfree_skb(skb);
 		skb = skb2;
 	}
@@ -5540,7 +5548,7 @@ drop:
 
 
 static int send_proxy_packet6(struct sk_buff *skb, const struct re_address *src, const struct re_address *dst,
-		unsigned char tos, struct net *net)
+		unsigned char tos, struct net *net, struct rtpengine_table *t)
 {
 	struct ipv6hdr *ih;
 	struct udphdr *uh;
@@ -5559,6 +5567,8 @@ static int send_proxy_packet6(struct sk_buff *skb, const struct re_address *src,
 		struct sk_buff *skb2 = skb_copy_expand(skb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
 		if (!skb2)
 			goto drop;
+		if (t)
+			atomic64_inc(&t->skb_copies);
 		kfree_skb(skb);
 		skb = skb2;
 	}
@@ -5641,7 +5651,7 @@ drop:
 
 
 static int send_proxy_packet(struct sk_buff *skb, const struct re_address *src, const struct re_address *dst,
-		unsigned char tos, struct net *net)
+		unsigned char tos, struct net *net, struct rtpengine_table *t)
 {
 	if (src->family != dst->family) {
 		log_err("address family mismatch");
@@ -5655,11 +5665,11 @@ static int send_proxy_packet(struct sk_buff *skb, const struct re_address *src, 
 
 	switch (src->family) {
 		case AF_INET:
-			return send_proxy_packet4(skb, src, dst, tos, net);
+			return send_proxy_packet4(skb, src, dst, tos, net, t);
 			break;
 
 		case AF_INET6:
-			return send_proxy_packet6(skb, src, dst, tos, net);
+			return send_proxy_packet6(skb, src, dst, tos, net, t);
 			break;
 
 		default:
@@ -6572,7 +6582,7 @@ static struct sk_buff *intercept_skb_copy(struct sk_buff *oskb, const struct re_
 
 
 static struct sk_buff *rtpe_skb_cpy(const struct sk_buff *oskb, const struct rtp_parsed *rtp,
-		struct rtp_parsed *rtp2)
+		struct rtp_parsed *rtp2, struct rtpengine_table *t)
 {
 	struct sk_buff *skb;
 	long offset;
@@ -6580,6 +6590,8 @@ static struct sk_buff *rtpe_skb_cpy(const struct sk_buff *oskb, const struct rtp
 	skb = skb_copy_expand(oskb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
 	if (!skb)
 		return NULL;
+
+	atomic64_inc(&t->skb_copies);
 
 	// adjust RTP pointers
 	*rtp2 = *rtp;
@@ -6643,7 +6655,7 @@ static uint32_t proxy_packet_srtp_encrypt(struct sk_buff *skb, struct re_crypto_
 
 static struct sk_buff *proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_output *o,
 		int rtp_pt_idx,
-		struct rtp_parsed *rtp, int ssrc_idx)
+		struct rtp_parsed *rtp, int ssrc_idx, struct rtpengine_table *t)
 {
 	int i;
 	uint32_t pkt_idx;
@@ -6690,7 +6702,7 @@ static struct sk_buff *proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpe
 
 	// copy to encrypt/authenticate needed?
 	if (o->output.encrypt.hmac != REH_NULL || o->encrypt_rtp.cipher->encrypt_rtp) {
-		struct sk_buff *skb2 = rtpe_skb_cpy(skb, rtp, rtp);
+		struct sk_buff *skb2 = rtpe_skb_cpy(skb, rtp, rtp, t);
 		if (!skb2)
 			goto drop;
 		kfree_skb(skb);
@@ -6717,12 +6729,12 @@ drop:
 static int send_proxy_packet_output(struct sk_buff *skb, struct rtpengine_target *g,
 		int rtp_pt_idx,
 		struct rtpengine_output *o, struct rtp_parsed *rtp, int ssrc_idx,
-		struct net *net)
+		struct net *net, struct rtpengine_table *t)
 {
-	skb = proxy_packet_output_rtXp(skb, o, rtp_pt_idx, rtp, ssrc_idx);
+	skb = proxy_packet_output_rtXp(skb, o, rtp_pt_idx, rtp, ssrc_idx, t);
 	if (!skb)
 		return 0;
-	return send_proxy_packet(skb, &o->output.src_addr, &o->output.dst_addr, o->output.tos, net);
+	return send_proxy_packet(skb, &o->output.src_addr, &o->output.dst_addr, o->output.tos, net, t);
 }
 
 
@@ -7183,7 +7195,7 @@ static int rtpengine46(struct sk_buff *oskb,
 		// copy to decrypt/authenticate needed?
 		if (g->target.decrypt.hmac != REH_NULL || g->decrypt_rtp.cipher->decrypt_rtp) {
 			errstr = "out of memory";
-			skb = rtpe_skb_cpy(oskb, &rtp, &rtp);
+			skb = rtpe_skb_cpy(oskb, &rtp, &rtp, t);
 			if (!skb)
 				goto out_error;
 		}
@@ -7218,8 +7230,10 @@ static int rtpengine46(struct sk_buff *oskb,
 		nf_action = NF_DROP;
 
 		// if we haven't made a copy yet, we can use the original skb directly
-		if (!skb)
+		if (!skb) {
 			skb = skb_get(oskb);
+			atomic64_inc(&t->skb_refs);
+		}
 
 		rtpe_pull_trim(skb, datalen);
 
@@ -7245,7 +7259,7 @@ static int rtpengine46(struct sk_buff *oskb,
 		// always make a copy for RTCP
 		// (even if technically not needed for NF_DROP case below)
 		errstr = "out of memory";
-		skb = rtpe_skb_cpy(oskb, &rtp, &rtp);
+		skb = rtpe_skb_cpy(oskb, &rtp, &rtp, t);
 		if (!skb)
 			goto out_error;
 
@@ -7272,6 +7286,7 @@ static int rtpengine46(struct sk_buff *oskb,
 	else {
 		// forward non-RTP/RTCP. no copy needed
 		skb = skb_get(oskb);
+		atomic64_inc(&t->skb_refs);
 		nf_action = NF_DROP;
 
 		rtpe_pull_trim(skb, datalen);
@@ -7311,7 +7326,7 @@ static int rtpengine46(struct sk_buff *oskb,
 		}
 		else {
 			// make copy
-			skb2 = rtpe_skb_cpy(skb, &rtp, &rtp2);
+			skb2 = rtpe_skb_cpy(skb, &rtp, &rtp2, t);
 			if (!skb2) {
 				log_err("out of memory while creating skb copy");
 				atomic64_inc(&g->target.stats->errors);
@@ -7323,7 +7338,7 @@ static int rtpengine46(struct sk_buff *oskb,
 
 		datalen_out = skb2->len;
 
-		err = send_proxy_packet_output(skb2, g, rtp_pt_idx, o, &rtp2, ssrc_idx, net);
+		err = send_proxy_packet_output(skb2, g, rtp_pt_idx, o, &rtp2, ssrc_idx, net, t);
 		if (err) {
 			atomic64_inc(&g->target.stats->errors);
 			atomic64_inc(&g->target.iface_stats->in.errors);
