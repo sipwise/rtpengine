@@ -460,6 +460,7 @@ struct re_shm {
 
 struct rtpengine_table {
 	atomic_t			refcnt;
+	atomic_t			opencnt;
 	rwlock_t			target_lock;
 
 	unsigned int			id;
@@ -1442,6 +1443,7 @@ static int proc_status_show(struct seq_file *m, void *v) {
 
 	read_lock_irqsave(&t->target_lock, flags);
 	seq_printf(m, "Refcount:    %u\n", atomic_read(&t->refcnt));
+	seq_printf(m, "Opencount:   %u\n", atomic_read(&t->opencnt));
 	seq_printf(m, "Targets:     %u\n", t->num_targets);
 	read_unlock_irqrestore(&t->target_lock, flags);
 
@@ -3134,6 +3136,8 @@ static int proc_control_open(struct inode *inode, struct file *file) {
 	if (!t)
 		return -ENOENT;
 
+	atomic_inc(&t->opencnt);
+
 	file->private_data = t;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,1,0)
 	return stream_open(inode, file);
@@ -3148,6 +3152,8 @@ static int proc_control_close(struct inode *inode, struct file *file) {
 	t = file->private_data;
 	if (!t)
 		return 0;
+
+	atomic_dec(&t->opencnt);
 
 	file->private_data = NULL;
 	table_put(t);
