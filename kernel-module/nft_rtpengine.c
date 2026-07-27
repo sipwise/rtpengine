@@ -3925,17 +3925,17 @@ static int target_find_ssrc(struct rtpengine_target *g, uint32_t ssrc) {
 	return -2;
 }
 
-static void parse_rtcp(struct rtp_parsed *rtp, struct sk_buff *skb) {
+static void parse_rtcp(struct rtp_parsed *rtp, unsigned int datalen, char *data) {
 	rtp->ok = 0;
 	rtp->rtcp = 0;
 
-	if (skb->len < sizeof(struct rtcp_header))
+	if (datalen < sizeof(struct rtcp_header))
 		return;
 
-	rtp->rtcp_header = (void *) skb->data;
+	rtp->rtcp_header = (struct rtcp_header *) data;
 	rtp->header_len = sizeof(struct rtcp_header);
-	rtp->payload = skb->data + sizeof(struct rtcp_header);
-	rtp->payload_len = skb->len - sizeof(struct rtcp_header);
+	rtp->payload = data + sizeof(struct rtcp_header);
+	rtp->payload_len = datalen - sizeof(struct rtcp_header);
 	rtp->rtcp = 1;
 }
 
@@ -5662,22 +5662,22 @@ drop:
 
 
 /* XXX shared code */
-static void parse_rtp(struct rtp_parsed *rtp, struct sk_buff *skb) {
+static void parse_rtp(struct rtp_parsed *rtp, unsigned int datalen, char *data) {
 	size_t ext_len;
 
-	if (skb->len < sizeof(*rtp->rtp_header))
+	if (datalen < sizeof(*rtp->rtp_header))
 		goto error;
-	rtp->rtp_header = (void *) skb->data;
+	rtp->rtp_header = (struct rtp_header *) data;
 	if ((rtp->rtp_header->v_p_x_cc & 0xc0) != 0x80) /* version 2 */
 		goto error;
 	rtp->header_len = sizeof(*rtp->rtp_header);
 
 	/* csrc list */
 	rtp->header_len += (rtp->rtp_header->v_p_x_cc & 0xf) * 4;
-	if (skb->len < rtp->header_len)
+	if (datalen < rtp->header_len)
 		goto error;
-	rtp->payload = skb->data + rtp->header_len;
-	rtp->payload_len = skb->len - rtp->header_len;
+	rtp->payload = data + rtp->header_len;
+	rtp->payload_len = datalen - rtp->header_len;
 
 	if ((rtp->rtp_header->v_p_x_cc & 0x10)) {
 		/* extension */
@@ -6410,36 +6410,36 @@ static inline int srtcp_decrypt(struct re_crypto_context *c,
 }
 
 
-static inline bool is_muxed_rtcp(struct sk_buff *skb) {
+static inline bool is_muxed_rtcp(unsigned int datalen, const char *data) {
 	// XXX shared code
 	unsigned char m_pt;
-	if (skb->len < 8) // minimum RTCP size
+	if (datalen < 8) // minimum RTCP size
 		return false;
-	m_pt = skb->data[1];
+	m_pt = data[1];
 	if (m_pt < 194)
 		return false;
 	if (m_pt > 223)
 		return false;
 	return true;
 }
-static inline int is_rtcp_fb_packet(struct sk_buff *skb) {
+static inline int is_rtcp_fb_packet(unsigned int datalen, const char *data) {
 	unsigned char m_pt;
-	size_t left = skb->len;
-	size_t offset = 0;
+	unsigned int left = datalen;
+	unsigned int offset = 0;
 	unsigned int packets = 0;
 	uint16_t len;
 
 	while (1) {
 		if (left < 8) // minimum RTCP size
 			return 0;
-		m_pt = skb->data[offset + 1];
+		m_pt = data[offset + 1];
 		// only RTPFB and PSFB
 		if (m_pt != 205 && m_pt != 206)
 			return 0;
 
 		// length check
-		len = (((unsigned char) skb->data[offset + 2]) << 8)
-			| ((unsigned char) skb->data[offset + 3]);
+		len = ((data[offset + 2]) << 8)
+			| data[offset + 3];
 		len++;
 		len <<= 2;
 		if (len > left) // invalid
@@ -7087,28 +7087,29 @@ static int rtpengine46(struct sk_buff *oskb,
 		goto out_target;
 
 	rtpe_pull_trim(skb, datalen);
+	data = skb->data;
 
 	// RTP processing
 	rtp.ok = 0;
 	rtp.rtcp = 0;
 	is_rtcp = NOT_RTCP;
 	if (g->target.rtp) {
-		if (is_muxed_rtcp(skb)) {
+		if (is_muxed_rtcp(datalen, data)) {
 			is_rtcp = RTCP;
-			if (g->target.rtcp_fb_fw && is_rtcp_fb_packet(skb))
+			if (g->target.rtcp_fb_fw && is_rtcp_fb_packet(datalen, data))
 				; // forward and then drop
 			else if (g->target.rtcp_fw)
 				is_rtcp = RTCP_FORWARD; // forward, mark, and pass to userspace
 			else
 				goto out_action; // just pass to userspace
 
-			parse_rtcp(&rtp, skb);
+			parse_rtcp(&rtp, datalen, data);
 			if (!rtp.rtcp)
 				goto out_action;
 		}
 		else {
 			// not RTCP
-			parse_rtp(&rtp, skb);
+			parse_rtp(&rtp, datalen, data);
 			if (!rtp.ok && g->target.rtp_only)
 				goto out_action; // pass to userspace
 		}
