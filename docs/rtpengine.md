@@ -750,7 +750,7 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
 - __\-\-homer-enable-ng__
 
     Enables sending control NG packages to a Homer capturing software. The
-    capturing agent part is not officialy supported OOTB, but it can be
+    capturing agent part is not officially supported OOTB, but it can be
     achieved with Kamailio by using the config. For this feature to work one
     has to set at least the homer parameter.
 
