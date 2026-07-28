@@ -29054,6 +29054,104 @@ SDP
 
 new_call;
 
+offer('webrtc ice2', { flags => ['WebRTC'], ICE => ['ICE2'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 2000 RTP/AVP 0 8
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE 1
+m=audio PORT UDP/TLS/RTP/SAVPF 0 8
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp-mux
+a=setup:actpass
+a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=ice-options:trickle ice2
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=end-of-candidates
+SDP
+
+
+
+
+new_call;
+
+offer('ice2 offer', { ICE => ['remove'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+a=sendrecv
+m=audio 2000 RTP/AVP 0
+a=ice-pwd:bd5e8b8d6dd8e1bc6
+a=ice-ufrag:q2758e93
+a=ice-options:trickle ice2
+a=candidate:aaa 1 UDP 2130706431 198.51.100.1 2000 typ host
+a=candidate:aaa 2 UDP 2130706430 198.51.100.1 2001 typ host
+a=end-of-candidates
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('ice2 offer', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+a=sendrecv
+m=audio 2000 RTP/AVP 0
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=ice-options:trickle ice2
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+a=end-of-candidates
+SDP
+
+
+
+
+
+new_call;
+
 $resp = rtpe_req('offer', 'SDP with just \n', { 'from-tag' => ft(), SDP => "v=0\no=- 1545997027 1 IN IP4 198.51.101.40\ns=tester\nt=0 0\nm=audio 3000 RTP/AVP 0 8\nc=IN IP4 198.51.100.1\na=foobar\n" } );
 like($resp->{sdp}, qr/\r\na=foobar\r\na=sendrecv\r\na=rtcp:\d+\r\n$/s, 'SDP matches');
 

@@ -1505,6 +1505,8 @@ static void __ice_offer(const sdp_ng_flags *flags, struct call_media *this,
 
 		if (flags->trickle_ice)
 			MEDIA_SET(this, TRICKLE_ICE);
+		if (flags->ice2)
+			MEDIA_SET(this, ICE2);
 	}
 	else if (flags->opmode == OP_SUBSCRIBE_REQ) {
 		// leave source media (`other`) alone
@@ -1523,6 +1525,8 @@ static void __ice_offer(const sdp_ng_flags *flags, struct call_media *this,
 
 		if (flags->trickle_ice)
 			MEDIA_SET(this, TRICKLE_ICE);
+		if (flags->ice2)
+			MEDIA_SET(this, ICE2);
 	}
 
 	/* determine roles (even if we don't actually do ICE) */

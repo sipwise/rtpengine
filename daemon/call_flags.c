@@ -1447,6 +1447,10 @@ const char *call_ng_flags_ice(str *s, unsigned int idx, sdp_ng_flags *out) {
 		case CSH_LOOKUP("trickle"):
 			out->trickle_ice = true;
 			break;
+		case CSH_LOOKUP("ice2"):
+		case CSH_LOOKUP("ICE2"):
+			out->ice2 = true;
+			break;
 		default:
 			ilog(LOG_WARN, "Unknown 'ICE' flag encountered: '" STR_FORMAT "'",
 					STR_FMT(s));
