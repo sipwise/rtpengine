@@ -1718,6 +1718,8 @@ no_cand:
 	if ((attr = attr_get_by_id_m_s(media, ATTR_ICE_OPTIONS))) {
 		if (str_str(&attr->strs.value, "trickle") >= 0)
 			SP_SET(sp, TRICKLE_ICE);
+		if (str_str(&attr->strs.value, "ice2") >= 0)
+			SP_SET(sp, ICE2);
 	}
 	else if (is_trickle_ice_address(&sp->rtp_endpoint))
 		SP_SET(sp, TRICKLE_ICE);
@@ -2970,8 +2972,16 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 				media->type_id);
 	}
 
-	if (MEDIA_ISSET(media, TRICKLE_ICE) && ice_agent) {
-		append_attr_to_gstring(s, "ice-options", &STR_CONST("trickle"), flags,
+	if (MEDIA_ISSET2(media, TRICKLE_ICE, ICE2) && ice_agent) {
+		str opts;
+		if (!MEDIA_ISSET(media, ICE2))
+			opts = STR_CONST("trickle");
+		else if (!MEDIA_ISSET(media, TRICKLE_ICE))
+			opts = STR_CONST("ice2");
+		else
+			opts = STR_CONST("trickle ice2");
+
+		append_attr_to_gstring(s, "ice-options", &opts, flags,
 				media->type_id);
 	}
 	if (MEDIA_ISSET(media, ICE)) {

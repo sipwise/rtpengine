@@ -136,6 +136,7 @@ enum {
 /* empty range [16 - 29] in-between for non-shared flags */
 #define SHARED_FLAG_END_OF_CANDIDATES		(1LL << 30)
 #define SHARED_FLAG_EXTMAP_SHORT		(1LL << 39)
+#define SHARED_FLAG_ICE2			(1LL << 42)
 
 /* struct stream_params */
 #define SP_FLAG_IMPLICIT_RTCP			SHARED_FLAG_IMPLICIT_RTCP
@@ -156,6 +157,7 @@ enum {
 #define SP_FLAG_LEGACY_OSRTP_REV		SHARED_FLAG_LEGACY_OSRTP_REV
 #define SP_FLAG_END_OF_CANDIDATES		SHARED_FLAG_END_OF_CANDIDATES
 #define SP_FLAG_EXTMAP_SHORT			SHARED_FLAG_EXTMAP_SHORT
+#define SP_FLAG_ICE2				SHARED_FLAG_ICE2
 
 /* struct packet_stream */
 #define PS_FLAG_RTP				(1LL << 16)
@@ -220,6 +222,7 @@ enum {
 #define MEDIA_FLAG_EXTMAP_SHORT			SHARED_FLAG_EXTMAP_SHORT
 #define MEDIA_FLAG_BUNDLE_ONLY			(1LL << 40)
 #define MEDIA_FLAG_AUDIO_PLAYER_IMPLICIT	(1LL << 41)
+#define MEDIA_FLAG_ICE2				SHARED_FLAG_ICE2
 
 /* struct call_monologue */
 #define ML_FLAG_REC_FORWARDING			(1LL << 16)
