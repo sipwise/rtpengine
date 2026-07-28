@@ -46,8 +46,8 @@ execute_before_dh_auto_configure:
 
 execute_before_dh_auto_install-indep:
 	# markdown README
-	markdown README.md | gzip -9 > debian/README.html.gz
-	gzip -9 < README.md > debian/README.md.gz
+	markdown README.md | gzip -9n > debian/README.html.gz
+	gzip -9n < README.md > debian/README.md.gz
 
 execute_after_dh_installsystemd:
 	dh_installsystemd -pngcp-rtpengine-recording-daemon --name=ngcp-rtpengine-recording-nfs-mount
