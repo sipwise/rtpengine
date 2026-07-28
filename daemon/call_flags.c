@@ -1444,6 +1444,9 @@ const char *call_ng_flags_ice(str *s, unsigned int idx, sdp_ng_flags *out) {
 		case CSH_LOOKUP("lite-both"):
 			out->ice_lite_option = ICE_LITE_BOTH;
 			break;
+		case CSH_LOOKUP("trickle"):
+			out->trickle_ice = true;
+			break;
 		default:
 			ilog(LOG_WARN, "Unknown 'ICE' flag encountered: '" STR_FORMAT "'",
 					STR_FMT(s));
