@@ -1400,6 +1400,33 @@ static const char *call_ng_tags_iter(const ng_parser_t *parser, parser_arg item,
 	return NULL;
 }
 
+const char *call_ng_flags_ice(str *s, unsigned int idx, sdp_ng_flags *out) {
+	switch (__csh_lookup(s)) {
+		case CSH_LOOKUP("remove"):
+			out->ice_option = ICE_REMOVE;
+			break;
+		case CSH_LOOKUP("force"):
+			out->ice_option = ICE_FORCE;
+			break;
+		case CSH_LOOKUP("default"):
+			out->ice_option = ICE_DEFAULT;
+			break;
+		case CSH_LOOKUP("optional"):
+			out->ice_option = ICE_OPTIONAL;
+			break;
+		case CSH_LOOKUP("force_relay"):
+		case CSH_LOOKUP("force-relay"):
+		case CSH_LOOKUP("force relay"):
+			out->ice_option = ICE_FORCE_RELAY;
+			break;
+		default:
+			ilog(LOG_WARN, "Unknown 'ICE' flag encountered: '" STR_FORMAT "'",
+					STR_FMT(s));
+	}
+
+	return NULL;
+}
+
 const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, helper_arg arg) {
 	str s = STR_NULL;
 	sdp_ng_flags *out = arg.flags;
@@ -1680,29 +1707,7 @@ const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg v
 			break;
 		case CSH_LOOKUP("ICE"):
 		case CSH_LOOKUP("ice"):
-			switch (__csh_lookup_n(1, &s)) {
-				case CSH_LOOKUP_N(1, "remove"):
-					out->ice_option = ICE_REMOVE;
-					break;
-				case CSH_LOOKUP_N(1, "force"):
-					out->ice_option = ICE_FORCE;
-					break;
-				case CSH_LOOKUP_N(1, "default"):
-					out->ice_option = ICE_DEFAULT;
-					break;
-				case CSH_LOOKUP_N(1, "optional"):
-					out->ice_option = ICE_OPTIONAL;
-					break;
-				case CSH_LOOKUP_N(1, "force_relay"):
-				case CSH_LOOKUP_N(1, "force-relay"):
-				case CSH_LOOKUP_N(1, "force relay"):
-					out->ice_option = ICE_FORCE_RELAY;
-					break;
-				default:
-					ilog(LOG_WARN, "Unknown 'ICE' flag encountered: '" STR_FORMAT "'",
-							STR_FMT(&s));
-			}
-			break;
+			return call_ng_flags_str_list(parser, value, call_ng_flags_ice, out);
 		case CSH_LOOKUP("ICE-lite"):
 		case CSH_LOOKUP("ice-lite"):
 		case CSH_LOOKUP("ICE lite"):
