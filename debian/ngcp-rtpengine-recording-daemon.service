@@ -1,5 +1,6 @@
 [Unit]
 Description=NGCP RTP/media Recording Daemon
+Documentation=man:rtpengine-recording(8)
 After=network-online.target
 After=remote-fs.target
 After=ngcp-rtpengine-recording-nfs-mount.service
