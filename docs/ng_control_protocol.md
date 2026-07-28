@@ -442,7 +442,8 @@ Optionally included keys are:
 
 * `ICE`
 
-	Contains a string which must be one of the following values:
+    Contains a list of strings, or alternatively a single string, each of which
+    must be one of the following values:
 
 	With `remove`, any ICE attributes are stripped from the SDP body. Also
 	see the flag `reject ICE` to effect an early removal of ICE support
@@ -464,7 +465,17 @@ Optionally included keys are:
 	low-priority candidate. This used to be the default behaviour in previous versions of
 	*rtpengine*.
 
+    Adding `trickle` to the list of strings is identical to using the `trickle
+    ICE` flag described below.
+
 	The default behaviour (no `ICE` key present at all) is the same as `default`.
+
+    To influence behaviour related to ICE-lite, flags can be included in this
+    list here instead of using the separate `ICE-lite=` option. For example,
+    instead of using `ICE-lite=both`, the flag `lite-both` can be included in
+    this list.
+
+    Adding `ice2` to the list will advertise support for ICE2 in an outgoing offer.
 
 	This flag operates independently of the `replace` flags.
 
