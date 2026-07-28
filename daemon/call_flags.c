@@ -1419,6 +1419,31 @@ const char *call_ng_flags_ice(str *s, unsigned int idx, sdp_ng_flags *out) {
 		case CSH_LOOKUP("force relay"):
 			out->ice_option = ICE_FORCE_RELAY;
 			break;
+		case CSH_LOOKUP("lite-no"):
+		case CSH_LOOKUP("lite-off"):
+		case CSH_LOOKUP("lite-none"):
+		case CSH_LOOKUP("no-lite"):
+			out->ice_lite_option = ICE_LITE_OFF;
+			break;
+		case CSH_LOOKUP("lite"):
+		case CSH_LOOKUP("lite-fw"):
+		case CSH_LOOKUP("lite-fwd"):
+		case CSH_LOOKUP("lite-forward"):
+		case CSH_LOOKUP("lite-offer"):
+			out->ice_lite_option = ICE_LITE_FWD;
+			break;
+		case CSH_LOOKUP("lite-backward"):
+		case CSH_LOOKUP("lite-backwards"):
+		case CSH_LOOKUP("lite-reverse"):
+		case CSH_LOOKUP("lite-answer"):
+		case CSH_LOOKUP("lite-back"):
+		case CSH_LOOKUP("lite-bkw"):
+		case CSH_LOOKUP("lite-bk"):
+			out->ice_lite_option = ICE_LITE_BKW;
+			break;
+		case CSH_LOOKUP("lite-both"):
+			out->ice_lite_option = ICE_LITE_BOTH;
+			break;
 		default:
 			ilog(LOG_WARN, "Unknown 'ICE' flag encountered: '" STR_FORMAT "'",
 					STR_FMT(s));
