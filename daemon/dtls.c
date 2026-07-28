@@ -63,7 +63,7 @@ struct dtls_connection *dtls_ptr(stream_fd *sfd) {
 	if (!sfd)
 		return NULL;
 	struct packet_stream *ps = sfd->stream;
-	if (PS_ISSET(ps, ICE)) // ignore which sfd we were given
+	if (MEDIA_ISSET(ps->media, ICE)) // ignore which sfd we were given
 		return &ps->ice_dtls;
 	return &sfd->dtls;
 }

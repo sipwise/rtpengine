@@ -844,7 +844,6 @@ static void ng_stats_stream(ng_command_ctx_t *ctx, parser_arg list, const struct
 	BF_PS("DTLS fingerprint verified", FINGERPRINT_VERIFIED);
 	BF_PS("strict source address", STRICT_SOURCE);
 	BF_PS("media handover", MEDIA_HANDOVER);
-	BF_PS("ICE", ICE);
 
 stats:
 	if (totals->last_packet_us < packet_stream_last_packet(ps))

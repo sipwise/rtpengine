@@ -1297,7 +1297,6 @@ static bool __init_streams(struct call_media *A, const struct stream_params *sp,
 				ilog(LOG_WARN, "Both strict-source and media-handover are set, "
 						"which are mutually exclusive");
 		}
-		bf_copy_same(&a->ps_flags, &A->media_flags, SHARED_FLAG_ICE);
 
 		/* RTCP */
 		if (!MEDIA_ISSET(A, RTCP_MUX))
@@ -1337,7 +1336,6 @@ static bool __init_streams(struct call_media *A, const struct stream_params *sp,
 				ilog(LOG_WARN, "Both strict-source and media-handover are set, "
 						"which are mutually exclusive");
 		}
-		bf_copy_same(&a->ps_flags, &A->media_flags, SHARED_FLAG_ICE);
 
 		PS_CLEAR(a, ZERO_ADDR);
 
