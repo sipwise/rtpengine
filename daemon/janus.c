@@ -1459,7 +1459,7 @@ static const char *janus_destroy(struct websocket_message *wm, JsonReader *reade
 	if (ht_session != session) {
 		if (ht_session) // return wrongly stolen session
 			t_hash_table_insert(janus_sessions, &ht_session->id, ht_session);
-		return "Sesssion ID not found"; // already removed/destroyed
+		return "Session ID not found"; // already removed/destroyed
 	}
 
 	janus_session_cleanup(session);
