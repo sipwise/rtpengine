@@ -12,7 +12,6 @@
 
 
 
-#define PACKET_SEQ_DUPE_THRES 100
 #define PACKET_TS_RESET_THRES 5000 // milliseconds
 
 
@@ -473,101 +472,73 @@ void codeclib_init(int print) {
 
 
 
-static int ptr_cmp(const void *a, const void *b, void *dummy) {
-	if (a < b)
-		return -1;
-	if (a > b)
-		return 1;
-	return 0;
+void packet_sequencer_init(packet_sequencer_t *ps, void (*ffunc)(seq_packet_t *)) {
+	ps->free_func = ffunc;
+	ps->a_seq = -1u;
+	ps->a_nxt = -1u;
 }
-
-void __packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify ffunc) {
-	ps->packets = g_tree_new_full(ptr_cmp, NULL, NULL, ffunc);
-	ps->seq = -1;
+static void sequencer_packets_clear(packet_sequencer_t *ps) {
+	for (unsigned int i = 0; i < G_N_ELEMENTS(ps->packets); i++) {
+		if (ps->packets[i])
+			ps->free_func(ps->packets[i]);
+		ps->packets[i] = NULL;
+	}
+	ps->n_pks = 0;
+	ps->a_nxt = -1u;
 }
 void packet_sequencer_destroy(packet_sequencer_t *ps) {
-	if (ps->packets)
-		g_tree_destroy(ps->packets);
-	ps->packets = NULL;
-}
-struct tree_searcher {
-	int find_seq,
-	    found_seq;
-};
-static int packet_tree_search(const void *testseq_p, const void *ts_p) {
-	struct tree_searcher *ts = (void *) ts_p;
-	int testseq = GPOINTER_TO_INT(testseq_p);
-	// called as a binary search test function. we're looking for the lowest
-	// seq number that is higher than find_seq. if our test number is too low,
-	// we proceed with higher numbers. if it's too high, we proceed to the lower
-	// numbers, but remember the lowest we've seen along that path.
-	if (G_UNLIKELY(testseq == ts->find_seq)) {
-		// we've struck gold
-		ts->found_seq = testseq;
-		return 0;
-	}
-	if (testseq < ts->find_seq)
-		return 1;
-	// testseq > ts->find_seq
-	if (ts->found_seq == -1 || testseq < ts->found_seq)
-		ts->found_seq = testseq;
-	return -1;
+	sequencer_packets_clear(ps);
 }
 // caller must take care of locking
-static void *__packet_sequencer_next_packet(packet_sequencer_t *ps, int num_wait) {
+static void *__packet_sequencer_next_packet(packet_sequencer_t *ps, unsigned int num_wait) {
 	// see if we have a packet with the correct seq nr in the queue
-	seq_packet_t *packet = g_tree_lookup(ps->packets, GINT_TO_POINTER(ps->seq));
+	unsigned int ix;
+	seq_packet_t *packet = ps->packets[ps->a_idx];
 	if (G_LIKELY(packet != NULL)) {
-		cdbg("returning in-sequence packet (seq %i)", ps->seq);
+		cdbg("returning in-sequence packet (seq %i)", ps->a_seq);
+		ix = ps->a_idx;
 		goto out;
 	}
 
 	// why not? do we have anything? (we should)
-	int nnodes = g_tree_nnodes(ps->packets);
-	if (G_UNLIKELY(nnodes == 0)) {
+	if (G_UNLIKELY(ps->n_pks == 0)) {
 		cdbg("packet queue empty");
 		return NULL;
 	}
-	if (G_LIKELY(nnodes < num_wait)) {
-		cdbg("only %i packets in queue - waiting for more", nnodes);
+	if (G_LIKELY(ps->n_pks < num_wait)) {
+		cdbg("only %i packets in queue - waiting for more", ps->n_pks);
 		return NULL; // need to wait for more
 	}
 
 	// packet was probably lost. search for the next highest seq
-	struct tree_searcher ts = { .find_seq = ps->seq + 1, .found_seq = -1 };
-	packet = g_tree_search(ps->packets, packet_tree_search, &ts);
-	if (packet) {
-		// bullseye
+	if (ps->a_nxt != -1u) {
+		ix = ps->a_nxt;
+		packet = ps->packets[ix];
 		cdbg("lost packet - returning packet with next seq %i", packet->seq);
 		goto out;
 	}
-	if (G_UNLIKELY(ts.found_seq == -1)) {
-		// didn't find anything. seq must have wrapped around. retry
-		// starting from zero
-		ts.find_seq = 0;
-		packet = g_tree_search(ps->packets, packet_tree_search, &ts);
-		if (packet) {
-			cdbg("lost packet - returning packet with next seq %i (after wrap)", packet->seq);
+
+	for (unsigned int i = 0; i < G_N_ELEMENTS(ps->packets); i++) {
+		ix = (ps->a_idx + i) % G_N_ELEMENTS(ps->packets);
+		if (ps->packets[ix]) {
+			packet = ps->packets[ix];
+			cdbg("lost packet - returning packet with next seq %i", packet->seq);
 			goto out;
 		}
-		if (G_UNLIKELY(ts.found_seq == -1))
-			abort();
 	}
 
-	// pull out the packet we found
-	packet = g_tree_lookup(ps->packets, GINT_TO_POINTER(ts.found_seq));
-	if (G_UNLIKELY(packet == NULL))
-		abort();
+	abort();
 
-	cdbg("lost multiple packets - returning packet with next highest seq %i", packet->seq);
-
-out:
-	;
-	uint16_t l = packet->seq - ps->seq;
+out:;
+	uint16_t l = packet->seq - ps->a_seq;
 	ps->lost_count += l;
 
-	g_tree_steal(ps->packets, GINT_TO_POINTER(packet->seq));
-	ps->seq = (packet->seq + 1) & 0xffff;
+	ps->packets[ix] = NULL;
+	ps->n_pks--;
+	ps->a_seq = (packet->seq + 1) & 0xffff;
+	ps->a_idx = (ix + 1) % G_N_ELEMENTS(ps->packets);
+	if (ps->a_nxt == ix)
+		ps->a_nxt = -1u;
 
 	unsigned int ext_seq = ps->roc << 16 | packet->seq;
 	while (ext_seq < ps->ext_seq) {
@@ -585,47 +556,63 @@ void *packet_sequencer_force_next_packet(packet_sequencer_t *ps) {
 	return __packet_sequencer_next_packet(ps, 0);
 }
 
-int packet_sequencer_next_ok(packet_sequencer_t *ps) {
-	if (g_tree_lookup(ps->packets, GINT_TO_POINTER(ps->seq)))
-		return 1;
-	return 0;
+bool packet_sequencer_next_ok(packet_sequencer_t *ps) {
+	if (ps->packets[ps->a_idx])
+		return true;
+	return false;
 }
 
 int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *p) {
 	int ret = 0;
 
 	// check seq for dupes
-	if (G_UNLIKELY(ps->seq == -1)) {
+	if (G_UNLIKELY(ps->a_seq == -1u)) {
 		// first packet we see
-		ps->seq = p->seq;
+		ps->a_seq = p->seq;
 		goto seq_ok;
 	}
 
-	int diff = p->seq - ps->seq;
-	// early packet: p->seq = 200, ps->seq = 150, diff = 50
-	if (G_LIKELY(diff >= 0 && diff < PACKET_SEQ_DUPE_THRES))
+	int diff = p->seq - ps->a_seq;
+	// early packet: p->seq = 200, ps->a_seq = 150, diff = 50
+	// or exact match: p->seq = 200, ps->a_seq = 200, diff = 0
+	if (G_LIKELY(diff >= 0 && diff < G_N_ELEMENTS(ps->packets)))
 		goto seq_ok;
-	// early packet with wrap-around: p->seq = 20, ps->seq = 65530, diff = -65510
-	if (diff < (-0xffff + PACKET_SEQ_DUPE_THRES))
+	// early packet with wrap-around: p->seq = 20, ps->a_seq = 65530, diff = -65510
+	if (diff < (-0xffff + (signed) G_N_ELEMENTS(ps->packets)))
 		goto seq_ok;
 	// recent duplicate: p->seq = 1000, ps->seq = 1080, diff = -80
-	if (diff < 0 && diff > -PACKET_SEQ_DUPE_THRES)
+	if (diff < 0 && diff > -(signed) G_N_ELEMENTS(ps->packets))
 		return -1;
 	// recent duplicate after wrap-around: p->seq = 65530, ps->seq = 30, diff = 65500
-	if (diff > (0xffff - PACKET_SEQ_DUPE_THRES))
+	if (diff > (0xffff - (signed) G_N_ELEMENTS(ps->packets)))
 		return -1;
 
 	// everything else we consider a seq reset
-	ilog(LOG_DEBUG, "Seq reset detected: expected seq %i, received seq %i", ps->seq, p->seq);
-	ps->seq = p->seq;
+	ilog(LOG_DEBUG, "Seq reset detected: expected seq %i, received seq %i", ps->a_seq, p->seq);
+	ps->a_seq = p->seq;
 	ret = 1;
+	sequencer_packets_clear(ps);
 	// seq ok - fall through
-	g_tree_clear(ps->packets);
-seq_ok:
-	if (g_tree_lookup(ps->packets, GINT_TO_POINTER(p->seq)))
+seq_ok:;
+	// slot of this packet
+	unsigned int idx = (ps->a_idx + p->seq - ps->a_seq) % G_N_ELEMENTS(ps->packets);
+	// packet already present?
+	if (ps->packets[idx])
 		return -1;
-	ret = g_tree_nnodes(ps->packets) == 0 ? ret : 2; // indicates an out-of-order packet
-	g_tree_insert(ps->packets, GINT_TO_POINTER(p->seq), p);
+
+	if (ps->a_idx != idx)
+		ret = 2; // indicates an out-of-order packet
+
+	// if not set
+	if (ps->a_nxt == -1u)
+		ps->a_nxt = idx;
+	// or if new idx is less than a_nxt
+	else if ((ps->a_nxt - ps->a_idx) % G_N_ELEMENTS(ps->packets)
+			> (idx - ps->a_idx) % G_N_ELEMENTS(ps->packets))
+		ps->a_nxt = idx;
+
+	ps->packets[idx] = p;
+	ps->n_pks++;
 
 	return ret;
 }

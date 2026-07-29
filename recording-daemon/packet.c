@@ -22,8 +22,7 @@
 #include "mix.h"
 
 
-static void packet_free(void *p) {
-	packet_t *packet = p;
+static void packet_free(packet_t *packet) {
 	if (!packet)
 		return;
 	free(packet->buffer);
@@ -65,7 +64,7 @@ static ssrc_t *ssrc_get(stream_t *stream, unsigned long ssrc) {
 	ret->metafile = mf;
 	ret->stream = stream;
 	ret->ssrc = ssrc;
-	packet_sequencer_init(&ret->sequencer, packet_free);
+	packet_sequencer_init(&ret->sequencer, (void (*)(seq_packet_t *)) packet_free);
 
 	g_hash_table_insert(mf->ssrc_hash, GUINT_TO_POINTER(ssrc), ret);
 
@@ -154,7 +153,7 @@ static void ssrc_run(ssrc_t *ssrc) {
 		packet_decode(ssrc, packet);
 
 		packet_free(packet);
-		dbg("packets left in queue: %i", g_tree_nnodes(ssrc->sequencer.packets));
+		dbg("packets left in queue: %i", ssrc->sequencer.n_pks);
 	}
 
 	pthread_mutex_unlock(&ssrc->lock);
@@ -202,7 +201,7 @@ void packet_process(stream_t *stream, unsigned char *buf, unsigned len) {
 	if (!ssrc) // stream shutdown
 		goto out;
 	if (packet_sequencer_insert(&ssrc->sequencer, &packet->p) < 0) {
-		dbg("skipping dupe packet (new seq %i prev seq %i)", packet->p.seq, ssrc->sequencer.seq);
+		dbg("skipping dupe packet (new seq %i prev seq %i)", packet->p.seq, ssrc->sequencer.a_seq);
 		goto skip;
 	}
 

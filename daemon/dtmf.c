@@ -747,7 +747,7 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 		struct rtp_header rtp = {
 			.m_pt = 0xff,
 			.timestamp = 0,
-			.seq_num = htons(seq->seq),
+			.seq_num = htons(seq->a_seq),
 			.ssrc = htonl(ssrc_in->h.ssrc),
 		};
 		struct media_packet packet = {
@@ -773,7 +773,7 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 		// insert pause
 		tep.event = 0xff;
 		tep.duration = htons(pause_samples);
-		rtp.seq_num = htons(seq->seq);
+		rtp.seq_num = htons(seq->a_seq);
 
 		ch->dtmf_injector->handler_func(ch->dtmf_injector, &packet);
 

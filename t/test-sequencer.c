@@ -3,7 +3,7 @@
 
 static unsigned int num_freed;
 
-static void ffunc(void *a) {
+static void ffunc(seq_packet_t *a) {
 	num_freed++;
 }
 
@@ -73,7 +73,7 @@ int main(void) {
 	pks[1].seq = 104;
 
 	i = packet_sequencer_insert(&ps, &pks[1]);
-	assert(i == 0);
+	assert(i == 2);
 	assert(num_freed == 0);
 
 	i = packet_sequencer_next_ok(&ps);
@@ -83,7 +83,7 @@ int main(void) {
 	assert(p == NULL);
 
 	i = packet_sequencer_insert(&ps, &pks[0]);
-	assert(i == 2);
+	assert(i == 0);
 	assert(num_freed == 0);
 
 	i = packet_sequencer_next_ok(&ps);
@@ -122,7 +122,7 @@ int main(void) {
 	pks[1].seq = 107;
 
 	i = packet_sequencer_insert(&ps, &pks[1]);
-	assert(i == 0);
+	assert(i == 2);
 	assert(num_freed == 0);
 
 	i = packet_sequencer_next_ok(&ps);
@@ -156,7 +156,7 @@ int main(void) {
 	pks[1].seq = 111;
 
 	i = packet_sequencer_insert(&ps, &pks[1]);
-	assert(i == 0);
+	assert(i == 2);
 	assert(num_freed == 0);
 
 	i = packet_sequencer_next_ok(&ps);

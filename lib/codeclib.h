@@ -376,9 +376,13 @@ struct seq_packet_s {
 	int seq;
 };
 struct packet_sequencer_s {
-	GTree *packets;
+	seq_packet_t *packets[128]; // should be 2^n
+	unsigned int a_idx; // start of queue, 0..127
+	unsigned int a_seq; // seq of head of queue
+	unsigned int n_pks; // number of packets
+	unsigned int a_nxt; // index of next closest
+	void (*free_func)(seq_packet_t *);
 	unsigned int lost_count;
-	int seq; // next expected
 	unsigned int ext_seq; // last received
 	int roc; // rollover counter XXX duplicate with SRTP encryption context
 };
@@ -437,11 +441,10 @@ int encoder_input_fifo(encoder_t *enc, AVFrame *frame,
 		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2);
 
 
-void __packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify);
-INLINE void packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify);
+void packet_sequencer_init(packet_sequencer_t *ps, void (*)(seq_packet_t *));
 void packet_sequencer_destroy(packet_sequencer_t *ps);
 void *packet_sequencer_next_packet(packet_sequencer_t *ps);
-int packet_sequencer_next_ok(packet_sequencer_t *ps);
+bool packet_sequencer_next_ok(packet_sequencer_t *ps);
 void *packet_sequencer_force_next_packet(packet_sequencer_t *ps);
 int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *);
 
@@ -524,11 +527,6 @@ AVPacket *codec_cc_input_data(codec_cc_t *c, const str *data, unsigned long ts, 
 
 
 // `ps` must be zero allocated
-INLINE void packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify n) {
-	if (ps->packets)
-		return;
-	__packet_sequencer_init(ps, n);
-}
 INLINE int format_eq(const format_t *a, const format_t *b) {
 	if (G_UNLIKELY(a->clockrate != b->clockrate))
 		return 0;

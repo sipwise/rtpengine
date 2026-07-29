@@ -2298,7 +2298,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 		seq = g_hash_table_lookup(ssrc_in->sequencers, mp->media_out);
 	if (!seq) {
 		seq = g_new0(__typeof(*seq), 1);
-		packet_sequencer_init(seq, (GDestroyNotify) __transcode_packet_free);
+		packet_sequencer_init(seq, (void (*)(seq_packet_t *)) __transcode_packet_free);
 		g_hash_table_insert(ssrc_in->sequencers, mp->media_out, seq);
 		ssrc_in->media_cache = mp->media_out;
 		ssrc_in->sequencer_cache = seq;
@@ -2307,12 +2307,12 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 		if(stats_ext_seq) {
 			seq->roc = stats_ext_seq>>16;
 			seq->ext_seq = stats_ext_seq-1;
-			seq->seq = stats_ext_seq & 0xffff;
-			ilog(LOG_DEBUG, "transcode: restoring sequencer, roc: %d ext_seq: %u seq: %u", seq->roc, seq->ext_seq, seq->seq);
+			seq->a_seq = stats_ext_seq & 0xffff;
+			ilog(LOG_DEBUG, "transcode: restoring sequencer, roc: %d ext_seq: %u seq: %u", seq->roc, seq->ext_seq, seq->a_seq);
 		}
 	}
 
-	uint16_t seq_ori = (seq->seq < 0) ? 0 : seq->seq;
+	uint16_t seq_ori = (seq->a_seq == -1u) ? 0 : seq->a_seq;
 	int seq_ret = packet_sequencer_insert(seq, &packet->p);
 	if (seq_ret < 0) {
 		// dupe
