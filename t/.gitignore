@@ -30,3 +30,4 @@ test-amr-encode
 aead-decrypt
 s3-auth
 kernel-extmap-filter
+test-sequencer

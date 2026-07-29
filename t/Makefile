@@ -88,6 +88,7 @@ include ../lib/common.Makefile
 TESTS := test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
 ifeq ($(with_transcoding),yes)
 TESTS += test-transcode test-dtmf-detect test-payload-tracker test-resample test-stats test-mix-buffer
+TESTS += test-sequencer
 ifeq ($(RTPENGINE_EXTENDED_TESTS),1)
 TESTS += test-amr-decode test-amr-encode
 endif
@@ -476,6 +477,15 @@ test-transcode:	test-transcode.o \
 	../lib/socket.o \
 	../lib/streambuf.o \
 	../lib/uring.o \
+	log.o
+
+test-sequencer:	test-sequencer.o \
+	$(COMMONOBJS) \
+	../lib/bencode.o \
+	../lib/cchain.o \
+	../lib/codeclib.o \
+	../lib/dtmflib.o \
+	../lib/resample.o \
 	log.o
 
 test-resample:	test-resample.o \
