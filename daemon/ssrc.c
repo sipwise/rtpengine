@@ -246,6 +246,7 @@ void *get_ssrc_full(uint32_t ssrc, struct ssrc_hash *ht, bool *created) {
 		add_ssrc_entry(ssrc, ent, ht);
 		if (created)
 			*created = true;
+		ht->iters++;
 
 		return ent;
 	}
