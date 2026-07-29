@@ -11,9 +11,6 @@
 
 struct rtpengine_config rtpe_config = {
 };
-int get_local_log_level(unsigned int u) {
-	return -1;
-}
 
 int main(int argc, char **argv) {
 	if (argc < 5) {

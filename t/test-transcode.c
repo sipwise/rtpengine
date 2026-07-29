@@ -1837,7 +1837,3 @@ int main(void) {
 
 	return 0;
 }
-
-int get_local_log_level(unsigned int u) {
-	return 7;
-}

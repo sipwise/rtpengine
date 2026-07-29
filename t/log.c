@@ -49,3 +49,7 @@ void log_info_str(const str *s) { }
 void log_info_c_string(const char *s) { }
 void log_info_ice_agent(struct ice_agent *ag) { }
 void log_info_media(struct call_media *m) { }
+
+int get_local_log_level(unsigned int u) {
+	return 7;
+}

@@ -21,10 +21,6 @@ struct bufferpool *shm_bufferpool;
 struct bufferpool *static_bufferpool;
 void kernel_thread_init(void) {}
 
-int get_local_log_level(unsigned int u) {
-	return -1;
-}
-
 
 int main(void) {
 	struct mix_buffer mb;

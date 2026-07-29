@@ -33,7 +33,3 @@ int main(void) {
 	test("doesn't exist", 0);
 	return 0;
 }
-
-int get_local_log_level(unsigned int u) {
-	return -1;
-}
