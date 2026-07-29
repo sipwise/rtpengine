@@ -386,8 +386,8 @@ static void end(void) {
 	g_hash_table_destroy(rtp_seq_ht);
 	t_queue_clear(&media_A->streams);
 	t_queue_clear(&media_B->streams);
-	call_media_free(&media_A);
-	call_media_free(&media_B);
+	call_media_free(media_A);
+	call_media_free(media_B);
 	t_hash_table_destroy(call.tags);
 	t_queue_clear(&call.medias);
 	if (ml_A)

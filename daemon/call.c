@@ -5446,8 +5446,7 @@ void media_subscription_free(struct media_subscription *p) {
 	g_free(p);
 }
 
-void call_media_free(struct call_media **mdp) {
-	struct call_media *md = *mdp;
+void call_media_free(struct call_media *md) {
 	crypto_params_sdes_queue_clear(&md->sdes_in);
 	crypto_params_sdes_queue_clear(&md->sdes_out);
 	t_queue_clear(&md->streams);
@@ -5504,7 +5503,7 @@ static void __call_free(call_t *c) {
 
 	while (c->medias.head) {
 		md = t_queue_pop_head(&c->medias);
-		call_media_free(&md);
+		call_media_free(md);
 	}
 
 	while (c->endpoint_maps.head) {
