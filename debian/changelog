@@ -1,3 +1,25 @@
+ngcp-rtpengine (26.1.1.8+0~mr26.1.1.8) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [ccf4225] MT#55283 fix compilation for RHEL 9
+  * [329d3e9] MT#55283 don't evict objects still in use
+  * [bc3cacd] MT#55283 add missing iters increment
+  * [e2ee481] MT#55283 add missing CPPFLAGS_DEFAULT
+  * [eabbe17] MT#55283 don't pop entries that shouldn't be
+
+  [ Alexander Bakker ]
+  * [59a091a] MT#55283 Treat missing a=fmtp as defaults for AMR
+
+  [ Gustavo Almeida ]
+  * [d64bd02] MT#55283 fix: add guard to avoid packet sent on shutdown on already dead streams
+
+  [ Guillem Jover ]
+  * [5827be7] MT#55283 Fix typos
+  * [4fd3531] MT#55283 Add Description keys to systemd service files
+  * [9ccdffd] MT#55283 Call gzip with -n for reproducible output
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 30 Jul 2026 14:25:25 +0200
+
 ngcp-rtpengine (26.1.1.7+0~mr26.1.1.7) unstable; urgency=medium
 
   [ Donat Zenichev ]
