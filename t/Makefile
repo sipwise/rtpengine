@@ -538,3 +538,5 @@ spandsp_send_fax_pcm.c:	../lib/spandsp_logging.compat
 spandsp_send_fax_t38.c:	../lib/spandsp_logging.compat
 spandsp_recv_fax_t38.c:	../lib/spandsp_logging.compat
 spandsp_recv_fax_pcm.c:	../lib/spandsp_logging.compat
+
+../lib/codeclib.o: ../lib/fix_frame_channel_layout.compat
