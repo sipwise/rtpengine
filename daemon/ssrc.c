@@ -225,10 +225,10 @@ void *get_ssrc_full(uint32_t ssrc, struct ssrc_hash *ht, bool *created) {
 		LOCK(&ht->lock);
 
 		while (G_UNLIKELY(ht->nq.length > MAX_SSRC_ENTRIES)) {
-			GList *link = g_queue_pop_tail_link(&ht->nq);
-			struct ssrc_entry *old_ent = link->data;
+			struct ssrc_entry *old_ent = ht->nq.tail->data;
 			if (old_ent->obj.ref != 1)
 				break;
+			g_queue_pop_tail_link(&ht->nq);
 			ilog(LOG_DEBUG, "SSRC hash table exceeded size limit (trying to add %s%x%s) - "
 					"deleting SSRC %s%x%s",
 					FMT_M(ssrc), FMT_M(old_ent->ssrc));
