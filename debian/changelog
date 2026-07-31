@@ -1,3 +1,13 @@
+ngcp-rtpengine (13.5.1.24+0~mr13.5.1.24) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7634448] MT#63317 amend and fix some logging
+
+  [ Guillem Jover ]
+  * [b698836] MT#55283 kernel-module: Use do_div() instead of 64-bit division operator
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 31 Jul 2026 14:30:43 +0200
+
 ngcp-rtpengine (13.5.1.23+0~mr13.5.1.23) unstable; urgency=medium
 
   [ Richard Fuchs ]
