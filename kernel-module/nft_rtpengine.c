@@ -26,6 +26,7 @@
 #include <linux/spinlock.h>
 #include <linux/bsearch.h>
 #include <asm/atomic.h>
+#include <asm/div64.h>
 #include <net/netfilter/nf_tables.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter_ipv4.h>
@@ -1698,6 +1699,7 @@ static int proc_list_show(struct seq_file *f, void *v) {
 	struct rtpengine_target *g = v;
 	unsigned int i, j;
 	unsigned long flags;
+	uint64_t last_packet;
 
 	seq_printf(f, "local ");
 	seq_addr_print(f, &g->target.local);
@@ -1728,8 +1730,9 @@ static int proc_list_show(struct seq_file *f, void *v) {
 			g->target.pt_media_idx[i]);
 	}
 
-	seq_printf(f, "    last packet: %lli\n",
-			(long long) atomic64_read(&g->target.stats->last_packet_us) / 1000000L);
+	last_packet = atomic64_read(&g->target.stats->last_packet_us);
+	do_div(last_packet, 1000000L);
+	seq_printf(f, "    last packet: %lli\n", (long long) last_packet);
 
 	seq_printf(f, "    SSRC in:");
 	for (i = 0; i < ARRAY_SIZE(g->target.ssrc); i++) {
