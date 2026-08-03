@@ -259,7 +259,7 @@ INLINE int str_cmp(const str *a, const char *b) {
 	return str_cmp_len(a, b, strlen(b));
 }
 INLINE bool str_eq(const str *a, const char *b) {
-	return str_cmp(a, b) == 0;
+	return strlen(b) == a->len && memcmp(a->s, b, a->len) == 0;
 }
 INLINE int str_cmp_str(const str *a, const str *b) {
 	if (a->len < b->len)
