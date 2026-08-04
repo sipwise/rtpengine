@@ -438,7 +438,8 @@ Optionally included keys are:
 	received RTCP packets will not simply be passed through as usual, but
 	instead will be consumed, and instead *rtpengine* will generate its own
 	RTCP packets to send to the RTP peers. This flag will be effective for
-	both sides of a call.
+	both sides of a call. If Homer is configured, the generated RTCP reports
+    are also sent to Homer (even when no original RTCP was received).
 
 * `ICE`
 
