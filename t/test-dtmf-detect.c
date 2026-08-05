@@ -624,7 +624,6 @@ int main(int argc, char **argv) {
 	unsigned char *end = samples + sizeof(samples);
 	int packetise = 160;
 
-	int iter = 0;
 	while (1) {
 		unsigned char *packet_end = reader + packetise * 2;
 		if (packet_end > end)
@@ -637,7 +636,6 @@ int main(int argc, char **argv) {
 		printf("status %i %c\n", digit, digit);
 
 		reader += packetise * 2;
-		iter++;
 	}
 
 	printf("result: %s\n", output->str);
