@@ -103,18 +103,6 @@ MODULE_ALIAS("nft-expr-rtpengine");
 #define DBG(x...) ((void)0)
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
-#define PAR_STATE_NET(p) (p)->state->net
-#else /* minimum 4.4.x */
-#define PAR_STATE_NET(p) (p)->net
-#endif
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,14,0)
-#define PKTINFO_NET(p) (p)->state->net
-#else
-#define PKTINFO_NET(p) (p)->xt.state->net
-#endif
-
 #if 0
 #define _s_lock(l, f) do {								\
 		printk(KERN_DEBUG "[PID %i %s:%i] acquiring lock %s\n",			\
@@ -305,9 +293,9 @@ static int srtcp_decrypt_aes_gcm(struct re_crypto_context *, struct rtpengine_sr
 static int send_proxy_packet_output(struct sk_buff *skb, struct rtpengine_target *g,
 		int rtp_pt_idx,
 		struct rtpengine_output *o, struct rtp_parsed *rtp, int ssrc_idx,
-		struct net *, struct rtpengine_table *t);
+		struct rtpengine_table *t);
 static int send_proxy_packet(struct sk_buff *skb, const struct re_address *src, const struct re_address *dst,
-		unsigned char tos, struct net *, struct rtpengine_table *);
+		unsigned char tos, struct net *, struct dst_entry *, struct rtpengine_table *);
 static uint32_t proxy_packet_srtp_encrypt(struct sk_buff *skb, struct re_crypto_context *ctx,
 		struct rtpengine_srtp *srtp,
 		struct rtp_parsed *rtp, int ssrc_idx,
@@ -353,6 +341,8 @@ struct rtpengine_output {
 	struct rtpengine_output_info	output;
 	struct re_crypto_context	encrypt_rtp;
 	struct re_crypto_context	encrypt_rtcp;
+	struct net			*net;
+	struct dst_entry		*dst;
 };
 
 struct rtpengine_target {
@@ -1084,6 +1074,8 @@ static void target_put(struct rtpengine_target *t) {
 		for (i = 0; i < t->target.num_destinations; i++) {
 			free_crypto_context(&t->outputs[i].encrypt_rtp);
 			free_crypto_context(&t->outputs[i].encrypt_rtcp);
+			dst_release(t->outputs[i].dst);
+			put_net(t->outputs[i].net);
 		}
 		kfree(t->outputs);
 	}
@@ -2907,6 +2899,36 @@ fail1:
 	return err;
 }
 
+
+static struct dst_entry *get_output_dst4(struct net *net, const struct re_address *dst,
+		const struct re_address *src, unsigned char tos)
+{
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6,10,0)) || \
+	(defined(RHEL_RELEASE_CODE) && LINUX_VERSION_CODE >= KERNEL_VERSION(5,14,0) && \
+		RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9,6))
+	struct rtable *rt = ip_route_output(net, dst->u.ipv4, src->u.ipv4, tos, 0, 0);
+#else
+	struct rtable *rt = ip_route_output(net, dst->u.ipv4, src->u.ipv4, tos, 0);
+#endif
+	if (IS_ERR(rt))
+		return NULL;
+	return &rt->dst;
+}
+
+
+static struct dst_entry *get_output_dst6(struct net *net, const struct re_address *dst,
+		const struct re_address *src)
+{
+	struct flowi6 fl6;
+
+	memset(&fl6, 0, sizeof(fl6));
+	memcpy(&fl6.saddr, src->u.ipv6, sizeof(fl6.saddr));
+	memcpy(&fl6.daddr, dst->u.ipv6, sizeof(fl6.daddr));
+
+	return ip6_route_output(net, NULL, &fl6);
+}
+
+
 static int table_add_destination(struct rtpengine_table *t, struct rtpengine_destination_info *i) {
 	unsigned long flags;
 	int err;
@@ -2915,6 +2937,12 @@ static int table_add_destination(struct rtpengine_table *t, struct rtpengine_des
 	struct stream_stats *stats;
 	struct ssrc_stats *ssrc_stats[RTPE_NUM_SSRC_TRACKING] = {0};
 	unsigned int u;
+	struct net *net = NULL;
+	struct dst_entry *dst = NULL;
+
+	if (!current->nsproxy || !current->nsproxy->net_ns)
+		return -ENETUNREACH;
+	net = current->nsproxy->net_ns;
 
 	// validate input
 
@@ -2948,6 +2976,21 @@ static int table_add_destination(struct rtpengine_table *t, struct rtpengine_des
 	g = get_target(t, &i->local);
 	if (!g)
 		return -ENOENT;
+
+
+	if (i->output.dst_addr.family == AF_INET)
+		dst = get_output_dst4(net, &i->output.dst_addr, &i->output.src_addr, i->output.tos);
+	else // IP6
+		dst = get_output_dst6(net, &i->output.dst_addr, &i->output.src_addr);
+
+	err = -ENETUNREACH;
+	if (!dst)
+		goto out2;
+	if (dst->error) {
+		err = dst->error;
+		goto out2;
+	}
+
 
 	// ready to fill in
 
@@ -2996,13 +3039,20 @@ static int table_add_destination(struct rtpengine_table *t, struct rtpengine_des
 	if (err)
 		goto out;
 
+	// take over dst_entry reference
+	g->outputs[i->num].dst = dst;
+	dst = NULL;
+	g->outputs[i->num].net = get_net(net);
+
 	g->outputs_unfilled--;
 
 	err = 0;
 
 out:
 	_w_unlock(&g->outputs_lock, flags);
+out2:
 	target_put(g);
+	dst_release(dst);
 	return err;
 }
 
@@ -4098,7 +4148,7 @@ static bool re_ring_send(const void *payload, size_t length,
 	data = skb_put(skb, length);
 	memcpy(data, payload, length);
 
-	send_proxy_packet(skb, src, dst, tos, NULL, NULL);
+	send_proxy_packet(skb, src, dst, tos, NULL, NULL, NULL);
 
 	return true;
 }
@@ -4510,7 +4560,8 @@ static void play_stream_send_packet(struct re_play_stream *stream, struct re_pla
 	rtp.rtcp = 0;
 
 	proxy_packet_srtp_encrypt(skb, &stream->encrypt, &stream->info.encrypt, &rtp, 0, &stream->info.ssrc_stats);
-	send_proxy_packet(skb, &stream->info.src_addr, &stream->info.dst_addr, stream->info.tos, NULL, NULL);
+	send_proxy_packet(skb, &stream->info.src_addr, &stream->info.dst_addr, stream->info.tos,
+			NULL, NULL, NULL);
 
 	atomic64_inc(&stream->info.stats->packets);
 	atomic64_add(packet->len, &stream->info.stats->bytes);
@@ -5434,16 +5485,13 @@ static ssize_t proc_control_read(struct file *file, char __user *ubuf, size_t bu
 
 
 static int send_proxy_packet4(struct sk_buff *skb, const struct re_address *src, const struct re_address *dst,
-		unsigned char tos, struct net *net, struct rtpengine_table *t)
+		unsigned char tos, struct net *net, struct dst_entry *dst_entry, struct rtpengine_table *t)
 {
 	struct iphdr *ih;
 	struct udphdr *uh;
 	unsigned int datalen;
-	struct rtable *rt;
 
-	if (!net && current && current->nsproxy)
-		net = current->nsproxy->net_ns;
-	if (!net)
+	if (!dst_entry || !net)
 		goto drop;
 
 	datalen = skb->len;
@@ -5490,20 +5538,10 @@ static int send_proxy_packet4(struct sk_buff *skb, const struct re_address *src,
 	 * a Cilium-internal routing table that has no default gateway. */
 	skb->mark = 0;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6,10,0)) || \
-		(defined(RHEL_RELEASE_CODE) && LINUX_VERSION_CODE >= KERNEL_VERSION(5,14,0) && \
-			RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9,6))
-	rt = ip_route_output(net, dst->u.ipv4, src->u.ipv4, tos, 0, 0);
-#else
-	rt = ip_route_output(net, dst->u.ipv4, src->u.ipv4, tos, 0);
-#endif
-	if (IS_ERR(rt))
-		goto drop;
 	skb_dst_drop(skb);
-	skb_dst_set(skb, &rt->dst);
+	dst_hold(dst_entry);
+	skb_dst_set(skb, dst_entry);
 
-	if (skb_dst(skb)->error)
-		goto drop;
 	skb->dev = skb_dst(skb)->dev;
 
 	if (skb->dev->features & (NETIF_F_HW_CSUM | NETIF_F_IP_CSUM)) {
@@ -5551,17 +5589,13 @@ drop:
 
 
 static int send_proxy_packet6(struct sk_buff *skb, const struct re_address *src, const struct re_address *dst,
-		unsigned char tos, struct net *net, struct rtpengine_table *t)
+		unsigned char tos, struct net *net, struct dst_entry *dst_entry, struct rtpengine_table *t)
 {
 	struct ipv6hdr *ih;
 	struct udphdr *uh;
 	unsigned int datalen;
-	struct dst_entry *dst_entry;
-	struct flowi6 fl6;
 
-	if (!net && current && current->nsproxy)
-		net = current->nsproxy->net_ns;
-	if (!net)
+	if (!dst_entry || !net)
 		goto drop;
 
 	datalen = skb->len;
@@ -5605,20 +5639,9 @@ static int send_proxy_packet6(struct sk_buff *skb, const struct re_address *src,
 	 * marks to avoid misrouting via Cilium-internal tables. */
 	skb->mark = 0;
 
-	memset(&fl6, 0, sizeof(fl6));
-	memcpy(&fl6.saddr, src->u.ipv6, sizeof(fl6.saddr));
-	memcpy(&fl6.daddr, dst->u.ipv6, sizeof(fl6.daddr));
-	fl6.flowi6_mark = skb->mark;
-
-	dst_entry = ip6_route_output(net, NULL, &fl6);
-	if (!dst_entry)
-		goto drop;
-	if (dst_entry->error) {
-		dst_release(dst_entry);
-		goto drop;
-	}
 	skb_dst_drop(skb);
 	skb_dst_set(skb, dst_entry);
+	dst_hold(dst_entry);
 	skb->dev = skb_dst(skb)->dev;
 
 	skb->csum_start = skb_transport_header(skb) - skb->head;
@@ -5654,11 +5677,14 @@ drop:
 
 
 static int send_proxy_packet(struct sk_buff *skb, const struct re_address *src, const struct re_address *dst,
-		unsigned char tos, struct net *net, struct rtpengine_table *t)
+		unsigned char tos, struct net *net, struct dst_entry *dst_entry, struct rtpengine_table *t)
 {
+	int ret = -1;
+	struct dst_entry *local_dst = NULL;
+
 	if (src->family != dst->family) {
 		log_err("address family mismatch");
-		goto drop;
+		goto out;
 	}
 
 	/* This skb was received from the network but is now being reinjected as
@@ -5668,21 +5694,35 @@ static int send_proxy_packet(struct sk_buff *skb, const struct re_address *src, 
 
 	switch (src->family) {
 		case AF_INET:
-			return send_proxy_packet4(skb, src, dst, tos, net, t);
+			if (!dst_entry) {
+				local_dst = dst_entry = get_output_dst4(net, src, dst, tos);
+				if (!local_dst || local_dst->error)
+					break;
+			}
+			ret = send_proxy_packet4(skb, src, dst, tos, net, dst_entry, t);
+			skb = NULL;
 			break;
 
 		case AF_INET6:
-			return send_proxy_packet6(skb, src, dst, tos, net, t);
+			if (!dst_entry) {
+				local_dst = dst_entry = get_output_dst6(net, src, dst);
+				if (!local_dst || local_dst->error)
+					break;
+			}
+			ret = send_proxy_packet6(skb, src, dst, tos, net, dst_entry, t);
+			skb = NULL;
 			break;
 
 		default:
 			log_err("unsupported address family");
-			goto drop;
 	}
 
-drop:
-	kfree_skb(skb);
-	return -1;
+	dst_release(local_dst);
+
+out:
+	if (skb)
+		kfree_skb(skb);
+	return ret;
 }
 
 
@@ -6732,12 +6772,14 @@ drop:
 static int send_proxy_packet_output(struct sk_buff *skb, struct rtpengine_target *g,
 		int rtp_pt_idx,
 		struct rtpengine_output *o, struct rtp_parsed *rtp, int ssrc_idx,
-		struct net *net, struct rtpengine_table *t)
+		struct rtpengine_table *t)
 {
 	skb = proxy_packet_output_rtXp(skb, o, rtp_pt_idx, rtp, ssrc_idx, t);
 	if (!skb)
 		return 0;
-	return send_proxy_packet(skb, &o->output.src_addr, &o->output.dst_addr, o->output.tos, net, t);
+	return send_proxy_packet(skb,
+			&o->output.src_addr, &o->output.dst_addr,
+			o->output.tos, o->net, o->dst, t);
 }
 
 
@@ -7066,7 +7108,7 @@ static void rtpe_pull_trim(struct sk_buff *skb, unsigned int datalen) {
 
 static int rtpengine46(struct sk_buff *oskb,
 		struct rtpengine_table *t, struct re_address *src,
-		struct re_address *dst, uint8_t in_tos, struct net *net)
+		struct re_address *dst, uint8_t in_tos)
 {
 	struct sk_buff *skb = NULL;
 	struct udphdr *uh;
@@ -7341,7 +7383,7 @@ static int rtpengine46(struct sk_buff *oskb,
 
 		datalen_out = skb2->len;
 
-		err = send_proxy_packet_output(skb2, g, rtp_pt_idx, o, &rtp2, ssrc_idx, net, t);
+		err = send_proxy_packet_output(skb2, g, rtp_pt_idx, o, &rtp2, ssrc_idx, t);
 		if (err) {
 			atomic64_inc(&g->target.stats->errors);
 			atomic64_inc(&g->target.iface_stats->in.errors);
@@ -7406,7 +7448,7 @@ out_target:
 
 
 
-static int rtpengine4(struct sk_buff *oskb, struct net *net, struct rtpengine_table *t) {
+static int rtpengine4(struct sk_buff *oskb, struct rtpengine_table *t) {
 	struct iphdr *ih;
 	struct re_address src, dst;
 
@@ -7422,7 +7464,7 @@ static int rtpengine4(struct sk_buff *oskb, struct net *net, struct rtpengine_ta
 	dst.family = AF_INET;
 	dst.u.ipv4 = ih->daddr;
 
-	return rtpengine46(oskb, t, &src, &dst, (uint8_t)ih->tos, net);
+	return rtpengine46(oskb, t, &src, &dst, (uint8_t)ih->tos);
 }
 
 static unsigned int rtpe_xt_rtpengine4(struct sk_buff *oskb, const struct xt_action_param *par) {
@@ -7432,7 +7474,7 @@ static unsigned int rtpe_xt_rtpengine4(struct sk_buff *oskb, const struct xt_act
 	if (!t)
 		return NFT_CONTINUE;
 
-	ret = rtpengine4(oskb, PAR_STATE_NET(par), t);
+	ret = rtpengine4(oskb, t);
 
 	table_put(t);
 
@@ -7442,7 +7484,7 @@ static unsigned int rtpe_xt_rtpengine4(struct sk_buff *oskb, const struct xt_act
 
 
 
-static int rtpengine6(struct sk_buff *oskb, struct net *net, struct rtpengine_table *t) {
+static int rtpengine6(struct sk_buff *oskb, struct rtpengine_table *t) {
 	struct ipv6hdr *ih;
 	struct re_address src, dst;
 
@@ -7458,7 +7500,7 @@ static int rtpengine6(struct sk_buff *oskb, struct net *net, struct rtpengine_ta
 	dst.family = AF_INET6;
 	memcpy(&dst.u.ipv6, &ih->daddr, sizeof(dst.u.ipv6));
 
-	return rtpengine46(oskb, t, &src, &dst, ipv6_get_dsfield(ih), net);
+	return rtpengine46(oskb, t, &src, &dst, ipv6_get_dsfield(ih));
 }
 
 static unsigned int rtpe_xt_rtpengine6(struct sk_buff *oskb, const struct xt_action_param *par) {
@@ -7468,7 +7510,7 @@ static unsigned int rtpe_xt_rtpengine6(struct sk_buff *oskb, const struct xt_act
 	if (!t)
 		return NFT_CONTINUE;
 
-	ret = rtpengine6(oskb, PAR_STATE_NET(par), t);
+	ret = rtpengine6(oskb, t);
 
 	table_put(t);
 
@@ -7498,7 +7540,7 @@ static void rtpengine_ipv4_expr_eval(const struct nft_expr *expr, struct nft_reg
 		const struct nft_pktinfo *pkt)
 {
 	struct nft_rtpengine_info *info = (struct nft_rtpengine_info *) expr->data;
-	int verdict = rtpengine4(pkt->skb, PKTINFO_NET(pkt), info->table);
+	int verdict = rtpengine4(pkt->skb, info->table);
 	regs->verdict.code = verdict;
 }
 
@@ -7506,7 +7548,7 @@ static void rtpengine_ipv6_expr_eval(const struct nft_expr *expr, struct nft_reg
 		const struct nft_pktinfo *pkt)
 {
 	struct nft_rtpengine_info *info = (struct nft_rtpengine_info *) expr->data;
-	int verdict = rtpengine6(pkt->skb, PKTINFO_NET(pkt), info->table);
+	int verdict = rtpengine6(pkt->skb, info->table);
 	regs->verdict.code = verdict;
 }
 
