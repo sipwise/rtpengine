@@ -85,7 +85,7 @@ include ../lib/common.Makefile
 	daemon-tests-recording daemon-tests-create daemon-tests-alias \
 	daemon-tests-kernel-api
 
-TESTS := test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
+TESTS := test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash test-notify-events
 ifeq ($(with_transcoding),yes)
 TESTS += test-transcode test-dtmf-detect test-payload-tracker test-resample test-stats test-mix-buffer
 TESTS += test-sequencer
@@ -287,6 +287,8 @@ daemon-tests-kernel-api:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-kernel-api.pl
 
 test-bitstr:	test-bitstr.o
+
+test-notify-events:	test-notify-events.o
 
 test-mix-buffer:	test-mix-buffer.o \
 	$(COMMONOBJS) \

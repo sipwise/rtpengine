@@ -367,14 +367,79 @@ sufficient for a standard installation of rtpengine.
 
 - __\-\-notify-uri=__*URI*
 
-    Enable HTTP notification about finished recordings to the specified URI, which
-    must be an HTTP or HTTPS URI. Information about the finished recording is
-    provided via custom HTTP headers, all of which use a prefix of __X-Recording-__.
+    Enable HTTP notification about recording lifecycle events to the specified URI,
+    which must be an HTTP or HTTPS URI. Information is provided via custom HTTP
+    headers, all of which use a prefix of __X-Recording-__.
+
+    By default only the historical __finished__ event is emitted (see
+    __\-\-notify-events__). When additional events are enabled, the same URI
+    receives notifications for file open, first write, successful finish,
+    discard, and failure.
+
+- __\-\-notify-events=__*CSV*
+
+    Comma-separated list of lifecycle events to emit. Default is __finished__
+    for backward compatibility with existing consumers.
+
+    Supported tokens:
+
+    - __opened__ - after output media file is created and header written
+      (__recording_file_opened__).
+    - __started__ - first media packet successfully written
+      (__recording_started__).
+    - __finished__ - successful close of a non-empty recording
+      (__recording_finished__; historical default).
+    - __discarded__ - closed empty or with discard flag
+      (__recording_discarded__).
+    - __failed__ - open/configure failure (__recording_failed__).
+    - __call-started__ - first mix/single output armed for a call
+      (__call_recording_started__).
+    - __call-finished__ - call metafile torn down on success path
+      (__call_recording_finished__).
+    - __call-discarded__ - call torn down with discard flag
+      (__call_recording_discarded__).
+    - __all__ - enable every token above.
+
+    Additional headers on lifecycle notifications:
+
+    - __X-Recording-Event__ - event name (e.g. recording_file_opened)
+    - __X-Recording-Status__ - short status (opened, started, finished, ...)
+    - __X-Recording-Event-Time__ - unix epoch (float seconds)
+    - __X-Recording-Output-Id__ - correlates open/start/finish for one stream
+
+    Terminal extras when available (finished / discarded / failed):
+    __X-Recording-Duration-MS__, __X-Recording-File-Size__,
+    __X-Recording-Sample-Rate__, __X-Recording-Channels__,
+    __X-Recording-Call-End-Time__, __X-Recording-Stream-End-Time__.
+    Failure events may also set __X-Recording-Error-Code__ /
+    __X-Recording-Error-Message__.
+
+    Ordering is best-effort asynchronous: opened -> started -> terminal.
+    Call-level ordering is call-started before stream events and
+    call-finished / call-discarded after outputs close. Delivery uses the
+    existing notify thread pool with retries; notify failures never abort
+    media I/O. Non-terminal queue bound (__\-\-notify-queue-limit__) may drop
+    excess non-terminal events under load; terminal events are never dropped
+    by that limit. __\-\-notify-record__ / __output-storage=notify__ and
+    __\-\-notify-purge__ apply only to finished events.
+
+- __\-\-notify-json__
+
+    Send a JSON body with HTTP notifications and force POST. Headers remain
+    for compatibility. JSON fields include event, event_time, status,
+    call_id, kind, file names, output_id, db, times, media, tag, metadata,
+    and error.
+
+- __\-\-notify-no-metadata__
+
+    Omit call metadata strings from headers and JSON (default: include
+    metadata).
 
 - __\-\-notify-post__
 
     Use HTTP POST instead of GET for the HTTP notification requests. The request
-    body is empty even if POST is used.
+    body is empty unless __\-\-notify-json__ is also set (or the recording is
+    attached via __output-storage=notify__ / __\-\-notify-record__ on finished).
 
 - __\-\-notify-no-verify__
 
@@ -382,9 +447,21 @@ sufficient for a standard installation of rtpengine.
 
 - __\-\-notify-command=__*PATH*
 
-    External command to launch to send a notification about a new recording.
-    The command will receive two command line arguments: The full path and file
-    name of the recording, and the ID number from the database entry.
+    External command to launch for notifications. Argument layout depends on
+    __\-\-notify-command-format__.
+
+- __\-\-notify-command-format=__*legacy|extended|json-env*
+
+    How arguments are passed to __\-\-notify-command__:
+
+    - __legacy__ (default): cmd path db_id
+    - __extended__: cmd event path db_id call_id kind full_filename
+    - __json-env__: cmd with NOTIFY_PAYLOAD (JSON) and NOTIFY_EVENT env vars
+
+- __\-\-notify-queue-limit=__*INT*
+
+    Maximum number of in-flight non-terminal notifications. 0 means unlimited.
+    Default is 1000. Terminal notifications are always accepted.
 
 - __\-\-notify-concurrency=__*INT*
 
@@ -400,12 +477,14 @@ sufficient for a standard installation of rtpengine.
 
     Legacy alias for __output-storage=notify__. If no other output storage is
     enabled, then the default __file__ storage remains enabled (unless the
-    following option is also set).
+    following option is also set). File attach applies only to finished events
+    and is not combined with a JSON body.
 
 - __\-\-notify-purge__
 
     Legacy option to disable the default file storage when notification output
-    is enabled.
+    is enabled. When used with file attach behaviour, local file removal after
+    a successful notification applies only to finished events.
 
 - __\-\-output-mixed-per-media__
 

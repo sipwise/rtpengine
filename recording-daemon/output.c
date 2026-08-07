@@ -3,6 +3,7 @@
 #include <limits.h>
 #include <string.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <glib.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -43,6 +44,13 @@ static int output_got_packet(encoder_t *enc, void *u1, void *u2) {
 	dbg("{%s%s%s} output dts %li", FMT_M(output->file_name), (long) output->encoder->mux_dts);
 
 	av_write_frame(output->fmtctx, enc->avpkt);
+
+	if (!output->notify_started && output->metafile) {
+		output->notify_started = 1;
+		if (!output->first_write_time_us)
+			output->first_write_time_us = now_us();
+		notify_push_output_event(NOTIFY_EVT_STARTED, output, output->metafile, NULL, NULL, NULL);
+	}
 
 	return 0;
 }
@@ -316,6 +324,10 @@ output_t *output_new_ext(metafile_t *mf, const char *type, const char *kind, con
 	if (resample_audio > 0)
 		ret->sink.format.clockrate = resample_audio;
 
+	ret->metafile = mf;
+	ret->output_id = g_strdup_printf("%s-%s-%" PRIu64,
+			mf->call_id ? mf->call_id : "call", type ? type : "out",
+			(uint64_t) now_us());
 	return ret;
 }
 
@@ -492,6 +504,11 @@ static const char *output_setup(output_t *output, const format_t *requested_form
 	db_config_stream(output);
 	ilog(LOG_INFO, "Opened output media file '%s' for writing", output->filename ?: "(mem stream)");
 
+	if (!output->notify_opened && output->metafile) {
+		output->notify_opened = 1;
+		notify_push_output_event(NOTIFY_EVT_FILE_OPENED, output, output->metafile, NULL, NULL, NULL);
+	}
+
 	return NULL;
 }
 
@@ -511,6 +528,11 @@ static bool output_config(sink_t *sink, output_t *output, const format_t *reques
 		if (err) {
 			output_shutdown(output);
 			ilog(LOG_ERR, "Error configuring media output: %s", err);
+			if (output->metafile && !output->notify_terminal) {
+				output->notify_terminal = 1;
+				notify_push_output_event(NOTIFY_EVT_FAILED, output, output->metafile, NULL,
+						"open_failed", err);
+			}
 			return false;
 		}
 	}
@@ -672,20 +694,34 @@ void output_close(metafile_t *mf, output_t *output, tag_t *tag, bool discard) {
 	if (!output)
 		return;
 	bool do_delete = !(output_storage & OUTPUT_STORAGE_FILE);
+	if (!mf)
+		mf = output->metafile;
 	if (!discard) {
 		if (output_shutdown(output)) {
 			db_close_stream(output);
-			notify_push_output(output, mf, tag);
+			if (!output->notify_terminal) {
+				output->notify_terminal = 1;
+				notify_push_output(output, mf, tag);
+			}
 			s3_store(output, mf);
 			gcs_store(output, mf);
 		}
-		else
+		else {
 			db_delete_stream(mf, output);
+			if (mf && !output->notify_terminal) {
+				output->notify_terminal = 1;
+				notify_push_output_event(NOTIFY_EVT_DISCARDED, output, mf, tag, NULL, NULL);
+			}
+		}
 	}
 	else {
 		output_shutdown(output);
 		do_delete = true;
 		db_delete_stream(mf, output);
+		if (mf && !output->notify_terminal) {
+			output->notify_terminal = 1;
+			notify_push_output_event(NOTIFY_EVT_DISCARDED, output, mf, tag, NULL, NULL);
+		}
 	}
 	encoder_free(output->encoder);
 	if (output->filename && do_delete) {
@@ -700,6 +736,7 @@ void output_close(metafile_t *mf, output_t *output, tag_t *tag, bool discard) {
 	g_clear_pointer(&output->file_path, g_free);
 	g_clear_pointer(&output->file_name, g_free);
 	g_clear_pointer(&output->filename, g_free);
+	g_clear_pointer(&output->output_id, g_free);
 	g_clear_pointer(&output->iobuf, g_free);
 	if (output->membuf)
 		g_string_free(output->membuf, TRUE);

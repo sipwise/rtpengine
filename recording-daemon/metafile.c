@@ -13,6 +13,7 @@
 #include "recaux.h"
 #include "packet.h"
 #include "output.h"
+#include "notify.h"
 #include "mix.h"
 #include "db.h"
 #include "forward.h"
@@ -89,6 +90,9 @@ static void meta_destroy(metafile_t *mf) {
 	output_close(mf, mf->mix_out, NULL, mf->discard);
 	mf->mix_out = NULL;
 	mix_close(mf->mix);
+
+	/* Call-level terminal notify after stream/mix outputs close. */
+	notify_push_call(mf);
 }
 
 
@@ -112,6 +116,11 @@ static void meta_mix_file_output(metafile_t *mf) {
 	}
 
 	db_do_stream(mf, mf->mix_out, NULL, 0);
+
+	if (mf->mix_out && !mf->notify_call_started) {
+		mf->notify_call_started = 1;
+		notify_push_call_event(NOTIFY_EVT_CALL_STARTED, mf);
+	}
 }
 
 

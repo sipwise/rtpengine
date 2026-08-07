@@ -30,6 +30,7 @@
 #include "socket.h"
 #include "ssllib.h"
 #include "notify.h"
+#include "notify_events.h"
 #include "gcs.h"
 
 
@@ -68,6 +69,11 @@ gboolean notify_nverify;
 int notify_threads = 5;
 int notify_retries = 10;
 char *notify_command;
+unsigned int notify_events_mask = NOTIFY_MASK_DEFAULT;
+gboolean notify_json = FALSE;
+gboolean notify_no_metadata = FALSE;
+int notify_command_format = 0; /* NOTIFY_CMD_LEGACY */
+int notify_queue_limit = 1000;
 gboolean mix_output_per_media = 0;
 gboolean flush_packets = 0;
 int resample_audio;
@@ -213,6 +219,8 @@ static void options(int *argc, char ***argv) {
 	gboolean notify_record = FALSE;
 	bool no_output_allowed = false;
 	gboolean notify_purge = false;
+	g_autoptr(char) notify_events_str = NULL;
+	g_autoptr(char) notify_cmd_fmt_str = NULL;
 
 	GOptionEntry e[] = {
 		{ "table",		't', 0, G_OPTION_ARG_INT,	&ktable,	"Kernel table rtpengine uses",		"INT"		},
@@ -251,6 +259,11 @@ static void options(int *argc, char ***argv) {
 		{ "notify-concurrency",	0,   0, G_OPTION_ARG_INT,	&notify_threads,"How many simultaneous requests",	"INT"		},
 		{ "notify-retries",	0,   0, G_OPTION_ARG_INT,	&notify_retries,"How many times to retry failed requests","INT"	},
 		{ "notify-command",	0,   0, G_OPTION_ARG_STRING,	&notify_command,"External command to execute for notifications","PATH"	},
+		{ "notify-events",	0,   0, G_OPTION_ARG_STRING,	&notify_events_str,"CSV of lifecycle events to emit","opened,started,finished,..." },
+		{ "notify-json",	0,   0, G_OPTION_ARG_NONE,	&notify_json,"Send JSON body with HTTP notifications",	NULL	},
+		{ "notify-no-metadata",	0,   0, G_OPTION_ARG_NONE,	&notify_no_metadata,"Omit call metadata from notify payloads", NULL },
+		{ "notify-command-format",0, 0, G_OPTION_ARG_STRING,	&notify_cmd_fmt_str,"Command argv format","legacy|extended|json-env" },
+		{ "notify-queue-limit",	0,   0, G_OPTION_ARG_INT,	&notify_queue_limit,"Max queued non-terminal notifies (0=unlimited)","INT" },
 		{ "output-mixed-per-media",0,0,	G_OPTION_ARG_NONE,	&mix_output_per_media,"Mix participating sources into a single output", NULL },
 #if CURL_AT_LEAST_VERSION(7,56,0)
 		{ "notify-record", 	0,   0, G_OPTION_ARG_NONE,	&notify_record, "Also attach recorded file to request", NULL		},
@@ -275,6 +288,22 @@ static void options(int *argc, char ***argv) {
 
 	config_load(argc, argv, e, " - rtpengine recording daemon",
 			"/etc/rtpengine/rtpengine-recording.conf", "rtpengine-recording", &rtpe_common_config);
+
+	/* notify-events CSV (default finished) */
+	{
+		char *bad = NULL;
+		if (!notify_events_parse(notify_events_str, &notify_events_mask, &bad))
+			die("Invalid notify-events token '%s'", bad ? bad : "?");
+		g_free(bad);
+	}
+	{
+		enum notify_command_format fmt = NOTIFY_CMD_LEGACY;
+		if (!notify_command_format_parse(notify_cmd_fmt_str, &fmt))
+			die("Invalid notify-command-format (use legacy|extended|json-env)");
+		notify_command_format = (int) fmt;
+	}
+	if (notify_queue_limit < 0)
+		die("notify-queue-limit must be >= 0");
 
 	// default config, if not configured
 	if (spool_dir == NULL)
