@@ -15,6 +15,9 @@ packetizer_f packetizer_samplestream; // flat stream of samples
 int format_cmp_ignore(const struct rtp_payload_type *, const struct rtp_payload_type *);
 
 
+void avc_init(void);
+void avc_cleanup(void);
+
 void avc_def_init(struct codec_def_s *);
 const char *avc_decoder_init(decoder_t *, const str *);
 int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out);

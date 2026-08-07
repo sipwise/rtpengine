@@ -294,6 +294,7 @@ test-mix-buffer:	test-mix-buffer.o \
 	../daemon/helpers.o \
 	../daemon/rtp.o \
 	../daemon/ssrc.o \
+	../lib/avc.o \
 	../lib/bencode.o \
 	../lib/bufferpool.o \
 	../lib/cchain.o \
@@ -323,6 +324,7 @@ spandsp_raw_fax_tests: spandsp_send_fax_pcm spandsp_recv_fax_pcm spandsp_send_fa
 test-amr-decode: test-amr-decode.o \
 	$(COMMONOBJS) \
 	../lib/amr.strhash.o \
+	../lib/avc.o \
 	../lib/bencode.o \
 	../lib/cchain.o \
 	../lib/codeclib.o \
@@ -335,6 +337,7 @@ test-amr-decode: test-amr-decode.o \
 test-amr-encode: test-amr-encode.o \
 	$(COMMONOBJS) \
 	../lib/amr.strhash.o \
+	../lib/avc.o \
 	../lib/bencode.o \
 	../lib/cchain.o \
 	../lib/codeclib.o \
@@ -395,6 +398,7 @@ test-stats:	test-stats.o \
 	../daemon/timerthread.o \
 	../daemon/udp_listener.o \
 	../daemon/websocket.o \
+	../lib/avc.o \
 	../lib/bencode.o \
 	../lib/bufferpool.o \
 	../lib/cchain.o \
@@ -456,6 +460,7 @@ test-transcode:	test-transcode.o \
 	../daemon/udp_listener.o \
 	../daemon/websocket.o \
 	../lib/amr.strhash.o \
+	../lib/avc.o \
 	../lib/bencode.o \
 	../lib/bufferpool.o \
 	../lib/cchain.o \
@@ -481,6 +486,7 @@ test-transcode:	test-transcode.o \
 
 test-sequencer:	test-sequencer.o \
 	$(COMMONOBJS) \
+	../lib/avc.o \
 	../lib/bencode.o \
 	../lib/cchain.o \
 	../lib/codeclib.o \
@@ -490,6 +496,7 @@ test-sequencer:	test-sequencer.o \
 
 test-resample:	test-resample.o \
 	$(COMMONOBJS) \
+	../lib/avc.o \
 	../lib/bencode.o \
 	../lib/cchain.o \
 	../lib/codeclib.o \
@@ -505,6 +512,7 @@ test-payload-tracker: test-payload-tracker.o \
 	../daemon/helpers.o \
 	../daemon/rtp.o \
 	../daemon/ssrc.o \
+	../lib/avc.o \
 	../lib/bencode.o \
 	../lib/bufferpool.o \
 	../lib/cchain.o \
@@ -540,3 +548,5 @@ spandsp_recv_fax_t38.c:	../lib/spandsp_logging.compat
 spandsp_recv_fax_pcm.c:	../lib/spandsp_logging.compat
 
 ../lib/codeclib.o: ../lib/fix_frame_channel_layout.compat
+
+../lib/avc.o: ../lib/fix_frame_channel_layout.compat
