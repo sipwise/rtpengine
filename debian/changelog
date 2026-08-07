@@ -1,3 +1,10 @@
+ngcp-rtpengine (14.1.1.21+0~mr14.1.1.21) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [f23e33e] MT#55283 update test for .reduce method
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 07 Aug 2026 13:33:22 +0200
+
 ngcp-rtpengine (14.1.1.20+0~mr14.1.1.20) unstable; urgency=medium
 
   [ Alexander Bakker ]
