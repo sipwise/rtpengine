@@ -20,11 +20,11 @@
 
 
 
-static int generic_silence_dtx(decoder_t *, GQueue *, int);
+static int generic_silence_dtx(decoder_t *, frame_q *, int);
 
 static int generic_cn_dtx_init(decoder_t *);
 static void generic_cn_dtx_cleanup(decoder_t *);
-static int generic_cn_dtx(decoder_t *, GQueue *, int);
+static int generic_cn_dtx(decoder_t *, frame_q *, int);
 
 
 
@@ -231,7 +231,7 @@ void decoder_close(decoder_t *dec) {
 static int __decoder_input_data(decoder_t *dec, const str *data, unsigned long ts, int *ptime,
 		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2)
 {
-	GQueue frames = G_QUEUE_INIT;
+	frame_q frames = TYPED_GQUEUE_INIT;
 
 	if (G_UNLIKELY(!dec))
 		return -1;
@@ -270,7 +270,7 @@ static int __decoder_input_data(decoder_t *dec, const str *data, unsigned long t
 	AVFrame *frame;
 	int ret = 0;
 	unsigned long samples = 0;
-	while ((frame = g_queue_pop_head(&frames))) {
+	while ((frame = t_queue_pop_head(&frames))) {
 		samples += frame->nb_samples;
 		dec->dec_out_format.format = frame->format;
 		AVFrame *rsmp_frame = resample_frame(&dec->resampler, frame, &dec->dest_format);
@@ -911,7 +911,7 @@ void codeclib_key_value_parse(const str *instr, bool need_value,
 
 
 
-static int generic_silence_dtx(decoder_t *dec, GQueue *out, int ptime) {
+static int generic_silence_dtx(decoder_t *dec, frame_q *out, int ptime) {
 	if (dec->dec_out_format.format == -1)
 		return -1;
 	if (!dec->avc.avpkt)
@@ -939,7 +939,7 @@ static int generic_silence_dtx(decoder_t *dec, GQueue *out, int ptime) {
 	frame->pts = dec->avc.avpkt->pts;
 	dec->avc.avpkt->pts += frame->nb_samples;
 
-	g_queue_push_tail(out, frame);
+	t_queue_push_tail(out, frame);
 
 	return 0;
 }
@@ -951,7 +951,7 @@ static int cn_append_frame(decoder_t *dec, AVFrame *f, void *u1, void *u2) {
 	return 0;
 }
 
-static int generic_cn_dtx(decoder_t *dec, GQueue *out, int ptime) {
+static int generic_cn_dtx(decoder_t *dec, frame_q *out, int ptime) {
 	dec->dtx.cn.cn_dec->ptime = ptime;
 	return decoder_input_data(dec->dtx.cn.cn_dec, dec->dtx.cn.cn_payload,
 			dec->rtp_ts, cn_append_frame, out, NULL);

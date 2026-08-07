@@ -145,7 +145,7 @@ static void float2int16_array(float *in, const uint16_t len, int16_t *out)
 
 
 static void evs_push_frame(decoder_t *dec, char *frame_data, int bits, int is_amr, int mode, int q_bit,
-		GQueue *out)
+		frame_q *out)
 {
 	const unsigned int n_samples = 960; // fixed 20 ms ptime
 	uint64_t pts = dec->pts;
@@ -183,7 +183,7 @@ static void evs_push_frame(decoder_t *dec, char *frame_data, int bits, int is_am
 	pts += n_samples;
 	dec->pts = pts;
 
-	g_queue_push_tail(out, frame);
+	t_queue_push_tail(out, frame);
 }
 
 
@@ -291,7 +291,7 @@ static const int evs_mode_bits[2][16] = {
 };
 
 
-static int evs_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
+static int evs_decoder_input(decoder_t *dec, const str *data, frame_q *out) {
 	str input = *data;
 	const char *err = NULL;
 
@@ -413,7 +413,7 @@ err:
 }
 
 
-static int evs_dtx(decoder_t *dec, GQueue *out, int ptime) {
+static int evs_dtx(decoder_t *dec, frame_q *out, int ptime) {
 	ilog(LOG_DEBUG, "pushing empty/lost frame to EVS decoder");
 	evs_push_frame(dec, NULL, 0, 0, 0, 0, out);
 	return 0;

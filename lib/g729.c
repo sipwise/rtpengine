@@ -48,7 +48,7 @@ static packetizer_f packetizer_g729; // aggregate some frames into packets
 
 static void bcg729_def_init(struct codec_def_s *);
 static const char *bcg729_decoder_init(decoder_t *, const str *);
-static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out);
+static int bcg729_decoder_input(decoder_t *dec, const str *data, frame_q *out);
 static void bcg729_decoder_close(decoder_t *);
 static const char *bcg729_encoder_init(encoder_t *enc, const str *);
 static int bcg729_encoder_input(encoder_t *enc, AVFrame **frame);
@@ -127,7 +127,7 @@ static const char *bcg729_decoder_init(decoder_t *dec, const str *extra_opts) {
 	return NULL;
 }
 
-static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
+static int bcg729_decoder_input(decoder_t *dec, const str *data, frame_q *out) {
 	str input = *data;
 	uint64_t pts = dec->pts;
 
@@ -152,7 +152,7 @@ static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		bcg729Decoder(dec->bcg729, (void *) inp_frame.s, inp_frame.len, 0, 0, 0,
 				(void *) frame->extended_data[0]);
 
-		g_queue_push_tail(out, frame);
+		t_queue_push_tail(out, frame);
 	}
 
 	return 0;

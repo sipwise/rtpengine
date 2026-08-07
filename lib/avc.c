@@ -73,7 +73,7 @@ void avc_decoder_close(decoder_t *dec) {
 }
 
 
-int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
+int avc_decoder_input(decoder_t *dec, const str *data, frame_q *out) {
 	if (!dec->avc.avpkt)
 		return -1; // decoder shut down
 
@@ -162,7 +162,7 @@ int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 				frame->pts = dec->avc.avpkt->pts;
 			dec->avc.avpkt->pts += frame->nb_samples;
 
-			g_queue_push_tail(out, frame);
+			t_queue_push_tail(out, frame);
 			frame = NULL;
 		}
 	} while (keep_going);

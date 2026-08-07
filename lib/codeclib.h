@@ -116,12 +116,14 @@ typedef bool format_parse_f(struct rtp_codec_format *, const str *fmtp);
 typedef void format_answer_f(struct rtp_payload_type *, const struct rtp_payload_type *);
 
 
+TYPED_GQUEUE(frame, AVFrame);
+
 
 struct codec_type_s {
 	void (*def_init)(struct codec_def_s *);
 
 	const char *(*decoder_init)(decoder_t *, const str *);
-	int (*decoder_input)(decoder_t *, const str *data, GQueue *);
+	int (*decoder_input)(decoder_t *, const str *data, frame_q *);
 	void (*decoder_close)(decoder_t *);
 
 	const char *(*encoder_init)(encoder_t *, const str *);
@@ -264,7 +266,7 @@ struct dtx_method_s {
 
 	int (*init)(decoder_t *);
 	void (*cleanup)(decoder_t *);
-	int (*do_dtx)(decoder_t *, GQueue *, int);
+	int (*do_dtx)(decoder_t *, frame_q *, int);
 
 	union {
 		struct {

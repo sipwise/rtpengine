@@ -34,7 +34,7 @@ static AVFrame *dtmf_frame_int16_t_mono(unsigned long frame_ts, unsigned long nu
 
 }
 
-static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
+static int dtmf_decoder_input(decoder_t *dec, const str *data, frame_q *out) {
 	struct telephone_event_payload *dtmf;
 	if (data->len < sizeof(*dtmf)) {
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Short DTMF event packet (len %zu)", data->len);
@@ -71,7 +71,7 @@ static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	AVFrame *frame = dtmf_frame_int16_t_mono(frame_ts, num_samples, dtmf->event, dtmf->volume,
 			dec->in_format.clockrate);
 	frame->pts += dec->dtmf.start_ts;
-	g_queue_push_tail(out, frame);
+	t_queue_push_tail(out, frame);
 
 	dec->dtmf.duration = duration;
 
@@ -87,7 +87,7 @@ static const char *cn_decoder_init(decoder_t *dec, const str *opts) {
 	dec->resampler.no_filter = true;
 	return avc_decoder_init(dec, opts);
 }
-static int cn_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
+static int cn_decoder_input(decoder_t *dec, const str *data, frame_q *out) {
 	// generate one set of ptime worth of samples
 	int ptime = dec->ptime;
 	if (ptime <= 0)
@@ -137,7 +137,7 @@ static int cn_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		}
 
 		while (out->length) {
-			oframe = g_queue_pop_head(out);
+			oframe = t_queue_pop_head(out);
 
 			if (oframe->nb_samples <= 0) // error
 				return -1; // XXX leaves frames in `out`
@@ -155,7 +155,7 @@ static int cn_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		};
 	} while (samples > 0);
 
-	g_queue_push_tail(out, aframe);
+	t_queue_push_tail(out, aframe);
 
 	return 0;
 }

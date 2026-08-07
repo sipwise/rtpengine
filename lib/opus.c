@@ -80,7 +80,7 @@ static const char *libopus_decoder_init(decoder_t *dec, const str *extra_opts) {
 static void libopus_decoder_close(decoder_t *dec) {
 	opus_decoder_destroy(dec->opus);
 }
-static int libopus_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
+static int libopus_decoder_input(decoder_t *dec, const str *data, frame_q *out) {
 	// get frame with buffer large enough for the max
 	AVFrame *frame = av_frame_alloc();
 	frame->nb_samples = 960;
@@ -100,7 +100,7 @@ static int libopus_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	}
 
 	frame->nb_samples = ret;
-	g_queue_push_tail(out, frame);
+	t_queue_push_tail(out, frame);
 	return 0;
 }
 

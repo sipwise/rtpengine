@@ -20,7 +20,7 @@ void avc_cleanup(void);
 
 void avc_def_init(struct codec_def_s *);
 const char *avc_decoder_init(decoder_t *, const str *);
-int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out);
+int avc_decoder_input(decoder_t *dec, const str *data, frame_q *out);
 void avc_decoder_close(decoder_t *);
 const char *avc_encoder_init(encoder_t *enc, const str *);
 int avc_encoder_input(encoder_t *enc, AVFrame **frame);

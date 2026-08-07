@@ -301,7 +301,7 @@ static void amr_bitrate_tracker(decoder_t *dec, unsigned int ft) {
 
 	dec->avc.amr.bitrate_tracker[ft]++;
 }
-static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
+static int amr_decoder_input(decoder_t *dec, const str *data, frame_q *out) {
 	const char *err = NULL;
 	g_auto(GQueue) toc = G_QUEUE_INIT;
 
@@ -619,7 +619,7 @@ static int packetizer_amr(AVPacket *pkt, GString *buf, str *output, size_t num_b
 
 	return 0;
 }
-static int amr_dtx(decoder_t *dec, GQueue *out, int ptime) {
+static int amr_dtx(decoder_t *dec, frame_q *out, int ptime) {
 	// ignore ptime, must be 20
 	ilog(LOG_DEBUG, "pushing empty/lost frame to AMR decoder");
 	unsigned char frame_buf[1];
