@@ -6897,7 +6897,7 @@ static const struct nft_expr_ops rtpengine_inet_ops = {
 	.init			= rtpengine_expr_init,
 	.dump			= rtpengine_expr_dump,
 	.validate		= rtpengine_expr_validate,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0) && LINUX_VERSION_CODE < KERNEL_VERSION(7,1,0)
+#ifdef NFT_REDUCE_READONLY
 	.reduce			= NFT_REDUCE_READONLY,
 #endif
 };
@@ -6909,7 +6909,7 @@ static const struct nft_expr_ops rtpengine_ipv4_ops = {
 	.init			= rtpengine_expr_init,
 	.dump			= rtpengine_expr_dump,
 	.validate		= rtpengine_expr_validate,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0) && LINUX_VERSION_CODE < KERNEL_VERSION(7,1,0)
+#ifdef NFT_REDUCE_READONLY
 	.reduce			= NFT_REDUCE_READONLY,
 #endif
 };
@@ -6921,7 +6921,7 @@ static const struct nft_expr_ops rtpengine_ipv6_ops = {
 	.init			= rtpengine_expr_init,
 	.dump			= rtpengine_expr_dump,
 	.validate		= rtpengine_expr_validate,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0) && LINUX_VERSION_CODE < KERNEL_VERSION(7,1,0)
+#ifdef NFT_REDUCE_READONLY
 	.reduce			= NFT_REDUCE_READONLY,
 #endif
 };
