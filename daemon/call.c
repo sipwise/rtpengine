@@ -2275,8 +2275,12 @@ static void media_loop_protect(struct stream_params *sp, struct call_media *medi
 	intf_addr.addr = sp->rtp_endpoint.address;
 	if (!intf_addr.addr.family) // dummy/empty address
 		return;
-	if (!is_local_endpoint(&intf_addr, sp->rtp_endpoint.port))
+	if (!is_local_endpoint(&intf_addr, sp->rtp_endpoint.port)) {
+		if (MEDIA_ISSET(media, LOOP_CHECK))
+			ilog(LOG_DEBUG, "Remote endpoint is no longer local, disabling loop checking");
+		MEDIA_CLEAR(media, LOOP_CHECK);
 		return;
+	}
 
 	ilog(LOG_DEBUG, "Detected local endpoint advertised by remote client, "
 			"enabling loop checking");
