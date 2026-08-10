@@ -29551,6 +29551,101 @@ rcv($sock_b, $port_d, rtpm(98, 8000, 9000, 0xa234, "b"));
 
 
 
+# Scenario: initial offer uses a local daemon address (203.0.113.1), triggering LOOP_CHECK. A
+# re-INVITE changes the endpoint to non-local, which should clear it.
+new_call;
+
+offer('loop check cleared on non-local re-INVITE', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.14
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio 30130 RTP/AVP 0
+a=sendrecv
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.14
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('loop check cleared on non-local re-INVITE', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.14
+s=tester
+c=IN IP4 198.51.100.3
+t=0 0
+m=audio 6132 RTP/AVP 0
+a=sendrecv
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.14
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$resp = rtpe_req('query', 'loop check cleared on non-local re-INVITE', { });
+ok(grep($_ eq 'loop check', @{$resp->{tags}{ft()}{medias}[0]{flags}}),
+	'loop check flag set with local endpoint');
+
+# re-INVITE: endpoint changes to non-local address
+offer('loop check cleared on non-local re-INVITE', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.14
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 6130 RTP/AVP 0
+a=sendrecv
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.14
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('loop check cleared on non-local re-INVITE', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.14
+s=tester
+c=IN IP4 198.51.100.3
+t=0 0
+m=audio 6132 RTP/AVP 0
+a=sendrecv
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.14
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$resp = rtpe_req('query', 'loop check cleared on non-local re-INVITE', { });
+ok(!grep($_ eq 'loop check', @{$resp->{tags}{ft()}{medias}[0]{flags}}),
+	'loop check flag cleared after non-local re-INVITE');
+
+
+
 
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
