@@ -401,6 +401,7 @@ struct endpoint_map {
 struct loop_protector {
 	unsigned int		len;
 	unsigned char		buf[RTP_LOOP_PROTECT];
+	int64_t			recv_us;
 };
 
 
