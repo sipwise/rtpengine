@@ -1,3 +1,161 @@
+ngcp-rtpengine (26.2.1.0+0~mr26.2.1.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [c2038e0] MT#55283 improve no-transcoding build profile
+  * [71cceee] MT#55283 more leniency for rejected streams
+  * [3fdc11d] MT#55283 remove unused function
+  * [20f31e0] MT#55283 allow alternative encodings
+  * [372a325] MT#55283 fix old test case
+  * [9dc9859] MT#55283 add CN tests to extended test suite
+  * [dfcb9a8] MT#55283 fix ffmpeg CNG usage
+  * [e89fddb] MT#55283 tests for I0ebe0b7a9ad
+  * [183aaae] MT#55283 store original call ID in monologue
+  * [1f1327d] MT#55283 add call_id to arguments to call_delete
+  * [df49ba0] MT#55283 split out call_delete_full
+  * [300b4be] MT#55283 split out call_delete_monologue
+  * [6391c6b] MT#65392 add "fast" flag for delete processing
+  * [32b8063] MT#55283 split out call_do_delete_full
+  * [e61f5c8] MT#55283 support call-ID-specific delete
+  * [ccdd539] MT#65392 add ssrc-reporting config option
+  * [51bfb4e] MT#55283 tests for Ic33e97451f
+  * [4551c7a] MT#55283 protect against NULL ssrc_in
+  * [92b0b11] MT#65413 move codec defs into separate files
+  * [701d76f] MT#65413 update dependencies
+  * [01d3332] MT#65413 split out cchain stuff
+  * [063efc6] MT#65388 support passthrough + transcoding
+  * [dc8a0ee] MT#55283 annotate nonull args
+  * [2106ea4] MT#55283 update docs
+  * [36a347e] MT#55283 fix compilation for kernel >= 7.1
+  * [c53e7f9] MT#55283 add missing build flags to preload libs
+  * [4751218] MT#55283 move setting of RECEIVED flag
+  * [99984c9] MT#55283 add ICE priority to logs
+  * [5ad3605] MT#55283 debug log output for EINVAL
+  * [7c5dbd1] MT#55283 remove goto target
+  * [dbcd657] MT#55283 early return for no-support case
+  * [7ab5cf3] MT#55283 further defuse error log
+  * [46e8d6c] MT#55283 set kernelized+no support flag
+  * [209e5a3] MT#55283 kernel in/out even in drop case
+  * [ab8b7fb] MT#55283 unconditionally clear no-support flag
+  * [36bba3f] MT#55283 fix compiler warning
+  * [9cb9023] MT#55283 add extra null checks
+  * [d3af013] MT#55283 altered endpoint learning with ICE
+  * [0393d84] MT#55283 tests for Ieac289335
+  * [69e85fa] MT#55283 init kernel senders early
+  * [114b5ce] MT#55283 init kernel senders in all threads
+  * [c4603dc] MT#55283 ensure null termination
+  * [16de968] MT#55283 add missing socket reset flag
+  * [22c8df9] MT#55283 store ref to table in private_data
+  * [7641a94] MT#55283 store table ref in list seq file
+  * [d02b41d] MT#55283 store table ref in re_play_stream
+  * [1f6d081] MT#55283 store table ref in re_play_stream_packets
+  * [16f5a4d] MT#55283 store table ref in call obj
+  * [03c37c8] MT#55283 change "del" strategy
+  * [70ce495] MT#55283 pull up call to get_table
+  * [d7c97c8] MT#55283 extend nfapi_add_binary_str_attr
+  * [c81f9df] MT#55283 more verbose nftables comment
+  * [1b8e868] MT#55283 store reference to table in expr
+  * [32874b6] MT#55283 split up startup-shutdown
+  * [eebbece] MT#55283 support table creation through nft
+  * [237de5c] MT#55283 remove obsolete PID field
+  * [7590a47] MT#55283 free allocated strings
+  * [e7b50ca] MT#55283 remove unused variables
+  * [8e65f01] MT#55283 fix legacy xt check
+  * [ef39a3e] MT#55283 fix compiler warnings
+  * [e6c9330] MT#55283 fix compilation for RHEL 9
+  * [712373d] MT#55283 comment obsoleted by 71cceeed5a
+  * [f86faf6] MT#55283 unify skb_pull to transport
+  * [60c2a1f] MT#55283 fix array size
+  * [9c79476] MT#55283 support shutdown callback
+  * [78ee045] MT#55283 ignore incorrect use of DTLS=passive
+  * [b0eafb2] MT#55283 pull skb_copy into main func
+  * [81572a7] MT#55283 pull down skb_copy past get_target
+  * [718bee6] MT#55283 add open counter
+  * [4ca8bb0] MT#55283 refactor into rtpe_pull_trim
+  * [5f5a1e2] MT#55283 move functions
+  * [943f897] MT#55283 add early DTLS tests
+  * [32784ae] MT#55283 pull skb_copy_expand past demux
+  * [1d6b4da] MT#55283 use data+len instead of skb as arguments
+  * [d1f5834] MT#55283 add rtpe_skb_cpy helper function
+  * [213a356] MT#55283 pull skb_copy past RTP/RTCP parsing
+  * [6302ca0] MT#55283 obsolete error_nf_action
+  * [6e68c9e] MT#55283 consolidate code paths
+  * [df8cb30] MT#55283 change return type
+  * [8dd97e2] MT#55283 make skb copies on demand
+  * [c8d014c] MT#55283 add zero-copy stats
+  * [793fdf7] MT#55283 add snprintf wrapper
+  * [bba144c] MT#65481 extend preload ctor
+  * [a4746a9] MT#65481 add open/read/write mockups
+  * [30775b5] MT#55283 add kernel API test
+  * [5a42837] MT#65570 convert ICE= to list
+  * [1a91c53] MT#65570 allow ICE-lite options in ICE= list
+  * [be90f1b] MT#65570 allow trickle option in ICE= list
+  * [64d82a1] MT#65570 obsolete stream-level ICE flag
+  * [0a21d78] MT#65570 support ICE2 SDP option
+  * [8a62497] MT#65570 support ICE2 flag
+  * [71da9f8] MT#65570 document new ICE options
+  * [8c2c535] MT#55283 move required function
+  * [abe9a37] MT#55283 remove unneeded indirection
+  * [26fee26] MT#55283 don't evict objects still in use
+  * [5daae51] MT#55283 add missing iters increment
+  * [3df016e] MT#55283 add missing CPPFLAGS_DEFAULT
+  * [5c88971] MT#55283 don't pop entries that shouldn't be
+  * [6e3bb70] MT#55283 sequencer unit test
+  * [f417531] MT#55283 add missing dep
+  * [ae8d2fd] MT#55283 better optimise str_eq
+  * [f8ee3c1] MT#55283 fix compiler warning
+  * [83b05e9] MT#55283 update test for .reduce method
+  * [7b3ac41] MT#65413 split out AVC code
+  * [29be0f9] MT#55283 rework sequencer
+
+  [ Donat Zenichev ]
+  * [054a3b2] MT#61856 media_socket: reset `active_read_events`
+  * [294b814] MT#61856 media_socket: remove unused func
+  * [2bd4f4d] MT#61856 media_socket: init fd to -1 when binding socket
+  * [a4875c3] MT#61856 media_socket: make `release_reserved_port()` non-fragile
+  * [a51332f] MT#61856 media_socket: `extmap_short_is_valid_data()` no 0 len
+  * [3cf8a12] MT#61856 media_socket: don't exhaust stack
+  * [da59592] MT#61856 media_socket: make the log more precise
+  * [4e26009] MT#61856 media_socket: remove duplicate includes
+  * [d0c224b] MT#61856 media_socket: add guard for child media extmap
+  * [3662e25] MT#61856 media_socket: bundled RTP handling, guard for `ssrc_in`
+  * [be70cb4] MT#61856 recording: `vappend_meta_chunk_iov()` hardening
+  * [f84bbe5] MT#61856 recording: `setup_stream_proc()` hardening
+  * [2b2b30b] MT#61856 recording: use `append_meta_chunk()` macro
+  * [7970be9] MT#61856 recording: check recorded call registered in kernel
+  * [f1a35b9] MT#61856 recording: local cleanup hardening
+  * [707d16e] MT#61856 recording: destroy mutex when closing file
+  * [19dfbe9] MT#61856 recording: clear recording path on failure
+  * [05817ba] MT#55283 call: add a socket family guard
+  * [e16a230] MT#55283 media_socket: lock sink earlier when kernelizing
+
+  [ Alexander Bakker ]
+  * [4737152] MT#55283 Set valid decrypt fields for non-forwarding kernel targets
+  * [e6469c0] MT#55283 Defuse kernelize error for SRTP encryption not yet negotiated
+  * [250df2a] MT#55283 Unref ports after re-subscribe
+  * [702ccec] MT#55283 Treat missing a=fmtp as defaults for AMR
+
+  [ ilyassrhejjou ]
+  * [f04d3b1] MT#55283 feat: add --record-both option for simultaneous media recording
+
+  [ Idan Freiberg ]
+  * [7051631] MT#55283 kernel-module: scrub forwarded skb metadata
+
+  [ Gustavo Almeida ]
+  * [f99cffb] MT#55283 fix: add guard to avoid packet sent on shutdown on already dead streams
+
+  [ Guillem Jover ]
+  * [de58054] MT#55283 Fix typos
+  * [f8e4dd5] MT#55283 Add Description keys to systemd service files
+  * [2843277] MT#55283 Bump copyright year
+  * [9b74a7f] MT#55283 Call gzip with -n for reproducible output
+  * [b688988] MT#55283 kernel-module: Use do_div() instead of 64-bit division operator
+
+  [ Ashwin ]
+  * [c2a410d] MT#55283 docs: add HTTP API request examples
+  * [42ded6a] MT#55283 Mirror generate-RTCP Sender Reports to Homer (fixes #1684)
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 11 Aug 2026 14:21:42 +0200
+
 ngcp-rtpengine (26.2.0.0+0~mr26.2.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
