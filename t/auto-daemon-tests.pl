@@ -29646,6 +29646,81 @@ ok(!grep {$_ eq 'loop check'} @{$resp->{tags}{ft()}{medias}[0]{flags}},
 
 
 
+# Scenario: duplicate packets arriving >1s apart should not trigger loop detection. With loop check
+# enabled, 32 rapid identical packets trigger a drop. After waiting >1s, the time-based reset allows
+# the same packet through again.
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 6140)], [qw(198.51.100.3 6142)]);
+
+($port_a) = offer('loop detection time reset', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.14
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio 30140 RTP/AVP 0
+a=sendrecv
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.14
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('loop detection time reset', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.14
+s=tester
+c=IN IP4 198.51.100.3
+t=0 0
+m=audio 6142 RTP/AVP 0
+a=sendrecv
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.14
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+my $dup_pkt = rtp(0, 1000, 3000, 0x1234, "\x00" x 160);
+my $dup_match = rtpm(0, 1000, 3000, 0x1234, "\x00" x 160);
+
+# establish the call with a different packet first
+snd($sock_a, $port_b, rtp(0, 999, 2000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 999, 2000, 0x1234, "\x00" x 160));
+
+# send 31 identical packets
+for (1..31) {
+	snd($sock_a, $port_b, $dup_pkt);
+	rcv($sock_b, $port_a, $dup_match);
+}
+
+# 32nd packet, dropped
+snd($sock_a, $port_b, $dup_pkt);
+rcv_no($sock_b, $port_a);
+
+# 32nd packet, dropped again
+snd($sock_a, $port_b, $dup_pkt);
+rcv_no($sock_b, $port_a);
+
+# after >1s, the 32nd packet passes through
+sleep(2);
+
+snd($sock_a, $port_b, $dup_pkt);
+rcv($sock_b, $port_a, $dup_match);
+
+
+
 
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();

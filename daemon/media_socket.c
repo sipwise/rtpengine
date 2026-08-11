@@ -2740,6 +2740,17 @@ static int media_loop_detect(struct packet_handler_ctx *phc) {
 			continue;
 
 		dbg_int("packet dupe");
+
+		/* not a loop if duplicates arrive more than 1s apart */
+		if (rtpe_now - phc->mp.stream->lp_buf[i].recv_us > 1000000LL) {
+			dbg_int("duplicate packet too old to indicate a loop, resetting count");
+			phc->mp.stream->lp_count = 0;
+			phc->mp.stream->lp_buf[i].recv_us = rtpe_now;
+			return 0;
+		}
+
+		phc->mp.stream->lp_buf[i].recv_us = rtpe_now;
+
 		if (phc->mp.stream->lp_count >= RTP_LOOP_MAX_COUNT) {
 			ilog(LOG_WARNING, "More than %d duplicate packets detected, dropping packet from %s%s%s"
 					"to avoid potential loop",
@@ -2756,6 +2767,7 @@ static int media_loop_detect(struct packet_handler_ctx *phc) {
 	phc->mp.stream->lp_count = 0;
 	phc->mp.stream->lp_buf[phc->mp.stream->lp_idx].len = phc->s.len;
 	memcpy(phc->mp.stream->lp_buf[phc->mp.stream->lp_idx].buf, phc->s.s, MIN(phc->s.len, RTP_LOOP_PROTECT));
+	phc->mp.stream->lp_buf[phc->mp.stream->lp_idx].recv_us = rtpe_now;
 	phc->mp.stream->lp_idx = (phc->mp.stream->lp_idx + 1) % RTP_LOOP_PACKETS;
 
 	return 0;
