@@ -484,13 +484,6 @@ void send_timer_push(struct send_timer *st, struct codec_packet *cp) {
 #ifdef WITH_TRANSCODING
 
 
-#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 26, 0)
-#define CODECPAR codecpar
-#else
-#define CODECPAR codec
-#endif
-
-
 typedef union {
 	struct media_player_cache_entry *entry;
 	struct media_player *mp;
@@ -501,9 +494,9 @@ static void media_player_coder_add_packet(struct media_player_coder *c,
 		int64_t us_dur, unsigned long long pts), media_player_coder_add_packet_arg p) {
 	// scale pts and duration according to sample rate
 
-	int64_t duration_scaled = c->pkt->duration * c->avstream->CODECPAR->sample_rate
+	int64_t duration_scaled = c->pkt->duration * c->avstream->codecpar->sample_rate
 		* c->avstream->time_base.num / c->avstream->time_base.den;
-	unsigned long long pts_scaled = c->pkt->pts * c->avstream->CODECPAR->sample_rate
+	unsigned long long pts_scaled = c->pkt->pts * c->avstream->codecpar->sample_rate
 		* c->avstream->time_base.num / c->avstream->time_base.den;
 
 	int64_t us_dur = c->pkt->duration * 1000000LL * c->avstream->time_base.num
@@ -515,7 +508,7 @@ static void media_player_coder_add_packet(struct media_player_coder *c,
 			pts_scaled,
 			duration_scaled,
 			us_dur,
-			c->avstream->CODECPAR->sample_rate,
+			c->avstream->codecpar->sample_rate,
 			c->avstream->time_base.num, c->avstream->time_base.den);
 
 	fn(p, (char *) c->pkt->data, c->pkt->size, us_dur, pts_scaled);
@@ -1039,23 +1032,23 @@ static int __ensure_codec_handler(struct media_player *mp, const rtp_payload_typ
 
 	// synthesise rtp payload type
 	rtp_payload_type src_pt = { .payload_type = -1 };
-	src_pt.codec_def = codec_def_make_generic_av(mp->coder.avstream->CODECPAR->codec_id);
+	src_pt.codec_def = codec_def_make_generic_av(mp->coder.avstream->codecpar->codec_id);
 	if (!src_pt.codec_def || !src_pt.codec_def->support_decoding) {
 		ilog(LOG_ERR, "Attempting to play media from an unsupported file format/codec");
 		return -1;
 	}
 
-	if (!GET_CHANNELS(mp->coder.avstream->CODECPAR) || !mp->coder.avstream->CODECPAR->sample_rate)
+	if (!GET_CHANNELS(mp->coder.avstream->codecpar) || !mp->coder.avstream->codecpar->sample_rate)
 		__probe_format(mp);
 
-	if (!GET_CHANNELS(mp->coder.avstream->CODECPAR) || !mp->coder.avstream->CODECPAR->sample_rate) {
+	if (!GET_CHANNELS(mp->coder.avstream->codecpar) || !mp->coder.avstream->codecpar->sample_rate) {
 		ilog(LOG_ERR, "Unrecognised audio format, cannot do playback");
 		return -1;
 	}
 
 	src_pt.encoding = src_pt.codec_def->rtpname_str;
-	src_pt.channels = GET_CHANNELS(mp->coder.avstream->CODECPAR);
-	src_pt.clock_rate = mp->coder.avstream->CODECPAR->sample_rate;
+	src_pt.channels = GET_CHANNELS(mp->coder.avstream->codecpar);
+	src_pt.clock_rate = mp->coder.avstream->codecpar->sample_rate;
 
 	codec_init_payload_type(&src_pt, MT_AUDIO);
 

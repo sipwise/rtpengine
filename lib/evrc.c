@@ -1,8 +1,6 @@
 #include "codecmod.h"
 
 
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
-
 static const codec_def_t evrc = {
 	.rtpname = "EVRC",
 	.avcodec_id = AV_CODEC_ID_EVRC,
@@ -49,5 +47,3 @@ static void init(void) {
 	codeclib_register_codec(&evrc0);
 	codeclib_register_codec(&evrc1);
 }
-
-#endif

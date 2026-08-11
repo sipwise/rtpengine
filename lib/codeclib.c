@@ -380,12 +380,6 @@ void codeclib_register_codec(const codec_def_t *c) {
 
 
 void codeclib_init(int print) {
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
-	av_register_all();
-	avcodec_register_all();
-	avfilter_register_all();
-#endif
-
 	codecs_by_name_ht = codecs_by_name_new();
 	avc_init();
 	cc_init();

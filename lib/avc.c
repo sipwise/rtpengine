@@ -63,12 +63,7 @@ const char *avc_decoder_init(decoder_t *dec, const str *extra_opts) {
 
 
 void avc_decoder_close(decoder_t *dec) {
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56, 1, 0)
 	avcodec_free_context(&dec->avc.avcctx);
-#else
-	avcodec_close(dec->avc.avcctx);
-	av_free(dec->avc.avcctx);
-#endif
 	av_packet_free(&dec->avc.avpkt);
 }
 
@@ -96,7 +91,6 @@ int avc_decoder_input(decoder_t *dec, const str *data, frame_q *out) {
 		if (!frame)
 			goto err;
 
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 36, 0)
 		if (dec->avc.avpkt->size) {
 			av_ret = avcodec_send_packet(dec->avc.avcctx, dec->avc.avpkt);
 			ilogs(internals, LOG_DEBUG, "send packet ret %i", av_ret);
@@ -128,36 +122,11 @@ int avc_decoder_input(decoder_t *dec, const str *data, frame_q *out) {
 			else
 				goto err;
 		}
-#else
-		// only do this if we have any input left
-		if (dec->avc.avpkt->size == 0)
-			break;
-
-		av_ret = avcodec_decode_audio4(dec->avc.avcctx, frame, &got_frame, dec->avc.avpkt);
-		ilogs(internals, LOG_DEBUG, "decode frame ret %i, got frame %i", av_ret, got_frame);
-		err = "failed to decode audio packet";
-		if (av_ret < 0)
-			goto err;
-		if (av_ret > 0) {
-			// consumed some input
-			err = "invalid return value";
-			if (av_ret > dec->avc.avpkt->size)
-				goto err;
-			dec->avc.avpkt->size -= av_ret;
-			dec->avc.avpkt->data += av_ret;
-			keep_going = 1;
-		}
-		if (got_frame)
-			keep_going = 1;
-#endif
 
 		if (got_frame) {
 			ilogs(internals, LOG_DEBUG, "raw frame from decoder pts %llu samples %u",
 					(unsigned long long) frame->pts, frame->nb_samples);
 
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 36, 0)
-			frame->pts = frame->pkt_pts;
-#endif
 			if (G_UNLIKELY(frame->pts == AV_NOPTS_VALUE))
 				frame->pts = dec->avc.avpkt->pts;
 			dec->avc.avpkt->pts += frame->nb_samples;
@@ -280,7 +249,6 @@ int avc_encoder_input(encoder_t *enc, AVFrame **frame) {
 	if (!enc->avc.avcctx)
 		return -1;
 
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 36, 0)
 	if (*frame) {
 		av_ret = avcodec_send_frame(enc->avc.avcctx, *frame);
 		ilogs(internals, LOG_DEBUG, "send frame ret %i", av_ret);
@@ -310,19 +278,6 @@ int avc_encoder_input(encoder_t *enc, AVFrame **frame) {
 		else
 			goto err;
 	}
-#else
-	if (!*frame)
-		return 0;
-
-	av_ret = avcodec_encode_audio2(enc->avc.avcctx, enc->avpkt, *frame, &got_packet);
-	ilogs(internals, LOG_DEBUG, "encode frame ret %i, got packet %i", av_ret, got_packet);
-	if (av_ret == 0)
-		*frame = NULL; // consumed
-	else
-		goto err;
-	if (got_packet)
-		keep_going = 1;
-#endif
 
 	if (!got_packet)
 		return keep_going;
