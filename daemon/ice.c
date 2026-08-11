@@ -727,6 +727,9 @@ static void __do_ice_check(struct ice_candidate_pair *pair) {
 	if (!ag->pwd[0].s)
 		return;
 
+	if (!sfd->socket.family)
+		return;
+
 	prio = ice_priority(ICT_PRFLX, pair->local_intf->unique_id,
 			pair->remote_candidate->component_id);
 
