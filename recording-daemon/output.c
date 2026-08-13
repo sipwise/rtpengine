@@ -261,13 +261,13 @@ static output_t *output_new(const char *path, const metafile_t *mf, const char *
 			case '{':
 				// find matching end '}'
 				p++;
-				end = strchr(p, '}');
-				if (!end) {
+				const char *cend = strchr(p, '}');
+				if (!cend) {
 					ilog(LOG_ERR, "Missing ending brace '}' in file name pattern");
 					break;
 				}
-				str fmt = STR_LEN((char *) p, end - p);
-				p = end; // skip over {...}
+				str fmt = STR_LEN((char *) p, cend - p);
+				p = cend; // skip over {...}
 				output_append_str_from_ht(f, mf->metadata_parsed, &fmt);
 				break;
 			default:
