@@ -6596,6 +6596,9 @@ static struct sk_buff *rtpe_skb_cpy(const struct sk_buff *oskb, const struct rtp
 
 	atomic64_inc(&t->skb_copies);
 
+	if (!rtp)
+		return skb;
+
 	// adjust RTP pointers
 	*rtp2 = *rtp;
 	offset = skb->data - oskb->data;
@@ -7110,8 +7113,6 @@ static int rtpengine46(struct sk_buff *oskb,
 	datalen -= sizeof(*uh);
 	DBG("udp payload = %u\n", datalen);
 
-	data = ((unsigned char *) uh) + sizeof(*uh);
-
 	// all our outputs filled?
 	_r_lock(&g->outputs_lock, flags);
 	if (g->outputs_unfilled) {
@@ -7120,6 +7121,17 @@ static int rtpengine46(struct sk_buff *oskb,
 		goto out_target;
 	}
 	_r_unlock(&g->outputs_lock, flags);
+
+	// prepare to access payload of packet. make sure it's a flat buffer
+	// XXX could be smarter about this, we usually just need the header
+	if (skb_needs_linearize(oskb, 0)) {
+		skb = rtpe_skb_cpy(oskb, NULL, NULL, t);
+		if (!skb)
+			goto out_error;
+		uh = udp_hdr(skb);
+	}
+
+	data = ((unsigned char *) uh) + sizeof(*uh);
 
 	if (is_stun(g, datalen, data))
 		goto out_target;
@@ -7196,7 +7208,7 @@ static int rtpengine46(struct sk_buff *oskb,
 				g->target.ssrc_stats);
 
 		// copy to decrypt/authenticate needed?
-		if (g->target.decrypt.hmac != REH_NULL || g->decrypt_rtp.cipher->decrypt_rtp) {
+		if (!skb && (g->target.decrypt.hmac != REH_NULL || g->decrypt_rtp.cipher->decrypt_rtp)) {
 			errstr = "out of memory";
 			skb = rtpe_skb_cpy(oskb, &rtp, &rtp, t);
 			if (!skb)
@@ -7261,10 +7273,12 @@ static int rtpengine46(struct sk_buff *oskb,
 
 		// always make a copy for RTCP
 		// (even if technically not needed for NF_DROP case below)
-		errstr = "out of memory";
-		skb = rtpe_skb_cpy(oskb, &rtp, &rtp, t);
-		if (!skb)
-			goto out_error;
+		if (!skb) {
+			errstr = "out of memory";
+			skb = rtpe_skb_cpy(oskb, &rtp, &rtp, t);
+			if (!skb)
+				goto out_error;
+		}
 
 		rtpe_pull_trim(skb, datalen);
 
@@ -7288,8 +7302,10 @@ static int rtpengine46(struct sk_buff *oskb,
 	}
 	else {
 		// forward non-RTP/RTCP. no copy needed
-		skb = skb_get(oskb);
-		atomic64_inc(&t->skb_refs);
+		if (!skb) {
+			skb = skb_get(oskb);
+			atomic64_inc(&t->skb_refs);
+		}
 		nf_action = NF_DROP;
 
 		rtpe_pull_trim(skb, datalen);
