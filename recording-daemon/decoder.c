@@ -24,7 +24,7 @@
 
 // does not initialise the contained `sink`
 decode_t *decoder_new(const char *payload_str, const char *format, int ptime) {
-	char *slash = strchr(payload_str, '/');
+	const char *slash = strchr(payload_str, '/');
 	if (!slash) {
 		ilog(LOG_WARN, "Invalid payload format: %s", payload_str);
 		return NULL;

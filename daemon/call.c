@@ -443,6 +443,7 @@ void kill_calls_timer(GSList *list, const char *url) {
 	call_t *ca;
 	struct call_monologue *cm;
 	char *url_prefix = NULL, *url_suffix = NULL;
+	const char *needle;
 	struct xmlrpc_helper *xh = NULL;
 	char url_buf[128];
 
@@ -453,10 +454,10 @@ void kill_calls_timer(GSList *list, const char *url) {
 	if (url) {
 		xh = g_new(__typeof(*xh), 1);
 		url_prefix = NULL;
-		url_suffix = strstr(url, "%%");
-		if (url_suffix) {
-			url_prefix = strndup(url, url_suffix - url);
-			url_suffix = strdup(url_suffix + 2);
+		needle = strstr(url, "%%");
+		if (needle) {
+			url_prefix = strndup(url, needle - url);
+			url_suffix = strdup(needle + 2);
 		}
 		else
 			url_suffix = strdup(url);
