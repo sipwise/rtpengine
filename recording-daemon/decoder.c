@@ -26,7 +26,7 @@ int resample_audio;
 
 
 decode_t *decoder_new(const char *payload_str, const char *format, int ptime, output_t *outp) {
-	char *slash = strchr(payload_str, '/');
+	const char *slash = strchr(payload_str, '/');
 	if (!slash) {
 		ilog(LOG_WARN, "Invalid payload format: %s", payload_str);
 		return NULL;
