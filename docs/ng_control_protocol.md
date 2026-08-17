@@ -337,24 +337,6 @@ Optionally included keys are:
 
 		Reverts the `passive` setting. Only useful if the `dtls-passive` config option is set.
 
-* `DTLS-reverse`
-
-	Contains a string and influences the behaviour of DTLS-SRTP. Unlike the regular `DTLS` flag, this one
-	is used to control behaviour towards DTLS that was offered to *rtpengine*. In particular, if `passive`
-	mode is used, it prevents *rtpengine* from prematurely sending active DTLS connection attempts.
-	Possible values are:
-
-	- `passive`
-
-		Instructs *rtpengine* to prefer the passive (i.e. server) role for the DTLS
-		handshake. The default is to take the active (client) role if possible. This is useful in cases
-		where the SRTP endpoint isn't able to receive or process the DTLS handshake packets, for example
-		when it's behind NAT or needs to finish ICE processing first.
-
-	- `active`
-
-		Reverts the `passive` setting. Only useful if the `dtls-passive` config option is set.
-
 * `DTLS-fingerprint`
 
 	Contains a string and is used to select the hashing function to generate the DTLS fingerprint
