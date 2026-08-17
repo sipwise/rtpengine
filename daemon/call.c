@@ -1666,8 +1666,6 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 		MEDIA_SET(this, SETUP_ACTIVE);
 	}
 	else {
-		if (flags->dtls_passive && MEDIA_ISSET(this, SETUP_PASSIVE))
-			MEDIA_CLEAR(this, SETUP_ACTIVE);
 		/* if we can be active, we will, otherwise we'll be passive */
 		if (MEDIA_ISSET(this, SETUP_ACTIVE))
 			MEDIA_CLEAR(this, SETUP_PASSIVE);
@@ -2212,7 +2210,7 @@ static void __dtls_logic(const sdp_ng_flags *flags,
 			&& MEDIA_ARESET2(other_media, SETUP_ACTIVE, SETUP_PASSIVE))
 	{
 		// if passive mode is requested, honour it
-		if (flags->dtls_reverse_passive)
+		if (flags->dtls_passive)
 			MEDIA_CLEAR(other_media, SETUP_ACTIVE);
 		// if we were previously passive, retain that role
 		else if ((tmp & (MEDIA_FLAG_SETUP_ACTIVE | MEDIA_FLAG_SETUP_PASSIVE))

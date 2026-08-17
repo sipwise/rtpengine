@@ -446,6 +446,34 @@ static const char *call_ng_flags_bundle(str *s, unsigned int idx, helper_arg arg
 	return NULL;
 }
 
+static const char *call_ng_flags_dtls(str *s, unsigned int idx, sdp_ng_flags *out) {
+	switch (__csh_lookup(s)) {
+		case CSH_LOOKUP("passive"):
+			if (out->opmode == OP_ANSWER)
+				ilog(LOG_NOTICE, "Ignoring DTLS=passive flag in answer as it is too late");
+			else
+				out->dtls_passive = true;
+			break;
+		case CSH_LOOKUP("active"):
+			if (out->opmode == OP_ANSWER)
+				ilog(LOG_NOTICE, "Ignoring DTLS=active flag in answer as it is too late");
+			else
+				out->dtls_passive = false;
+			break;
+		case CSH_LOOKUP("no"):
+		case CSH_LOOKUP("off"):
+		case CSH_LOOKUP("disabled"):
+		case CSH_LOOKUP("disable"):
+			out->dtls_off = true;
+			break;
+		default:
+			ilog(LOG_WARN, "Unknown 'DTLS' flag encountered: '" STR_FORMAT "'",
+					STR_FMT(s));
+	}
+
+	return NULL;
+}
+
 static const char *call_ng_flags_moh(const ng_parser_t *parser, str *key, parser_arg value, helper_arg arg) {
 	sdp_ng_flags *out = arg.flags;
 	switch (__csh_lookup(key)) {
@@ -1079,7 +1107,6 @@ void call_ng_flags_init(sdp_ng_flags *out, enum ng_opmode opmode) {
 
 	out->trust_address = trust_address_def;
 	out->dtls_passive = dtls_passive_def;
-	out->dtls_reverse_passive = dtls_passive_def;
 	out->el_option = rtpe_config.endpoint_learning;
 	out->tos = 256;
 	out->delay_buffer = -1;
@@ -1607,55 +1634,14 @@ const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg v
 			break;
 		case CSH_LOOKUP("DTLS"):
 		case CSH_LOOKUP("dtls"):
-			switch (__csh_lookup_n(1, &s)) {
-				case CSH_LOOKUP_N(1, "passive"):
-					if (out->opmode == OP_ANSWER)
-						ilog(LOG_NOTICE, "Ignoring DTLS=passive flag in answer as it is too late");
-					else
-						out->dtls_passive = true;
-					break;
-				case CSH_LOOKUP_N(1, "active"):
-					if (out->opmode == OP_ANSWER)
-						ilog(LOG_NOTICE, "Ignoring DTLS=active flag in answer as it is too late");
-					else
-						out->dtls_passive = false;
-					break;
-				case CSH_LOOKUP_N(1, "no"):
-				case CSH_LOOKUP_N(1, "off"):
-				case CSH_LOOKUP_N(1, "disabled"):
-				case CSH_LOOKUP_N(1, "disable"):
-					out->dtls_off = true;
-					break;
-				default:
-					ilog(LOG_WARN, "Unknown 'DTLS' flag encountered: '" STR_FORMAT "'",
-							STR_FMT(&s));
-			}
-			break;
+		case CSH_LOOKUP("DTLS-reverse"):
+		case CSH_LOOKUP("dtls-reverse"):
+			return call_ng_flags_str_list(parser, value, call_ng_flags_dtls, out);
 		case CSH_LOOKUP("DTLS fingerprint"):
 		case CSH_LOOKUP("DTLS-fingerprint"):
 		case CSH_LOOKUP("dtls fingerprint"):
 		case CSH_LOOKUP("dtls-fingerprint"):
 			out->dtls_fingerprint = s;
-			break;
-		case CSH_LOOKUP("DTLS-reverse"):
-		case CSH_LOOKUP("dtls-reverse"):
-		case CSH_LOOKUP("DTLS reverse"):
-		case CSH_LOOKUP("dtls reverse"):
-			if (out->opmode == OP_ANSWER)
-				ilog(LOG_NOTICE, "Ignoring DTLS-reverse option in answer as it is too late");
-			else {
-				switch (__csh_lookup_n(1, &s)) {
-					case CSH_LOOKUP_N(1, "passive"):
-						out->dtls_reverse_passive = true;
-						break;
-					case CSH_LOOKUP_N(1, "active"):
-						out->dtls_reverse_passive = false;
-						break;
-					default:
-						ilog(LOG_WARN, "Unknown 'DTLS-reverse' flag encountered: '" STR_FORMAT "'",
-								STR_FMT(&s));
-				}
-			}
 			break;
 		case CSH_LOOKUP("DTMF-delay"):
 		case CSH_LOOKUP("DTMF delay"):
