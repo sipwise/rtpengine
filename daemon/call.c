@@ -1170,8 +1170,7 @@ bool __init_stream(struct packet_stream *ps) {
 
 	if (MEDIA_ISSET(media, DTLS)) {
 		dtls_conn = dtls_ptr(ps->selected_sfd);
-		if (dtls_conn)
-			dtls_active = dtls_is_active(dtls_conn);
+		dtls_active = dtls_is_active(dtls_conn);
 	}
 	else
 		dtls_shutdown(ps);
