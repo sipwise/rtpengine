@@ -1195,11 +1195,12 @@ bool __init_stream(struct packet_stream *ps) {
 
 	if (MEDIA_ISSET(media, DTLS) && !PS_ISSET(ps, FALLBACK_RTCP)) {
 		// we try to retain our role if possible, but must handle a role switch
-		if ((dtls_active && !MEDIA_ISSET(media, SETUP_ACTIVE))
-				|| (!dtls_active && !MEDIA_ISSET(media, SETUP_PASSIVE)))
-			dtls_active = -1;
 		if (dtls_active == -1)
-			dtls_active = (PS_ISSET(ps, FILLED) && MEDIA_ISSET(media, SETUP_ACTIVE));
+			dtls_active = !MEDIA_ISSET(media, SETUP_PASSIVE);
+		else if (dtls_active == 0 && !MEDIA_ISSET(media, SETUP_PASSIVE))
+			dtls_active = 1;
+		else if (dtls_active == 1 && !MEDIA_ISSET(media, SETUP_ACTIVE))
+			dtls_active = 0;
 		dtls_connection_init(&ps->ice_dtls, ps, dtls_active, call->dtls_cert);
 		for (__auto_type l = ps->sfds.head; l; l = l->next) {
 			stream_fd *sfd = l->data;
@@ -2205,17 +2206,21 @@ static void __dtls_logic(const sdp_ng_flags *flags,
 		MEDIA_CLEAR(other_media, SETUP_PASSIVE);
 	}
 
-	/* Special case: if this is an offer and actpass is being offered (as it should),
-	 * we would normally choose to be active. However, if this is a reinvite and we
-	 * were passive previously, we should retain this role. */
+	// resolve setup=actpass for offers
 	if ((flags->opmode == OP_OFFER || flags->opmode == OP_PUBLISH)
-			&& MEDIA_ARESET2(other_media, SETUP_ACTIVE, SETUP_PASSIVE)
-			&& (tmp & (MEDIA_FLAG_SETUP_ACTIVE | MEDIA_FLAG_SETUP_PASSIVE))
+			&& MEDIA_ARESET2(other_media, SETUP_ACTIVE, SETUP_PASSIVE))
+	{
+		// if passive mode is requested, honour it
+		if (flags->dtls_reverse_passive)
+			MEDIA_CLEAR(other_media, SETUP_ACTIVE);
+		// if we were previously passive, retain that role
+		else if ((tmp & (MEDIA_FLAG_SETUP_ACTIVE | MEDIA_FLAG_SETUP_PASSIVE))
 			== MEDIA_FLAG_SETUP_PASSIVE)
-		MEDIA_CLEAR(other_media, SETUP_ACTIVE);
-	/* if passive mode is requested, honour it if we can */
-	if (flags->dtls_reverse_passive && MEDIA_ISSET(other_media, SETUP_PASSIVE))
-		MEDIA_CLEAR(other_media, SETUP_ACTIVE);
+			MEDIA_CLEAR(other_media, SETUP_ACTIVE);
+		// in all other cases: we are active
+		else
+			MEDIA_CLEAR(other_media, SETUP_PASSIVE);
+	}
 
 	// restart DTLS?
 	if (memcmp(&other_media->fingerprint, &sp->fingerprint, sizeof(sp->fingerprint))) {
