@@ -78,7 +78,7 @@ sub autotest_init {
 		Time::HiRes::usleep(100000); # 100 ms x 300 = 30 sec
 
 		$tag_iter = 0;
-		$tag_suffix = '-' . rand();
+		$tag_suffix = '-' . $0 . '-' . rand();
 
 		my $ok = 0;
 		eval {
@@ -273,6 +273,7 @@ sub rtp {
 }
 sub rcv {
 	my ($sock, $port, $match, $cb, $cb_arg) = @_;
+	my @caller = caller;
 	my $p = '';
 	local $SIG{ALRM} = sub { die("recv timed out"); };
 	alarm(1);
@@ -289,7 +290,7 @@ sub rcv {
 		print("rtp recv $pt $seq $ts $ssrc " . unpack('H*', $payload) . "\n");
 		print(unpack('H*', $p) . "\n");
 	}
-	like $p, $match, 'received packet matches';
+	like $p, $match, "received packet matches (@caller)";
 	my @matches = $p =~ $match;
 	for my $m (@matches) {
 		if (defined($m) && length($m) == 2) {
@@ -312,7 +313,7 @@ sub rcv {
 		die;
 	}
 	if ($port != -1) {
-		is($port, $rport, "receive port matches");
+		is($port, $rport, "receive port matches (@caller)");
 	}
 	elsif ($port == -1 && @matches) {
 		unshift(@matches, $rport, $raddr);
@@ -321,10 +322,11 @@ sub rcv {
 }
 sub rcv_no {
 	my ($sock) = @_;
+	my @caller = caller;
 	Time::HiRes::sleep(0.1);
 	my $p = '';
 	my $addr = $sock->recv($p, 65535, &MSG_DONTWAIT);
-	ok(! defined $addr, "no packet received");
+	ok(! defined $addr, "no packet received (@caller)");
 }
 sub rcv_maybe {
 	my ($sock) = @_;
