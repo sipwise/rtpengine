@@ -245,7 +245,6 @@ RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 	             strict_source:1,
 	             media_handover:1,
 	             dtls_passive:1,
-	             dtls_reverse_passive:1,
 	             osrtp_accept_legacy:1,
 	             osrtp_accept_rfc:1,
 	             osrtp_offer:1,
