@@ -315,7 +315,7 @@ got_peer:
 	}
 	else if (path[0] == '[') {
 		path++;
-		char *end = strchr(path, ']');
+		const char *end = strchr(path, ']');
 		assert(end != NULL);
 		char addr[64];
 		if (snprintf(addr, sizeof(addr), "%.*s", (int) (end - path), path) >= sizeof(addr))
