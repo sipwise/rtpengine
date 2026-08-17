@@ -688,6 +688,34 @@ static long dtls_bio_callback_wrap(BIO *bio, int oper, const char *argp, int arg
 }
 #endif
 
+
+// leaves TLS ID intact
+static void dtls_connection_reset(struct dtls_connection *c) {
+	if (c->ssl_ctx || c->ssl)
+		ilogs(crypto, LOG_DEBUG, "Resetting DTLS connection context");
+
+	if (c->ssl_ctx)
+		SSL_CTX_free(c->ssl_ctx);
+	if (c->ssl)
+		SSL_free(c->ssl);
+	if (!c->init) {
+		if (c->r_bio)
+			BIO_free(c->r_bio);
+		if (c->w_bio)
+			BIO_free(c->w_bio);
+	}
+	obj_release(c->sfd);
+
+	c->ssl_ctx = NULL;
+	c->ssl = NULL;
+	c->r_bio = NULL;
+	c->w_bio = NULL;
+	c->ps = NULL;
+	ZERO(c->fsin);
+	c->init = c->active = c->connected = 0;
+}
+
+
 int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, int active,
 		struct dtls_cert *cert)
 {
@@ -701,7 +729,7 @@ int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, in
 	if (d->init) {
 		if ((d->active && active) || (!d->active && !active))
 			goto done;
-		dtls_connection_cleanup(d);
+		dtls_connection_reset(d);
 	}
 
 	d->ps = ps;
@@ -781,7 +809,8 @@ int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, in
 
 	d->active = active ? 1 : 0;
 
-	random_string(d->tls_id, sizeof(d->tls_id));
+	while (memcmp(d->tls_id, (unsigned char [sizeof(d->tls_id)]) {0}, sizeof(d->tls_id)) == 0)
+		random_string(d->tls_id, sizeof(d->tls_id));
 
 done:
 	return 0;
@@ -1007,22 +1036,11 @@ void dtls_shutdown(struct packet_stream *ps) {
 		ilogs(crypto, LOG_DEBUG, "Reuse SRTP crypto key");
 }
 
-void dtls_connection_cleanup(struct dtls_connection *c) {
-	if (c->ssl_ctx || c->ssl)
-		ilogs(crypto, LOG_DEBUG, "Resetting DTLS connection context");
 
-	if (c->ssl_ctx)
-		SSL_CTX_free(c->ssl_ctx);
-	if (c->ssl)
-		SSL_free(c->ssl);
-	if (!c->init) {
-		if (c->r_bio)
-			BIO_free(c->r_bio);
-		if (c->w_bio)
-			BIO_free(c->w_bio);
-	}
-	obj_release(c->sfd);
-	ZERO(*c);
+// full reset including TLS ID
+void dtls_connection_cleanup(struct dtls_connection *c) {
+	dtls_connection_reset(c);
+	ZERO(c->tls_id);
 }
 
 
