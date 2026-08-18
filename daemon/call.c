@@ -2228,8 +2228,13 @@ static void __dtls_logic(const sdp_ng_flags *flags,
 	}
 	else if (other_media->tls_id.len && (sp->tls_id.len == 0 || str_cmp_str(&other_media->tls_id, &sp->tls_id))) {
 		// previously seen tls-id and new tls-id is different or not present
-		ilogs(crypto, LOG_INFO, "TLS-ID changed, restarting DTLS");
-		__dtls_restart(other_media);
+		if (MEDIA_ISSET(other_media, SETUP_PASSIVE) && !MEDIA_ISSET(other_media, SETUP_ACTIVE)) {
+			// passive: active peer controls DTLS restart
+			ilogs(crypto, LOG_INFO, "TLS-ID changed, passive role, not restarting DTLS");
+		} else {
+			ilogs(crypto, LOG_INFO, "TLS-ID changed, restarting DTLS");
+			__dtls_restart(other_media);
+		}
 	}
 	else if (ice_is_restart(other_media->ice_agent, sp) && !other_media->tls_id.len && !sp->tls_id.len) {
 		// Skip DTLS restart if no-tls-id flag is active (user opted out of TLS-ID handling)
