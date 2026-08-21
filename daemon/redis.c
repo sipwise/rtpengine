@@ -21,6 +21,7 @@
 #include "compat.h"
 #include "helpers.h"
 #include "call.h"
+#include "call_checkpoint.h"
 #include "log_d.h"
 #include "str.h"
 #include "crypto.h"
@@ -1080,6 +1081,14 @@ static const char *json_get_hash_iter(const ng_parser_t *parser, str *key, parse
 	return NULL;
 }
 
+int redis_hash_from_parser(struct redis_hash *out, const ng_parser_t *parser, parser_arg dict) {
+	out->ht = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
+	if (!out->ht)
+		return -1;
+	parser->dict_iter(parser, dict, json_get_hash_iter, out->ht);
+	return 0;
+}
+
 static int json_get_hash(struct redis_hash *out,
 		const char *key, unsigned int id, parser_arg root)
 {
@@ -1103,16 +1112,10 @@ static int json_get_hash(struct redis_hash *out,
 		return -1;
 	}
 
-	out->ht = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
-	if (!out->ht)
-		return -1;
-
-	redis_parser->dict_iter(redis_parser, dict, json_get_hash_iter, out->ht);
-
-	return 0;
+	return redis_hash_from_parser(out, redis_parser, dict);
 }
 
-static void json_destroy_hash(struct redis_hash *rh) {
+void redis_hash_destroy(struct redis_hash *rh) {
         g_hash_table_destroy(rh->ht);
 }
 
@@ -1120,7 +1123,7 @@ static void json_destroy_list(struct redis_list *rl) {
         unsigned int i;
 
         for (i = 0; i < rl->len; i++) {
-                json_destroy_hash(&rl->rh[i]);
+                redis_hash_destroy(&rl->rh[i]);
         }
         free(rl->rh);
         free(rl->ptrs);
@@ -1369,7 +1372,7 @@ err2:
 	free(out->ptrs);
 	while (i) {
 		i--;
-		json_destroy_hash(&out->rh[i]);
+		redis_hash_destroy(&out->rh[i]);
 	}
 err1:
 	free(out->rh);
@@ -1418,7 +1421,7 @@ err:
 	rlog(LOG_ERR, "Crypto params error: %s", err);
 	return -1;
 }
-static int redis_hash_get_sdes_params(sdes_q *out, const struct redis_hash *h, const char *k) {
+int redis_decode_sdes_params(sdes_q *out, const struct redis_hash *h, const char *k) {
 	char key[32], tagkey[64];
 	const char *kk = k;
 	unsigned int tag;
@@ -1442,6 +1445,17 @@ static int redis_hash_get_sdes_params(sdes_q *out, const struct redis_hash *h, c
 		snprintf(key, sizeof(key), "%s-%u", k, iter++);
 		kk = key;
 	}
+	return 0;
+}
+
+int redis_decode_dtls_fingerprint(struct dtls_fingerprint *out, const struct redis_hash *h) {
+	str hash;
+	if (redis_hash_get_str(&hash, h, "hash_func"))
+		return 0;
+	out->hash_func = dtls_find_hash_func(&hash);
+	if (!out->hash_func || redis_hash_get_c_buf_f(out->digest, h, "fingerprint"))
+		return -1;
+	out->digest_len = out->hash_func->num_bytes;
 	return 0;
 }
 
@@ -1653,10 +1667,24 @@ static rtp_payload_type *rbl_cb_plts_g(str *s, struct redis_list *list, void *pt
 
 	return pt;
 }
-static int rbl_cb_plts_r(str *s, callback_arg_t dummy, struct redis_list *list, void *ptr) {
-	struct call_media *med = ptr;
-	codec_store_add_raw(&med->codecs, rbl_cb_plts_g(s, list, ptr));
-	return 0;
+static const char *redis_decode_codec_iter(str *value, unsigned int i, helper_arg arg) {
+	struct codec_store *store = arg.generic;
+	str *decoded = redis_parser->unescape(value->s, value->len);
+	struct call_media *media = store->media;
+	rtp_payload_type *pt = rbl_cb_plts_g(decoded, NULL, media);
+	g_free(decoded);
+	if (!pt)
+		return "invalid payload type";
+	codec_store_add_raw(store, pt);
+	return NULL;
+}
+
+int redis_decode_codec_store(const ng_parser_t *parser, parser_arg list, struct codec_store *store) {
+	const ng_parser_t *saved = redis_parser;
+	redis_parser = parser;
+	const char *err = parser->list_iter(parser, list, redis_decode_codec_iter, NULL, store);
+	redis_parser = saved;
+	return err ? -1 : 0;
 }
 static int json_medias(call_t *c, struct redis_list *medias, struct redis_list *tags,
 		parser_arg arg)
@@ -1708,9 +1736,9 @@ static int json_medias(call_t *c, struct redis_list *medias, struct redis_list *
 					"media_flags"))
 			return -1;
 
-		if (redis_hash_get_sdes_params(&med->sdes_in, rh, "sdes_in") < 0)
+		if (redis_decode_sdes_params(&med->sdes_in, rh, "sdes_in") < 0)
 			return -1;
-		if (redis_hash_get_sdes_params(&med->sdes_out, rh, "sdes_out") < 0)
+		if (redis_decode_sdes_params(&med->sdes_out, rh, "sdes_out") < 0)
 			return -1;
 
 		/* bandwidth data is not critical */
@@ -1718,7 +1746,11 @@ static int json_medias(call_t *c, struct redis_list *medias, struct redis_list *
 		med->sdp_media_bandwidth.rr = (!redis_hash_get_ld(&il, rh, "bandwidth_rr")) ? il : -1;
 		med->sdp_media_bandwidth.rs = (!redis_hash_get_ld(&il, rh, "bandwidth_rs")) ? il : -1;
 
-		json_build_list_cb(NULL, c, "payload_types", i, NULL, rbl_cb_plts_r, med, arg);
+		char payload_key[64];
+		snprintf(payload_key, sizeof(payload_key), "payload_types-%u", i);
+		parser_arg payloads = redis_parser->dict_get_expect(arg, payload_key, BENCODE_LIST);
+		if (payloads.gen && redis_decode_codec_store(redis_parser, payloads, &med->codecs))
+			return -1;
 		/* XXX dtls */
 
 		/* link monologue */
@@ -1918,6 +1950,8 @@ static int json_link_streams(call_t *c, struct redis_list *streams,
 
 		if (json_build_list(&ps->sfds, c, "stream_sfds", i, sfds, arg))
 			return -1;
+		for (__auto_type sfd_link = ps->sfds.head; sfd_link; sfd_link = sfd_link->next)
+			stream_fd_inc(sfd_link->data);
 
 		if (json_build_list(&q, c, "rtp_sinks", i, streams, arg))
 			return -1;
@@ -2034,6 +2068,11 @@ static int json_link_maps(call_t *c, struct redis_list *maps,
 		if (json_build_list_cb(&em->intf_sfds, c, "map_sfds", em->unique_id, sfds,
 				rbl_cb_intf_sfds, em, arg))
 			return -1;
+		for (__auto_type l = em->intf_sfds.head; l; l = l->next) {
+			struct sfd_intf_list *il = l->data;
+			for (__auto_type k = il->list.head; k; k = k->next)
+				stream_fd_inc(k->data);
+		}
 	}
 	return 0;
 }
@@ -2225,6 +2264,11 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	err = "failed to link maps";
 	if (json_link_maps(c, &maps, &sfds, root))
 		goto err8;
+	if (!redis_hash_get_str(&s, &call, "checkpoint-data")
+			&& call_checkpoint_deserialize(c, &s)) {
+		err = "failed to restore checkpoint data";
+		goto err8;
+	}
 
 	// presence of this key determines whether we were recording at all
 	if (!redis_hash_get_str(&s, &call, "recording_meta_prefix")) {
@@ -2263,7 +2307,7 @@ err5:
 err4:
 	json_destroy_list(&tags);
 err3:
-	json_destroy_hash(&call);
+	redis_hash_destroy(&call);
 err2:
 	rwlock_unlock_w(&c->master_lock);
 err1:
@@ -2458,6 +2502,23 @@ err:
 #define JSON_SET_SIMPLE_CSTR(a,d) parser->dict_add_str_dup(inner, a, STR_PTR(d))
 #define JSON_SET_SIMPLE_STR(a,d) parser->dict_add_str_dup(inner, a, d)
 
+void redis_encode_codec_store(const ng_parser_t *parser, parser_arg list,
+		const struct codec_store *store)
+{
+	char tmp[1024];
+	for (__auto_type l = store->codec_prefs.head; l; l = l->next) {
+		rtp_payload_type *pt = l->data;
+		size_t len = rtpe_snprintf(tmp, sizeof(tmp), "%u/" STR_FORMAT "/%u/" STR_FORMAT
+				"/%i/%i/" STR_FORMAT "/" STR_FORMAT,
+				pt->payload_type, STR_FMT(&pt->encoding), pt->clock_rate,
+				STR_FMT(&pt->encoding_parameters), pt->bitrate, pt->ptime,
+				STR_FMT(&pt->format_parameters), STR_FMT(&pt->codec_opts));
+		char encoded[len * 3 + 1];
+		str value = parser->escape(encoded, tmp, len);
+		parser->list_add_str_dup(list, &value);
+	}
+}
+
 static void json_update_crypto_params(const ng_parser_t *parser, parser_arg inner,
 		const char *key, struct crypto_params *p)
 {
@@ -2476,9 +2537,8 @@ static void json_update_crypto_params(const ng_parser_t *parser, parser_arg inne
 		JSON_SET_NSTRING_LEN("%s-mki", key, p->mki_len, (char *) p->mki);
 }
 
-static int json_update_sdes_params(const ng_parser_t *parser, parser_arg inner, const char *pref,
-		unsigned int unique_id,
-		const char *k, sdes_q *q)
+int redis_encode_sdes_params(const ng_parser_t *parser, parser_arg inner, const char *k,
+		const sdes_q *q)
 {
 	unsigned int iter = 0;
 	char keybuf[32];
@@ -2501,8 +2561,7 @@ static int json_update_sdes_params(const ng_parser_t *parser, parser_arg inner, 
 	return 0;
 }
 
-static void json_update_dtls_fingerprint(const ng_parser_t *parser, parser_arg inner, const char *pref,
-		unsigned int unique_id,
+void redis_encode_dtls_fingerprint(const ng_parser_t *parser, parser_arg inner,
 		const struct dtls_fingerprint *f)
 {
 	if (!f->hash_func)
@@ -2542,6 +2601,12 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 			JSON_SET_SIMPLE_STR("recording_metadata", &c->metadata);
 			JSON_SET_SIMPLE("block_dtmf","%i", c->block_dtmf);
 			JSON_SET_SIMPLE("call_flags", "%" PRIu64, atomic64_get_na(&c->call_flags));
+			void *checkpoint_free = NULL;
+			str checkpoint_data = call_checkpoint_serialize(c, &checkpoint_free);
+			if (checkpoint_data.s) {
+				JSON_SET_SIMPLE_LEN("checkpoint-data", checkpoint_data.len, checkpoint_data.s);
+				g_free(checkpoint_free);
+			}
 
 			if (c->created_from.len)
 				JSON_SET_SIMPLE_STR("created_from", &c->created_from);
@@ -2750,11 +2815,9 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 				if (media->sdp_media_bandwidth.rs >= 0)
 					JSON_SET_SIMPLE("bandwidth_rs","%ld", media->sdp_media_bandwidth.rs);
 
-				json_update_sdes_params(parser, inner, "media", media->unique_id, "sdes_in",
-						&media->sdes_in);
-				json_update_sdes_params(parser, inner, "media", media->unique_id, "sdes_out",
-						&media->sdes_out);
-				json_update_dtls_fingerprint(parser, inner, "media", media->unique_id, &media->fingerprint);
+				redis_encode_sdes_params(parser, inner, "sdes_in", &media->sdes_in);
+				redis_encode_sdes_params(parser, inner, "sdes_out", &media->sdes_out);
+				redis_encode_dtls_fingerprint(parser, inner, &media->fingerprint);
 			}
 
 			snprintf(tmp, sizeof(tmp), "streams-%u", media->unique_id);
@@ -2773,15 +2836,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 
 			snprintf(tmp, sizeof(tmp), "payload_types-%u", media->unique_id);
 			inner = parser->dict_add_list_dup(root, tmp);
-			for (__auto_type m = media->codecs.codec_prefs.head; m; m = m->next) {
-				rtp_payload_type *pt = m->data;
-				JSON_ADD_LIST_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT "/%i/%i/"
-							STR_FORMAT "/" STR_FORMAT,
-						pt->payload_type, STR_FMT(&pt->encoding),
-						pt->clock_rate, STR_FMT(&pt->encoding_parameters),
-						pt->bitrate, pt->ptime, STR_FMT(&pt->format_parameters),
-						STR_FMT(&pt->codec_opts));
-			}
+			redis_encode_codec_store(parser, inner, &media->codecs);
 
 			// SSRC table dump
 			// XXX needs fixing

@@ -82,6 +82,7 @@ include ../lib/common.Makefile
 	daemon-tests-transform daemon-tests-http daemon-tests-heuristic daemon-tests-asymmetric \
 	daemon-tests-dtx-no-shift daemon-tests-rtcp daemon-tests-redis-subscribe daemon-tests-rtp-ext \
 	daemon-tests-bundle daemon-tests-dtls daemon-tests-rollback \
+	daemon-tests-rollback-redis \
 	daemon-tests-recording daemon-tests-create daemon-tests-alias \
 	daemon-tests-kernel-api
 
@@ -132,7 +133,7 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-sdp-orig-replacements daemon-tests-moh daemon-tests-evs-dtx daemon-tests-transform \
 	daemon-tests-transcode-config daemon-tests-codec-prefs daemon-tests-http daemon-tests-heuristic \
 	daemon-tests-asymmetric daemon-tests-rtcp daemon-tests-redis-subscribe daemon-tests-rtp-ext \
-	daemon-tests-bundle daemon-tests-dtls daemon-tests-rollback \
+	daemon-tests-bundle daemon-tests-dtls daemon-tests-rollback daemon-tests-rollback-redis \
 	daemon-tests-recording daemon-tests-create \
 	daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-dtx-no-shift \
 	daemon-tests-alias \
@@ -146,6 +147,12 @@ daemon-tests-main:	daemon-test-deps
 
 daemon-tests-rollback:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-rollback.pl
+
+daemon-tests-rollback-redis:	daemon-test-deps
+	RTPE_REDIS_FORMAT=native ./auto-test-helper "$@-native" \
+		perl -I../perl auto-daemon-tests-rollback-redis.pl
+	RTPE_REDIS_FORMAT=json ./auto-test-helper "$@-json" \
+		perl -I../perl auto-daemon-tests-rollback-redis.pl
 
 daemon-tests-jb:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-jb.pl

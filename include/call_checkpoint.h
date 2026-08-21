@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "str.h"
 
 struct call;
 struct call_monologue;
@@ -13,5 +14,7 @@ uint64_t call_checkpoint_answer(struct call *, struct call_monologue *, struct c
 int call_checkpoint_rollback(struct call *, struct call_monologue *, struct call_monologue *,
 		uint64_t, bool, uint64_t *);
 void call_checkpoint_free_all(struct call *);
+str call_checkpoint_serialize(struct call *, void **);
+int call_checkpoint_deserialize(struct call *, const str *);
 
 #endif

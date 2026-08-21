@@ -11,6 +11,9 @@
 #include "helpers.h"
 #include "call.h"
 #include "str.h"
+#include "control_ng.h"
+#include "crypto.h"
+#include "dtls.h"
 
 #define REDIS_RESTORE_NUM_THREADS 4
 
@@ -76,6 +79,16 @@ struct redis_list {
 	struct redis_hash *rh;
 	void **ptrs;
 };
+
+int redis_encode_sdes_params(const ng_parser_t *, parser_arg, const char *, const sdes_q *);
+void redis_encode_dtls_fingerprint(const ng_parser_t *, parser_arg,
+		const struct dtls_fingerprint *);
+int redis_decode_sdes_params(sdes_q *, const struct redis_hash *, const char *);
+int redis_decode_dtls_fingerprint(struct dtls_fingerprint *, const struct redis_hash *);
+int redis_hash_from_parser(struct redis_hash *, const ng_parser_t *, parser_arg);
+void redis_hash_destroy(struct redis_hash *);
+void redis_encode_codec_store(const ng_parser_t *, parser_arg, const struct codec_store *);
+int redis_decode_codec_store(const ng_parser_t *, parser_arg, struct codec_store *);
 
 
 extern struct redis		*rtpe_redis;

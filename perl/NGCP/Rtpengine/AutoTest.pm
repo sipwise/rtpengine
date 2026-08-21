@@ -40,8 +40,11 @@ my ($cid, $ft, $tt, @sockets, $tag_iter, $tag_suffix);
 sub autotest_start {
 	my (@cmdline) = @_;
 
-	like $ENV{LD_PRELOAD}, qr/tests-preload/, 'LD_PRELOAD present';
-	is $ENV{RTPE_PRELOAD_TEST_ACTIVE}, '1', 'preload library is active';
+	SKIP: {
+		skip 'test uses real networking', 2 if $ENV{RTPE_TEST_NO_PRELOAD};
+		like $ENV{LD_PRELOAD}, qr/tests-preload/, 'LD_PRELOAD present';
+		is $ENV{RTPE_PRELOAD_TEST_ACTIVE}, '1', 'preload library is active';
+	}
 	SKIP: {
 		skip 'daemon is running externally', 1 if $ENV{RTPE_TEST_NO_LAUNCH};
 		ok -x $ENV{RTPE_BIN}, 'RTPE_BIN points to executable';
@@ -382,7 +385,6 @@ sub rtpm {
 sub ft { return $ft; }
 sub tt { return $tt; }
 sub cid { return $cid; }
-
 sub reverse_tags {
 	($tt, $ft) = ($ft, $tt);
 }
