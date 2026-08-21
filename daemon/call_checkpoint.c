@@ -365,8 +365,36 @@ static struct endpoint_map *checkpoint_find_endpoint_map_id(call_t *call, unsign
 	return NULL;
 }
 
-static bool checkpoint_json_required(JsonObject *o, const char *name) {
-	return json_object_has_member(o, name);
+static bool checkpoint_json_value_is(JsonObject *o, const char *name, GType type) {
+	JsonNode *node = o ? json_object_get_member(o, name) : NULL;
+	return node && JSON_NODE_HOLDS_VALUE(node) && json_node_get_value_type(node) == type;
+}
+
+static bool checkpoint_json_int(JsonObject *o, const char *name) {
+	return checkpoint_json_value_is(o, name, G_TYPE_INT64);
+}
+
+static bool checkpoint_json_bool(JsonObject *o, const char *name) {
+	return checkpoint_json_value_is(o, name, G_TYPE_BOOLEAN);
+}
+
+static bool checkpoint_json_string(JsonObject *o, const char *name) {
+	return checkpoint_json_value_is(o, name, G_TYPE_STRING);
+}
+
+static bool checkpoint_json_object(JsonObject *o, const char *name) {
+	JsonNode *node = o ? json_object_get_member(o, name) : NULL;
+	return node && JSON_NODE_HOLDS_OBJECT(node);
+}
+
+static bool checkpoint_json_array(JsonObject *o, const char *name) {
+	JsonNode *node = o ? json_object_get_member(o, name) : NULL;
+	return node && JSON_NODE_HOLDS_ARRAY(node);
+}
+
+static JsonObject *checkpoint_json_array_object(JsonArray *array, unsigned int index) {
+	JsonNode *node = array ? json_array_get_element(array, index) : NULL;
+	return node && JSON_NODE_HOLDS_OBJECT(node) ? json_node_get_object(node) : NULL;
 }
 
 static str checkpoint_json_call_str(call_t *call, JsonObject *o, const char *name) {
@@ -376,7 +404,7 @@ static str checkpoint_json_call_str(call_t *call, JsonObject *o, const char *nam
 }
 
 static int checkpoint_json_get_endpoint(endpoint_t *ep, JsonObject *o, const char *name) {
-	if (!checkpoint_json_required(o, name))
+	if (!checkpoint_json_string(o, name))
 		return -1;
 	const char *value = json_object_get_string_member(o, name);
 	if (!value[0]) {
@@ -395,12 +423,12 @@ static int checkpoint_json_parse_endpoint(endpoint_t *ep, const char *value) {
 }
 
 static int checkpoint_json_get_bandwidth(struct session_bandwidth *bw, JsonObject *o) {
-	if (!checkpoint_json_required(o, "bandwidth"))
+	if (!checkpoint_json_object(o, "bandwidth"))
 		return -1;
 	JsonObject *b = json_object_get_object_member(o, "bandwidth");
-	if (!b || !checkpoint_json_required(b, "as") || !checkpoint_json_required(b, "ct")
-			|| !checkpoint_json_required(b, "rr") || !checkpoint_json_required(b, "rs")
-			|| !checkpoint_json_required(b, "tias"))
+	if (!checkpoint_json_int(b, "as") || !checkpoint_json_int(b, "ct")
+			|| !checkpoint_json_int(b, "rr") || !checkpoint_json_int(b, "rs")
+			|| !checkpoint_json_int(b, "tias"))
 		return -1;
 	bw->as = json_object_get_int_member(b, "as");
 	bw->ct = json_object_get_int_member(b, "ct");
@@ -413,15 +441,15 @@ static int checkpoint_json_get_bandwidth(struct session_bandwidth *bw, JsonObjec
 static int checkpoint_json_get_origin(call_t *call, sdp_origin *origin, JsonObject *o,
 		const char *name)
 {
-	if (!checkpoint_json_required(o, name))
+	if (!checkpoint_json_object(o, name))
 		return -1;
 	JsonObject *v = json_object_get_object_member(o, name);
-	if (!v || !checkpoint_json_required(v, "parsed") || !checkpoint_json_required(v, "version")
-			|| !checkpoint_json_required(v, "username")
-			|| !checkpoint_json_required(v, "session-id")
-			|| !checkpoint_json_required(v, "network-type")
-			|| !checkpoint_json_required(v, "address-type")
-			|| !checkpoint_json_required(v, "address"))
+	if (!checkpoint_json_bool(v, "parsed") || !checkpoint_json_int(v, "version")
+			|| !checkpoint_json_string(v, "username")
+			|| !checkpoint_json_string(v, "session-id")
+			|| !checkpoint_json_string(v, "network-type")
+			|| !checkpoint_json_string(v, "address-type")
+			|| !checkpoint_json_string(v, "address"))
 		return -1;
 	origin->parsed = json_object_get_boolean_member(v, "parsed");
 	origin->version_num = json_object_get_int_member(v, "version");
@@ -467,12 +495,15 @@ static stream_fd *checkpoint_reopen_sfd(call_t *call, stream_fd *old, const endp
 static struct checkpoint_stream *checkpoint_json_get_stream(call_t *call, JsonObject *o,
 		struct endpoint_map *map)
 {
-	const char *required[] = { "stream-id", "selected-sfd-id", "selected-interface-id",
-		"flags", "ep-detect-signal",
-		"el-flags", "detected-endpoints", "sfd-ids", "sfd-local-endpoints" };
-	for (unsigned int i = 0; i < G_N_ELEMENTS(required); i++)
-		if (!checkpoint_json_required(o, required[i]))
+	const char *integers[] = { "stream-id", "selected-sfd-id", "selected-interface-id",
+		"flags", "ep-detect-signal", "el-flags" };
+	for (unsigned int i = 0; i < G_N_ELEMENTS(integers); i++)
+		if (!checkpoint_json_int(o, integers[i]))
 			return NULL;
+	if (!checkpoint_json_array(o, "detected-endpoints")
+			|| !checkpoint_json_array(o, "sfd-ids")
+			|| !checkpoint_json_array(o, "sfd-local-endpoints"))
+		return NULL;
 
 	struct packet_stream *ps = checkpoint_find_stream_id(call,
 			json_object_get_int_member(o, "stream-id"));
@@ -493,10 +524,14 @@ static struct checkpoint_stream *checkpoint_json_get_stream(call_t *call, JsonOb
 	JsonArray *detected = json_object_get_array_member(o, "detected-endpoints");
 	if (!detected || json_array_get_length(detected) != G_N_ELEMENTS(s->detected_endpoints))
 		goto err;
-	for (unsigned int i = 0; i < G_N_ELEMENTS(s->detected_endpoints); i++)
-		if (checkpoint_json_parse_endpoint(&s->detected_endpoints[i],
-					json_array_get_string_element(detected, i)))
+	for (unsigned int i = 0; i < G_N_ELEMENTS(s->detected_endpoints); i++) {
+		JsonNode *element = json_array_get_element(detected, i);
+		if (!element || !JSON_NODE_HOLDS_VALUE(element)
+				|| json_node_get_value_type(element) != G_TYPE_STRING
+				|| checkpoint_json_parse_endpoint(&s->detected_endpoints[i],
+					json_node_get_string(element)))
 			goto err;
+	}
 
 	JsonArray *sfds = json_object_get_array_member(o, "sfd-ids");
 	JsonArray *locals = json_object_get_array_member(o, "sfd-local-endpoints");
@@ -506,11 +541,18 @@ static struct checkpoint_stream *checkpoint_json_get_stream(call_t *call, JsonOb
 	s->selected_sfd_set = selected >= 0;
 	s->sfd_local_endpoints = g_array_new(FALSE, FALSE, sizeof(endpoint_t));
 	for (unsigned int i = 0; i < json_array_get_length(sfds); i++) {
-		gint64 sfd_id = json_array_get_int_element(sfds, i);
+		JsonNode *sfd_node = json_array_get_element(sfds, i);
+		JsonNode *local_node = json_array_get_element(locals, i);
+		if (!sfd_node || !JSON_NODE_HOLDS_VALUE(sfd_node)
+				|| json_node_get_value_type(sfd_node) != G_TYPE_INT64
+				|| !local_node || !JSON_NODE_HOLDS_VALUE(local_node)
+				|| json_node_get_value_type(local_node) != G_TYPE_STRING)
+			goto err;
+		gint64 sfd_id = json_node_get_int(sfd_node);
 		stream_fd *old = checkpoint_find_sfd_id(call, sfd_id);
 		endpoint_t local;
 		if (!old || checkpoint_json_parse_endpoint(&local,
-					json_array_get_string_element(locals, i)))
+					json_node_get_string(local_node)))
 			goto err;
 		stream_fd *sfd = checkpoint_reopen_sfd(call, old, &local, map);
 		if (!sfd)
@@ -533,10 +575,14 @@ err:
 static int checkpoint_json_get_monologue(call_t *call, struct checkpoint_monologue *m,
 		JsonObject *o)
 {
-	const char *required[] = { "monologue-id", "flags", "medias-len", "desired-family",
-		"logical-interface", "session-name", "session-timing", "last-out-sdp" };
-	for (unsigned int i = 0; i < G_N_ELEMENTS(required); i++)
-		if (!checkpoint_json_required(o, required[i]))
+	const char *integers[] = { "monologue-id", "flags", "medias-len" };
+	const char *strings[] = { "desired-family", "logical-interface", "session-name",
+		"session-timing", "last-out-sdp" };
+	for (unsigned int i = 0; i < G_N_ELEMENTS(integers); i++)
+		if (!checkpoint_json_int(o, integers[i]))
+			return -1;
+	for (unsigned int i = 0; i < G_N_ELEMENTS(strings); i++)
+		if (!checkpoint_json_string(o, strings[i]))
 			return -1;
 	m->monologue = checkpoint_find_monologue_id(call,
 			json_object_get_int_member(o, "monologue-id"));
@@ -563,17 +609,20 @@ static int checkpoint_json_get_monologue(call_t *call, struct checkpoint_monolog
 }
 
 static int checkpoint_json_get_candidates(call_t *call, candidate_q *q, JsonObject *o) {
-	if (!checkpoint_json_required(o, "ice-candidates"))
+	if (!checkpoint_json_array(o, "ice-candidates"))
 		return -1;
 	JsonArray *array = json_object_get_array_member(o, "ice-candidates");
 	if (!array)
 		return -1;
 	for (unsigned int i = 0; i < json_array_get_length(array); i++) {
-		JsonObject *v = json_array_get_object_element(array, i);
-		const char *required[] = { "foundation", "component", "transport", "priority",
-			"endpoint", "type", "related", "ufrag" };
-		for (unsigned int j = 0; j < G_N_ELEMENTS(required); j++)
-			if (!v || !checkpoint_json_required(v, required[j]))
+		JsonObject *v = checkpoint_json_array_object(array, i);
+		const char *integers[] = { "component", "priority", "type" };
+		const char *strings[] = { "foundation", "transport", "endpoint", "related", "ufrag" };
+		for (unsigned int j = 0; j < G_N_ELEMENTS(integers); j++)
+			if (!checkpoint_json_int(v, integers[j]))
+				goto err;
+		for (unsigned int j = 0; j < G_N_ELEMENTS(strings); j++)
+			if (!checkpoint_json_string(v, strings[j]))
 				goto err;
 		struct ice_candidate *c = g_new0(__typeof(*c), 1);
 		c->foundation = checkpoint_json_call_str(call, v, "foundation");
@@ -601,13 +650,21 @@ err:
 
 static struct checkpoint_media *checkpoint_json_get_media(call_t *call, JsonObject *o) {
 	const char *stage = "required fields";
-	const char *required[] = { "media-id", "endpoint-map-id", "flags", "ptime", "maxptime", "had-ice",
-		"protocol", "protocol-string", "format-string", "desired-family", "logical-interface",
-		"tls-id", "ice-ufrag-local", "ice-ufrag-remote", "ice-pwd-local", "ice-pwd-remote",
-		"crypto", "codecs", "offered-codecs", "streams" };
-	for (unsigned int i = 0; i < G_N_ELEMENTS(required); i++)
-		if (!checkpoint_json_required(o, required[i]))
+	const char *integers[] = { "media-id", "endpoint-map-id", "flags", "ptime", "maxptime" };
+	const char *strings[] = { "protocol", "protocol-string", "format-string", "desired-family",
+		"logical-interface", "tls-id", "ice-ufrag-local", "ice-ufrag-remote",
+		"ice-pwd-local", "ice-pwd-remote" };
+	for (unsigned int i = 0; i < G_N_ELEMENTS(integers); i++)
+		if (!checkpoint_json_int(o, integers[i]))
 			return NULL;
+	for (unsigned int i = 0; i < G_N_ELEMENTS(strings); i++)
+		if (!checkpoint_json_string(o, strings[i]))
+			return NULL;
+	if (!checkpoint_json_bool(o, "had-ice") || !checkpoint_json_object(o, "crypto")
+			|| !checkpoint_json_array(o, "codecs")
+			|| !checkpoint_json_array(o, "offered-codecs")
+			|| !checkpoint_json_array(o, "streams"))
+		return NULL;
 	struct call_media *live = checkpoint_find_media_id(call,
 			json_object_get_int_member(o, "media-id"));
 	if (!live)
@@ -649,8 +706,6 @@ static struct checkpoint_media *checkpoint_json_get_media(call_t *call, JsonObje
 		goto err;
 	stage = "crypto object";
 	JsonNode *crypto_node = json_object_get_member(o, "crypto");
-	if (!crypto_node || !JSON_NODE_HOLDS_OBJECT(crypto_node))
-		goto err;
 	struct redis_hash crypto = {0};
 	parser_arg crypto_arg = { .json = crypto_node };
 	if (redis_hash_from_parser(&crypto, &ng_parser_json, crypto_arg))
@@ -670,9 +725,6 @@ static struct checkpoint_media *checkpoint_json_get_media(call_t *call, JsonObje
 	stage = "codec objects";
 	JsonNode *codecs_node = json_object_get_member(o, "codecs");
 	JsonNode *offered_node = json_object_get_member(o, "offered-codecs");
-	if (!codecs_node || !JSON_NODE_HOLDS_ARRAY(codecs_node)
-			|| !offered_node || !JSON_NODE_HOLDS_ARRAY(offered_node))
-		goto err;
 	parser_arg codecs_arg = { .json = codecs_node };
 	parser_arg offered_arg = { .json = offered_node };
 	stage = "codec stores";
@@ -681,12 +733,10 @@ static struct checkpoint_media *checkpoint_json_get_media(call_t *call, JsonObje
 		goto err;
 	JsonArray *streams = json_object_get_array_member(o, "streams");
 	stage = "streams array";
-	if (!streams)
-		goto err;
 	stage = "stream state";
 	for (unsigned int i = 0; i < json_array_get_length(streams); i++) {
 		struct checkpoint_stream *s = checkpoint_json_get_stream(call,
-				json_array_get_object_element(streams, i), m->endpoint_map);
+				checkpoint_json_array_object(streams, i), m->endpoint_map);
 		if (!s)
 			goto err;
 		s->next = m->streams;
@@ -712,21 +762,23 @@ int call_checkpoint_deserialize(call_t *call, const str *data) {
 		goto err;
 	JsonObject *root = json_node_get_object(node);
 	stage = "root object";
-	if (!checkpoint_json_required(root, "version")
+	if (!checkpoint_json_int(root, "version")
 			|| json_object_get_int_member(root, "version") != 1
-			|| !checkpoint_json_required(root, "checkpoints"))
+			|| !checkpoint_json_array(root, "checkpoints"))
 		goto err;
 	JsonArray *checkpoints = json_object_get_array_member(root, "checkpoints");
 	if (!checkpoints)
 		goto err;
 	for (unsigned int i = 0; i < json_array_get_length(checkpoints); i++) {
 		stage = "checkpoint fields";
-		JsonObject *o = json_array_get_object_element(checkpoints, i);
-		const char *required[] = { "offerer-id", "answerer-id", "generation",
-			"pending-generation", "pending" };
-		for (unsigned int j = 0; j < G_N_ELEMENTS(required); j++)
-			if (!o || !checkpoint_json_required(o, required[j]))
+		JsonObject *o = checkpoint_json_array_object(checkpoints, i);
+		const char *integers[] = { "offerer-id", "answerer-id", "generation",
+			"pending-generation" };
+		for (unsigned int j = 0; j < G_N_ELEMENTS(integers); j++)
+			if (!checkpoint_json_int(o, integers[j]))
 				goto err;
+		if (!checkpoint_json_bool(o, "pending"))
+			goto err;
 		struct call_checkpoint *cp = g_new0(__typeof(*cp), 1);
 		cp->offerer = checkpoint_find_monologue_id(call,
 				json_object_get_int_member(o, "offerer-id"));
@@ -745,15 +797,15 @@ int call_checkpoint_deserialize(call_t *call, const str *data) {
 		if (!cp->pending)
 			continue;
 		stage = "pending checkpoint fields";
-		if (!checkpoint_json_required(o, "monologues")
-				|| !checkpoint_json_required(o, "medias"))
+		if (!checkpoint_json_array(o, "monologues")
+				|| !checkpoint_json_array(o, "medias"))
 			goto err;
 		JsonArray *monologues = json_object_get_array_member(o, "monologues");
 		if (!monologues || json_array_get_length(monologues) != G_N_ELEMENTS(cp->monologues))
 			goto err;
 		for (unsigned int j = 0; j < G_N_ELEMENTS(cp->monologues); j++)
 			if (checkpoint_json_get_monologue(call, &cp->monologues[j],
-						json_array_get_object_element(monologues, j))) {
+						checkpoint_json_array_object(monologues, j))) {
 				stage = "monologue state";
 				goto err;
 			}
@@ -764,7 +816,7 @@ int call_checkpoint_deserialize(call_t *call, const str *data) {
 		for (unsigned int j = 0; j < json_array_get_length(medias); j++) {
 			stage = "media state";
 			struct checkpoint_media *m = checkpoint_json_get_media(call,
-					json_array_get_object_element(medias, j));
+					checkpoint_json_array_object(medias, j));
 			if (!m)
 				goto err;
 			m->next = cp->medias;
@@ -975,6 +1027,11 @@ uint64_t call_checkpoint_answer(call_t *call, struct call_monologue *a,
 static void checkpoint_restore_stream(struct checkpoint_stream *snap) {
 	struct packet_stream *ps = snap->stream;
 	dtls_shutdown(ps);
+	/* A Redis-restored snapshot can refer to an SFD that existed on the old
+	 * instance but could not be rebound there, while normal call restoration
+	 * has already selected a usable local socket on this instance. Keep that
+	 * live binding. For in-process rollback, retain it only when it is the
+	 * socket captured by the snapshot. */
 	bool preserve_live_binding = ps->selected_sfd && ps->selected_sfd->socket.local.port
 		&& (ps->selected_sfd == snap->selected_sfd
 				|| (snap->selected_sfd_set

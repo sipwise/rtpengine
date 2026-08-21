@@ -112,6 +112,36 @@ sub decode_record {
 	return $redis_format eq 'json' ? decode_json($record) : Bencode::bdecode($record, 1);
 }
 
+sub encode_record {
+	my ($record) = @_;
+	return encode_json($record) if $redis_format eq 'json';
+	my $as_strings;
+	$as_strings = sub {
+		my ($value) = @_;
+		return { map { $_ => $as_strings->($value->{$_}) } keys %$value }
+			if ref($value) eq 'HASH';
+		return [ map { $as_strings->($_) } @$value ] if ref($value) eq 'ARRAY';
+		my $copy = $value;
+		return \$copy;
+	};
+	return Bencode::bencode($as_strings->($record));
+}
+
+sub checkpoint_with_invalid_generation_type {
+	my ($record) = @_;
+	my $decoded = decode_record($record);
+	my $checkpoint_data = $decoded->{json}{'checkpoint-data'};
+	$checkpoint_data =~ s/%([0-9a-fA-F]{2})/chr(hex($1))/ge
+		if $redis_format eq 'json';
+	my $checkpoint = decode_json($checkpoint_data);
+	$checkpoint->{checkpoints}[0]{generation} = 'banana';
+	$checkpoint_data = encode_json($checkpoint);
+	$checkpoint_data =~ s/([^A-Za-z0-9_.~-])/sprintf('%%%02X', ord($1))/ge
+		if $redis_format eq 'json';
+	$decoded->{json}{'checkpoint-data'} = $checkpoint_data;
+	return encode_record($decoded);
+}
+
 sub inspect_checkpoint {
 	my ($record) = @_;
 	my $decoded = decode_record($record);
@@ -148,6 +178,21 @@ sub expect_redis_update {
 		like($set[4], qr/^\d+\z/, "$redis_format update expiry is numeric");
 		($saved_call_id, $saved_record) = @set[1, 2];
 		inspect_checkpoint($saved_record);
+		redis_reply_simple($redis_fd, 'OK');
+	};
+}
+
+sub expect_redis_update_without_checkpoint {
+	$NGCP::Rtpengine::req_cb = sub {
+		is_deeply([redis_command($redis_fd)], ['PING'],
+			"$redis_format invalid-checkpoint update PING");
+		redis_reply_simple($redis_fd, 'PONG');
+		my @set = redis_command($redis_fd);
+		is($set[0], 'SET', "$redis_format invalid-checkpoint update uses SET");
+		is($set[3], 'EX', "$redis_format invalid-checkpoint update carries expiry");
+		my $decoded = decode_record($set[2]);
+		ok(!exists $decoded->{json}{'checkpoint-data'},
+			"$redis_format invalid checkpoint is omitted from the restored call record");
 		redis_reply_simple($redis_fd, 'OK');
 	};
 }
@@ -204,6 +249,7 @@ $response = redis_rtpe_req(1, 2, 1, 'offer', 'offer later rejected by the far en
 		'newRedisPassword012345678', 'YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXowMTIz', 'sendonly'),
 });
 is($response->{generation}, 2, 'pending Redis generation stored');
+my $pending_record = $saved_record;
 
 NGCP::Rtpengine::AutoTest::shut_rtpe();
 $NGCP::Rtpengine::req_cb = undef;
@@ -248,6 +294,22 @@ $response = redis_rtpe_req(2, 0, 0, 'rollback', 'rollback after committed state 
 });
 is($response->{'rolled-back'}, 0, 'committed checkpoint remains consumed in Redis');
 is($response->{generation}, 2, 'new committed generation persists in Redis');
+
+NGCP::Rtpengine::AutoTest::shut_rtpe();
+$NGCP::Rtpengine::req_cb = undef;
+$saved_record = checkpoint_with_invalid_generation_type($pending_record);
+autotest_start(@daemon_args) or die;
+$query = rtpe_req('query', 'query call restored without invalid checkpoint', {
+	'call-id' => $call_id,
+});
+ok($query->{tags}{$from_tag}, 'invalid checkpoint data does not discard the restored call');
+expect_redis_update_without_checkpoint();
+$response = rtpe_req('rollback', 'invalid checkpoint degrades to no rollback state', {
+	'call-id' => $call_id, 'from-tag' => $from_tag, 'to-tag' => $to_tag,
+	'via-branch' => $via_branch, generation => 2,
+});
+$NGCP::Rtpengine::req_cb = undef;
+is($response->{'rolled-back'}, 0, 'type-invalid checkpoint is discarded atomically');
 
 NGCP::Rtpengine::AutoTest::shut_rtpe();
 done_testing;

@@ -2266,8 +2266,10 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 		goto err8;
 	if (!redis_hash_get_str(&s, &call, "checkpoint-data")
 			&& call_checkpoint_deserialize(c, &s)) {
-		err = "failed to restore checkpoint data";
-		goto err8;
+		/* Checkpoints are auxiliary state. A corrupt or unsupported payload must
+		 * disable rollback atomically, not discard an otherwise usable call. */
+		call_checkpoint_free_all(c);
+		ilog(LOG_WARNING, "Ignoring invalid checkpoint data while restoring call");
 	}
 
 	// presence of this key determines whether we were recording at all
@@ -2604,7 +2606,14 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 			void *checkpoint_free = NULL;
 			str checkpoint_data = call_checkpoint_serialize(c, &checkpoint_free);
 			if (checkpoint_data.s) {
-				JSON_SET_SIMPLE_LEN("checkpoint-data", checkpoint_data.len, checkpoint_data.s);
+				/* Unlike the bounded fields using JSON_SET_SIMPLE_LEN(), a checkpoint
+				 * grows with the call graph and must not use a VLA on the Redis thread's
+				 * configurable stack. parser->escape() can require up to 3x input. */
+				char *encoded = g_malloc_n(checkpoint_data.len + 1, 3);
+				str encoded_str = parser->escape(encoded, checkpoint_data.s,
+						checkpoint_data.len);
+				parser->dict_add_str_dup(inner, "checkpoint-data", &encoded_str);
+				g_free(encoded);
 				g_free(checkpoint_free);
 			}
 

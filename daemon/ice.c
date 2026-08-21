@@ -430,7 +430,8 @@ static void __ice_reset(struct ice_agent *ag) {
 }
 
 /* Restore the credentials of a completed exchange. Candidate-pair and
- * nomination state is deliberately rebuilt rather than snapshotted. */
+ * nomination state is deliberately rebuilt rather than snapshotted.
+ * Called with the call lock held in W, hence agent doesn't need to be locked. */
 void ice_rollback(struct ice_agent *ag, const str ufrag[2], const str pwd[2],
 		const candidate_q *candidates)
 {

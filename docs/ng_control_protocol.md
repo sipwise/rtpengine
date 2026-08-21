@@ -1900,8 +1900,10 @@ contain:
 The successful response contains `rolled-back`, set to `1` if a pending
 checkpoint was restored or `0` if there was no matching pending checkpoint.
 It also contains `generation` when checkpointing is enabled, identifying the
-committed generation after the operation. Repeating a successful rollback is
-therefore safe and returns `rolled-back: 0`.
+committed generation after the operation. This includes no-op responses caused
+by no outstanding snapshot or a generation mismatch, as long as the dialogue
+has checkpointing enabled. Repeating a successful rollback is therefore safe
+and returns `rolled-back: 0` together with the unchanged committed generation.
 
 Rollback restores addresses and ports, codecs and payload mappings, transport
 profile, media direction, and SDES configuration including keys. ICE
@@ -1909,6 +1911,10 @@ credentials are restored and connectivity checks reconstruct candidate-pair
 and nomination state. DTLS fingerprint, TLS ID, and setup/role configuration
 are restored, but the live OpenSSL association is not serializable and must
 perform a new handshake.
+
+When calls are restored from Redis, checkpoint data is auxiliary: a malformed
+or unsupported checkpoint payload is discarded in full while the call itself
+is restored without rollback capability.
 
 Example request and response:
 
