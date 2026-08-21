@@ -526,6 +526,8 @@ static const char *call_ng_flags_supports(str *s, unsigned int idx, helper_arg a
 	sdp_ng_flags *out = arg.flags;
 	if (!str_cmp(s, "load limit"))
 		out->supports_load_limit = true;
+	else if (!str_cmp(s, "rollback"))
+		out->supports_rollback = true;
 	else
 		ilog(LOG_INFO | LOG_FLAG_LIMIT, "Optional feature '" STR_FORMAT "' not supported",
 				STR_FMT(s));
@@ -908,6 +910,10 @@ const char *call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 			break;
 		case CSH_LOOKUP("reset"):
 			out->reset = true;
+			break;
+		case CSH_LOOKUP("track-state"):
+		case CSH_LOOKUP("track state"):
+			out->track_state = true;
 			break;
 		case CSH_LOOKUP("single-codec"):
 		case CSH_LOOKUP("single codec"):

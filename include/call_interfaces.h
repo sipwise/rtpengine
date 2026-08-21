@@ -31,6 +31,7 @@ str call_query_udp(char **);
 const char *call_ping_ng(ng_command_ctx_t *ctx);
 const char *call_offer_ng(ng_command_ctx_t *, const char *);
 const char *call_answer_ng(ng_command_ctx_t *);
+const char *call_rollback_ng(ng_command_ctx_t *);
 const char *call_delete_ng(ng_command_ctx_t *);
 const char *call_query_ng(ng_command_ctx_t *);
 const char *call_list_ng(ng_command_ctx_t *);

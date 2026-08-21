@@ -5,6 +5,7 @@
 	X(OP_PING,                  "ping",                  "ping",                  "Ping",       call_ping_ng) \
 	XA(OP_OFFER,                 "offer",                 "offer",                 "Offer",      call_offer_ng) \
 	X(OP_ANSWER,                "answer",                "answer",                "Answer",     call_answer_ng) \
+	X(OP_ROLLBACK,              "rollback",              "rollback",              "Rollback",   call_rollback_ng) \
 	X(OP_DELETE,                "delete",                "delete",                "Delete",     call_delete_ng) \
 	X(OP_QUERY,                 "query",                 "query",                 "Query",      call_query_ng) \
 	X(OP_LIST,                  "list",                  "list",                  "List",       call_list_ng) \
