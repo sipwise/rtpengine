@@ -159,6 +159,7 @@ void ice_update(struct ice_agent *, struct stream_params *, bool allow_restart);
 void ice_start(struct ice_agent *);
 void ice_shutdown(struct ice_agent **);
 void ice_restart(struct ice_agent *);
+void ice_rollback(struct ice_agent *, const str [2], const str [2], const candidate_q *);
 
 void ice_candidates_free(candidate_q *);
 void ice_remote_candidates(candidate_q *, struct ice_agent *);

@@ -827,6 +827,12 @@ Optionally included keys are:
 		dictionary. The response dictionary may also contain the optional key `message` with
 		an explanatory string. No other key is required in the response dictionary.
 
+	* `rollback`
+
+		Indicates that the controlling SIP proxy understands the `rollback`
+		message. If `rollback` is listed, *rtpengine* includes it in a
+		`supported` list in the response.
+
 * `to-interface`
 
     Contains a string identifying the network interface pertaining to the
@@ -1372,6 +1378,19 @@ Spaces in each string may be replaced by hyphens.
 	address that has been learned before. If there's a mismatch, the packet will be dropped and
 	not forwarded.
 
+* `track state`
+
+	Enables rollback checkpoints for the selected dialogue. Before applying an
+	`offer`, *rtpengine* records the media state from the last completed
+	offer/answer exchange. A successful `answer` commits the exchange and
+	discards the pending checkpoint. Once enabled, subsequent offers for the
+	dialogue are checkpointed without repeating the flag. The spelling
+	`track-state` is equivalent.
+
+	Checkpointing is opt-in because a pending checkpoint retains media and
+	cryptographic configuration. Calls that do not use this flag do not retain
+	that state.
+
 * `trickle ICE`
 
 	Useful for `offer` messages when ICE is advertised to also advertise
@@ -1788,8 +1807,12 @@ An example of a complete `offer` request dictionary could be (SDP body abbreviat
 	"ICE": "force", "transport protocol": "RTP/SAVPF", "media address": "2001:d8::6f24:65b",
 	"DTLS": "passive" }
 
-A response message contains only the key `sdp` in addition to `result`, which contains the re-written
-SDP body that the SIP proxy should insert into the SIP message.
+A response message contains the key `sdp` in addition to `result`, which contains the re-written
+SDP body that the SIP proxy should insert into the SIP message. If rollback
+checkpointing is enabled, the response also contains `generation`. For an
+`offer`, this is the generation of the exchange just opened. An `answer`
+returns the generation it committed. If `supports` requested a supported
+extension, the response can also contain a `supported` list.
 
 Example response:
 
@@ -1831,6 +1854,56 @@ dictionary must contain the key `to-tag` containing the SIP `To` tag. It doesn't
 the `direction` key in the `answer` message.
 
 The reply message is identical as in the `offer` reply.
+
+## `rollback` Message
+
+The `rollback` message restores a dialogue to the media state from its last
+completed offer/answer exchange without deleting the call. It is intended for
+use when an SDP offer has already been applied by *rtpengine* but the remote
+endpoint subsequently rejects the signalling transaction. The signalling
+element must issue the message explicitly; *rtpengine* does not observe SIP
+transaction outcomes.
+
+The request must contain `call-id`, `from-tag`, and `to-tag`. It may also
+contain:
+
+* `via-branch`
+
+	Selects a particular fork using the same dialogue matching rules as other
+	NG messages.
+
+* `generation`
+
+	An optional integer safety check. A pending checkpoint is restored only if
+	the value matches the generation returned by the corresponding `offer`.
+	A mismatch is a successful no-op, which prevents a delayed failure from
+	undoing a newer negotiation.
+
+The successful response contains `rolled-back`, set to `1` if a pending
+checkpoint was restored or `0` if there was no matching pending checkpoint.
+It also contains `generation` when checkpointing is enabled, identifying the
+committed generation after the operation. This includes no-op responses caused
+by no outstanding snapshot or a generation mismatch, as long as the dialogue
+has checkpointing enabled. Repeating a successful rollback is therefore safe
+and returns `rolled-back: 0` together with the unchanged committed generation.
+
+Rollback restores addresses and ports, codecs and payload mappings, transport
+profile, media direction, and SDES configuration including keys. ICE
+credentials are restored and connectivity checks reconstruct candidate-pair
+and nomination state. DTLS fingerprint, TLS ID, and setup/role configuration
+are restored, but the live OpenSSL association is not serializable and must
+perform a new handshake.
+
+When calls are restored from Redis, checkpoint data is auxiliary: a malformed
+or unsupported checkpoint payload is discarded in full while the call itself
+is restored without rollback capability.
+
+Example request and response:
+
+	{ "command": "rollback", "call-id": "cfBXzDSZqhYNcXM",
+	  "from-tag": "mS9rSAn0Cr", "to-tag": "yB3KjLa9", "generation": 2 }
+
+	{ "result": "ok", "rolled-back": 1, "generation": 1 }
 
 ## `delete` Message
 

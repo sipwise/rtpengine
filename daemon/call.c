@@ -1,4 +1,5 @@
 #include "call.h"
+#include "call_checkpoint.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -69,7 +70,6 @@ static int64_t add_ongoing_calls_dur_in_interval(int64_t interval_start, int64_t
 static void __call_free(call_t *p);
 static void __call_cleanup(call_t *c);
 static void __monologue_stop(struct call_monologue *ml);
-static void media_stop(struct call_media *m);
 __attribute__((nonnull(1, 2, 4)))
 static struct media_subscription *__subscribe_medias_both_ways(struct call_media * a, struct call_media * b,
 		bool is_offer, medias_q *);
@@ -5184,7 +5184,7 @@ static void __call_cleanup(call_t *c) {
 	for (__auto_type l = c->medias.head; l; l = l->next) {
 		struct call_media *md = l->data;
 		ice_shutdown(&md->ice_agent);
-		media_stop(md);
+		call_media_stop(md);
 		t38_gateway_put(&md->t38_gateway);
 		audio_player_free(md);
 		mutex_destroy(&md->dtmf_lock);
@@ -5500,6 +5500,7 @@ static void __call_free(call_t *c) {
 
 	//ilog(LOG_DEBUG, "freeing main call struct");
 
+	call_checkpoint_free_all(c);
 	obj_release(c->dtls_cert);
 	mqtt_timer_stop(&c->mqtt_timer);
 
@@ -6420,7 +6421,7 @@ int call_get_mono_dialogue(struct call_monologue *monologues[2],
 	return call_get_dialogue(monologues, call, callid, fromtag, totag, viabranch, flags, ep);
 }
 
-static void media_stop(struct call_media *m) {
+void call_media_stop(struct call_media *m) {
 	if (!m)
 		return;
 	t38_gateway_stop(m->t38_gateway);
@@ -6445,7 +6446,7 @@ static void monologue_stop(struct call_monologue *ml, bool stop_media_subscriber
 	__monologue_stop(ml);
 	for (unsigned int i = 0; i < ml->medias->len; i++)
 	{
-		media_stop(ml->medias->pdata[i]);
+		call_media_stop(ml->medias->pdata[i]);
 	}
 	/* monologue's subscribers */
 	if (stop_media_subscribers) {
@@ -6455,7 +6456,7 @@ static void monologue_stop(struct call_monologue *ml, bool stop_media_subscriber
 			if (!media)
 				continue;
 			IQUEUE_FOREACH(&media->media_subscribers, ms) {
-				media_stop(ms->media);
+				call_media_stop(ms->media);
 				__monologue_stop(ms->monologue);
 			}
 		}

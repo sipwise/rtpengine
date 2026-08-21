@@ -287,6 +287,8 @@ RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 	             t38_no_iaf:1,
 	             t38_fec:1,
 	             supports_load_limit:1,
+	             supports_rollback:1,
+	             track_state:1,
 	             dtls_off:1,
 	             sdes_off:1,
 	             sdes_unencrypted_srtp:1,

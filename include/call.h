@@ -66,7 +66,7 @@ enum message_type {
 		 || (opmode == OP_UNSUBSCRIBE || opmode == OP_START_RECORDING)                   \
 		 || (opmode == OP_STOP_RECORDING || opmode == OP_PAUSE_RECORDING)                \
 		 || (opmode == OP_INJECT_START || opmode == OP_INJECT_STOP)                      \
-		 || (opmode == OP_OTHER))
+		 || (opmode == OP_ROLLBACK || opmode == OP_OTHER))
 
 #define IS_OP_DIRECTIONAL(opmode)                                                                \
 		 ((opmode == OP_BLOCK_DTMF || opmode == OP_BLOCK_MEDIA)                          \
@@ -821,6 +821,7 @@ struct call {
 	atomic64		call_flags;
 	unsigned int		update_iter;
 	unsigned int media_rec_slots;
+	struct call_checkpoint *checkpoints;
 };
 
 
@@ -971,6 +972,7 @@ enum thread_looper_action call_timer(void);
 
 void __rtp_stats_update(rtp_stats_ht dst, struct codec_store *);
 bool __init_stream(struct packet_stream *ps);
+void call_media_stop(struct call_media *);
 
 const rtp_payload_type *__rtp_stats_codec(struct call_media *m);
 
