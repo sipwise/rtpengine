@@ -5,6 +5,8 @@ use warnings;
 use NGCP::Rtpengine::Test;
 use NGCP::Rtpengine::AutoTest;
 use NGCP::Rtpclient::ICE;
+use NGCP::Rtpclient::DTLS;
+use IO::Multiplex;
 use Socket qw(MSG_DONTWAIT);
 use Test::More;
 
@@ -30,6 +32,25 @@ sub rollback {
 	return rtpe_req('rollback', 'rollback state', \%req);
 }
 
+sub negotiated_tags {
+	my ($state) = @_;
+	# __fill_stream() refreshes ps->last_packet_us on each offer. Query exposes
+	# that value, truncated to seconds, as both "last packet" and "last user
+	# packet". It is liveness state rather than negotiated media state.
+	# Whole-tag comparisons are safe only while no media has flowed: once packets
+	# arrive, the per-media SSRC lists also contain traffic-derived statistics.
+	# Such tests must compare only the negotiated fields they intend to restore.
+	for my $tag (values %{$state->{tags}}) {
+		for my $media (@{$tag->{medias}}) {
+			for my $stream (@{$media->{streams}}) {
+				delete $stream->{'last packet'};
+				delete $stream->{'last user packet'};
+			}
+		}
+	}
+	return $state->{tags};
+}
+
 sub secure_sdp {
 	my ($address, $port, $ufrag, $pwd, $key, $direction) = @_;
 	return "v=0\r\no=- 2 2 IN IP4 $address\r\ns=rollback-secure\r\n"
@@ -41,10 +62,39 @@ sub secure_sdp {
 		. "a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:$key\r\n";
 }
 
+sub dtls_sdp {
+	my ($address, $port, $fingerprint, $tls_id, $setup) = @_;
+	return "v=0\r\no=- 3 3 IN IP4 $address\r\ns=rollback-dtls\r\n"
+		. "c=IN IP4 $address\r\nt=0 0\r\nm=audio $port UDP/TLS/RTP/SAVP 0\r\n"
+		. "a=rtpmap:0 PCMU/8000\r\na=setup:$setup\r\n"
+		. "a=fingerprint:sha-256 $fingerprint\r\na=tls-id:$tls_id\r\n";
+}
+
 sub secure_parameters {
 	my ($sdp) = @_;
 	my @parameters = $sdp =~ /^(a=(?:ice-ufrag|ice-pwd):.*|a=crypto:1 .*)$/mg;
 	return \@parameters;
+}
+
+my ($rollback_dtls, $rollback_dtls_mux, $rollback_dtls_connected,
+	@rollback_dtls_components);
+my $rollback_dtls_output = sub {
+	my ($component, $data) = @_;
+	my ($socket, $port) = @{$rollback_dtls_components[$component]};
+	snd($socket, $port, $data);
+};
+
+sub mux_input {
+	my ($self, $mux, $fh, $input) = @_;
+	my $peer = $mux->udp_peer($fh);
+	$rollback_dtls->input($fh, $input, $peer);
+	for my $component (@$rollback_dtls) {
+		return unless $component->{_connected};
+	}
+	return if $rollback_dtls_connected;
+	$rollback_dtls_connected = 1;
+	pass('DTLS re-handshake succeeds with restored configuration');
+	$mux->endloop();
 }
 
 sub consecutive_offer_rollback {
@@ -75,7 +125,7 @@ sub consecutive_offer_rollback {
 	my $rolled_back = rollback($use_generation ? $first->{generation} : undef);
 	is($rolled_back->{'rolled-back'}, 1, "$label rollback consumes the original snapshot");
 	my $restored_state = rtpe_req('query', "$label restored state", {});
-	is_deeply($restored_state->{tags}, $committed_state->{tags},
+	is_deeply(negotiated_tags($restored_state), negotiated_tags($committed_state),
 		"$label rollback restores the originally committed state");
 }
 
@@ -106,7 +156,8 @@ $resp = rollback(2);
 is($resp->{'rolled-back'}, 1, 'matching generation rolls back');
 is($resp->{generation}, 1, 'rollback returns committed generation');
 my $restored = rtpe_req('query', 'query restored state', {});
-is_deeply($restored->{tags}, $committed->{tags}, 'query media state restored');
+is_deeply(negotiated_tags($restored), negotiated_tags($committed),
+	'query media state restored');
 $resp = rollback();
 is($resp->{'rolled-back'}, 0, 'repeated rollback is a no-op');
 
@@ -124,6 +175,68 @@ is($resp->{'rolled-back'}, 0, 'completed exchange cannot be rolled back');
 
 consecutive_offer_rollback(0, 'consecutive offers without generation');
 consecutive_offer_rollback(1, 'consecutive offers with first generation');
+
+my ($subscription_a, $subscription_b, $subscription_sink) = new_call(
+	[qw(198.51.100.80 12000)],
+	[qw(198.51.100.80 12010)],
+	[qw(198.51.100.80 12020)],
+);
+my $subscription_offer = rtpe_req('offer', 'subscription rollback initial offer', {
+	'from-tag' => ft(), flags => ['track-state'],
+	sdp => sdp('198.51.100.80', 12000, 0, 'sendrecv'),
+});
+my ($subscription_port_a) = $subscription_offer->{sdp} =~ /^m=audio (\d+)/m;
+my $subscription_answer = rtpe_req('answer', 'subscription rollback initial answer', {
+	'from-tag' => ft(), 'to-tag' => tt(),
+	sdp => sdp('198.51.100.80', 12010, 0, 'sendrecv'),
+});
+my ($subscription_port_b) = $subscription_answer->{sdp} =~ /^m=audio (\d+)/m;
+my $subscription = rtpe_req('subscribe request', 'subscription before rollback', {
+	'from-tag' => ft(),
+});
+my ($subscription_port_sink) = $subscription->{sdp} =~ /^m=audio (\d+)/m;
+ok($subscription_port_a && $subscription_port_b && $subscription_port_sink,
+	'subscription relay ports captured');
+rtpe_req('subscribe answer', 'subscription before rollback answer', {
+	'from-tag' => $subscription->{'from-tag'},
+	'to-tag' => $subscription->{'to-tag'},
+	sdp => sdp('198.51.100.80', 12020, 0, 'recvonly'),
+});
+snd($subscription_a, $subscription_port_b,
+	rtp(0, 5000, 8000, 0x7890, "\x55" x 160));
+rcv($subscription_b, $subscription_port_a,
+	rtpm(0, 5000, 8000, 0x7890, "\x55" x 160));
+rcv($subscription_sink, $subscription_port_sink,
+	rtpm(0, 5000, 8000, 0x7890, "\x55" x 160));
+my $subscription_committed = rtpe_req('query', 'subscription committed state', {});
+my $subscription_pending = rtpe_req('offer', 'subscription rejected renegotiation', {
+	'from-tag' => ft(), 'to-tag' => tt(),
+	sdp => sdp('198.51.100.81', 12030, 8, 'sendonly'),
+});
+my $subscription_rollback = rollback($subscription_pending->{generation});
+is($subscription_rollback->{'rolled-back'}, 1,
+	'subscription call rolls back rejected renegotiation');
+my $subscription_restored = rtpe_req('query', 'subscription restored state', {});
+# Do not compare the complete query: restoring the committed remote endpoint is
+# itself an endpoint change and therefore triggers call_stream_crypto_reset(),
+# which intentionally resets the SSRC's ext_seq along with the crypto context.
+for my $tag (keys %{$subscription_committed->{tags}}) {
+	is_deeply($subscription_restored->{tags}{$tag}{subscriptions},
+		$subscription_committed->{tags}{$tag}{subscriptions},
+		"rollback preserves subscriptions for $tag");
+	is_deeply($subscription_restored->{tags}{$tag}{subscribers},
+		$subscription_committed->{tags}{$tag}{subscribers},
+		"rollback preserves subscribers for $tag");
+}
+is_deeply($subscription_restored->{tags}{ft()}{medias}[0]{streams}[0]{endpoint},
+	$subscription_committed->{tags}{ft()}{medias}[0]{streams}[0]{endpoint},
+	'active subscription resolves to the restored source endpoint');
+snd($subscription_a, $subscription_port_b,
+	rtp(0, 5001, 8160, 0x7890, "\x66" x 160));
+rcv($subscription_b, $subscription_port_a,
+	rtpm(0, 5001, 8160, 0x7890, "\x66" x 160));
+rcv($subscription_sink, $subscription_port_sink,
+	rtpm(0, 5001, 8160, 0x7890, "\x66" x 160));
 
 new_call;
 rtpe_req('offer', 'untracked offer', {
@@ -181,6 +294,40 @@ snd($secure_sock, $secure_port, $stun_packet);
 rcv($secure_sock, -1, qr/^\x01\x01\x00.\x21\x12\xa4\x42/s);
 pass('restored ICE credentials authenticate a connectivity check');
 rollback(2, 'rollback-branch');
+
+my ($dtls_sock) = new_call([qw(198.51.100.55 9500)]);
+$rollback_dtls_mux = IO::Multiplex->new();
+$rollback_dtls_mux->set_callback_object(__PACKAGE__);
+$rollback_dtls = NGCP::Rtpclient::DTLS::Group->new($rollback_dtls_mux,
+	$rollback_dtls_output, [[$dtls_sock]]);
+my $original_fingerprint = $rollback_dtls->[0]->fingerprint();
+my $original_dtls_offer = dtls_sdp('198.51.100.55', 9500, $original_fingerprint,
+	'rollback-original', 'passive');
+rtpe_req('offer', 'tracked DTLS offer', {
+	'from-tag' => ft(), flags => ['track-state'], SDES => 'off',
+	sdp => $original_dtls_offer,
+});
+my $dtls_answer = rtpe_req('answer', 'tracked DTLS answer', {
+	'from-tag' => ft(), 'to-tag' => tt(), SDES => 'off',
+	sdp => dtls_sdp('198.51.100.56', 9510, join(':', ('BB') x 32),
+		'rollback-answer', 'active'),
+});
+my ($restored_dtls_port) = $dtls_answer->{sdp} =~ /^m=audio (\d+)/m;
+ok($restored_dtls_port, 'committed DTLS relay port captured');
+rtpe_req('offer', 'DTLS fingerprint and role change later rejected', {
+	'from-tag' => ft(), 'to-tag' => tt(), SDES => 'off',
+	sdp => dtls_sdp('198.51.100.55', 9500, join(':', ('AA') x 32),
+		'rollback-rejected', 'active'),
+});
+my $dtls_rollback = rollback(2);
+is($dtls_rollback->{'rolled-back'}, 1, 'DTLS configuration rolls back');
+$rollback_dtls_mux->add($dtls_sock);
+@rollback_dtls_components = ([$dtls_sock, $restored_dtls_port]);
+$rollback_dtls->accept();
+$rollback_dtls_mux->loop();
+rtpe_req('delete', 'delete DTLS rollback call', {
+	'from-tag' => ft(), 'to-tag' => tt(),
+});
 
 new_call;
 my $fork_from = ft();
@@ -246,6 +393,11 @@ for my $iteration (1 .. 10) {
 	my $rolled_back = rollback($generation->{generation});
 	is($rolled_back->{'rolled-back'}, 1, "stress rollback $iteration consumes checkpoint");
 }
+my $pending_delete = rtpe_req('offer', 'leave checkpoint pending for delete', {
+	'from-tag' => ft(), 'to-tag' => tt(),
+	sdp => sdp('198.51.100.73', 11100, 8, 'sendonly'),
+});
+is($pending_delete->{generation}, 2, 'delete test leaves generation 2 pending');
 rtpe_req('delete', 'delete call after repeated rollbacks', {
 	'from-tag' => ft(), 'to-tag' => tt(),
 });

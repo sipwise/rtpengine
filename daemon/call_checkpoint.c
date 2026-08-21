@@ -1130,7 +1130,10 @@ int call_checkpoint_rollback(call_t *call, struct call_monologue *a, struct call
 	update_init_monologue_subscribers(cp->answerer, OP_ANSWER);
 	for (struct checkpoint_media *media = cp->medias; media; media = media->next)
 		for (struct checkpoint_stream *stream = media->streams; stream; stream = stream->next)
+		{
 			checkpoint_restore_stream(stream);
+			__init_stream(stream->stream);
+		}
 	checkpoint_clear_snapshot(cp);
 	call->last_signal_us = rtpe_now;
 	return 1;

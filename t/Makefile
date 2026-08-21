@@ -369,6 +369,7 @@ test-stats:	test-stats.o \
 	$(COMMONOBJS) \
 	../daemon/arena.o \
 	../daemon/audio_player.o \
+	../daemon/call_checkpoint.o \
 	../daemon/call_flags.strhash.o \
 	../daemon/call_interfaces.o \
 	../daemon/call.o \
@@ -431,6 +432,7 @@ test-transcode:	test-transcode.o \
 	$(COMMONOBJS) \
 	../daemon/arena.o \
 	../daemon/audio_player.o \
+	../daemon/call_checkpoint.o \
 	../daemon/call_flags.strhash.o \
 	../daemon/call_interfaces.o \
 	../daemon/call.o \
