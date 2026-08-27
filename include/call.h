@@ -66,7 +66,7 @@ enum message_type {
 		 || (opmode == OP_UNSUBSCRIBE || opmode == OP_START_RECORDING)                   \
 		 || (opmode == OP_STOP_RECORDING || opmode == OP_PAUSE_RECORDING)                \
 		 || (opmode == OP_INJECT_START || opmode == OP_INJECT_STOP)                      \
-		 || (opmode == OP_OTHER))
+		 || (opmode == OP_ROLLBACK || opmode == OP_OTHER))
 
 #define IS_OP_DIRECTIONAL(opmode)                                                                \
 		 ((opmode == OP_BLOCK_DTMF || opmode == OP_BLOCK_MEDIA)                          \
@@ -821,6 +821,7 @@ struct call {
 	atomic64		call_flags;
 	unsigned int		update_iter;
 	unsigned int media_rec_slots;
+	struct call_checkpoint *checkpoints;
 };
 
 
@@ -961,6 +962,20 @@ void call_media_unkernelize(struct call_media *media, const char *reason);
 void __monologue_unconfirm(struct call_monologue *monologue, const char *);
 void __media_unconfirm(struct call_media *media, const char *);
 __attribute__((nonnull(1)))
+/* one dialogue's state from before an offer, held as a call record snapshot */
+struct call_checkpoint {
+	struct call_checkpoint *next;
+	struct call_monologue *offerer;
+	struct call_monologue *answerer;
+	bool pending;
+	str snapshot;
+};
+
+void call_checkpoint_offer(call_t *, struct call_monologue *, struct call_monologue *, bool);
+void call_checkpoint_answer(call_t *, struct call_monologue *, struct call_monologue *);
+int call_checkpoint_rollback(call_t *, struct call_monologue *, struct call_monologue *);
+void call_checkpoint_free_all(call_t *);
+
 void update_init_monologue_subscribers(struct call_monologue *ml, enum ng_opmode opmode);
 
 int call_stream_address(GString *, struct packet_stream *ps, enum stream_address_format format,
@@ -971,6 +986,7 @@ enum thread_looper_action call_timer(void);
 
 void __rtp_stats_update(rtp_stats_ht dst, struct codec_store *);
 bool __init_stream(struct packet_stream *ps);
+void call_media_stop(struct call_media *);
 
 const rtp_payload_type *__rtp_stats_codec(struct call_media *m);
 

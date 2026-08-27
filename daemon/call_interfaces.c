@@ -652,10 +652,18 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char *addr)
 		t_hash_table_insert(call->endpoints, memory_arena_objdup(streams.head->data->rtp_endpoint),
 				from_ml);
 
+	if (flags.opmode == OP_OFFER) {
+		// opened before SDP processing, to capture the pre-offer state. left
+		// pending if the offer is rejected: it's still the committed state
+		call_checkpoint_offer(call, from_ml, to_ml, flags.track_state);
+	}
+
 	struct recording *recording = NULL;
 
 	/* offer/answer model processing */
 	if ((ret = monologue_offer_answer(monologues, &streams, &flags)) == 0) {
+		if (flags.opmode == OP_ANSWER)
+			call_checkpoint_answer(call, from_ml, to_ml);
 		update_metadata_monologue(from_ml, &flags);
 		detect_setup_recording(call, &flags);
 
@@ -681,6 +689,10 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char *addr)
 		/* place return output SDP */
 		ctx->ngbuf->sdp_out = sdp_out.s;
 		ctx->parser_ctx.parser->dict_add_str(output, "sdp", &sdp_out);
+		if (flags.supports_rollback) {
+			parser_arg supported = parser->dict_add_list(output, "supported");
+			parser->list_add_string(supported, "rollback");
+		}
 
 		meta_write_sdp_after(recording, &sdp_out, from_ml, flags.opmode);
 
@@ -732,6 +744,58 @@ const char *call_offer_ng(ng_command_ctx_t *ctx,
 
 const char *call_answer_ng(ng_command_ctx_t *ctx) {
 	return call_offer_answer_ng(ctx, NULL);
+}
+
+static bool monologue_has_tag(const struct call_monologue *ml, const str *tag) {
+	if (!str_cmp_str(&ml->tag, tag))
+		return true;
+	for (__auto_type l = ml->tag_aliases.head; l; l = l->next) {
+		if (!str_cmp_str(l->data, tag))
+			return true;
+	}
+	return false;
+}
+
+const char *call_rollback_ng(ng_command_ctx_t *ctx) {
+	const ng_parser_t *parser = ctx->parser_ctx.parser;
+	str call_id = parser->dict_get_str(ctx->req, "call-id");
+	str from_tag = parser->dict_get_str(ctx->req, "from-tag");
+	str to_tag = parser->dict_get_str(ctx->req, "to-tag");
+	str via_branch = parser->dict_get_str(ctx->req, "via-branch");
+
+	if (!call_id.len)
+		return "No call-id in message";
+	if (!from_tag.len)
+		return "No from-tag in message";
+	if (!to_tag.len)
+		return "No to-tag in message";
+
+	call_t *call = call_get(&call_id);
+	if (!call)
+		return "Unknown call-id";
+
+	struct call_monologue *from_ml = call_get_monologue(call, &from_tag);
+	struct call_monologue *to_ml = via_branch.len
+		? t_hash_table_lookup(call->viabranches, &via_branch)
+		: call_get_monologue(call, &to_tag);
+	if (!from_ml || !to_ml || from_ml == to_ml
+			|| !monologue_has_tag(from_ml, &from_tag)
+			|| !monologue_has_tag(to_ml, &to_tag)
+			|| !g_hash_table_contains(from_ml->associated_tags, to_ml))
+	{
+		rwlock_unlock_w(&call->master_lock);
+		obj_put(call);
+		return "Unknown dialogue";
+	}
+	if (rtpe_config.active_switchover && IS_FOREIGN_CALL(call))
+		call_make_own_foreign(call, false);
+
+	int rolled_back = call_checkpoint_rollback(call, from_ml, to_ml);
+	parser->dict_add_int(ctx->resp, "rolled-back", rolled_back);
+	rwlock_unlock_w(&call->master_lock);
+	redis_update_onekey(call, rtpe_redis_write);
+	obj_put(call);
+	return NULL;
 }
 
 const char *call_delete_ng(ng_command_ctx_t *ctx) {

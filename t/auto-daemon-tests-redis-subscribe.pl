@@ -159,16 +159,28 @@ my $json_exp;
 $NGCP::Rtpengine::req_cb = sub {
 	redis_io($redis_fd, "*1\r\n\$4\r\nPING\r\n", "+PONG\r\n", "req PING");
 	redis_i($redis_fd, "*5\r\n\$3\r\nSET\r\n\$" . length(cid()) . "\r\n" . cid() . "\r\n\$", "req intro");
-	# dumbly expect 4-digit number as length
-	my $buf;
+	# the length is however many digits it takes, and a record large enough to
+	# need more than one read is normal
+	my $buf = '';
 	alarm(1);
-	recv($redis_fd, $buf, 6, 0) or die;
+	while ($buf !~ /\r\n\z/) {
+		my $c;
+		defined(recv($redis_fd, $c, 1, 0)) or die;
+		$buf .= $c;
+	}
 	alarm(0);
-	is(substr($buf, 4, 2), "\r\n", "4-digit number");
+	ok($buf =~ /^\d+\r\n\z/, "record length");
 	my $len = int($buf);
-	alarm(1);
-	recv($redis_fd, $buf, $len, 0) or die;
+	my $rec = '';
+	alarm(5);
+	while (length($rec) < $len) {
+		my $chunk;
+		defined(recv($redis_fd, $chunk, $len - length($rec), 0)) or die;
+		length($chunk) or die "short read from redis socket";
+		$rec .= $chunk;
+	}
 	alarm(0);
+	$buf = $rec;
 	my $json = Bencode::bdecode($buf, 1);
 	#print Dumper($json);
 	Test2::Tools::Compare::like($json, $json_exp, "JSON");

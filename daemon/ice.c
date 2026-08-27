@@ -53,6 +53,7 @@ static void __agent_schedule(struct ice_agent *ag, int64_t);
 static void __agent_schedule_abs(struct ice_agent *ag, int64_t tv);
 static void __agent_deschedule(struct ice_agent *ag);
 static void __ice_agent_free_components(struct ice_agent *ag);
+static void __ice_pairings(struct ice_agent *ag);
 static void __agent_shutdown(struct ice_agent *ag);
 static void ice_agents_timer_run(void *);
 
@@ -358,7 +359,7 @@ TYPED_GHASHTABLE_IMPL(foundation_ht, __found_hash, __found_equal, NULL, NULL)
 TYPED_GHASHTABLE_IMPL(priority_ht, g_direct_hash, g_direct_equal, NULL, NULL)
 TYPED_GHASHTABLE_IMPL(transaction_ht, __trans_hash, __trans_equal, NULL, NULL)
 
-static void __ice_agent_initialize(struct ice_agent *ag) {
+static void __ice_agent_initialize(struct ice_agent *ag, bool generate_credentials) {
 	struct call_media *media = ag->media;
 	call_t *call = ag->call;
 
@@ -377,8 +378,10 @@ static void __ice_agent_initialize(struct ice_agent *ag) {
 	ag->succeeded_pairs = g_tree_new(__pair_prio_cmp);
 	ag->all_pairs = g_tree_new(__pair_prio_cmp);
 
-	create_random_ice_string(call, &ag->ufrag[1], 8);
-	create_random_ice_string(call, &ag->pwd[1], 26);
+	if (generate_credentials) {
+		create_random_ice_string(call, &ag->ufrag[1], 8);
+		create_random_ice_string(call, &ag->pwd[1], 26);
+	}
 
 	atomic64_set_na(&ag->last_activity, rtpe_now);
 }
@@ -394,7 +397,7 @@ static struct ice_agent *__ice_agent_new(struct call_media *media) {
 	ag->media = media;
 	mutex_init(&ag->lock);
 
-	__ice_agent_initialize(ag);
+	__ice_agent_initialize(ag, true);
 
 	return ag;
 }
@@ -416,14 +419,40 @@ static unsigned int __copy_cand(call_t *call, struct ice_candidate *dst, const s
 	return eq ? 0 : 1;
 }
 
-static void __ice_reset(struct ice_agent *ag) {
+// generate_credentials = new local credentials; not wanted for a rollback,
+// which installs the ones the committed exchange agreed
+static void __ice_reset(struct ice_agent *ag, bool generate_credentials) {
 	__agent_deschedule(ag);
 	AGENT_CLEAR3(ag, COMPLETED, NOMINATING, USABLE);
 	__ice_agent_free_components(ag);
 	ZERO(ag->active_components);
 	ag->start_nominating = 0;
 	ag->tt_obj.last_run = 0;
-	__ice_agent_initialize(ag);
+	__ice_agent_initialize(ag, generate_credentials);
+}
+
+/* called with the call lock held in W, hence agent doesn't need to be locked */
+void ice_rollback(struct ice_agent *ag, const str ufrag[2], const str pwd[2],
+		const candidate_q *candidates)
+{
+	if (!ag)
+		return;
+
+	__ice_reset(ag, false);
+	memcpy(ag->ufrag, ufrag, sizeof(ag->ufrag));
+	memcpy(ag->pwd, pwd, sizeof(ag->pwd));
+
+	for (__auto_type l = candidates->head; l; l = l->next) {
+		struct ice_candidate *copy = g_new(__typeof(*copy), 1);
+		*copy = *(struct ice_candidate *) l->data;
+		t_hash_table_insert(ag->candidate_hash, copy, copy);
+		t_hash_table_insert(ag->cand_prio_hash, GUINT_TO_POINTER(copy->priority), copy);
+		t_hash_table_insert(ag->foundation_hash, copy, copy);
+		t_queue_push_tail(&ag->remote_candidates, copy);
+		ag->active_components = MAX(ag->active_components, copy->component_id);
+	}
+	__ice_pairings(ag);
+	ice_start(ag);
 }
 
 /* if the other side did a restart */
@@ -434,7 +463,7 @@ static void __ice_restart(struct ice_agent *ag) {
 	ag->pwd[0] = STR_NULL;
 	ag->ufrag[1] = STR_NULL;
 	ag->pwd[1] = STR_NULL;
-	__ice_reset(ag);
+	__ice_reset(ag, true);
 }
 
 /* if we're doing a restart */
@@ -443,7 +472,7 @@ void ice_restart(struct ice_agent *ag) {
 
 	ag->ufrag[1] = STR_NULL;
 	ag->pwd[1] = STR_NULL;
-	__ice_reset(ag);
+	__ice_reset(ag, true);
 }
 
 /* called with the call lock held in W, hence agent doesn't need to be locked */
