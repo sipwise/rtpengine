@@ -80,7 +80,7 @@ struct redis_list {
 	void **ptrs;
 };
 
-str redis_snapshot_encode(call_t *);
+str redis_snapshot_encode(call_t *, struct call_monologue *, struct call_monologue *);
 void redis_snapshot_free(str *);
 bool redis_snapshot_apply(call_t *, const str *, struct call_monologue *, struct call_monologue *);
 

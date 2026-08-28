@@ -778,8 +778,9 @@ const char *call_rollback_ng(ng_command_ctx_t *ctx) {
 	struct call_monologue *to_ml = via_branch.len
 		? t_hash_table_lookup(call->viabranches, &via_branch)
 		: call_get_monologue(call, &to_tag);
+	// call_get_monologue() is keyed on the tag, so from_ml carries it by
+	// construction. to_ml may have come from the viabranch table instead.
 	if (!from_ml || !to_ml || from_ml == to_ml
-			|| !monologue_has_tag(from_ml, &from_tag)
 			|| !monologue_has_tag(to_ml, &to_tag)
 			|| !g_hash_table_contains(from_ml->associated_tags, to_ml))
 	{

@@ -2696,8 +2696,15 @@ static void json_update_detected_endpoints(const ng_parser_t *parser, parser_arg
  */
 
 
-// for_snapshot = also write the state only a rollback reads
-static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free, bool for_snapshot) {
+// scope = write only these monologues' state, plus the state only a rollback
+// reads. NULL writes the whole call, which is what the Redis record wants.
+static bool ml_in_scope(struct call_monologue * const *scope, const struct call_monologue *ml) {
+	return !scope || ml == scope[0] || ml == scope[1];
+}
+
+static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free,
+		struct call_monologue * const *scope)
+{
 
 	char tmp[128];
 	const ng_parser_t *parser = ctx->parser;
@@ -2724,7 +2731,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free, bo
 			JSON_SET_SIMPLE("block_dtmf","%i", c->block_dtmf);
 			JSON_SET_SIMPLE("call_flags", "%" PRIu64, atomic64_get_na(&c->call_flags));
 			unsigned int num_checkpoints = 0;
-			if (!for_snapshot) {
+			if (!scope) {
 				for (const struct call_checkpoint *cp = c->checkpoints; cp; cp = cp->next)
 					num_checkpoints++;
 				if (num_checkpoints)
@@ -2745,7 +2752,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free, bo
 				JSON_SET_SIMPLE_STR("recording_random_tag", &c->recording_random_tag);
 		}
 
-		if (!for_snapshot) {
+		if (!scope) {
 			unsigned int ci = 0;
 			for (const struct call_checkpoint *cp = c->checkpoints; cp; cp = cp->next, ci++) {
 				snprintf(tmp, sizeof(tmp), "checkpoint-%u", ci);
@@ -2764,7 +2771,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free, bo
 			}
 		}
 
-		for (__auto_type l = c->stream_fds.head; l; l = l->next) {
+		for (__auto_type l = scope ? NULL : c->stream_fds.head; l; l = l->next) {
 			stream_fd *sfd = l->data;
 
 			snprintf(tmp, sizeof(tmp), "sfd-%u", sfd->unique_id);
@@ -2786,6 +2793,9 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free, bo
 		for (__auto_type l = c->streams.head; l; l = l->next) {
 			struct packet_stream *ps = l->data;
 
+			if (!ps->media || !ml_in_scope(scope, ps->media->monologue))
+				continue;
+
 			LOCK(&ps->lock);
 
 			snprintf(tmp, sizeof(tmp), "stream-%u", ps->unique_id);
@@ -2799,7 +2809,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free, bo
 				JSON_SET_SIMPLE("component","%u",ps->component);
 				JSON_SET_SIMPLE_CSTR("endpoint",endpoint_print_buf(&ps->endpoint));
 				JSON_SET_SIMPLE_CSTR("advertised_endpoint",endpoint_print_buf(&ps->advertised_endpoint));
-				if (for_snapshot) {
+				if (scope) {
 					JSON_SET_SIMPLE_CSTR("learned_endpoint",
 							ps->learned_endpoint.address.family
 							? endpoint_print_buf(&ps->learned_endpoint) : "");
@@ -2824,25 +2834,32 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free, bo
 				JSON_ADD_LIST_STRING("%u", sfd->unique_id);
 			}
 
-			snprintf(tmp, sizeof(tmp), "rtp_sinks-%u", ps->unique_id);
-			inner = parser->dict_add_list_dup(root, tmp);
-			for (__auto_type k = ps->rtp_sinks.head; k; k = k->next) {
-				struct sink_handler *sh = k->data;
-				struct packet_stream *sink = sh->sink;
-				JSON_ADD_LIST_STRING("%u", sink->unique_id);
+			if (!scope) {
+				snprintf(tmp, sizeof(tmp), "rtp_sinks-%u", ps->unique_id);
+				inner = parser->dict_add_list_dup(root, tmp);
+				for (__auto_type k = ps->rtp_sinks.head; k; k = k->next) {
+					struct sink_handler *sh = k->data;
+					struct packet_stream *sink = sh->sink;
+					JSON_ADD_LIST_STRING("%u", sink->unique_id);
+				}
 			}
 
-			snprintf(tmp, sizeof(tmp), "rtcp_sinks-%u", ps->unique_id);
-			inner = parser->dict_add_list_dup(root, tmp);
-			for (__auto_type k = ps->rtcp_sinks.head; k; k = k->next) {
-				struct sink_handler *sh = k->data;
-				struct packet_stream *sink = sh->sink;
-				JSON_ADD_LIST_STRING("%u", sink->unique_id);
+			if (!scope) {
+				snprintf(tmp, sizeof(tmp), "rtcp_sinks-%u", ps->unique_id);
+				inner = parser->dict_add_list_dup(root, tmp);
+				for (__auto_type k = ps->rtcp_sinks.head; k; k = k->next) {
+					struct sink_handler *sh = k->data;
+					struct packet_stream *sink = sh->sink;
+					JSON_ADD_LIST_STRING("%u", sink->unique_id);
+				}
 			}
 		} // --- for streams.head
 
 		for (__auto_type l = c->monologues.head; l; l = l->next) {
 			struct call_monologue *ml = l->data;
+
+			if (!ml_in_scope(scope, ml))
+				continue;
 
 			snprintf(tmp, sizeof(tmp), "tag-%u", ml->unique_id);
 			inner = parser->dict_add_dict_dup(root, tmp);
@@ -2906,19 +2923,23 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free, bo
 			}
 
 			GList *k = g_hash_table_get_values(ml->associated_tags);
-			snprintf(tmp, sizeof(tmp), "associated_tags-%u", ml->unique_id);
-			inner = parser->dict_add_list_dup(root, tmp);
-			for (GList *m = k; m; m = m->next) {
-				struct call_monologue *ml2 = m->data;
-				JSON_ADD_LIST_STRING("%u", ml2->unique_id);
+			if (!scope) {
+				snprintf(tmp, sizeof(tmp), "associated_tags-%u", ml->unique_id);
+				inner = parser->dict_add_list_dup(root, tmp);
+				for (GList *m = k; m; m = m->next) {
+					struct call_monologue *ml2 = m->data;
+					JSON_ADD_LIST_STRING("%u", ml2->unique_id);
+				}
 			}
 
 			g_list_free(k);
 
-			snprintf(tmp, sizeof(tmp), "tag_aliases-%u", ml->unique_id);
-			inner = parser->dict_add_list_dup(root, tmp);
-			for (__auto_type alias = ml->tag_aliases.head; alias; alias = alias->next)
-				JSON_ADD_LIST_STRING(STR_FORMAT, STR_FMT(alias->data));
+			if (!scope) {
+				snprintf(tmp, sizeof(tmp), "tag_aliases-%u", ml->unique_id);
+				inner = parser->dict_add_list_dup(root, tmp);
+				for (__auto_type alias = ml->tag_aliases.head; alias; alias = alias->next)
+					JSON_ADD_LIST_STRING(STR_FORMAT, STR_FMT(alias->data));
+			}
 
 			snprintf(tmp, sizeof(tmp), "medias-%u", ml->unique_id);
 			inner = parser->dict_add_list_dup(root, tmp);
@@ -2931,20 +2952,22 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free, bo
 		for (__auto_type l = c->medias.head; l; l = l->next) {
 			struct call_media *media = l->data;
 
-			if (!media)
+			if (!media || !ml_in_scope(scope, media->monologue))
 				continue;
 
-			/* store media subscriptions */
-			snprintf(tmp, sizeof(tmp), "media-subscriptions-%u", media->unique_id);
-			inner = parser->dict_add_list_dup(root, tmp);
+			if (!scope) {
+				/* store media subscriptions */
+				snprintf(tmp, sizeof(tmp), "media-subscriptions-%u", media->unique_id);
+				inner = parser->dict_add_list_dup(root, tmp);
 
-			IQUEUE_FOREACH(&media->media_subscriptions, ms) {
-				JSON_ADD_LIST_STRING("%u/%u/%u/%u/%u",
-						ms->media->unique_id,
-						ms->attrs.offer_answer,
-						ms->attrs.rtcp_only,
-						ms->attrs.egress,
-						ms->attrs.inject);
+				IQUEUE_FOREACH(&media->media_subscriptions, ms) {
+					JSON_ADD_LIST_STRING("%u/%u/%u/%u/%u",
+							ms->media->unique_id,
+							ms->attrs.offer_answer,
+							ms->attrs.rtcp_only,
+							ms->attrs.egress,
+							ms->attrs.inject);
+				}
 			}
 
 			snprintf(tmp, sizeof(tmp), "media-%u", media->unique_id);
@@ -2977,7 +3000,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free, bo
 				if (media->sdp_media_bandwidth.tias >= 0)
 					JSON_SET_SIMPLE("bandwidth_tias","%ld", media->sdp_media_bandwidth.tias);
 
-				if (for_snapshot) {
+				if (scope) {
 					if (media->tls_id.s)
 						JSON_SET_SIMPLE_STR("tls_id", &media->tls_id);
 					if (media->fp_hash_func)
@@ -3005,7 +3028,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free, bo
 				redis_encode_dtls_fingerprint(parser, inner, &media->fingerprint);
 			}
 
-			if (for_snapshot) {
+			if (scope) {
 				unsigned int ci = 0;
 				for (__auto_type m = media->ice_candidates.head; m; m = m->next, ci++) {
 					const struct ice_candidate *cand = m->data;
@@ -3027,25 +3050,29 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free, bo
 				}
 			}
 
-			snprintf(tmp, sizeof(tmp), "streams-%u", media->unique_id);
-			inner = parser->dict_add_list_dup(root, tmp);
-			for (__auto_type m = media->streams.head; m; m = m->next) {
-				struct packet_stream *ps = m->data;
-				JSON_ADD_LIST_STRING("%u", ps->unique_id);
+			if (!scope) {
+				snprintf(tmp, sizeof(tmp), "streams-%u", media->unique_id);
+				inner = parser->dict_add_list_dup(root, tmp);
+				for (__auto_type m = media->streams.head; m; m = m->next) {
+					struct packet_stream *ps = m->data;
+					JSON_ADD_LIST_STRING("%u", ps->unique_id);
+				}
 			}
 
-			snprintf(tmp, sizeof(tmp), "maps-%u", media->unique_id);
-			inner = parser->dict_add_list_dup(root, tmp);
-			for (__auto_type m = media->endpoint_maps.head; m; m = m->next) {
-				struct endpoint_map *ep = m->data;
-				JSON_ADD_LIST_STRING("%u", ep->unique_id);
+			if (!scope) {
+				snprintf(tmp, sizeof(tmp), "maps-%u", media->unique_id);
+				inner = parser->dict_add_list_dup(root, tmp);
+				for (__auto_type m = media->endpoint_maps.head; m; m = m->next) {
+					struct endpoint_map *ep = m->data;
+					JSON_ADD_LIST_STRING("%u", ep->unique_id);
+				}
 			}
 
 			snprintf(tmp, sizeof(tmp), "payload_types-%u", media->unique_id);
 			inner = parser->dict_add_list_dup(root, tmp);
 			redis_encode_codec_store(parser, inner, &media->codecs);
 
-			if (for_snapshot) {
+			if (scope) {
 				snprintf(tmp, sizeof(tmp), "offered_payload_types-%u", media->unique_id);
 				inner = parser->dict_add_list_dup(root, tmp);
 				redis_encode_codec_store(parser, inner, &media->offered_codecs);
@@ -3072,7 +3099,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free, bo
 			}
 		} // --- for medias.head
 
-		for (__auto_type l = c->endpoint_maps.head; l; l = l->next) {
+		for (__auto_type l = scope ? NULL : c->endpoint_maps.head; l; l = l->next) {
 			struct endpoint_map *ep = l->data;
 
 			snprintf(tmp, sizeof(tmp), "map-%u", ep->unique_id);
@@ -3105,14 +3132,15 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free, bo
 }
 
 
-str redis_snapshot_encode(call_t *c) {
+str redis_snapshot_encode(call_t *c, struct call_monologue *a, struct call_monologue *b) {
+	struct call_monologue *scope[2] = { a, b };
 	ng_parser_ctx_t ctx;
 	bencode_buffer_t bbuf;
 	// never leaves the daemon, so the format is ours to pick
 	ng_parser_native.init(&ctx, &bbuf);
 
 	void *to_free = NULL;
-	str encoded = redis_encode_json(&ctx, c, &to_free, true);
+	str encoded = redis_encode_json(&ctx, c, &to_free, scope);
 	str out = STR_NULL;
 	if (encoded.len)
 		out = str_dup_str(&encoded);
@@ -3532,7 +3560,7 @@ void redis_update_onekey(call_t *c, struct redis *r) {
 	redis_format_parsers[rtpe_config.redis_format]->init(&ctx, &bbuf);
 
 	void *to_free = NULL;
-	str result = redis_encode_json(&ctx, c, &to_free, false);
+	str result = redis_encode_json(&ctx, c, &to_free, NULL);
 	if (!result.len)
 		goto err;
 

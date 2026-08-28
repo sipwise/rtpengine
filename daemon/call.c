@@ -6904,7 +6904,7 @@ void call_checkpoint_offer(call_t *call, struct call_monologue *offerer,
 	checkpoint_clear_snapshot(cp);
 	cp->offerer = offerer;
 	cp->answerer = answerer;
-	cp->snapshot = redis_snapshot_encode(call);
+	cp->snapshot = redis_snapshot_encode(call, offerer, answerer);
 	cp->pending = true;
 }
 
