@@ -1259,6 +1259,8 @@ static int redis_hash_get_endpoint(struct endpoint *out, const struct redis_hash
 
 	return 0;
 }
+define_get_type_format(endpoint, struct endpoint);
+
 static int redis_hash_get_stats(struct stream_stats *out, const struct redis_hash *h, const char *k) {
 	if (redis_hash_get_a64_f(&out->packets, h, "%s-packets", k))
 		return -1;
@@ -2154,9 +2156,7 @@ static int redis_restore_checkpoints(call_t *c, const struct redis_hash *call,
 
 	for (int64_t i = 0; i < num; i++) {
 		struct redis_hash rh;
-		char key[64];
-		snprintf(key, sizeof(key), "checkpoint-%lld", (long long) i);
-		if (json_get_hash(&rh, key, -1, root))
+		if (json_get_hash(&rh, "checkpoint", (unsigned int) i, root))
 			return -1;
 
 		int64_t offerer = -1, answerer = -1, pending = 0;
@@ -3108,7 +3108,8 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free, bo
 str redis_snapshot_encode(call_t *c) {
 	ng_parser_ctx_t ctx;
 	bencode_buffer_t bbuf;
-	redis_format_parsers[rtpe_config.redis_format]->init(&ctx, &bbuf);
+	// never leaves the daemon, so the format is ours to pick
+	ng_parser_native.init(&ctx, &bbuf);
 
 	void *to_free = NULL;
 	str encoded = redis_encode_json(&ctx, c, &to_free, true);
@@ -3209,10 +3210,10 @@ static void snapshot_apply_stream(call_t *c, struct packet_stream *ps,
 		redis_hash_get_endpoint(&ps->last_local_endpoint, rh, "last_local_endpoint");
 
 	for (unsigned int i = 0; i < G_N_ELEMENTS(ps->detected_endpoints); i++) {
-		char key[32];
-		snprintf(key, sizeof(key), "detected_endpoint-%u", i);
-		if (!redis_hash_get_str(&s, rh, key) && s.len)
-			redis_hash_get_endpoint(&ps->detected_endpoints[i], rh, key);
+		/* an absent endpoint is an empty string, which would parse as 0.0.0.0:0 */
+		if (!redis_hash_get_str_f(&s, rh, "detected_endpoint-%u", i) && s.len)
+			redis_hash_get_endpoint_f(&ps->detected_endpoints[i], rh,
+					"detected_endpoint-%u", i);
 		else
 			ZERO(ps->detected_endpoints[i]);
 	}
@@ -3248,8 +3249,8 @@ static void snapshot_apply_media_codecs(struct call_media *m, parser_arg root) {
 		const char *key;
 		size_t offset;
 	} stores[] = {
-		{ "payload_types-%u",         offsetof(struct call_media, codecs) },
-		{ "offered_payload_types-%u", offsetof(struct call_media, offered_codecs) },
+		{ "payload_types-%u",         G_STRUCT_OFFSET(struct call_media, codecs) },
+		{ "offered_payload_types-%u", G_STRUCT_OFFSET(struct call_media, offered_codecs) },
 	};
 
 	for (unsigned int i = 0; i < G_N_ELEMENTS(stores); i++) {
@@ -3258,7 +3259,7 @@ static void snapshot_apply_media_codecs(struct call_media *m, parser_arg root) {
 		parser_arg list = redis_parser->dict_get_expect(root, key, BENCODE_LIST);
 		if (!list.gen)
 			continue;
-		struct codec_store *cs = (void *) ((char *) m + stores[i].offset);
+		struct codec_store *cs = &G_STRUCT_MEMBER(struct codec_store, m, stores[i].offset);
 		codec_store_cleanup(cs);
 		codec_store_init(cs, m);
 		redis_decode_codec_store(redis_parser, list, cs);

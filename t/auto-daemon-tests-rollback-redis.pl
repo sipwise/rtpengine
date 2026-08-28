@@ -244,6 +244,9 @@ sub inspect_checkpoint {
 	# than shape: what it must contain is asserted by restoring from it.
 	ok(!$expected_pending || length(field($checkpoint->{snapshot}) // ''),
 		"$redis_format pending checkpoint carries a snapshot");
+	# A snapshot never leaves the daemon, so it is bencode whatever the record is.
+	ok(!$expected_pending || (field($checkpoint->{snapshot}) // '') =~ /^d/,
+		"$redis_format snapshot is bencode");
 }
 
 # What rollback restored, judged against the record rather than against `query`.
@@ -253,7 +256,20 @@ sub inspect_checkpoint {
 # carries all of it: the committed state must serialise the same before and after.
 sub durable_state {
 	my ($record) = @_;
-	my $decoded = decode_record($record);
+	return durable_fields(decode_record($record));
+}
+
+# A snapshot is a call record too, so it is filtered the same way. It is always
+# bencode, whatever the record around it is.
+sub checkpoint_snapshot {
+	my ($record) = @_;
+	my $checkpoint = decode_record($record)->{'checkpoint-0'} or return undef;
+	my $snapshot = field($checkpoint->{snapshot}) or return undef;
+	return durable_fields(Bencode::bdecode($snapshot, 1));
+}
+
+sub durable_fields {
+	my ($decoded) = @_;
 	my %out;
 	for my $key (keys %$decoded) {
 		# Checkpoint entries describe the pending exchange, not the committed
@@ -482,6 +498,54 @@ is($up_rollback->{'rolled-back'}, 1, 'upgrade rollback applied');
 is_deeply(durable_state(redis_record_after($before_up)),
 	durable_state($plain_record),
 	'rollback removes DTLS state the rejected offer introduced');
+
+# --- the snapshot-only state has to survive a rollback too ---
+#
+# ICE credentials and candidates, endpoint learning, offered codecs, tls_id, the
+# preferred hash function and the endpoint map are written into snapshots only,
+# so a record comparison cannot see them: a rollback could stop restoring any of
+# them with every assertion above still green. Comparing the snapshot taken
+# before the rejected offer against one taken after the rollback covers all of
+# them at once, because a snapshot is taken before its offer is applied and so
+# describes the state the rollback was supposed to reproduce.
+new_call;
+my ($rt_call, $rt_from, $rt_to) = (cid(), ft(), tt());
+redis_rtpe_req(1, 'offer', 'round trip: offer', {
+	'from-tag' => $rt_from, flags => ['track-state'],
+	sdp => sdp('198.51.100.98', 15030, 'roundTripUfrag', 'roundTripPassword0123456',
+		'Ai0RVBUpx3FYuJEyv1oOTQVHrfXEIQGRxWLXQBvR', 'sendrecv'),
+});
+redis_rtpe_req(0, 'answer', 'round trip: answer', {
+	'from-tag' => $rt_from, 'to-tag' => $rt_to,
+	sdp => sdp('198.51.100.99', 15040, 'roundTripAnswer', 'roundTripAnswerPwd012345',
+		'HHf1TXWnpZlfXHBw5Q3xTNTIhFvbEHIYnmSMDGqR', 'sendrecv'),
+});
+
+redis_rtpe_req(1, 'offer', 'round trip: rejected offer', {
+	'from-tag' => $rt_from, 'to-tag' => $rt_to,
+	sdp => sdp('198.51.100.100', 15050, 'roundTripReject', 'roundTripRejectPwd01234',
+		'GHi1TXWnpZlfXHBw5Q3xTNTIhFvbEHIYnmSMDGqQ', 'sendrecv'),
+});
+my $snapshot_before = checkpoint_snapshot($last_record);
+ok($snapshot_before, 'round trip: committed snapshot captured');
+
+my $rt_rollback = rtpe_req('rollback', 'round trip: rollback', {
+	'call-id' => $rt_call, 'from-tag' => $rt_from, 'to-tag' => $rt_to,
+});
+is($rt_rollback->{'rolled-back'}, 1, 'round trip: rollback applied');
+
+# The snapshot for this offer is taken before it is applied, so it describes the
+# state the rollback restored.
+redis_rtpe_req(1, 'offer', 'round trip: offer after rollback', {
+	'from-tag' => $rt_from, 'to-tag' => $rt_to,
+	sdp => sdp('198.51.100.101', 15060, 'roundTripAfter', 'roundTripAfterPwd012345',
+		'JKl1TXWnpZlfXHBw5Q3xTNTIhFvbEHIYnmSMDGqP', 'sendrecv'),
+});
+my $snapshot_after = checkpoint_snapshot($last_record);
+ok($snapshot_after, 'round trip: post-rollback snapshot captured');
+
+is_deeply($snapshot_after, $snapshot_before,
+	'rollback restores the snapshot-only state as well');
 
 NGCP::Rtpengine::AutoTest::shut_rtpe();
 done_testing;
