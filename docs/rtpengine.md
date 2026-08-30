@@ -474,7 +474,7 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
 - __\-\-kernel-slots=__*INT*
 - __\-\-kernel-num-threads=__*INT*
 
-    Enables an **experimental** kernel-based ring buffer feature to bypass some
+    Enables an __experimental__ kernel-based ring buffer feature to bypass some
     context-switching overhead, primarily useful when transcoding. Requires the
     kernel module to be active.
 
@@ -689,6 +689,68 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     number of keepalive probes that are sent before the connection is deemed
     dead. The defaults are 1 and 3 respectively.
 
+- __-T__, __\-\-tarantool=__\[*USER*:*PW*@\]*IP*:*PORT*
+
+    Connect to specified Tarantool 3.x database instance for active call media state
+    synchronization and clustering over binary IProto protocol. Unlike Redis BGSAVE snapshots,
+    Tarantool utilizes streaming Write-Ahead Logging (WAL), eliminating Linux Copy-on-Write
+    latency spikes (18 ms) and guaranteeing zero RTP audio jitter.
+
+    Requires space `rtpe_calls` (ID: 512) and secondary indexes (`by_node`, `by_expire`).
+    Ready-to-use Docker images and Lua server schema templates are available at:
+    `https://github.com/lean1ee/tarantool-voip-backend`
+
+- __\-\-tarantool-write=__\[*USER*:*PW*@\]*IP*:*PORT*
+
+    Configures a secondary or write-master Tarantool instance.
+
+- __\-\-tarantool-node-id=__*STRING*
+
+    Unique media node identifier (e.g. `rtpe-node-01`). Used for O(log N) secondary index
+    lookup and instant failover recovery when adopting call legs from a failed node.
+
+- __\-\-tarantool-space=__*STRING*|*INT*
+
+    Target in-memory space for active call records (default: `rtpe_calls` or `512`).
+
+- __\-\-tarantool-num-threads=__*INT*
+
+    Number of worker threads allocated for async Tarantool IProto communication (default: `4`).
+
+- __\-\-tarantool-expires=__*INT*
+
+    Call session expiration TTL in seconds (default: `3600`).
+
+- __\-\-no-tarantool-required__
+
+    Allow rtpengine to start even if the initial Tarantool connection cannot be established.
+
+- __\-\-tarantool-allowed-errors=__*INT*
+
+    Number of consecutive errors before temporarily disabling Tarantool connection (default: `3`).
+
+- __\-\-tarantool-disable-time=__*INT*
+
+    Number of seconds to disable Tarantool communication after error threshold (default: `10`).
+
+- __\-\-tarantool-cmd-timeout=__*INT*
+
+    Command timeout in milliseconds (default: `500`).
+
+- __\-\-tarantool-connect-timeout=__*INT*
+
+    Connection timeout in milliseconds (default: `500`).
+
+- __\-\-tarantool-resolve-on-reconnect__
+
+    Re-resolve hostnames via DNS on reconnection attempts.
+
+- __\-\-tarantool-tcp-keepalive-time=__*INT*
+- __\-\-tarantool-tcp-keepalive-intvl=__*INT*
+- __\-\-tarantool-tcp-keepalive-probes=__*INT*
+
+    Controls TCP keepalive behavior on IProto connections to Tarantool.
+
 - __-b__, __\-\-b2b-url=__*STRING*
 
     Enables and sets the URI for an XMLRPC callback to be made when a call is
@@ -880,7 +942,7 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
 
 - __\-\-record-both__
 
-    Apply media recording to **both** ingress (received) and egress (sent) media
+    Apply media recording to __both__ ingress (received) and egress (sent) media
     streams simultaneously.
 
     By default, without either __\-\-record-egress__ or __\-\-record-both__, only
@@ -1469,7 +1531,7 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
 
 - __\-\-io-uring__
 
-    Enable **experimental** support for `io_uring`. Requires Linux kernel 6.0
+    Enable __experimental__ support for `io_uring`. Requires Linux kernel 6.0
     or later.
 
     When enabled, instead of the usual polling mechanism each worker thread
@@ -1477,12 +1539,12 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     sending and receiving certain network data. In particular userspace media
     data is sent and received directly via `io_uring`.
 
-    _NOTE: As of the time of writing, worker threads sleeping in an `io_uring`
-    poll are attributed to the host system as _I/O wait_ CPU usage, with up to
-    99% CPU time spent in _I/O wait_ (depending on the number of worker
+    *NOTE: As of the time of writing, worker threads sleeping in an `io_uring`
+    poll are attributed to the host system as *I/O wait* CPU usage, with up to
+    99% CPU time spent in *I/O wait* (depending on the number of worker
     threads), but without being attributed to any process or thread. This is
     not actual CPU usage but rather indicates time spent waiting for a network
-    event, and so should be considered the same as idle CPU time._
+    event, and so should be considered the same as idle CPU time.*
 
 - __\-\-io-uring-buffers=__*INT*
 
@@ -1860,11 +1922,11 @@ remainder of the name of the config section (the part after the dash) becomes
 the default name of the interface. The name for the interface can then be
 overridden within the config section (see below).
 
-_NOTE: The names of config sections must be unique within the config file, and
+*NOTE: The names of config sections must be unique within the config file, and
 each interface config can list only a single address. To add multiple addresses
 to the same logical interface, the name of the logical interfaces must
 necessarily be explicitly set in each config section, instead of relying on the
-name extracted from the name of the config section._
+name extracted from the name of the config section.*
 
 Each config section must at least define an interface address by setting the
 __address__ option, or define an alias interface (as described above) by
@@ -2051,11 +2113,11 @@ preference of -5. The next possible codec (PCMU) doesn't have a matching config
 section and so would be considered with a preference of zero. PCMU would
 therefore win and transcoding would occur between G723 and PCMU.
 
-_NOTE: These config sections operate directionally, meaning that in the above
+*NOTE: These config sections operate directionally, meaning that in the above
 example, a config section listing `source = GSM` and `destination = G723` would
 not be considered. If a codec pair ought to receive the same preference value
 regardless of the direction, then it must be listed twice, with source and
-destination swapped._
+destination swapped.*
 
 ### __transform__ Verdict
 
