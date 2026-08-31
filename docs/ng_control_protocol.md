@@ -1889,16 +1889,16 @@ contain:
 	NG messages.
 
 The successful response contains `rolled-back`, set to `1` if a pending
-checkpoint was restored or `0` if there was no matching pending checkpoint.
-Repeating a successful rollback is therefore safe and returns `rolled-back: 0`.
+checkpoint was restored or `0` if there was none outstanding. Repeating a
+successful rollback is therefore safe and returns `rolled-back: 0`.
 
-A dialogue holds at most one outstanding checkpoint. Offers that arrive before
-an exchange completes belong to the same uncommitted exchange and keep the
-existing snapshot, so a rollback returns to the last completed offer/answer
-rather than to an intermediate one. A signalling element should not therefore
-issue a new offer for a dialogue while a rollback for it is still in flight:
-the rollback restores the last completed state and the newer offer is undone
-with it.
+Each side of a dialogue holds at most one outstanding checkpoint. Offers that
+arrive before an exchange completes belong to the same uncommitted exchange and
+keep the existing snapshot, so a rollback returns to the last completed
+offer/answer rather than to an intermediate one. A signalling element should
+not therefore issue a new offer for a dialogue while a rollback for it is still
+in flight: the rollback restores the last completed state and the newer offer is
+undone with it.
 
 Rollback restores addresses and ports, codecs and payload mappings, transport
 profile, media direction, and SDES configuration including keys. ICE
@@ -1910,6 +1910,11 @@ perform a new handshake.
 State the rejected offer introduced is removed as well as overwritten. An offer
 that upgraded a media to DTLS-SRTP, for example, leaves behind no TLS ID,
 fingerprint or SRTP context once it has been rolled back.
+
+Where a call has been forked, the offering side is shared between the branches.
+Its checkpoint is taken once, before the first uncommitted offer, so rolling
+back one branch does not disturb what rolling back another has already
+restored.
 
 Sockets and endpoint maps allocated for a rejected offer are not released by a
 rollback. The media is returned to the sockets it was using, and the surplus is

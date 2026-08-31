@@ -669,6 +669,8 @@ struct call_monologue {
 	str moh_file;
 
 	atomic64		ml_flags;
+
+	struct call_checkpoint	*checkpoint;
 };
 
 TYPED_GHASHTABLE(str_ml_ht, str, struct call_monologue, str_hash, str_equal, NULL, NULL)
@@ -821,7 +823,6 @@ struct call {
 	atomic64		call_flags;
 	unsigned int		update_iter;
 	unsigned int media_rec_slots;
-	struct call_checkpoint *checkpoints;
 };
 
 
@@ -962,11 +963,8 @@ void call_media_unkernelize(struct call_media *media, const char *reason);
 void __monologue_unconfirm(struct call_monologue *monologue, const char *);
 void __media_unconfirm(struct call_media *media, const char *);
 __attribute__((nonnull(1)))
-/* one dialogue's state from before an offer, held as a call record snapshot */
+/* one monologue's state from before an offer, held as a call record snapshot */
 struct call_checkpoint {
-	struct call_checkpoint *next;
-	struct call_monologue *offerer;
-	struct call_monologue *answerer;
 	bool pending;
 	str snapshot;
 };

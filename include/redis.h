@@ -80,9 +80,9 @@ struct redis_list {
 	void **ptrs;
 };
 
-str redis_snapshot_encode(call_t *, struct call_monologue *, struct call_monologue *);
+str redis_snapshot_encode(call_t *, struct call_monologue *);
 void redis_snapshot_free(str *);
-bool redis_snapshot_apply(call_t *, const str *, struct call_monologue *, struct call_monologue *);
+bool redis_snapshot_apply(call_t *, struct call_monologue *, struct call_monologue *);
 
 int redis_encode_sdes_params(const ng_parser_t *, parser_arg, const char *, const sdes_q *);
 void redis_encode_dtls_fingerprint(const ng_parser_t *, parser_arg,

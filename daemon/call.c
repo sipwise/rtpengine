@@ -6871,67 +6871,60 @@ void call_q_unlock_release(call_q *calls) {
 }
 
 
-static struct call_checkpoint *checkpoint_find(call_t *call, struct call_monologue *a,
-		struct call_monologue *b)
-{
-	for (struct call_checkpoint *cp = call->checkpoints; cp; cp = cp->next) {
-		if ((cp->offerer == a && cp->answerer == b) || (cp->offerer == b && cp->answerer == a))
-			return cp;
-	}
-	return NULL;
-}
-
 static void checkpoint_clear_snapshot(struct call_checkpoint *cp) {
 	redis_snapshot_free(&cp->snapshot);
 	cp->pending = false;
 }
 
-void call_checkpoint_offer(call_t *call, struct call_monologue *offerer,
-		struct call_monologue *answerer, bool enable)
-{
-	struct call_checkpoint *cp = checkpoint_find(call, offerer, answerer);
-	if (!cp && !enable)
+static void checkpoint_offer_one(call_t *call, struct call_monologue *ml, bool enable) {
+	if (!ml)
 		return;
-	if (!cp) {
-		cp = g_new0(__typeof(*cp), 1);
-		cp->next = call->checkpoints;
-		call->checkpoints = cp;
+	if (!ml->checkpoint) {
+		if (!enable)
+			return;
+		ml->checkpoint = g_new0(__typeof(*ml->checkpoint), 1);
 	}
 	// consecutive offers belong to the same uncommitted exchange: keep the
 	// committed snapshot, or a later rollback restores a rejected offer
-	if (cp->pending)
+	if (ml->checkpoint->pending)
 		return;
-	checkpoint_clear_snapshot(cp);
-	cp->offerer = offerer;
-	cp->answerer = answerer;
-	cp->snapshot = redis_snapshot_encode(call, offerer, answerer);
-	cp->pending = true;
+	checkpoint_clear_snapshot(ml->checkpoint);
+	ml->checkpoint->snapshot = redis_snapshot_encode(call, ml);
+	ml->checkpoint->pending = true;
+}
+
+void call_checkpoint_offer(call_t *call, struct call_monologue *offerer,
+		struct call_monologue *answerer, bool enable)
+{
+	checkpoint_offer_one(call, offerer, enable);
+	checkpoint_offer_one(call, answerer, enable);
+}
+
+static void checkpoint_commit_one(struct call_monologue *ml) {
+	if (ml && ml->checkpoint && ml->checkpoint->pending)
+		checkpoint_clear_snapshot(ml->checkpoint);
 }
 
 void call_checkpoint_answer(call_t *call, struct call_monologue *a, struct call_monologue *b) {
-	struct call_checkpoint *cp = checkpoint_find(call, a, b);
-	if (cp && cp->pending)
-		checkpoint_clear_snapshot(cp);
+	checkpoint_commit_one(a);
+	checkpoint_commit_one(b);
 }
 
 int call_checkpoint_rollback(call_t *call, struct call_monologue *a, struct call_monologue *b) {
-	struct call_checkpoint *cp = checkpoint_find(call, a, b);
-	if (!cp || !cp->pending)
+	if (!redis_snapshot_apply(call, a, b))
 		return 0;
 
-	if (!redis_snapshot_apply(call, &cp->snapshot, cp->offerer, cp->answerer))
-		return 0;
-
-	checkpoint_clear_snapshot(cp);
 	call->last_signal_us = rtpe_now;
 	return 1;
 }
 
 void call_checkpoint_free_all(call_t *call) {
-	while (call->checkpoints) {
-		struct call_checkpoint *cp = call->checkpoints;
-		call->checkpoints = cp->next;
-		redis_snapshot_free(&cp->snapshot);
-		g_free(cp);
+	for (__auto_type l = call->monologues.head; l; l = l->next) {
+		struct call_monologue *ml = l->data;
+		if (!ml->checkpoint)
+			continue;
+		redis_snapshot_free(&ml->checkpoint->snapshot);
+		g_free(ml->checkpoint);
+		ml->checkpoint = NULL;
 	}
 }

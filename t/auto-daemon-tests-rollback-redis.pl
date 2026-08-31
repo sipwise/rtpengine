@@ -236,8 +236,9 @@ sub inspect_checkpoint {
 	my $decoded = decode_record($record);
 	my $checkpoint = $decoded->{'checkpoint-0'};
 	ok(defined $checkpoint, "$redis_format record contains a checkpoint");
-	is(field($decoded->{json}{num_checkpoints}), 1,
-		"$redis_format record contains one dialogue checkpoint");
+	# keyed on the monologue id, so both sides of the dialogue carry one
+	ok(defined $decoded->{'checkpoint-1'},
+		"$redis_format both monologues carry a checkpoint");
 	is(field($checkpoint->{pending}) ? 1 : 0, $expected_pending,
 		"$redis_format pending state serialized");
 	# The snapshot is a nested call record, so it is checked for presence rather
@@ -284,7 +285,7 @@ sub durable_fields {
 			my %call = %{$decoded->{$key}};
 			# Wall-clock and bookkeeping that moves on its own.
 			delete @call{qw(created created_us created_ts last_signal deleted
-				ml_deleted last_redis_update num_checkpoints num_sfds num_maps)};
+				ml_deleted last_redis_update num_sfds num_maps)};
 			$out{$key} = \%call;
 			next;
 		}
@@ -306,7 +307,8 @@ sub redis_rtpe_req {
 sub assert_record_without_checkpoint {
 	my ($record) = @_;
 	my $decoded = decode_record($record);
-	is(field($decoded->{json}{num_checkpoints}) // 0, 0,
+	my @checkpoints = grep { /^checkpoint-/ } keys %$decoded;
+	is(scalar(@checkpoints), 0,
 		"$redis_format invalid checkpoint is omitted from the restored call record");
 }
 

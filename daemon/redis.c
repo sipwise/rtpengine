@@ -2147,23 +2147,17 @@ static int checkpoint_get_int(int64_t *out, const struct redis_hash *h, const ch
 	return 0;
 }
 
-static int redis_restore_checkpoints(call_t *c, const struct redis_hash *call,
-		parser_arg root)
-{
-	int64_t num = 0;
-	if (checkpoint_get_int(&num, call, "num_checkpoints"))
-		return 0;	/* written by a version that had none: not an error */
-
-	for (int64_t i = 0; i < num; i++) {
+static int redis_restore_checkpoints(call_t *c, parser_arg root) {
+	for (__auto_type l = c->monologues.head; l; l = l->next) {
+		struct call_monologue *ml = l->data;
 		struct redis_hash rh;
-		if (json_get_hash(&rh, "checkpoint", (unsigned int) i, root))
-			return -1;
+		// absent for a call written by a version that had no checkpoints
+		if (json_get_hash(&rh, "checkpoint", ml->unique_id, root))
+			continue;
 
-		int64_t offerer = -1, answerer = -1, pending = 0;
+		int64_t pending = 0;
 		str snap = STR_NULL;
-		int bad = checkpoint_get_int(&offerer, &rh, "offerer")
-			|| checkpoint_get_int(&answerer, &rh, "answerer")
-			|| checkpoint_get_int(&pending, &rh, "pending");
+		int bad = checkpoint_get_int(&pending, &rh, "pending");
 		/* the hash owns its values; copy out before it's destroyed */
 		if (!bad) {
 			str stored;
@@ -2176,30 +2170,12 @@ static int redis_restore_checkpoints(call_t *c, const struct redis_hash *call,
 			return -1;
 		}
 
-		struct call_monologue *a = NULL, *b = NULL;
-		for (__auto_type l = c->monologues.head; l; l = l->next) {
-			struct call_monologue *ml = l->data;
-			if (ml->unique_id == (unsigned int) offerer)
-				a = ml;
-			else if (ml->unique_id == (unsigned int) answerer)
-				b = ml;
-		}
-		if (!a || !b) {
-			str_free_dup(&snap);
-			return -1;
-		}
-
-
-		struct call_checkpoint *cp = g_new0(__typeof(*cp), 1);
-		cp->offerer = a;
-		cp->answerer = b;
-		cp->pending = pending && snap.len;
-		if (cp->pending)
-			cp->snapshot = snap;
+		ml->checkpoint = g_new0(__typeof(*ml->checkpoint), 1);
+		ml->checkpoint->pending = pending && snap.len;
+		if (ml->checkpoint->pending)
+			ml->checkpoint->snapshot = snap;
 		else
 			str_free_dup(&snap);
-		cp->next = c->checkpoints;
-		c->checkpoints = cp;
 	}
 	return 0;
 }
@@ -2208,6 +2184,7 @@ struct redis_parsed_record {
 	JsonParser *json;
 	bencode_buffer_t benc;
 	bool benc_valid;
+	const ng_parser_t *parser;
 };
 
 static const char *redis_parse_record(const str *record, parser_arg *root,
@@ -2225,7 +2202,7 @@ static const char *redis_parse_record(const str *record, parser_arg *root,
 		if (!json_root)
 			return "could not read JSON data";
 		root->json = json_root;
-		redis_parser = &ng_parser_json;
+		redis_parser = out->parser = &ng_parser_json;
 		return NULL;
 	}
 
@@ -2238,7 +2215,7 @@ static const char *redis_parse_record(const str *record, parser_arg *root,
 		if (!benc_root)
 			return "failed to decode bencode dictionary";
 		root->benc = benc_root;
-		redis_parser = &ng_parser_native;
+		redis_parser = out->parser = &ng_parser_native;
 		return NULL;
 	}
 
@@ -2375,7 +2352,7 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	err = "failed to link maps";
 	if (json_link_maps(c, &maps, &sfds, root))
 		goto err8;
-	if (redis_restore_checkpoints(c, &call, root)) {
+	if (redis_restore_checkpoints(c, root)) {
 		/* auxiliary state: an unreadable payload disables rollback rather than
 		 * discarding an otherwise usable call */
 		call_checkpoint_free_all(c);
@@ -2712,9 +2689,10 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free,
 	parser_arg root = parser->dict(ctx);
 
 	{
-		parser_arg inner = parser->dict_add_dict(root, "json");
+		parser_arg inner = {0};
 
-		{
+		if (!scope) {
+			inner = parser->dict_add_dict(root, "json");
 			JSON_SET_SIMPLE("created","%" PRId64, c->created);
 			JSON_SET_SIMPLE("destroyed","%" PRId64, c->destroyed);
 			JSON_SET_SIMPLE("last_signal","%" PRId64, c->last_signal_us);
@@ -2730,13 +2708,6 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free,
 			JSON_SET_SIMPLE_STR("recording_metadata", &c->metadata);
 			JSON_SET_SIMPLE("block_dtmf","%i", c->block_dtmf);
 			JSON_SET_SIMPLE("call_flags", "%" PRIu64, atomic64_get_na(&c->call_flags));
-			unsigned int num_checkpoints = 0;
-			if (!scope) {
-				for (const struct call_checkpoint *cp = c->checkpoints; cp; cp = cp->next)
-					num_checkpoints++;
-				if (num_checkpoints)
-					JSON_SET_SIMPLE("num_checkpoints", "%u", num_checkpoints);
-			}
 
 			if (c->created_from.len)
 				JSON_SET_SIMPLE_STR("created_from", &c->created_from);
@@ -2752,22 +2723,21 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free,
 				JSON_SET_SIMPLE_STR("recording_random_tag", &c->recording_random_tag);
 		}
 
-		if (!scope) {
-			unsigned int ci = 0;
-			for (const struct call_checkpoint *cp = c->checkpoints; cp; cp = cp->next, ci++) {
-				snprintf(tmp, sizeof(tmp), "checkpoint-%u", ci);
-				inner = parser->dict_add_dict_dup(root, tmp);
-				JSON_SET_SIMPLE("offerer", "%u", cp->offerer->unique_id);
-				JSON_SET_SIMPLE("answerer", "%u", cp->answerer->unique_id);
-				JSON_SET_SIMPLE("pending", "%i", cp->pending ? 1 : 0);
-				if (cp->snapshot.len) {
-					/* nested as a string; heap buffer rather than a VLA, as escape() can
-					 * need up to 3x the input */
-					char *enc = g_malloc_n(cp->snapshot.len + 1, 3);
-					str encs = parser->escape(enc, cp->snapshot.s, cp->snapshot.len);
-					parser->dict_add_str_dup(inner, "snapshot", &encs);
-					g_free(enc);
-				}
+		for (__auto_type l = scope ? NULL : c->monologues.head; l; l = l->next) {
+			const struct call_monologue *ml = l->data;
+			if (!ml->checkpoint)
+				continue;
+			snprintf(tmp, sizeof(tmp), "checkpoint-%u", ml->unique_id);
+			inner = parser->dict_add_dict_dup(root, tmp);
+			JSON_SET_SIMPLE("pending", "%i", ml->checkpoint->pending ? 1 : 0);
+			if (ml->checkpoint->snapshot.len) {
+				/* nested as a string; heap buffer rather than a VLA, as escape() can
+				 * need up to 3x the input */
+				char *enc = g_malloc_n(ml->checkpoint->snapshot.len + 1, 3);
+				str encs = parser->escape(enc, ml->checkpoint->snapshot.s,
+						ml->checkpoint->snapshot.len);
+				parser->dict_add_str_dup(inner, "snapshot", &encs);
+				g_free(enc);
 			}
 		}
 
@@ -3132,8 +3102,8 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free,
 }
 
 
-str redis_snapshot_encode(call_t *c, struct call_monologue *a, struct call_monologue *b) {
-	struct call_monologue *scope[2] = { a, b };
+str redis_snapshot_encode(call_t *c, struct call_monologue *ml) {
+	struct call_monologue *scope[2] = { ml, ml };
 	ng_parser_ctx_t ctx;
 	bencode_buffer_t bbuf;
 	// never leaves the daemon, so the format is ours to pick
@@ -3439,93 +3409,104 @@ static unsigned int snapshot_medias_len(struct call_monologue *ml, parser_arg ro
 	return n;
 }
 
-static void snapshot_apply_medias(call_t *c, struct call_monologue **mls, unsigned int n,
-		parser_arg root)
-{
-	for (unsigned int i = 0; i < n; i++) {
-		if (!mls[i])
-			continue;
-		for (unsigned int j = 0; j < mls[i]->medias->len; j++) {
-			struct call_media *m = mls[i]->medias->pdata[j];
-			struct redis_hash rh;
-			if (!m || json_get_hash(&rh, "media", m->unique_id, root))
-				continue;
-			snapshot_apply_media(c, m, &rh, root);
-			redis_hash_destroy(&rh);
-		}
-	}
-}
-
-static void snapshot_apply_monologues(struct call_monologue **mls, unsigned int n,
-		parser_arg root)
-{
-	for (unsigned int i = 0; i < n; i++) {
-		struct call_monologue *ml = mls[i];
-		if (!ml)
-			continue;
+static void snapshot_apply_medias(call_t *c, struct call_monologue *ml, parser_arg root) {
+	for (unsigned int j = 0; j < ml->medias->len; j++) {
+		struct call_media *m = ml->medias->pdata[j];
 		struct redis_hash rh;
-		if (!json_get_hash(&rh, "tag", ml->unique_id, root)) {
-			snapshot_apply_monologue(ml, &rh);
-			redis_hash_destroy(&rh);
-		}
-		unsigned int keep = snapshot_medias_len(ml, root);
-		for (unsigned int j = keep; j < ml->medias->len; j++)
-			call_media_stop(ml->medias->pdata[j]);
-		if (keep < ml->medias->len)
-			t_ptr_array_set_size(ml->medias, keep);
-	}
-}
-
-static void snapshot_apply_streams(call_t *c, struct call_monologue **mls, unsigned int n,
-		parser_arg root)
-{
-	for (unsigned int i = 0; i < n; i++) {
-		if (!mls[i])
+		if (!m || json_get_hash(&rh, "media", m->unique_id, root))
 			continue;
-		for (unsigned int j = 0; j < mls[i]->medias->len; j++) {
-			struct call_media *m = mls[i]->medias->pdata[j];
-			if (!m)
+		snapshot_apply_media(c, m, &rh, root);
+		redis_hash_destroy(&rh);
+	}
+}
+
+static void snapshot_apply_monologues(struct call_monologue *ml, parser_arg root) {
+	struct redis_hash rh;
+	if (!json_get_hash(&rh, "tag", ml->unique_id, root)) {
+		snapshot_apply_monologue(ml, &rh);
+		redis_hash_destroy(&rh);
+	}
+	unsigned int keep = snapshot_medias_len(ml, root);
+	for (unsigned int j = keep; j < ml->medias->len; j++)
+		call_media_stop(ml->medias->pdata[j]);
+	if (keep < ml->medias->len)
+		t_ptr_array_set_size(ml->medias, keep);
+}
+
+static void snapshot_apply_streams(call_t *c, struct call_monologue *ml, parser_arg root) {
+	for (unsigned int j = 0; j < ml->medias->len; j++) {
+		struct call_media *m = ml->medias->pdata[j];
+		if (!m)
+			continue;
+		for (__auto_type l = m->streams.head; l; l = l->next) {
+			struct packet_stream *ps = l->data;
+			struct redis_hash rh;
+			if (json_get_hash(&rh, "stream", ps->unique_id, root))
 				continue;
-			for (__auto_type l = m->streams.head; l; l = l->next) {
-				struct packet_stream *ps = l->data;
-				struct redis_hash rh;
-				if (json_get_hash(&rh, "stream", ps->unique_id, root))
-					continue;
-				snapshot_apply_stream(c, ps, &rh, root);
-				redis_hash_destroy(&rh);
-				__init_stream(ps);
-			}
+			snapshot_apply_stream(c, ps, &rh, root);
+			redis_hash_destroy(&rh);
+			__init_stream(ps);
 		}
 	}
 }
 
-bool redis_snapshot_apply(call_t *c, const str *snap, struct call_monologue *a,
-		struct call_monologue *b)
-{
-	if (!snap || !snap->len)
-		return false;
-
-	struct redis_parsed_record parsed = {0};
-	parser_arg root = {0};
+bool redis_snapshot_apply(call_t *c, struct call_monologue *a, struct call_monologue *b) {
+	struct call_monologue *mls[2] = { a, b };
+	struct redis_parsed_record parsed[2] = {0};
+	parser_arg root[2] = {0};
+	bool live[2] = { false, false };
 	bool ok = false;
 
-	if (redis_parse_record(snap, &root, &parsed))
+	for (unsigned int i = 0; i < G_N_ELEMENTS(mls); i++) {
+		struct call_monologue *ml = mls[i];
+		if (!ml || !ml->checkpoint || !ml->checkpoint->pending)
+			continue;
+		if (!ml->checkpoint->snapshot.len)
+			continue;
+		if (redis_parse_record(&ml->checkpoint->snapshot, &root[i], &parsed[i]))
+			goto out;
+		live[i] = true;
+	}
+
+	if (!live[0] && !live[1])
 		goto out;
 
+	// order matters: monologues need the medias, subscriptions need the
+	// monologues, and initialising the streams needs both
+	for (unsigned int i = 0; i < G_N_ELEMENTS(mls); i++) {
+		if (!live[i])
+			continue;
+		redis_parser = parsed[i].parser;
+		snapshot_apply_medias(c, mls[i], root[i]);
+	}
+	for (unsigned int i = 0; i < G_N_ELEMENTS(mls); i++) {
+		if (!live[i])
+			continue;
+		redis_parser = parsed[i].parser;
+		snapshot_apply_monologues(mls[i], root[i]);
+	}
 
-	struct call_monologue *mls[2] = { a, b };
-
-	// order matters: monologues need the medias, subscriptions need the monologues,
-	// and initialising the streams needs both
-	snapshot_apply_medias(c, mls, G_N_ELEMENTS(mls), root);
-	snapshot_apply_monologues(mls, G_N_ELEMENTS(mls), root);
 	update_init_monologue_subscribers(a, OP_OFFER);
 	update_init_monologue_subscribers(b, OP_ANSWER);
-	snapshot_apply_streams(c, mls, G_N_ELEMENTS(mls), root);
+
+	for (unsigned int i = 0; i < G_N_ELEMENTS(mls); i++) {
+		if (!live[i])
+			continue;
+		redis_parser = parsed[i].parser;
+		snapshot_apply_streams(c, mls[i], root[i]);
+	}
+
+	for (unsigned int i = 0; i < G_N_ELEMENTS(mls); i++) {
+		if (!live[i])
+			continue;
+		redis_snapshot_free(&mls[i]->checkpoint->snapshot);
+		mls[i]->checkpoint->pending = false;
+	}
 	ok = true;
 
 out:
-	redis_parsed_record_free(&parsed);
+	for (unsigned int i = 0; i < G_N_ELEMENTS(mls); i++)
+		redis_parsed_record_free(&parsed[i]);
 	return ok;
 }
 

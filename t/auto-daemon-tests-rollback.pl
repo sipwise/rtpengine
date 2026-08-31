@@ -354,10 +354,17 @@ my $fork_a_repeat = rtpe_req('rollback', 'repeat rollback fork A', {
 	'from-tag' => $fork_from, 'to-tag' => $fork_a, 'via-branch' => 'fork-a',
 });
 is($fork_a_repeat->{'rolled-back'}, 0, 'fork A checkpoint was consumed');
+my $fork_committed = rtpe_req('query', 'fork state before second rollback', {});
 my $fork_b_rollback = rtpe_req('rollback', 'rollback fork B', {
 	'from-tag' => $fork_from, 'to-tag' => $fork_b, 'via-branch' => 'fork-b',
 });
 is($fork_b_rollback->{'rolled-back'}, 1, 'fork B checkpoint remains pending');
+# The caller monologue is shared between branches. Rolling back the second one
+# must not reinstate what rolling back the first one undid.
+my $fork_after = rtpe_req('query', 'fork state after both rollbacks', {});
+is_deeply($fork_after->{tags}{$fork_from}{medias},
+	$fork_committed->{tags}{$fork_from}{medias},
+	'rolling back the second fork leaves the caller alone');
 
 new_call;
 rtpe_req('offer', 'stress initial offer', {
