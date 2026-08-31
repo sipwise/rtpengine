@@ -5748,6 +5748,9 @@ static bool call_merge(call_t *call, call_t *call2) {
 	// move buffers
 	bencode_buffer_merge(&call->buffer, &call2->buffer);
 
+	// the ids below are about to be renumbered, and a snapshot is keyed on them
+	call_checkpoint_free_all(call2);
+
 	// move all contained objects: we have to renumber all unique IDs, and redirect any
 	// `call` pointers
 
@@ -6896,8 +6899,12 @@ static void checkpoint_offer_one(call_t *call, struct call_monologue *ml, bool e
 void call_checkpoint_offer(call_t *call, struct call_monologue *offerer,
 		struct call_monologue *answerer, bool enable)
 {
-	checkpoint_offer_one(call, offerer, enable);
-	checkpoint_offer_one(call, answerer, enable);
+	// a dialogue is tracked if either side is, so both are checkpointed together
+	bool tracked = enable
+			|| (offerer && offerer->checkpoint)
+			|| (answerer && answerer->checkpoint);
+	checkpoint_offer_one(call, offerer, tracked);
+	checkpoint_offer_one(call, answerer, tracked);
 }
 
 static void checkpoint_commit_one(struct call_monologue *ml) {

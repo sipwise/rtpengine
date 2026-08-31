@@ -399,4 +399,88 @@ $error = rtpe_raw_req({command => 'rollback', 'call-id' => cid(),
 	'from-tag' => 'unknown-tag', 'to-tag' => tt()});
 like($error, qr/Unknown dialogue/, 'unknown dialogue is an error');
 
+# --- a merged call must not claim to have rolled back ---
+#
+# call_merge() renumbers every unique id, and a snapshot is keyed on them, so a
+# checkpoint taken before the merge no longer describes anything. It is dropped,
+# and rollback says so rather than reporting a success that restored nothing.
+new_call;
+my $mg_cid = cid();
+my $mg_ft = ft();
+my $mg_tt = tt();
+rtpe_req('offer', 'merge: tracked offer', {
+	'from-tag' => $mg_ft, flags => ['track-state'],
+	sdp => sdp('198.51.100.120', 17000, 0, 'sendrecv'),
+});
+rtpe_req('answer', 'merge: answer', {
+	'from-tag' => $mg_ft, 'to-tag' => $mg_tt,
+	sdp => sdp('198.51.100.121', 17010, 0, 'sendrecv'),
+});
+rtpe_req('offer', 'merge: rejected offer', {
+	'from-tag' => $mg_ft, 'to-tag' => $mg_tt,
+	sdp => sdp('198.51.100.122', 17020, 8, 'sendonly'),
+});
+
+new_call;
+rtpe_req('offer', 'merge: other call offer', {
+	'from-tag' => ft(), sdp => sdp('198.51.100.123', 17030, 0, 'sendrecv'),
+});
+rtpe_req('answer', 'merge: other call answer', {
+	'from-tag' => ft(), 'to-tag' => tt(),
+	sdp => sdp('198.51.100.124', 17040, 0, 'sendrecv'),
+});
+
+# the first call listed survives, so the tracked one is the side being renumbered
+rtpe_req('mesh', 'merge the two calls', {
+	flags => [],
+	calls => [cid(), $mg_cid],
+	tags => [
+		{ from => $mg_ft, to => [$mg_tt] },
+		{ from => $mg_tt, to => [$mg_ft] },
+	],
+});
+my $mg_resp = rtpe_raw_req({command => 'rollback', 'call-id' => $mg_cid,
+	'from-tag' => $mg_ft, 'to-tag' => $mg_tt});
+ok(ref($mg_resp) ne 'HASH' || !$mg_resp->{'rolled-back'},
+	'a merged call does not report a rollback it did not perform');
+
+# --- both sides of a dialogue are checkpointed together ---
+#
+# A monologue is shared between forked branches, so one side can already hold a
+# checkpoint while the other has never been tracked. Both are taken together, or
+# a rollback restores half a dialogue and still reports success.
+new_call;
+my $sym_from = ft();
+my $sym_a = 'sym-a-' . tt();
+my $sym_b = 'sym-b-' . tt();
+rtpe_req('offer', 'symmetry: branch A tracked offer', {
+	'from-tag' => $sym_from, 'via-branch' => 'sym-a', flags => ['track-state'],
+	sdp => sdp('198.51.100.130', 18000, 0, 'sendrecv'),
+});
+rtpe_req('answer', 'symmetry: branch A answer', {
+	'from-tag' => $sym_from, 'to-tag' => $sym_a, 'via-branch' => 'sym-a',
+	sdp => sdp('198.51.100.131', 18010, 0, 'sendrecv'),
+});
+# branch B never asks for tracking, but shares the caller monologue with A
+rtpe_req('offer', 'symmetry: branch B untracked offer', {
+	'from-tag' => $sym_from, 'via-branch' => 'sym-b',
+	sdp => sdp('198.51.100.132', 18020, 0, 'sendrecv'),
+});
+rtpe_req('answer', 'symmetry: branch B answer', {
+	'from-tag' => $sym_from, 'to-tag' => $sym_b, 'via-branch' => 'sym-b',
+	sdp => sdp('198.51.100.133', 18030, 0, 'sendrecv'),
+});
+my $sym_committed = rtpe_req('query', 'symmetry: committed state', {});
+rtpe_req('offer', 'symmetry: branch B rejected offer', {
+	'from-tag' => $sym_from, 'to-tag' => $sym_b, 'via-branch' => 'sym-b',
+	sdp => sdp('198.51.100.134', 18040, 8, 'sendonly'),
+});
+my $sym_rollback = rtpe_req('rollback', 'symmetry: rollback branch B', {
+	'from-tag' => $sym_from, 'to-tag' => $sym_b, 'via-branch' => 'sym-b',
+});
+my $sym_restored = rtpe_req('query', 'symmetry: restored state', {});
+is_deeply($sym_restored->{tags}{$sym_b}{medias},
+	$sym_committed->{tags}{$sym_b}{medias},
+	'the far side is restored, not just the shared caller');
+
 done_testing;
