@@ -111,7 +111,7 @@ static long long rtpp_get_int_str(rtpp_pos *a, long long def) {
 	str s;
 	if (!rtpp_get_str(a, &s))
 		return def;
-	return str_to_i(&s, def);
+	return str_to_ll(&s, def);
 }
 static bool rtpp_dict_list_end_rewind(rtpp_pos *pos) {
 	// check for dict/list end, which is only valid if it doesn't also start one

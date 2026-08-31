@@ -474,12 +474,12 @@ static unsigned int str_to_i_k(str *s) {
 	str intg;
 	str frac = *s;
 	if (str_token(&intg, &frac, '.')) {
-		unsigned int ret = str_to_i(s, 0) * 1000;
+		unsigned int ret = str_to_u(&intg, 0) * 1000;
 		if (frac.len > 1) // at most one decimal digit
 			frac.len = 1;
-		return ret + str_to_i(&frac, 0) * 100;
+		return ret + str_to_u(&frac, 0) * 100;
 	}
-	return str_to_i(s, 0) * 1000;
+	return str_to_u(s, 0) * 1000;
 }
 
 

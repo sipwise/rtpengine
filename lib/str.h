@@ -137,14 +137,14 @@ __attribute__((nonnull(1, 2)))
 ACCESS(read_write, 1)
 ACCESS(read_write, 2)
 INLINE void str_swap(str *a, str *b);
-/* parses a string into an int, returns default if conversion fails */
-__attribute__((nonnull(1)))
-ACCESS(read_only, 1)
-INLINE long long str_to_i(const str *s, long long def);
-/* parses a string into an uint, returns default if conversion fails */
-__attribute__((nonnull(1)))
-ACCESS(read_only, 1)
-INLINE unsigned long long str_to_ui(const str *s, unsigned long long def);
+
+__attribute__((nonnull(1))) ACCESS(read_only, 1) INLINE long str_to_l(const str *s, long def);
+__attribute__((nonnull(1))) ACCESS(read_only, 1) INLINE unsigned long str_to_ul(const str *s, unsigned long def);
+__attribute__((nonnull(1))) ACCESS(read_only, 1) INLINE int str_to_i(const str *s, int def);
+__attribute__((nonnull(1))) ACCESS(read_only, 1) INLINE unsigned int str_to_u(const str *s, unsigned int def);
+__attribute__((nonnull(1))) ACCESS(read_only, 1) INLINE long long str_to_ll(const str *s, long long def);
+__attribute__((nonnull(1))) ACCESS(read_only, 1) INLINE unsigned long long str_to_ull(const str *s, unsigned long long def);
+
 /* extracts the first/next token into "new_token" and modifies "ori_and_remaidner" in place */
 __attribute__((nonnull(1, 2)))
 ACCESS(write_only, 1)
@@ -380,37 +380,39 @@ INLINE void str_swap(str *a, str *b) {
 	*b = t;
 }
 
-INLINE long long str_to_i(const str *s, long long def) {
-	char c, *ep;
-	long long ret;
-	if (s->len <= 0)
-		return def;
-	c = s->s[s->len];
-	s->s[s->len] = '\0';
-	ret = strtoll(s->s, &ep, 10);
-	s->s[s->len] = c;
-	if (ep == s->s)
-		return def;
-	if (ret > INT_MAX)
-		return def;
-	if (ret < INT_MIN)
-		return def;
-	return ret;
-}
+#define MAX_LONG_LONG_LEN 21 // assume 64 bits
+#define MAX_LONG_LEN 21 // assume 64 bits
+#define MAX_INT_LEN 11 // assume 32 bits
 
-INLINE unsigned long long str_to_ui(const str *s, unsigned long long def) {
-	char c, *ep;
-	unsigned long long ret;
-	if (s->len <= 0)
-		return def;
-	c = s->s[s->len];
-	s->s[s->len] = '\0';
-	ret = strtoull(s->s, &ep, 10);
-	s->s[s->len] = c;
-	if (ep == s->s)
-		return def;
-	return ret;
-}
+#define str_to_x(type, name, max_len, fn, min_val, max_val) \
+	INLINE type name(const str *s, type def) { \
+		char *ep; \
+		char buf[max_len + 1]; \
+		type ret; \
+		if (s->len <= 0) \
+			return def; \
+		if (s->len > max_len) \
+			return def; \
+		memcpy(buf, s->s, s->len); \
+		buf[s->len] = '\0'; \
+		errno = 0; \
+		ret = fn(buf, &ep, 10); \
+		if (*ep != '\0') \
+			return def; \
+		if (ret == max_val && errno == ERANGE) \
+			return def; \
+		if (ret == min_val && errno == ERANGE) \
+			return def; \
+		return ret; \
+	}
+
+str_to_x(long long, str_to_ll, MAX_LONG_LONG_LEN, strtoll, LLONG_MIN, LLONG_MAX)
+str_to_x(unsigned long long, str_to_ull, MAX_LONG_LONG_LEN, strtoll, ULLONG_MAX, ULLONG_MAX)
+str_to_x(long, str_to_l, MAX_LONG_LEN, strtol, LONG_MIN, LONG_MAX)
+str_to_x(unsigned long, str_to_ul, MAX_LONG_LEN, strtol, ULONG_MAX, ULONG_MAX)
+str_to_x(int, str_to_i, MAX_INT_LEN, strtol, INT_MIN, INT_MAX)
+str_to_x(unsigned int, str_to_u, MAX_INT_LEN, strtoul, INT_MAX, INT_MAX)
+
 
 INLINE bool str_token(str *new_token, str *ori_and_remainder, int sep) {
 	*new_token = *ori_and_remainder;

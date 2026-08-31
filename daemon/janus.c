@@ -1231,7 +1231,7 @@ void janus_rtc_up(struct call_monologue *ml) {
 		return;
 
 	// the monologue tag is the handle ID
-	uint64_t handle = str_to_ui(&ml->tag, 0);
+	uint64_t handle = str_to_ull(&ml->tag, 0);
 	if (!handle)
 		return;
 
@@ -1264,7 +1264,7 @@ void janus_media_up(struct call_media *media) {
 		return;
 
 	// the monologue tag is the handle ID
-	uint64_t handle = str_to_ui(&ml->tag, 0);
+	uint64_t handle = str_to_ull(&ml->tag, 0);
 	if (!handle)
 		return;
 
@@ -1961,10 +1961,10 @@ const char *websocket_janus_post(struct websocket_message *wm) {
 		goto done;
 	if (!str_token_sep(&s, &uri, '/'))
 		goto done;
-	session_id = str_to_ui(&s, 0);
+	session_id = str_to_ull(&s, 0);
 	if (!str_token_sep(&s, &uri, '/'))
 		goto done;
-	handle_id = str_to_ui(&s, 0);
+	handle_id = str_to_ull(&s, 0);
 
 done:
 	return websocket_janus_process_json(wm, session_id, handle_id);
