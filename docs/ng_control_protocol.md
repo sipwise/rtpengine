@@ -1916,6 +1916,10 @@ Its checkpoint is taken once, before the first uncommitted offer, so rolling
 back one branch does not disturb what rolling back another has already
 restored.
 
+Merging calls, as `connect` and `mesh` do, discards any outstanding checkpoint.
+The merged call renumbers the state a snapshot refers to, so a rollback after a
+merge reports none outstanding.
+
 Sockets and endpoint maps allocated for a rejected offer are not released by a
 rollback. The media is returned to the sockets it was using, and the surplus is
 reclaimed with the call.
