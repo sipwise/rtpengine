@@ -1946,7 +1946,7 @@ static void cli_incoming_media_add_db(str *instr, struct cli_writer *cw, const c
 		return ;
 	}
 
-	unsigned long long id = str_to_ui(instr, 0);
+	unsigned long long id = str_to_ull(instr, 0);
 	if (id == 0 || id == ULLONG_MAX)
 		cw->cw_printf(cw, "Invalid ID '" STR_FORMAT "'\n", STR_FMT(instr));
 	else {
@@ -1964,7 +1964,7 @@ static void cli_incoming_media_reload_db(str *instr, struct cli_writer *cw, cons
 		return ;
 	}
 
-	unsigned long long id = str_to_ui(instr, 0);
+	unsigned long long id = str_to_ull(instr, 0);
 	if (id == 0 || id == ULLONG_MAX)
 		cw->cw_printf(cw, "Invalid ID '" STR_FORMAT "'\n", STR_FMT(instr));
 	else {
@@ -1987,7 +1987,7 @@ static void cli_incoming_media_add_cache(str *instr, struct cli_writer *cw, cons
 		return ;
 	}
 
-	unsigned long long id = str_to_ui(instr, 0);
+	unsigned long long id = str_to_ull(instr, 0);
 	if (id == 0 || id == ULLONG_MAX)
 		cw->cw_printf(cw, "Invalid ID '" STR_FORMAT "'\n", STR_FMT(instr));
 	else {
@@ -2005,7 +2005,7 @@ static void cli_incoming_media_reload_cache(str *instr, struct cli_writer *cw, c
 		return ;
 	}
 
-	unsigned long long id = str_to_ui(instr, 0);
+	unsigned long long id = str_to_ull(instr, 0);
 	if (id == 0 || id == ULLONG_MAX)
 		cw->cw_printf(cw, "Invalid ID '" STR_FORMAT "'\n", STR_FMT(instr));
 	else {
@@ -2048,7 +2048,7 @@ static void cli_incoming_media_evict_db(str *instr, struct cli_writer *cw, const
 
 	str token;
 	while (str_token_sep(&token, instr, ' ')) {
-		unsigned long long id = str_to_ui(&token, 0);
+		unsigned long long id = str_to_ull(&token, 0);
 		if (id == 0 || id == ULLONG_MAX)
 			cw->cw_printf(cw, "Invalid ID '" STR_FORMAT "'\n", STR_FMT(&token));
 		else {
@@ -2096,7 +2096,7 @@ static void cli_incoming_media_evict_cache(str *instr, struct cli_writer *cw, co
 
 	str token;
 	while (str_token_sep(&token, instr, ' ')) {
-		unsigned long long id = str_to_ui(&token, 0);
+		unsigned long long id = str_to_ull(&token, 0);
 		if (id == 0 || id == ULLONG_MAX)
 			cw->cw_printf(cw, "Invalid ID '" STR_FORMAT "'\n", STR_FMT(&token));
 		else {
