@@ -792,6 +792,7 @@ static void release_reserved_port(struct port_pool *pp, ports_q *list, unsigned 
 static void release_reserved_ports(socket_port_q *ports) {
 	while (ports->length) {
 		__auto_type p = i_queue_pop_head(ports);
+		close_socket(&p->socket);
 		if (p->links.length)
 			release_reserved_port(p->pp, &p->links, GPOINTER_TO_UINT(p->links.head->data));
 		g_free(p);
