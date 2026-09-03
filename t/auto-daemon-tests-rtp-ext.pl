@@ -4026,5 +4026,62 @@ srtp_snd($sock_b, $port_a, rtp( 0, 8000, 7000+160*0, 0x6543, "\x39" . ("\x29" x 
 
 
 
+# force strip extmap: header extensions removed even though none were negotiated
+
+($sock_a, $sock_ax, $sock_b, $sock_bx) = new_call(
+	[qw(198.51.100.1 7690)],
+	[qw(198.51.100.1 7691)],
+	[qw(198.51.100.3 7692)],
+	[qw(198.51.100.3 7693)],
+);
+
+($port_a, $port_ax) = offer('force strip extmap', { flags => ['force strip extmap'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7690 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b, $port_bx) = answer('force strip extmap', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7692 RTP/AVP 8
+c=IN IP4 198.51.100.3
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp( 8, 1000, 3000+160*0, 0x1234, "\x10" . ("\x00" x 158) . "\x50", [[1, "foo"]]));
+rcv($sock_b, $port_a, rtpm(8, 1000, 3000+160*0, 0x1234, "\x10" . ("\x00" x 158) . "\x50"));
+snd($sock_b, $port_a, rtp( 8, 8000, 7000+160*0, 0x6543, "\x10" . ("\x00" x 158) . "\x50", [[2, "blah"]]));
+rcv($sock_a, $port_b, rtpm(8, 8000, 7000+160*0, 0x6543, "\x10" . ("\x00" x 158) . "\x50"));
+snd($sock_a, $port_b, rtp( 8, 1001, 3000+160*1, 0x1234, "\x10" . ("\x00" x 158) . "\x50"));
+rcv($sock_b, $port_a, rtpm(8, 1001, 3000+160*1, 0x1234, "\x10" . ("\x00" x 158) . "\x50"));
+
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
