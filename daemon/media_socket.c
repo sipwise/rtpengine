@@ -2545,7 +2545,10 @@ static void __determine_rtpext_handler(struct call_media *in, struct call_media 
 	if (!sh || !out)
 		return;
 
-	if (in->extmap.length || out->extmap.length)
+	/* With `force strip extmap` set on the call, use the extmap printer even
+	 * if no header extensions were negotiated, so that unannounced header
+	 * extensions are removed from forwarded RTP. */
+	if (in->extmap.length || out->extmap.length || CALL_ISSET(out->call, FORCE_STRIP_EXTMAP))
 		sh->rtpext = &rtpext_printer_extmap;
 	else
 		sh->rtpext = &rtpext_printer_copy;

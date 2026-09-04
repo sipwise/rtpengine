@@ -2762,6 +2762,8 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 
 	call->last_signal_us = rtpe_now;
 	call->deleted_us = 0;
+	if (flags->force_strip_extmap)
+		CALL_SET(call, FORCE_STRIP_EXTMAP);
 	call->media_rec_slots = (flags->media_rec_slots > 0 && call->media_rec_slots == 0)
 								? flags->media_rec_slots
 								: call->media_rec_slots;

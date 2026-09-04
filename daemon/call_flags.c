@@ -970,6 +970,10 @@ const char *call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 		case CSH_LOOKUP("strip-extmap"):
 		case CSH_LOOKUP("strip extmap"):
 			return call_ng_flags_str_ht(STR_PTR("all"), 0, &out->rtpext_strip);
+		case CSH_LOOKUP("force-strip-extmap"):
+		case CSH_LOOKUP("force strip extmap"):
+			out->force_strip_extmap = true;
+			break;
 		case CSH_LOOKUP("symmetric-codecs"):
 		case CSH_LOOKUP("symmetric codecs"):
 			ilog(LOG_INFO, "Ignoring obsolete flag `symmetric-codecs`");
