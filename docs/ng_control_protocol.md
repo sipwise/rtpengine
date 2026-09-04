@@ -1367,6 +1367,15 @@ Spaces in each string may be replaced by hyphens.
     Legacy alias for `extmap=[strip=[all]]` to remove all `a=rtpmap` attributes
     from the outgoing SDP.
 
+* `force strip extmap`
+
+    Process RTP header extensions of forwarded media even if no header
+    extensions were negotiated in the SDP. Normally, RTP header extensions
+    are passed through untouched if neither side included any `a=extmap`
+    attributes. With this flag set, header extensions that were not
+    negotiated are removed from forwarded RTP. Once set, the flag remains
+    in effect for the lifetime of the call.
+
 * `strict source`
 
 	Normally, *rtpengine* attempts to learn the correct endpoint address for every stream during

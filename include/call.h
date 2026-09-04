@@ -255,6 +255,7 @@ enum {
 #define CALL_FLAG_BLOCK_MEDIA			(1LL << 28)
 #define CALL_FLAG_SILENCE_MEDIA			(1LL << 29)
 #define CALL_FLAG_NO_REC_DB			(1LL << 30)
+#define CALL_FLAG_FORCE_STRIP_EXTMAP		(1LL << 31)
 
 /* access macros */
 #define SP_ISSET(p, f)		bf_isset(&(p)->sp_flags, SP_FLAG_ ## f)
