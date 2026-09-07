@@ -11,6 +11,9 @@
 #include "helpers.h"
 
 
+// enable to perform each allocation separately, to make debugging (valgrind...) easier
+//#define BENCODE_ALLOC_DEBUG
+
 #define BENCODE_HASH_BUCKETS		31 /* prime numbers work best */
 
 struct __bencode_hash {

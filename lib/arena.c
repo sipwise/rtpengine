@@ -2,8 +2,10 @@
 #include "helpers.h"
 
 
-// set to 0 for alloc debugging, e.g. through valgrind
 #define ARENA_MIN_PIECE_LEN 4096
+
+// enable to perform each allocation separately, to make debugging (valgrind...) easier
+//#define ARENA_ALLOC_DEBUG
 
 struct arena_piece {
 	char *tail;
@@ -17,7 +19,9 @@ static struct arena_piece *arena_piece_new(size_t size, void *(*alloc_fn)(size_t
 	struct arena_piece *ret;
 
 	size_t alloc_size = size + sizeof(*ret) + ARENA_ALLOC_ALIGN;
+#ifndef ARENA_ALLOC_DEBUG
 	alloc_size = MAX(alloc_size, ARENA_MIN_PIECE_LEN);
+#endif
 	ret = alloc_fn(alloc_size);
 	if (!ret)
 		return NULL;
