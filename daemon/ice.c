@@ -442,7 +442,7 @@ void ice_rollback(struct ice_agent *ag, const str ufrag[2], const str pwd[2],
 	memcpy(ag->ufrag, ufrag, sizeof(ag->ufrag));
 	memcpy(ag->pwd, pwd, sizeof(ag->pwd));
 
-	for (__auto_type l = candidates->head; l; l = l->next) {
+	for (auto_iter(l, candidates->head); l; l = l->next) {
 		struct ice_candidate *copy = g_new(__typeof(*copy), 1);
 		*copy = *(struct ice_candidate *) l->data;
 		t_hash_table_insert(ag->candidate_hash, copy, copy);
