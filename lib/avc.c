@@ -70,7 +70,7 @@ const char *avc_decoder_init(decoder_t *dec, const str *extra_opts) {
 	avcodec_get_supported_config(dec->avc.avcctx, codec, AV_CODEC_CONFIG_PIX_FORMAT, 0, (const void **) &dec->avc.pixel_fmts, NULL);
 #else
 	dec->avc.sample_fmts = codec->sample_fmts;
-	dec->avc.pixel_fmts = dec->avc.codec->pix_fmts;
+	dec->avc.pixel_fmts = codec->pix_fmts;
 #endif
 
 	for (const enum AVSampleFormat *sfmt = dec->avc.sample_fmts; sfmt && *sfmt != -1; sfmt++)
