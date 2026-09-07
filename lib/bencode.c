@@ -93,7 +93,6 @@ int bencode_buffer_init(bencode_buffer_t *buf) {
 	buf->pieces = __bencode_piece_new(0);
 	if (!buf->pieces)
 		return -1;
-	buf->error = 0;
 	return 0;
 }
 
@@ -104,8 +103,6 @@ void *bencode_buffer_alloc(bencode_buffer_t *buf, size_t size) {
 
 	if (!buf)
 		return NULL;
-	if (buf->error)
-		return NULL;
 
 	piece = buf->pieces;
 
@@ -113,10 +110,8 @@ void *bencode_buffer_alloc(bencode_buffer_t *buf, size_t size) {
 		goto alloc;
 
 	piece = __bencode_piece_new(size);
-	if (!piece) {
-		buf->error = 1;
+	if (!piece)
 		return NULL;
-	}
 	piece->next = buf->pieces;
 	buf->pieces = piece;
 
