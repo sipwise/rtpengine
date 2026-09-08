@@ -922,7 +922,11 @@ static bool media_player_cache_entry_init(struct media_player *mp, const rtp_pay
 
 	// steal coder data
 	entry->coder = mp->coder;
+
+	rtp_payload_type src_pt_cpy = mp->coder.handler->source_pt;
+	rtp_payload_type dst_pt_cpy = mp->coder.handler->dest_pt;
 	ZERO(mp->coder);
+
 	mp->coder.duration = entry->coder.duration; // retain this for reporting
 	if (entry->coder.avioctx)
 		entry->coder.avioctx->opaque = &entry->coder; // format context pointer must point to new coder
@@ -935,6 +939,9 @@ static bool media_player_cache_entry_init(struct media_player *mp, const rtp_pay
 	codec_init_payload_type(&entry->coder.handler->source_pt, MT_UNKNOWN);
 	codec_init_payload_type(&entry->coder.handler->dest_pt, MT_UNKNOWN);
 	call_memory_arena_set(mp->call);
+
+	payload_type_clear(&src_pt_cpy);
+	payload_type_clear(&dst_pt_cpy);
 
 	// use low priority (10 nice)
 	thread_create_detach_prio(media_player_cache_entry_decoder_thread, obj_get(entry), NULL, 10, "mp decoder");

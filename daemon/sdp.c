@@ -1659,7 +1659,7 @@ static bool __rtp_payload_types(struct stream_params *sp, struct sdp_media *medi
 		ptrfc = rtp_get_rfc_payload_type(i);
 		ptl = g_hash_table_lookup(ht_rtpmap, GINT_TO_POINTER(i));
 
-		pt = memory_arena_alloc0(rtp_payload_type);
+		pt = memory_arena_alloc0_lw(rtp_payload_type);
 		if (ptl)
 			*pt = *ptl;
 		else if (ptrfc)

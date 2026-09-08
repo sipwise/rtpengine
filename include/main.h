@@ -141,6 +141,7 @@ enum endpoint_learning {
 	X(amr_cn_dtx) \
 	X(evs_cn_dtx) \
 	X(moh_prevent_double_hold) \
+	X(lightweight) \
 
 #define RTPE_CONFIG_CHARP_PARAMS \
 	X(b2b_url) \

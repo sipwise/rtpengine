@@ -447,6 +447,16 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     Suffix to be added to particular data fields in log files that are deemed
     sensitive and/or private information. Defaults to an empty string.
 
+- __\-\-lightweight__
+
+    Decrease use of memory arenas. This is mostly beneficial for use cases
+    involving long-running calls which see a lot of session updates, and
+    results in a smaller memory footprint, at the expense of higher CPU usage
+    due to heavier use of the system's memory allocator.
+
+    This mode can also be enabled by setting the environment variable
+    `RTPENGINE_LIGHTWEIGHT` to any value.
+
 - __\-\-num-threads=__*INT*
 
     How many worker threads to create, must be at least one.

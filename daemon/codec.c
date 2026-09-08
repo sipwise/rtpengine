@@ -2960,7 +2960,7 @@ bool codec_parse_payload_type(rtp_payload_type *pt, const str *codec_str) {
 }
 
 rtp_payload_type *codec_make_payload_type(const str *codec_str, enum media_type type) {
-	__auto_type pt = memory_arena_alloc0(rtp_payload_type);
+	__auto_type pt = memory_arena_alloc0_lw(rtp_payload_type);
 
 	if (!codec_parse_payload_type(pt, codec_str)) {
 		payload_type_free(pt);
@@ -3033,17 +3033,17 @@ void codec_init_payload_type(rtp_payload_type *pt, enum media_type type) {
 				pt->clock_rate);
 
 	// allocate strings
-	pt->encoding = call_str_cpy(&pt->encoding);
-	pt->encoding_with_params = call_str_cpy_c(full_encoding);
-	pt->encoding_with_full_params = call_str_cpy_c(full_full_encoding);
-	pt->encoding_parameters = call_str_cpy_c(params);
-	pt->format_parameters = call_str_cpy(&pt->format_parameters);
-	pt->codec_opts = call_str_cpy(&pt->codec_opts);
+	pt->encoding = memory_arena_str_cpy_lw(&pt->encoding);
+	pt->encoding_with_params = memory_arena_str_cpy_c_lw(full_encoding);
+	pt->encoding_with_full_params = memory_arena_str_cpy_c_lw(full_full_encoding);
+	pt->encoding_parameters = memory_arena_str_cpy_c_lw(params);
+	pt->format_parameters = memory_arena_str_cpy_lw(&pt->format_parameters);
+	pt->codec_opts = memory_arena_str_cpy_lw(&pt->codec_opts);
 
 	// allocate everything from the rtcp-fb list
 	for (__auto_type l = pt->rtcp_fb.head; l; l = l->next) {
 		str *fb = l->data;
-		l->data = call_str_dup(fb);
+		l->data = memory_arena_str_dup_lw(fb);
 	}
 }
 
@@ -5245,12 +5245,19 @@ static rtp_payload_type *codec_add_payload_type(const str *codec, struct call_me
 
 
 void payload_type_clear(rtp_payload_type *p) {
-	t_queue_clear(&p->rtcp_fb);
+	t_queue_clear_full(&p->rtcp_fb, memory_arena_str_dup_free_lw);
+	memory_arena_free_lw(p->encoding.s);
+	memory_arena_free_lw(p->encoding_with_params.s);
+	memory_arena_free_lw(p->encoding_with_full_params.s);
+	memory_arena_free_lw(p->encoding_parameters.s);
+	memory_arena_free_lw(p->format_parameters.s);
+	memory_arena_free_lw(p->codec_opts.s);
 	ZERO(*p);
 	p->payload_type = -1;
 }
 void payload_type_free(rtp_payload_type *p) {
 	payload_type_clear(p);
+	memory_arena_free_lw(p);
 }
 void payload_type_destroy(rtp_payload_type **p) {
 	if (*p)
@@ -5274,7 +5281,7 @@ static void rtp_payload_type_copy(rtp_payload_type *dst, const rtp_payload_type 
 }
 
 rtp_payload_type *rtp_payload_type_dup(const rtp_payload_type *pt) {
-	__auto_type pt_copy = memory_arena_alloc0(rtp_payload_type);
+	__auto_type pt_copy = memory_arena_alloc0_lw(rtp_payload_type);
 	rtp_payload_type_copy(pt_copy, pt);
 	return pt_copy;
 }
@@ -5327,8 +5334,10 @@ static int __codec_options_set1(call_t *call, rtp_payload_type *pt, const str *e
 	// match - apply options
 	if (pt_parsed->bitrate)
 		pt->bitrate = pt_parsed->bitrate;
-	if (!pt->codec_opts.len && pt_parsed->codec_opts.len)
-		pt->codec_opts = pt_parsed->codec_opts;
+	if (!pt->codec_opts.len && pt_parsed->codec_opts.len) {
+		memory_arena_free_lw(pt->codec_opts.s);
+		pt->codec_opts = memory_arena_str_cpy_lw(&pt_parsed->codec_opts);
+	}
 	payload_type_free(pt_parsed);
 	return 1;
 }
@@ -5839,7 +5848,7 @@ void __codec_store_populate(struct codec_store *dst, struct codec_store *src, st
 			pt->for_transcoding = orig_pt->for_transcoding;
 			pt->accepted = orig_pt->accepted;
 			pt->bitrate = orig_pt->bitrate;
-			pt->codec_opts = orig_pt->codec_opts;
+			pt->codec_opts = memory_arena_str_cpy_lw(&orig_pt->codec_opts);
 			if (pt->for_transcoding)
 				codec_touched(dst, pt);
 		}
