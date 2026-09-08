@@ -5,17 +5,14 @@
 #include <string.h>
 
 #include "compat.h"
+#include "arena.h"
 
-#define BENCODE_ALLOC_ALIGN 8
 
-struct bencode_buffer;
 enum bencode_type;
 struct bencode_item;
-struct __bencode_buffer_piece;
 struct __bencode_free_list;
 
 typedef enum bencode_type bencode_type_t;
-typedef struct bencode_buffer bencode_buffer_t;
 typedef struct bencode_item bencode_item_t;
 typedef void (*free_func_t)(void *);
 
@@ -35,15 +32,9 @@ struct bencode_item {
 	size_t str_len;	/* length of the whole ENCODED object. NOT the length of a byte string */
 	long long int value;	/* when decoding an integer, contains the value; otherwise used internally */
 	bencode_item_t *parent, *child, *last_child, *sibling;
-	bencode_buffer_t *buffer;
-	char __buf[0] __attribute__ ((aligned (BENCODE_ALLOC_ALIGN)));
+	arena_t *buffer;
+	char __buf[0] __attribute__ ((aligned (ARENA_ALLOC_ALIGN)));
 };
-
-struct bencode_buffer {
-	struct __bencode_buffer_piece *pieces;
-};
-
-
 
 
 
@@ -56,47 +47,22 @@ struct bencode_buffer {
 
 /*** INIT & DESTROY ***/
 
-/* Initializes a bencode_buffer_t object. This object is used to group together all memory allocations
- * made when encoding or decoding. Its memory usage is always growing, until it is freed, at which point
- * all objects created through it become invalid. The actual object must be allocated separately, for
- * example by being put on the stack.
- * Returns 0 on success or -1 on failure (if no memory could be allocated). */
-int bencode_buffer_init(bencode_buffer_t *buf);
-
-/* Allocate a piece of memory from the given buffer object */
-void *bencode_buffer_alloc(bencode_buffer_t *, size_t);
-
-/* Destroys a previously initialized bencode_buffer_t object. All memory used by the object is freed
- * and all objects created through it become invalid. */
-void bencode_buffer_free(bencode_buffer_t *buf);
-
-// Move all objects from one buffer to another. The `from` buffer will be unusable afterwards.
-void bencode_buffer_merge(bencode_buffer_t *to, bencode_buffer_t *from);
-
-/* Creates a new empty dictionary object. Memory will be allocated from the bencode_buffer_t object.
+/* Creates a new empty dictionary object. Memory will be allocated from the arena_t object.
  * Returns NULL if no memory could be allocated. */
-bencode_item_t *bencode_dictionary(bencode_buffer_t *buf);
+bencode_item_t *bencode_dictionary(arena_t *buf);
 
-/* Creates a new empty list object. Memory will be allocated from the bencode_buffer_t object.
+/* Creates a new empty list object. Memory will be allocated from the arena_t object.
  * Returns NULL if no memory could be allocated. */
-bencode_item_t *bencode_list(bencode_buffer_t *buf);
+bencode_item_t *bencode_list(arena_t *buf);
 
 /* Returns the buffer associated with an item, or NULL if pointer given is NULL */
-INLINE bencode_buffer_t *bencode_item_buffer(bencode_item_t *);
-
-/* like strdup() but uses the bencode buffer to store the string */
-INLINE char *bencode_strdup(bencode_buffer_t *, const char *);
-
-/* ditto but returns a str object */
-INLINE str bencode_strdup_str(bencode_buffer_t *, const char *);
-
-
+INLINE arena_t *bencode_item_buffer(bencode_item_t *);
 
 
 
 /*** DICTIONARY BUILDING ***/
 
-/* Adds a new key/value pair to a dictionary. Memory will be allocated from the same bencode_buffer_t
+/* Adds a new key/value pair to a dictionary. Memory will be allocated from the same arena_t
  * object as the dictionary was allocated from. Returns NULL if no memory could be allocated, otherwise
  * returns "val".
  * The function does not check whether the key being added is already present in the dictionary.
@@ -110,7 +76,7 @@ INLINE bencode_item_t *bencode_dictionary_str_add(bencode_item_t *dict, const st
 bencode_item_t *bencode_dictionary_add_len(bencode_item_t *dict, const char *key, size_t keylen, bencode_item_t *val);
 
 /* Convenience function to add a string value to a dictionary, possibly duplicated into the
- * bencode_buffer_t object. */
+ * arena_t object. */
 INLINE void bencode_dictionary_add_string(bencode_item_t *dict, const char *key, const char *val);
 
 /* Ditto, but for a "str" object */
@@ -152,21 +118,21 @@ INLINE bencode_item_t *bencode_list_add_dictionary(bencode_item_t *list);
  * be allocated.
  * Strings are not copied or duplicated, so the string pointed to by "s" must remain valid until
  * the complete document is finally encoded or sent out. */
-bencode_item_t *bencode_string_len(bencode_buffer_t *buf, const char *s, size_t len);
+bencode_item_t *bencode_string_len(arena_t *buf, const char *s, size_t len);
 
 /* Creates a new byte-string object. The given string must be null-terminated. Otherwise identical
  * to bencode_string_len(). */
-INLINE bencode_item_t *bencode_string(bencode_buffer_t *buf, const char *s);
+INLINE bencode_item_t *bencode_string(arena_t *buf, const char *s);
 
 /* Creates a new byte-string object from a "str" object. The string does not have to be null-
  * terminated. */
-INLINE bencode_item_t *bencode_str(bencode_buffer_t *buf, const str *s);
+INLINE bencode_item_t *bencode_str(arena_t *buf, const str *s);
 
-/* Identical to the above three functions, but copies the string into the bencode_buffer_t object.
+/* Identical to the above three functions, but copies the string into the arena_t object.
  * Thus, the given string doesn't have to remain valid and accessible afterwards. */
-bencode_item_t *bencode_string_len_dup(bencode_buffer_t *buf, const char *s, size_t len);
-INLINE bencode_item_t *bencode_string_dup(bencode_buffer_t *buf, const char *s);
-INLINE bencode_item_t *bencode_str_dup(bencode_buffer_t *buf, const str *s);
+bencode_item_t *bencode_string_len_dup(arena_t *buf, const char *s, size_t len);
+INLINE bencode_item_t *bencode_string_dup(arena_t *buf, const char *s);
+INLINE bencode_item_t *bencode_str_dup(arena_t *buf, const str *s);
 
 /* Convenience function to compare a string object to a regular C string. Returns 2 if object
  * isn't a string object, otherwise returns according to strcmp(). */
@@ -183,7 +149,7 @@ INLINE str *bencode_get_str(bencode_item_t *in, str *out);
 /*** INTEGER BUILDING ***/
 
 /* Creates a new integer object. Returns NULL if no memory could be allocated. */
-bencode_item_t *bencode_integer(bencode_buffer_t *buf, long long int i);
+bencode_item_t *bencode_integer(arena_t *buf, long long int i);
 
 // Return integer, possibly converted from string
 INLINE long long bencode_get_integer_str(bencode_item_t *item, long long int defval);
@@ -197,7 +163,7 @@ INLINE long long bencode_get_integer_str(bencode_item_t *item, long long int def
 /* Collapses and encodes the complete document structure under the "root" element (which normally
  * is either a dictionary or a list) into an array of "iovec" structures. This array can then be
  * passed to functions ala writev() or sendmsg() to output the encoded document as a whole. Memory
- * is allocated from the same bencode_buffer_t object as the "root" object was allocated from.
+ * is allocated from the same arena_t object as the "root" object was allocated from.
  * The "head" and "tail" parameters specify additional "iovec" structures that should be included
  * in the allocated array before or after (respectively) the iovec structures used by the encoded
  * document. Both parameters can be zero if no additional elements in the array are required.
@@ -210,23 +176,23 @@ INLINE long long bencode_get_integer_str(bencode_item_t *item, long long int def
  * [(head) .. (head + cnt - 1)]              = the encoded document
  * [(head + cnt) .. (head + cnt + tail - 1)] = unused and uninitialized iovec structures
  *
- * The returned array will be freed when the corresponding bencode_buffer_t object is destroyed. */
+ * The returned array will be freed when the corresponding arena_t object is destroyed. */
 struct iovec *bencode_iovec(bencode_item_t *root, int *cnt, unsigned int head, unsigned int tail);
 
 /* Similar to bencode_iovec(), but instead returns the encoded document as a null-terminated string.
- * Memory for the string is allocated from the same bencode_buffer_t object as the "root" object
+ * Memory for the string is allocated from the same arena_t object as the "root" object
  * was allocated from. If "len" is a non-NULL pointer, the length of the generated string is returned
  * in *len. This is important if the encoded document contains binary data, in which case null
  * termination cannot be trusted. The returned string is freed when the corresponding
- * bencode_buffer_t object is destroyed. */
+ * arena_t object is destroyed. */
 char *bencode_collapse(bencode_item_t *root, size_t *len);
 
 /* Identical to bencode_collapse() but returns a "str" object. */
 INLINE str bencode_collapse_str(bencode_item_t *root);
 
 /* Identical to bencode_collapse(), but the memory for the returned string is not allocated from
- * a bencode_buffer_t object, but instead using the function defined as BENCODE_MALLOC (normally
- * malloc() or pkg_malloc()), similar to strdup(). Using this function, the bencode_buffer_t
+ * a arena_t object, but instead using the function defined as BENCODE_MALLOC (normally
+ * malloc() or pkg_malloc()), similar to strdup(). Using this function, the arena_t
  * object can be destroyed, but the returned string remains valid and usable. */
 char *bencode_collapse_dup(bencode_item_t *root, size_t *len);
 
@@ -238,7 +204,7 @@ char *bencode_collapse_dup(bencode_item_t *root, size_t *len);
 
 /* Decodes an encoded document from a string into a tree of bencode_item_t objects. The string does
  * not need to be null-terminated, instead the length of the string is given through the "len"
- * parameter. Memory is allocated from the bencode_buffer_t object. Returns NULL if no memory could
+ * parameter. Memory is allocated from the arena_t object. Returns NULL if no memory could
  * be allocated or if the document could not be successfully decoded.
  *
  * The returned element is the "root" of the document tree and normally is either a list object or
@@ -279,16 +245,16 @@ char *bencode_collapse_dup(bencode_item_t *root, size_t *len);
  * length). Strings are NOT null-terminated. Decoded integer objects will contain the decoded value
  * in ->value.
  *
- * All memory is freed when the bencode_buffer_t object is destroyed.
+ * All memory is freed when the arena_t object is destroyed.
  */
-bencode_item_t *bencode_decode(bencode_buffer_t *buf, const char *s, size_t len);
+bencode_item_t *bencode_decode(arena_t *buf, const char *s, size_t len);
 
 /* Identical to bencode_decode(), but returns successfully only if the type of the decoded object match
  * "expect". */
-INLINE bencode_item_t *bencode_decode_expect(bencode_buffer_t *buf, const char *s, size_t len, bencode_type_t expect);
+INLINE bencode_item_t *bencode_decode_expect(arena_t *buf, const char *s, size_t len, bencode_type_t expect);
 
 /* Identical to bencode_decode_expect() but takes a "str" argument. */
-INLINE bencode_item_t *bencode_decode_expect_str(bencode_buffer_t *buf, const str *s, bencode_type_t expect);
+INLINE bencode_item_t *bencode_decode_expect_str(arena_t *buf, const str *s, bencode_type_t expect);
 
 /* Returns the number of bytes that could successfully be decoded from 's', -1 if more bytes are needed or -2 on error */
 ssize_t bencode_valid(const char *s, size_t len);
@@ -307,7 +273,7 @@ bencode_item_t *bencode_dictionary_get_len(bencode_item_t *dict, const char *key
 /* Identical to bencode_dictionary_get() but returns the value only if its type is a string, and
  * returns it as a pointer to the string itself. Returns NULL if the value is of some other type. The
  * returned string is NOT null-terminated. Length of the string is returned in *len, which must be a
- * valid pointer. The returned string will be valid until dict's bencode_buffer_t object is destroyed. */
+ * valid pointer. The returned string will be valid until dict's arena_t object is destroyed. */
 INLINE char *bencode_dictionary_get_string(bencode_item_t *dict, const char *key, size_t *len);
 
 /* Identical to bencode_dictionary_get_string() but returns in a "str" struct.
@@ -320,7 +286,7 @@ INLINE str bencode_dictionary_get_str(bencode_item_t *dict, const char *key);
 INLINE int bencode_dictionary_get_strcmp(bencode_item_t *dict, const char *key, const char *str);
 
 /* Identical to bencode_dictionary_get() but returns the string in a newly allocated buffer (using the
- * BENCODE_MALLOC function), which remains valid even after bencode_buffer_t is destroyed. */
+ * BENCODE_MALLOC function), which remains valid even after arena_t is destroyed. */
 INLINE char *bencode_dictionary_get_string_dup(bencode_item_t *dict, const char *key, size_t *len);
 
 /* Combines bencode_dictionary_get_str() and bencode_dictionary_get_string_dup(). Fills in a "str"
@@ -343,45 +309,31 @@ INLINE bencode_item_t *bencode_dictionary_get_expect(bencode_item_t *dict, const
 
 /**************************/
 
-INLINE bencode_buffer_t *bencode_item_buffer(bencode_item_t *i) {
+INLINE arena_t *bencode_item_buffer(bencode_item_t *i) {
 	if (!i)
 		return NULL;
 	return i->buffer;
 }
 
-INLINE bencode_item_t *bencode_string(bencode_buffer_t *buf, const char *s) {
+INLINE bencode_item_t *bencode_string(arena_t *buf, const char *s) {
 	return bencode_string_len(buf, s, strlen(s));
 }
 
-INLINE bencode_item_t *bencode_string_dup(bencode_buffer_t *buf, const char *s) {
+INLINE bencode_item_t *bencode_string_dup(arena_t *buf, const char *s) {
 	return bencode_string_len_dup(buf, s, strlen(s));
 }
 
-INLINE bencode_item_t *bencode_str(bencode_buffer_t *buf, const str *s) {
+INLINE bencode_item_t *bencode_str(arena_t *buf, const str *s) {
 	return bencode_string_len(buf, s->s, s->len);
 }
 
-INLINE bencode_item_t *bencode_str_dup(bencode_buffer_t *buf, const str *s) {
+INLINE bencode_item_t *bencode_str_dup(arena_t *buf, const str *s) {
 	return bencode_string_len_dup(buf, s->s, s->len);
 }
 
-INLINE char *bencode_strdup(bencode_buffer_t *buf, const char *s) {
-	char *ret = bencode_buffer_alloc(buf, strlen(s) + 1);
-	strcpy(ret, s);
-	return ret;
-}
-
-INLINE str bencode_strdup_str(bencode_buffer_t *buf, const char *s) {
-	str o = STR_NULL;
-	o.len = strlen(s);
-	o.s = bencode_buffer_alloc(buf, o.len);
-	memcpy(o.s, s, o.len);
-	return o;
-}
-
-INLINE str bencode_str_strdup(bencode_buffer_t *buf, const str *s) {
+INLINE str bencode_str_strdup(arena_t *buf, const str *s) {
 	str o = *s;
-	o.s = bencode_buffer_alloc(buf, o.len);
+	o.s = arena_alloc(buf, o.len);
 #ifdef ASAN_BUILD
 	if (o.len)
 #endif
@@ -389,10 +341,10 @@ INLINE str bencode_str_strdup(bencode_buffer_t *buf, const str *s) {
 	return o;
 }
 
-INLINE str *bencode_str_str_dup(bencode_buffer_t *buf, const str *s) {
-	str *o = bencode_buffer_alloc(buf, sizeof(*o));
+INLINE str *bencode_str_str_dup(arena_t *buf, const str *s) {
+	str *o = arena_alloc(buf, sizeof(*o));
 	*o = *s;
-	o->s = bencode_buffer_alloc(buf, o->len);
+	o->s = arena_alloc(buf, o->len);
 	memcpy(o->s, s->s, o->len);
 	return o;
 }
@@ -431,7 +383,7 @@ INLINE void bencode_dictionary_add_str_dup(bencode_item_t *dict, const char *key
 
 INLINE void bencode_dictionary_add_str_dup_dup(bencode_item_t *dict, const char *key, const str *val) {
 	if (val)
-		bencode_dictionary_add(dict, bencode_strdup(bencode_item_buffer(dict), key),
+		bencode_dictionary_add(dict, arena_strdup(bencode_item_buffer(dict), key),
 				bencode_str_dup(bencode_item_buffer(dict), val));
 }
 
@@ -497,7 +449,7 @@ INLINE char *bencode_dictionary_get_string_dup(bencode_item_t *dict, const char 
 	s = bencode_dictionary_get_string(dict, key, len);
 	if (!s)
 		return NULL;
-	ret = BENCODE_MALLOC(*len);
+	ret = dict->buffer->alloc(*len);
 	if (!ret)
 		return NULL;
 	memcpy(ret, s, *len);
@@ -546,7 +498,7 @@ INLINE long long int bencode_dictionary_get_int_str(bencode_item_t *dict, const 
 	return bencode_get_integer_str(val, defval);
 }
 
-INLINE bencode_item_t *bencode_decode_expect(bencode_buffer_t *buf, const char *s, size_t len, bencode_type_t expect) {
+INLINE bencode_item_t *bencode_decode_expect(arena_t *buf, const char *s, size_t len, bencode_type_t expect) {
 	bencode_item_t *ret;
 	ret = bencode_decode(buf, s, len);
 	if (!ret || ret->type != expect)
@@ -554,7 +506,7 @@ INLINE bencode_item_t *bencode_decode_expect(bencode_buffer_t *buf, const char *
 	return ret;
 }
 
-INLINE bencode_item_t *bencode_decode_expect_str(bencode_buffer_t *buf, const str *s, bencode_type_t expect) {
+INLINE bencode_item_t *bencode_decode_expect_str(arena_t *buf, const str *s, bencode_type_t expect) {
 	return bencode_decode_expect(buf, s->s, s->len, expect);
 }
 

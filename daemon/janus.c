@@ -1634,7 +1634,7 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 	// top-level structures first, with auto cleanup
 	g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
 	g_autoptr(ng_buffer) ngbuf = ng_buffer_new(NULL);
-	bencode_buffer_init(&ngbuf->buffer);
+	arena_init(&ngbuf->buffer, g_malloc, g_free);
 	g_auto(sdp_ng_flags) flags;
 	call_ng_flags_init(&flags, OP_OTHER);
 
@@ -1646,7 +1646,7 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 
 	// allocate and parse candidate
 	str cand_str;
-	cand_str = bencode_strdup_str(&ngbuf->buffer, candidate);
+	cand_str = arena_strdup_str(&ngbuf->buffer, candidate);
 	str_shift_cmp(&cand_str, "candidate:"); // skip prefix
 	if (!cand_str.len) // end of candidates
 		return NULL;
@@ -1663,12 +1663,12 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 
 	g_autoptr(char) handle_buf = NULL;
 	handle_buf = g_strdup_printf("%" PRIu64, handle_id);
-	flags.from_tag = bencode_strdup_str(&ngbuf->buffer, handle_buf);
-	flags.call_id = bencode_strdup_str(&ngbuf->buffer, call_id);
+	flags.from_tag = arena_strdup_str(&ngbuf->buffer, handle_buf);
+	flags.call_id = arena_strdup_str(&ngbuf->buffer, call_id);
 
 	// populate and allocate a=mid
 	if (sdp_mid)
-		sp->media_id = bencode_strdup_str(&ngbuf->buffer, sdp_mid);
+		sp->media_id = arena_strdup_str(&ngbuf->buffer, sdp_mid);
 
 	// check m= line index
 	if (sdp_m_line >= 0)
@@ -1677,7 +1677,7 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 	// ufrag can be given in-line or separately
 	sp->ice_ufrag = cand->ufrag;
 	if (!sp->ice_ufrag.len && ufrag)
-		sp->ice_ufrag = bencode_strdup_str(&ngbuf->buffer, ufrag);
+		sp->ice_ufrag = arena_strdup_str(&ngbuf->buffer, ufrag);
 
 	// finally do the update
 	trickle_ice_update(ngbuf, call, &flags, &streams);

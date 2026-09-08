@@ -315,6 +315,7 @@ test-mix-buffer:	test-mix-buffer.o \
 	../daemon/helpers.o \
 	../daemon/rtp.o \
 	../daemon/ssrc.o \
+	../lib/arena.o \
 	../lib/avc.o \
 	../lib/bencode.o \
 	../lib/bufferpool.o \
@@ -347,6 +348,7 @@ spandsp_raw_fax_tests: spandsp_send_fax_pcm spandsp_recv_fax_pcm spandsp_send_fa
 test-amr-decode: test-amr-decode.o \
 	$(COMMONOBJS) \
 	../lib/amr.strhash.o \
+	../lib/arena.o \
 	../lib/avc.o \
 	../lib/bencode.o \
 	../lib/cchain.o \
@@ -361,6 +363,7 @@ test-amr-decode: test-amr-decode.o \
 test-amr-encode: test-amr-encode.o \
 	$(COMMONOBJS) \
 	../lib/amr.strhash.o \
+	../lib/arena.o \
 	../lib/avc.o \
 	../lib/bencode.o \
 	../lib/cchain.o \
@@ -374,11 +377,11 @@ test-amr-encode: test-amr-encode.o \
 
 test-dtmf-detect: test-dtmf-detect.o
 
-aes-crypt:	aes-crypt.o $(COMMONOBJS) ../daemon/crypto.o ../lib/bencode.o log.o
+aes-crypt:	aes-crypt.o $(COMMONOBJS) ../daemon/crypto.o ../lib/arena.o ../lib/bencode.o log.o
 
-aead-decrypt:	aead-decrypt.o $(COMMONOBJS) ../daemon/crypto.o ../daemon/rtp.o ../lib/bencode.o log.o
+aead-decrypt:	aead-decrypt.o $(COMMONOBJS) ../daemon/crypto.o ../daemon/rtp.o ../lib/arena.o ../lib/bencode.o log.o
 
-aead-aes-crypt:	aead-aes-crypt.o $(COMMONOBJS) ../daemon/crypto.o ../lib/bencode.o log.o
+aead-aes-crypt:	aead-aes-crypt.o $(COMMONOBJS) ../daemon/crypto.o ../lib/arena.o ../lib/bencode.o log.o
 
 test-stats:	test-stats.o \
 	$(COMMONOBJS) \
@@ -423,6 +426,7 @@ test-stats:	test-stats.o \
 	../daemon/timerthread.o \
 	../daemon/udp_listener.o \
 	../daemon/websocket.o \
+	../lib/arena.o \
 	../lib/avc.o \
 	../lib/bencode.o \
 	../lib/bufferpool.o \
@@ -486,6 +490,7 @@ test-transcode:	test-transcode.o \
 	../daemon/udp_listener.o \
 	../daemon/websocket.o \
 	../lib/amr.strhash.o \
+	../lib/arena.o \
 	../lib/avc.o \
 	../lib/bencode.o \
 	../lib/bufferpool.o \
@@ -513,6 +518,7 @@ test-transcode:	test-transcode.o \
 
 test-sequencer:	test-sequencer.o \
 	$(COMMONOBJS) \
+	../lib/arena.o \
 	../lib/avc.o \
 	../lib/bencode.o \
 	../lib/cchain.o \
@@ -524,6 +530,7 @@ test-sequencer:	test-sequencer.o \
 
 test-resample:	test-resample.o \
 	$(COMMONOBJS) \
+	../lib/arena.o \
 	../lib/avc.o \
 	../lib/bencode.o \
 	../lib/cchain.o \
@@ -541,6 +548,7 @@ test-payload-tracker: test-payload-tracker.o \
 	../daemon/helpers.o \
 	../daemon/rtp.o \
 	../daemon/ssrc.o \
+	../lib/arena.o \
 	../lib/avc.o \
 	../lib/bencode.o \
 	../lib/bufferpool.o \
@@ -558,7 +566,7 @@ test-payload-tracker: test-payload-tracker.o \
 
 test-kernel-module: test-kernel-module.o $(COMMONOBJS) ../daemon/kernel.o
 
-test-const_str_hash.strhash: test-const_str_hash.strhash.o $(COMMONOBJS) ../lib/bencode.o log.o
+test-const_str_hash.strhash: test-const_str_hash.strhash.o $(COMMONOBJS) ../lib/arena.o ../lib/bencode.o log.o
 
 s3-auth:	s3-auth.o ../lib/s3utils.o
 

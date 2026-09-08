@@ -99,7 +99,7 @@ static void __start(const char *file, int line) {
 	obj_hold(&call);
 	call.tags = str_ml_ht_new();
 	call.callid = STR("test-call");
-	bencode_buffer_init(&call.buffer);
+	arena_init(&call.buffer, g_malloc, g_free);
 	call_memory_arena_set(&call);
 	ml_A = __monologue_create(&call, &call.callid);
 	ml_B = __monologue_create(&call, &call.callid);
@@ -395,7 +395,7 @@ static void end(void) {
 	if (ml_B)
 		__monologue_free(ml_B);
 	__cleanup();
-	bencode_buffer_free(&call.buffer);
+	arena_free(&call.buffer);
 	call_memory_arena_release();
 	printf("\n");
 }

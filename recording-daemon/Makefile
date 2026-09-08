@@ -47,6 +47,7 @@ LIBSRCS := loglib.c auxlib.c rtplib.c codeclib.c resample.c str.c socket.c strea
 		dtmflib.c bufferpool.c bencode.c http.c s3utils.c oauth.c cchain.c
 LIBSRCS += rescale.c
 LIBSRCS += $(CODEC_SRCS)
+LIBSRCS += arena.c
 LIBASM := mvr2s_x64_avx2.S mvr2s_x64_avx512.S mix_in_x64_avx2.S mix_in_x64_avx512bw.S mix_in_x64_sse2.S
 
 MDS := rtpengine-recording.ronn

@@ -51,6 +51,7 @@ LIBSRCS := codeclib.c loglib.c auxlib.c resample.c str.c dtmflib.c rtplib.c poll
 	  bencode.c uring.c cchain.c socket.c
 LIBSRCS += rescale.c
 LIBSRCS += $(CODEC_SRCS)
+LIBSRCS += arena.c
 LIBASM := mvr2s_x64_avx2.S mvr2s_x64_avx512.S
 
 include ../lib/common.Makefile

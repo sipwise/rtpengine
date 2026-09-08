@@ -10,7 +10,7 @@
 #include <string.h>
 #include <glib/gprintf.h>
 #include "auxlib.h"
-#include "bencode.h"
+#include "arena.h"
 
 
 struct log_limiter_entry {
@@ -75,7 +75,7 @@ int ilog_facility = LOG_DAEMON;
 static GHashTable *__log_limiter;
 static mutex_t __log_limiter_lock = MUTEX_STATIC_INIT;
 static unsigned int __log_limiter_count;
-static bencode_buffer_t __log_limiter_buffer;
+static arena_t __log_limiter_buffer;
 
 
 
@@ -156,19 +156,19 @@ void __vpilog(int prio, const char *prefix, const char *fmt, va_list ap) {
 		if (__log_limiter_count > 10000) {
 			g_hash_table_remove_all(__log_limiter);
 			__log_limiter_count = 0;
-			bencode_buffer_free(&__log_limiter_buffer);
-			bencode_buffer_init(&__log_limiter_buffer);
+			arena_free(&__log_limiter_buffer);
+			arena_init(&__log_limiter_buffer, g_malloc, g_free);
 		}
 
 		time_t now = time(NULL);
 
 		llep = g_hash_table_lookup(__log_limiter, &lle);
 		if (!llep || (now - llep->when) >= 15) {
-			llep = bencode_buffer_alloc(&__log_limiter_buffer, sizeof(*llep));
+			llep = arena_alloc(&__log_limiter_buffer, sizeof(*llep));
 			if (llep) {
 				*llep = (__typeof(*llep)) {
-					.prefix = bencode_strdup(&__log_limiter_buffer, prefix),
-					.msg = bencode_strdup(&__log_limiter_buffer, msg),
+					.prefix = arena_strdup(&__log_limiter_buffer, prefix),
+					.msg = arena_strdup(&__log_limiter_buffer, msg),
 					.when = now,
 				};
 				g_hash_table_insert(__log_limiter, llep, llep);
@@ -240,7 +240,7 @@ static int log_limiter_entry_equal(const void *a, const void *b) {
 
 void log_init(const char *handle) {
 	__log_limiter = g_hash_table_new(log_limiter_entry_hash, log_limiter_entry_equal);
-	bencode_buffer_init(&__log_limiter_buffer);
+	arena_init(&__log_limiter_buffer, g_malloc, g_free);
 
 	if (!rtpe_common_config_ptr->log_stderr)
 		openlog(handle, LOG_PID | LOG_NDELAY, ilog_facility);
@@ -248,7 +248,7 @@ void log_init(const char *handle) {
 
 void log_free(void) {
 	g_hash_table_destroy(__log_limiter);
-	bencode_buffer_free(&__log_limiter_buffer);
+	arena_free(&__log_limiter_buffer);
 }
 
 int parse_log_facility(const char *name, int *dst) {

@@ -1706,7 +1706,7 @@ RTPE_CONFIG_CHARPP_PARAMS
 static void early_init(void) {
 	socket_init(); // needed for socktype_udp
 	rtpe_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free);
-	memory_arena_init(&rtpe_arena);
+	arena_init(&rtpe_arena, g_malloc, g_free);
 	memory_arena = &rtpe_arena;
 }
 
@@ -2249,7 +2249,7 @@ int main(int argc, char **argv) {
 	kernel_shutdown_table();
 	options_free();
 	bufferpool_cleanup();
-	memory_arena_free(&rtpe_arena);
+	arena_free(&rtpe_arena);
 	bufferpool_destroy(rtpe_bufferpool);
 
 	return 0;

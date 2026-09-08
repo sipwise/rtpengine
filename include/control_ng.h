@@ -53,6 +53,7 @@ enum ng_opmode {
 #include "socket.h"
 #include "str.h"
 #include "tcp_listener.h"
+#include "arena.h"
 #include "bencode.h"
 #include "types.h"
 #include "cli.h"
@@ -77,7 +78,7 @@ struct control_ng {
 
 struct ng_buffer {
 	struct obj obj;
-	bencode_buffer_t buffer;
+	arena_t buffer;
 	struct obj *ref;
 	JsonParser *json;
 	char *sdp_out;
@@ -108,7 +109,7 @@ typedef union {
 
 
 struct ng_parser {
-	void (*init)(ng_parser_ctx_t *, bencode_buffer_t *);
+	void (*init)(ng_parser_ctx_t *, arena_t *);
 	str (*collapse)(ng_parser_ctx_t *, parser_arg, void **);
 	const char *(*dict_iter)(const ng_parser_t *, parser_arg,
 		const char *(*callback)(const ng_parser_t *, str *, parser_arg, helper_arg),
@@ -151,7 +152,7 @@ struct ng_parser {
 };
 struct ng_parser_ctx {
 	const ng_parser_t *parser;
-	bencode_buffer_t *buffer;
+	arena_t *buffer;
 };
 struct ng_command_ctx {
 	ng_parser_ctx_t parser_ctx;

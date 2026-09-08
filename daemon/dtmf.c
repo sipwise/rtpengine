@@ -106,11 +106,11 @@ static void dtmf_bencode_and_notify(struct call_media *media, unsigned int event
 	call_t *call = media->call;
 	struct call_monologue *ml = media->monologue;
 
-	bencode_buffer_t bencbuf;
+	arena_t bencbuf;
 	bencode_item_t *notify, *data, *tags;
 	str encoded_data;
-	int ret = bencode_buffer_init(&bencbuf);
-	assert(ret == 0);
+	bool ret = arena_init(&bencbuf, g_malloc, g_free);
+	assert(ret == true);
 
 	notify = bencode_dictionary(&bencbuf);
 	bencode_dictionary_add_string(notify, "notify", "onDTMF");
@@ -137,7 +137,7 @@ static void dtmf_bencode_and_notify(struct call_media *media, unsigned int event
 
 	encoded_data = bencode_collapse_str(notify);
 	notify_ng_tcp_clients(&encoded_data);
-	bencode_buffer_free(&bencbuf);
+	arena_free(&bencbuf);
 }
 
 static GString *dtmf_json_print(struct call_media *media, unsigned int event, unsigned int volume,

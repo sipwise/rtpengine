@@ -93,6 +93,7 @@ SRCS += nftables.c
 endif
 LIBSRCS := loglib.c auxlib.c rtplib.c str.c socket.c streambuf.c ssllib.c dtmflib.c mix_buffer.c poller.c \
 		bufferpool.c bencode.c netfilter_api.c
+LIBSRCS += arena.c
 ifeq ($(with_transcoding),yes)
 LIBSRCS += codeclib.c resample.c cchain.c
 LIBSRCS += rescale.c

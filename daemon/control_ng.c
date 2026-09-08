@@ -205,7 +205,7 @@ static parser_arg __bencode_dictionary_add_dictionary(bencode_item_t *n, const c
 }
 static parser_arg __bencode_dictionary_add_dictionary_dup(bencode_item_t *n, const char *e) {
 	size_t len = strlen(e) + 1;
-	char *s = bencode_buffer_alloc(n->buffer, len);
+	char *s = arena_alloc(n->buffer, len);
 	memcpy(s, e, len);
 	return (parser_arg) bencode_dictionary_add_dictionary(n, s);
 }
@@ -214,7 +214,7 @@ static parser_arg __bencode_dictionary_add_list(bencode_item_t *n, const char *e
 }
 static parser_arg __bencode_dictionary_add_list_dup(bencode_item_t *n, const char *e) {
 	size_t len = strlen(e) + 1;
-	char *s = bencode_buffer_alloc(n->buffer, len);
+	char *s = arena_alloc(n->buffer, len);
 	memcpy(s, e, len);
 	return (parser_arg) bencode_dictionary_add_list(n, s);
 }
@@ -228,10 +228,10 @@ static str __bencode_collapse_str(ng_parser_ctx_t *ctx, bencode_item_t *a, void 
 	return bencode_collapse_str(a);
 }
 static const char *__bencode_strdup(ng_parser_ctx_t *ctx, const char *s) {
-	return bencode_strdup(ctx->buffer, s);
+	return arena_strdup(ctx->buffer, s);
 }
-static void __bencode_ctx_init(ng_parser_ctx_t *ctx, bencode_buffer_t *buf) {
-	bencode_buffer_init(buf);
+static void __bencode_ctx_init(ng_parser_ctx_t *ctx, arena_t *buf) {
+	arena_init(buf, g_malloc, g_free);
 	*ctx = (ng_parser_ctx_t) { .parser = &ng_parser_native, .buffer = buf };
 }
 
@@ -499,7 +499,7 @@ static str json_collapse(ng_parser_ctx_t *ctx, JsonNode *a, void **to_free) {
 	json_node_unref(a);
 	return out;
 }
-static void json_ctx_init(ng_parser_ctx_t *ctx, bencode_buffer_t *buf) {
+static void json_ctx_init(ng_parser_ctx_t *ctx, arena_t *buf) {
 	*ctx = (ng_parser_ctx_t) { .parser = &ng_parser_json };
 }
 static str dummy_encode_len(char *out, const char *in, size_t in_len) {
@@ -704,7 +704,7 @@ struct control_ng_stats* get_control_ng_stats(const sockaddr_t *addr) {
 }
 
 static void __ng_buffer_free(ng_buffer *ngbuf) {
-	bencode_buffer_free(&ngbuf->buffer);
+	arena_free(&ngbuf->buffer);
 	if (ngbuf->ref)
 		obj_put_o(ngbuf->ref);
 	if (ngbuf->json)

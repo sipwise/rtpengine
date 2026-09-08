@@ -2182,7 +2182,7 @@ static int redis_restore_checkpoints(call_t *c, parser_arg root) {
 
 struct redis_parsed_record {
 	JsonParser *json;
-	bencode_buffer_t benc;
+	arena_t benc;
 	bool benc_valid;
 	const ng_parser_t *parser;
 };
@@ -2207,7 +2207,7 @@ static const char *redis_parse_record(const str *record, parser_arg *root,
 	}
 
 	if (record->s[0] == 'd') {
-		if (bencode_buffer_init(&out->benc))
+		if (!arena_init(&out->benc, g_malloc, g_free))
 			return "failed to initialise bencode buffer";
 		out->benc_valid = true;
 		bencode_item_t *benc_root = bencode_decode_expect_str(&out->benc, record,
@@ -2226,7 +2226,7 @@ static void redis_parsed_record_free(struct redis_parsed_record *p) {
 	if (p->json)
 		g_object_unref(p->json);
 	if (p->benc_valid)
-		bencode_buffer_free(&p->benc);
+		arena_free(&p->benc);
 }
 
 static void json_restore_call(struct redis *r, const str *callid, bool foreign) {
@@ -3105,7 +3105,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free,
 str redis_snapshot_encode(call_t *c, struct call_monologue *ml) {
 	struct call_monologue *scope[2] = { ml, ml };
 	ng_parser_ctx_t ctx;
-	bencode_buffer_t bbuf;
+	arena_t bbuf;
 	// never leaves the daemon, so the format is ours to pick
 	ng_parser_native.init(&ctx, &bbuf);
 
@@ -3116,7 +3116,7 @@ str redis_snapshot_encode(call_t *c, struct call_monologue *ml) {
 		out = str_dup_str(&encoded);
 
 	g_free(to_free);
-	bencode_buffer_free(ctx.buffer);
+	arena_free(ctx.buffer);
 	return out;
 }
 
@@ -3537,7 +3537,7 @@ void redis_update_onekey(call_t *c, struct redis *r) {
 	}
 
 	ng_parser_ctx_t ctx;
-	bencode_buffer_t bbuf;
+	arena_t bbuf;
 	redis_format_parsers[rtpe_config.redis_format]->init(&ctx, &bbuf);
 
 	void *to_free = NULL;
@@ -3552,7 +3552,7 @@ void redis_update_onekey(call_t *c, struct redis *r) {
 	rwlock_unlock_r(&c->master_lock);
 
 	g_free(to_free);
-	bencode_buffer_free(ctx.buffer);
+	arena_free(ctx.buffer);
 
 	return;
 err:

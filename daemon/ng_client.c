@@ -1,5 +1,6 @@
 #include "ng_client.h"
 #include "media_socket.h"
+#include "bencode.h"
 
 struct endpoint_sockets {
 	endpoint_t dst;
@@ -103,7 +104,7 @@ static void ng_client_put_socket(struct endpoint_sockets *es, socket_slist *link
 	while (!success);
 }
 
-bencode_item_t *ng_client_request(const endpoint_t *dst, const str *req, bencode_buffer_t *rbuf) {
+bencode_item_t *ng_client_request(const endpoint_t *dst, const str *req, arena_t *rbuf) {
 	__auto_type es = ng_client_get_entry(dst);
 	__auto_type link = ng_client_get_socket(es);
 	if (!link)
@@ -132,7 +133,7 @@ bencode_item_t *ng_client_request(const endpoint_t *dst, const str *req, bencode
 			STR_FMT(req));
 
 	static const size_t buflen = 4096;
-	char *buf = bencode_buffer_alloc(rbuf, buflen);
+	char *buf = arena_alloc(rbuf, buflen);
 	ssize_t len = 0;
 
 	for (unsigned int try = 0; try < rtpe_config.ng_client_retries; try++) {

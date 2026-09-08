@@ -5538,7 +5538,7 @@ static void __call_free(call_t *c) {
 		bufferpool_unref(ps->stats_out);
 	}
 
-	memory_arena_free(&c->buffer);
+	arena_free(&c->buffer);
 	ice_fragments_cleanup(c->sdp_fragments, true);
 	t_hash_table_destroy(c->sdp_fragments);
 	rwlock_destroy(&c->master_lock);
@@ -5551,7 +5551,7 @@ static call_t *call_create(const str *callid) {
 
 	ilog(LOG_NOTICE, "Creating new call");
 	c = obj_alloc0(call_t, __call_free);
-	memory_arena_init(&c->buffer);
+	arena_init(&c->buffer, g_malloc, g_free);
 	rwlock_init(&c->master_lock);
 	c->tags = str_ml_ht_new();
 	c->viabranches = str_ml_ht_new();
@@ -5751,7 +5751,7 @@ static bool call_merge(call_t *call, call_t *call2) {
 	call_memory_arena_set(call);
 
 	// move buffers
-	bencode_buffer_merge(&call->buffer, &call2->buffer);
+	arena_merge(&call->buffer, &call2->buffer);
 
 	// the ids below are about to be renumbered, and a snapshot is keyed on them
 	call_checkpoint_free_all(call2);

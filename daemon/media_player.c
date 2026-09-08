@@ -757,7 +757,7 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 	call_memory_arena_release();
 
 	entry = mp->cache_entry = obj_alloc0(struct media_player_cache_entry, __media_player_cache_entry_free);
-	memory_arena_init(&entry->arena);
+	arena_init(&entry->arena, g_malloc, g_free);
 	memory_arena = &entry->arena;
 
 	struct media_player_cache_index *ins_key = &entry->index;
@@ -2214,7 +2214,7 @@ static void __media_player_cache_entry_free(struct media_player_cache_entry *e) 
 		kernel_free_packet_stream(e->kernel_idx);
 	g_free(e->index.index.file.s);
 	payload_type_clear(&e->index.dst_pt);
-	memory_arena_free(&e->arena);
+	arena_free(&e->arena);
 }
 #endif
 

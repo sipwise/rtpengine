@@ -2,18 +2,15 @@
 #define _MEMORY_ARENA_H_
 
 #include "compat.h"
-#include "bencode.h"
+#include "arena.h"
 
-typedef bencode_buffer_t memory_arena_t;
+typedef arena_t memory_arena_t;
 
 extern __thread memory_arena_t *memory_arena;
 
-#define memory_arena_init bencode_buffer_init
-#define memory_arena_free bencode_buffer_free
-
 INLINE void *__memory_arena_alloc(size_t len) {
 	void *ret;
-	ret = bencode_buffer_alloc(memory_arena, len);
+	ret = arena_alloc(memory_arena, len);
 	return ret;
 }
 #define memory_arena_alloc(type) ((type *) __memory_arena_alloc(sizeof(type)))
