@@ -17,6 +17,7 @@ struct arena {
 	struct arena_piece *pieces;
 	void *(*alloc)(size_t);
 	void (*free)(void *);
+	unsigned int piece_order;
 };
 typedef struct arena arena_t;
 

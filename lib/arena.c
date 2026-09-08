@@ -2,7 +2,7 @@
 #include "helpers.h"
 
 
-#define ARENA_MIN_PIECE_LEN 4096
+#define ARENA_INITIAL_PIECE_ORDER 12 // 4096
 
 // enable to perform each allocation separately, to make debugging (valgrind...) easier
 //#define ARENA_ALLOC_DEBUG
@@ -15,19 +15,31 @@ struct arena_piece {
 };
 
 
-static struct arena_piece *arena_piece_new(size_t size, void *(*alloc_fn)(size_t)) {
+static struct arena_piece *arena_piece_new(arena_t *arena, size_t size, void *(*alloc_fn)(size_t)) {
 	struct arena_piece *ret;
 
-	size_t alloc_size = size + sizeof(*ret) + ARENA_ALLOC_ALIGN;
+	static const unsigned long overhead = sizeof(*ret) + ARENA_ALLOC_ALIGN;
+	unsigned long needed_size = size + overhead;
+
 #ifndef ARENA_ALLOC_DEBUG
-	alloc_size = MAX(alloc_size, ARENA_MIN_PIECE_LEN);
+	unsigned long alloc_size = 1L << arena->piece_order;
+
+	if (needed_size > alloc_size) {
+		arena->piece_order = LONG_BIT - __builtin_clzl(needed_size);
+		alloc_size = 1L << arena->piece_order;
+	}
+
+	arena->piece_order++; // next needed piece will be larger
+#else
+	unsigned long alloc_size = needed_size;
 #endif
+
 	ret = alloc_fn(alloc_size);
 	if (!ret)
 		return NULL;
 
 	ret->tail = ret->buf;
-	ret->left = alloc_size - sizeof(*ret) - ARENA_ALLOC_ALIGN;
+	ret->left = alloc_size - overhead;
 	ret->next = NULL;
 
 	return ret;
@@ -36,7 +48,8 @@ static struct arena_piece *arena_piece_new(size_t size, void *(*alloc_fn)(size_t
 bool arena_init(arena_t *arena, void *(*alloc_fn)(size_t), void (*free_fn)(void *)) {
 	arena->alloc = alloc_fn;
 	arena->free = free_fn;
-	arena->pieces = arena_piece_new(0, alloc_fn);
+	arena->piece_order = ARENA_INITIAL_PIECE_ORDER;
+	arena->pieces = arena_piece_new(arena, 0, alloc_fn);
 	if (!arena->pieces)
 		return false;
 	return true;
@@ -55,7 +68,7 @@ void *arena_alloc(arena_t *arena, size_t size) {
 	if (size <= piece->left)
 		goto alloc;
 
-	piece = arena_piece_new(size, arena->alloc);
+	piece = arena_piece_new(arena, size, arena->alloc);
 	if (!piece)
 		return NULL;
 	piece->next = arena->pieces;
