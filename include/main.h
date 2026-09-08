@@ -7,7 +7,7 @@
 #include "socket.h"
 #include "auxlib.h"
 #include "types.h"
-#include "arena.h"
+#include "memory_arena.h"
 
 enum xmlrpc_format {
 	XF_SEMS = 0,

@@ -24,7 +24,7 @@
 #include "kernel.h"
 #include "bufferpool.h"
 #include "uring.h"
-#include "arena.h"
+#include "memory_arena.h"
 
 #define DEFAULT_AVIO_BUFSIZE 4096
 

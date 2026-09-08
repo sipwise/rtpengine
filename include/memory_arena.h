@@ -1,5 +1,5 @@
-#ifndef _ARENA_H_
-#define _ARENA_H_
+#ifndef _MEMORY_ARENA_H_
+#define _MEMORY_ARENA_H_
 
 #include "compat.h"
 #include "bencode.h"

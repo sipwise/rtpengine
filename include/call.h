@@ -307,7 +307,7 @@ enum block_dtmf_mode {
 #include "crypto.h"
 #include "dtls.h"
 #include "dtmf.h"
-#include "arena.h"
+#include "memory_arena.h"
 #include "ssrc.h"
 
 

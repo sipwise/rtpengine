@@ -382,7 +382,6 @@ aead-aes-crypt:	aead-aes-crypt.o $(COMMONOBJS) ../daemon/crypto.o ../lib/bencode
 
 test-stats:	test-stats.o \
 	$(COMMONOBJS) \
-	../daemon/arena.o \
 	../daemon/audio_player.o \
 	../daemon/call_flags.strhash.o \
 	../daemon/call_interfaces.o \
@@ -408,6 +407,7 @@ test-stats:	test-stats.o \
 	../daemon/load.o \
 	../daemon/media_player.o \
 	../daemon/media_socket.o \
+	../daemon/memory_arena.o \
 	../daemon/mqtt.o \
 	../daemon/ng_client.o \
 	../daemon/recording.o \
@@ -445,7 +445,6 @@ test-stats:	test-stats.o \
 
 test-transcode:	test-transcode.o \
 	$(COMMONOBJS) \
-	../daemon/arena.o \
 	../daemon/audio_player.o \
 	../daemon/call_flags.strhash.o \
 	../daemon/call_interfaces.o \
@@ -470,6 +469,7 @@ test-transcode:	test-transcode.o \
 	../daemon/load.o \
 	../daemon/media_player.o \
 	../daemon/media_socket.o \
+	../daemon/memory_arena.o \
 	../daemon/mqtt.o \
 	../daemon/ng_client.o \
 	../daemon/recording.o \
