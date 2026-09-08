@@ -5551,7 +5551,7 @@ static call_t *call_create(const str *callid) {
 
 	ilog(LOG_NOTICE, "Creating new call");
 	c = obj_alloc0(call_t, __call_free);
-	arena_init(&c->buffer, g_malloc, g_free);
+	arena_init(&c->buffer, memory_arena_malloc, memory_arena_free);
 	rwlock_init(&c->master_lock);
 	c->tags = str_ml_ht_new();
 	c->viabranches = str_ml_ht_new();

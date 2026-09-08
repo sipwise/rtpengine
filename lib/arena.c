@@ -7,7 +7,9 @@
 // enable to perform each allocation separately, to make debugging (valgrind...) easier
 //#define ARENA_ALLOC_DEBUG
 
+
 struct arena_piece {
+	size_t size; // must be first
 	char *tail;
 	size_t left;
 	struct arena_piece *next;
@@ -38,6 +40,7 @@ static struct arena_piece *arena_piece_new(arena_t *arena, size_t size, void *(*
 	if (!ret)
 		return NULL;
 
+	ret->size = alloc_size;
 	ret->tail = ret->buf;
 	ret->left = alloc_size - overhead;
 	ret->next = NULL;

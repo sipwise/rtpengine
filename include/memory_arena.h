@@ -8,6 +8,9 @@ typedef arena_t memory_arena_t;
 
 extern __thread memory_arena_t *memory_arena;
 
+void *memory_arena_malloc(size_t);
+void memory_arena_free(void *);
+
 INLINE void *__memory_arena_alloc(size_t len) {
 	void *ret;
 	ret = arena_alloc(memory_arena, len);
