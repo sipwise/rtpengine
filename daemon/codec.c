@@ -3041,7 +3041,7 @@ void codec_init_payload_type(rtp_payload_type *pt, enum media_type type) {
 	pt->codec_opts = call_str_cpy(&pt->codec_opts);
 
 	// allocate everything from the rtcp-fb list
-	for (GList *l = pt->rtcp_fb.head; l; l = l->next) {
+	for (__auto_type l = pt->rtcp_fb.head; l; l = l->next) {
 		str *fb = l->data;
 		l->data = call_str_dup(fb);
 	}
@@ -5245,7 +5245,7 @@ static rtp_payload_type *codec_add_payload_type(const str *codec, struct call_me
 
 
 void payload_type_clear(rtp_payload_type *p) {
-	g_queue_clear(&p->rtcp_fb);
+	t_queue_clear(&p->rtcp_fb);
 	ZERO(*p);
 	p->payload_type = -1;
 }
@@ -5266,8 +5266,8 @@ static void rtp_payload_type_copy(rtp_payload_type *dst, const rtp_payload_type 
 	*dst = *src;
 
 	// make shallow copy of lists
-	g_queue_init(&dst->rtcp_fb);
-	g_queue_append(&dst->rtcp_fb, &src->rtcp_fb);
+	t_queue_init(&dst->rtcp_fb);
+	t_queue_append(&dst->rtcp_fb, &src->rtcp_fb);
 
 	// duplicate contents
 	codec_init_payload_type(dst, MT_UNKNOWN);

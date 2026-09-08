@@ -1594,6 +1594,8 @@ static int fill_endpoint(struct endpoint *ep, const struct sdp_media *media, sdp
 }
 
 
+TYPED_GHASHTABLE(rtcp_fb_ht, void, str_q, g_direct_hash, g_direct_equal, NULL, str_q_free);
+
 
 static bool __rtp_payload_types(struct stream_params *sp, struct sdp_media *media)
 {
@@ -1622,7 +1624,7 @@ static bool __rtp_payload_types(struct stream_params *sp, struct sdp_media *medi
 				&attr->fmtp.format_parms_str);
 	}
 	// do the same for a=rtcp-fb
-	g_autoptr(GHashTable) ht_rtcp_fb = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, (GDestroyNotify) g_queue_free);
+	g_auto(rtcp_fb_ht) ht_rtcp_fb = rtcp_fb_ht_new();
 	q = attr_list_get_by_id(&media->attributes, ATTR_RTCP_FB);
 	for (__auto_type ql = q ? q->head : NULL; ql; ql = ql->next) {
 		attr = ql->data;
@@ -1631,8 +1633,12 @@ static bool __rtp_payload_types(struct stream_params *sp, struct sdp_media *medi
 			struct sdp_attr *ac = sdp_attr_dup(attr);
 			t_queue_push_tail(&sp->generic_attributes, ac);
 		}
-		GQueue *rq = g_hash_table_lookup_queue_new(ht_rtcp_fb, GINT_TO_POINTER(attr->rtcp_fb.payload_type), NULL);
-		g_queue_push_tail(rq, &attr->rtcp_fb.value);
+		str_q *rq = t_hash_table_lookup(ht_rtcp_fb, GINT_TO_POINTER(attr->rtcp_fb.payload_type));
+		if (!rq) {
+			rq = str_q_new();
+			t_hash_table_insert(ht_rtcp_fb, GINT_TO_POINTER(attr->rtcp_fb.payload_type), rq);
+		}
+		t_queue_push_tail(rq, &attr->rtcp_fb.value);
 	}
 
 	/* then go through the format list and associate */
@@ -1666,12 +1672,12 @@ static bool __rtp_payload_types(struct stream_params *sp, struct sdp_media *medi
 			pt->format_parameters = *s;
 		else
 			pt->format_parameters = STR_EMPTY;
-		GQueue *rq = g_hash_table_lookup(ht_rtcp_fb, GINT_TO_POINTER(i));
+		str_q *rq = t_hash_table_lookup(ht_rtcp_fb, GINT_TO_POINTER(i));
 		if (rq) {
 			// steal the list contents and free the list
 			pt->rtcp_fb = *rq;
-			g_queue_init(rq);
-			g_hash_table_remove(ht_rtcp_fb, GINT_TO_POINTER(i)); // frees `rq`
+			t_queue_init(rq);
+			t_hash_table_remove(ht_rtcp_fb, GINT_TO_POINTER(i)); // frees `rq`
 		}
 
 		// fill in ptime
@@ -2292,7 +2298,7 @@ static void insert_codec_parameters(GString *s, struct call_media *cm,
 					&pt->format_parameters, flags, cm->type_id);
 
 		/* rtcp-fb */
-		for (GList *k = pt->rtcp_fb.head; k; k = k->next) {
+		for (__auto_type k = pt->rtcp_fb.head; k; k = k->next) {
 			str *fb = k->data;
 			append_int_tagged_attr_to_gstring(s, "rtcp-fb", pt->payload_type, fb,
 					flags, cm->type_id);

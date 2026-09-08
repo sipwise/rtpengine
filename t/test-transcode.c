@@ -167,7 +167,7 @@ static void __sdp_pt_fmt(int num, str codec, int clockrate, int channels, str fu
 		.channels = channels,
 		.format_parameters = *fmtdup,
 		.codec_opts = STR_NULL,
-		.rtcp_fb = G_QUEUE_INIT,
+		.rtcp_fb = TYPED_GQUEUE_INIT,
 		.ptime = 0,
 		.bitrate = 0,
 		.codec_def = NULL,

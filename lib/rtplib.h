@@ -120,7 +120,7 @@ struct rtp_payload_type {
 	unsigned int time_base; // 48000 or 30
 	str format_parameters; // value of a=fmtp
 	str codec_opts; // extra codec-specific options
-	GQueue rtcp_fb; // a=rtcp-fb:...
+	str_q rtcp_fb; // a=rtcp-fb:...
 
 	int ptime; // default from RFC
 	int bitrate;
