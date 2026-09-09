@@ -5502,6 +5502,8 @@ static void __call_free(call_t *c) {
 
 	//ilog(LOG_DEBUG, "freeing main call struct");
 
+	memory_arena = &c->buffer;
+
 	call_checkpoint_free_all(c);
 	obj_release(c->dtls_cert);
 	mqtt_timer_stop(&c->mqtt_timer);
@@ -5538,7 +5540,9 @@ static void __call_free(call_t *c) {
 		bufferpool_unref(ps->stats_out);
 	}
 
+	memory_arena = NULL;
 	arena_free(&c->buffer);
+
 	ice_fragments_cleanup(c->sdp_fragments, true);
 	t_hash_table_destroy(c->sdp_fragments);
 	rwlock_destroy(&c->master_lock);

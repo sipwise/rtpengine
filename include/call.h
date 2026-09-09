@@ -1059,7 +1059,7 @@ INLINE void call_memory_arena_release(void) {
 		return;
 	obj_put(call_memory_arena);
 	call_memory_arena = NULL;
-	memory_arena = &rtpe_arena;
+	memory_arena = NULL;
 }
 INLINE void call_memory_arena_set(call_t *c) {
 	call_memory_arena_release();
