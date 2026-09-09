@@ -126,7 +126,10 @@ rcv_no($sock_c);
 snd($sock_a, $port_b, NGCP::Rtpclient::ICE::stun_succ($ret1[0], $ret1[2], 'bd5e8b8d6dd8e1bc6'));
 snd($sock_b, $port_b, NGCP::Rtpclient::ICE::stun_succ($ret2[0], $ret2[2], 'bd5e8b8d6dd8e1bc6'));
 
-# respond to STUN on RTCP
+# respond to STUN on RTCP, consume initial check and respond to next
+
+rcv($sock_ax, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42/s);
+rcv($sock_bx, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42/s);
 
 @ret1 = rcv($sock_ax, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine.*?\x00\x06\x00\x11q2758e93:(........)\x00\x00\x00\x80\x29\x00\x08........\x00\x24\x00\x04\x6e\xff\xff\xfe\x00\x08\x00\x14....................\x80\x28\x00\x04....$/s);
 @ret2 = rcv($sock_bx, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine.*?\x00\x06\x00\x11q2758e93:(........)\x00\x00\x00\x80\x29\x00\x08........\x00\x24\x00\x04\x6e\xff\xff\xfe\x00\x08\x00\x14....................\x80\x28\x00\x04....$/s);
