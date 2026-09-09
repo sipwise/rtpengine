@@ -399,7 +399,7 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 		__typeof__(dst) __dst = dst; \
 		__typeof__(src) __src = src; \
 		if (__dst && __src) \
-			for (__auto_type __l = __src->head; __l; __l = __l->next) \
+			for (auto_iter(__l, __src->head); __l; __l = __l->next) \
 				t_queue_push_tail(__dst, __l->data); \
 	})
 
