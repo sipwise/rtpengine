@@ -2818,7 +2818,7 @@ static void media_packet_reset_media(struct packet_handler_ctx *phc, struct call
 
 	// reset media, stream, sinks, in_srtp
 	phc->mp.media = media;
-	phc->mp.stream = media->streams.head->data;
+	phc->mp.stream = media->streams.head;
 	phc->in_srtp = phc->mp.stream;
 	phc->sinks = &phc->mp.stream->rtp_sinks;
 }
@@ -3815,10 +3815,8 @@ out:
 	if (phc->unkernelize_subscriptions) {
 		IQUEUE_FOREACH(&phc->mp.media->media_subscriptions, ms) {
 			__auto_type sub_media = ms->media;
-			for (__auto_type m = sub_media->streams.head; m; m = m->next) {
-				struct packet_stream *sub_ps = m->data;
+			IQUEUE_FOREACH(&sub_media->streams, sub_ps)
 				unkernelize(sub_ps, "subscriptions modified");
-			}
 		}
 	}
 

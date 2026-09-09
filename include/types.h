@@ -80,9 +80,6 @@ struct codec_pipeline_index;
 TYPED_GHASHTABLE_PROTO(transcode_config_ht, struct codec_pipeline_index, struct transcode_config)
 TYPED_GQUEUE(transcode_config, struct transcode_config)
 
-struct packet_stream;
-TYPED_GQUEUE(packet_stream, struct packet_stream)
-
 struct sink_handler;
 TYPED_GQUEUE(sink_handler, struct sink_handler)
 

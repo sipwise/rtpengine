@@ -421,6 +421,8 @@ struct packet_stream {
 	 * Preempted by call->master_lock held in W.
 	 */
 	mutex_t			lock;
+	IQUEUE_LINK		media_link;
+	IQUEUE_LINK		call_link;
 
 	struct call_media	*media;		/* RO */
 	call_t			*call;		/* RO */
@@ -465,6 +467,10 @@ struct packet_stream {
 	/* ps->lock must be held for SETTING these: */
 	atomic64		ps_flags;
 };
+
+typedef IQUEUE(struct packet_stream, media_link) streams_in_media_q;
+typedef IQUEUE(struct packet_stream, call_link) streams_in_call_q;
+
 
 INLINE int64_t packet_stream_last_packet(const struct packet_stream *ps) {
 	int64_t lp1 = (int64_t)atomic64_get_na(&ps->last_packet_us);
@@ -544,7 +550,7 @@ struct call_media {
 	candidate_q		ice_candidates; 		/* slice-alloc'd, as received */
 	unsigned int		media_rec_slot;
 
-	packet_stream_q		streams;			/* normally RTP + RTCP */
+	streams_in_media_q	streams;			/* normally RTP + RTCP */
 	struct endpoint_map	*endpoint_map;
 	endpoint_map_q		endpoint_maps;
 	struct ssrc_hash	ssrc_hash_in;
@@ -798,7 +804,7 @@ struct call {
 	str_ml_ht		sdps;
 	endpoint_ml_ht		endpoints;
 	fragments_ht		sdp_fragments;
-	packet_stream_q		streams;
+	streams_in_call_q	streams;
 	stream_fd_q		stream_fds;	/* stream_fd */
 	endpoint_map_q		endpoint_maps;
 	struct dtls_cert	*dtls_cert;	/* for outgoing */
@@ -974,7 +980,6 @@ void call_media_unkernelize(struct call_media *media, const char *reason);
 void __monologue_unconfirm(struct call_monologue *monologue, const char *);
 void __media_unconfirm(struct call_media *media, const char *);
 
-__attribute__((nonnull(1)))
 /* one monologue's state from before an offer, held as a call record snapshot */
 struct call_checkpoint {
 	bool pending;
@@ -986,6 +991,7 @@ void call_checkpoint_answer(call_t *, struct call_monologue *, struct call_monol
 int call_checkpoint_rollback(call_t *, struct call_monologue *, struct call_monologue *);
 void call_checkpoint_free_all(call_t *);
 
+__attribute__((nonnull(1)))
 void update_init_monologue_subscribers(struct call_monologue *ml, enum ng_opmode opmode);
 
 __attribute__((nonnull(1)))

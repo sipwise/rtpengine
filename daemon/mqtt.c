@@ -390,7 +390,7 @@ static void mqtt_media_stats(struct call_media *media, JsonBuilder *json) {
 			json_builder_add_string_value(json, "inactive");
 	}
 
-	struct packet_stream *ps = media->streams.head ? media->streams.head->data : NULL;
+	struct packet_stream *ps = media->streams.head ?: NULL;
 
 
 	mutex_lock(&media->ssrc_hash_in.lock);

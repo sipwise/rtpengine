@@ -62,6 +62,20 @@
 })
 
 
+#define i_queue_pop_tail(list) ({ \
+	__auto_type __ret = (list)->tail; \
+	if (__ret) { \
+		__auto_type __link = (__typeof((list)->offset)) __ret; \
+		(list)->tail = __link->link.prev; \
+		__link->link.prev = NULL; \
+		(list)->length--; \
+		if (!(list)->tail) \
+			(list)->head = NULL; \
+	} \
+	__ret; \
+})
+
+
 #define i_queue_push_tail(list, ele) do { \
 	if ((list)->tail) { \
 		__auto_type __link = (__typeof((list)->offset)) (list)->tail; \
@@ -107,13 +121,25 @@
 } while (0)
 
 
+#define i_queue_truncate(list, num) do { \
+	while ((list)->length > (num)) \
+		i_queue_pop_tail(list); \
+} while (0)
+
+
+#define IQUEUE_NEXT(list, var) ({ \
+	__typeof ((list)->head) __ret = ((__typeof((list)->offset)) var)->link.next; \
+	__ret; \
+})
+
+
 #define IQUEUE_FOREACH(list, var) \
-	for (__typeof__ ( ({ __typeof__ (*(list)->head) __t; &__t; }) ) var = (list)->head; \
+	for (__typeof ( ({ __typeof (*(list)->head) __t; &__t; }) ) var = (list)->head; \
 			var; var = ((__typeof((list)->offset)) var)->link.next)
 
 
 #define IQUEUE_FOREACH_SAFE(list, var) \
-	for (__typeof__ ( ({ __typeof__ (*(list)->head) __t; &__t; }) ) var = (list)->head, \
+	for (__typeof ( ({ __typeof (*(list)->head) __t; &__t; }) ) var = (list)->head, \
 			__next ## var = var ? ((__typeof((list)->offset)) var)->link.next : NULL; \
 		var; \
 		var = __next ## var, \
@@ -128,8 +154,8 @@
 
 
 #define i_queue_find(list, fn) ({ \
-	 __typeof__ ((list)->head) __ret = NULL; \
-	 bool (*__fn)(__typeof__ ((list)->const_ele)) = (fn); \
+	 __typeof ((list)->head) __ret = NULL; \
+	 bool (*__fn)(__typeof ((list)->const_ele)) = (fn); \
 	 IQUEUE_FOREACH(list, __ele) { \
 	 	if (__fn(__ele)) { \
 			__ret = __ele; \

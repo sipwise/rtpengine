@@ -1243,7 +1243,7 @@ static bool media_player_read_packet(struct media_player *mp) {
 void media_player_set_sink(struct media_player *mp) {
 	struct call_media *media = mp->media;
 	if (media->streams.head) {
-		mp->sink.sink = media->streams.head->data;
+		mp->sink.sink = media->streams.head;
 		sink_handler_set_generic(&mp->sink);
 	}
 	if (!mp->ssrc_out || mp->ssrc_out->h.ssrc != mp->ssrc) {
@@ -1658,11 +1658,7 @@ static void call_ml_moh_handle_flags(struct call_monologue *from_ml, struct call
 
 	/* check zero-connection */
 	if (ML_ISSET(moh_ml, MOH_ZEROCONN)) {
-		struct packet_stream *ps;
-		__auto_type msl = audio->streams.head;
-		while (msl)
-		{
-			ps = msl->data;
+		IQUEUE_FOREACH(&audio->streams, ps) {
 			if (PS_ISSET(ps, RTP)) { /* find RTP stream, and don't touch RTCP */
 				ilog(LOG_DEBUG, "Forced packet stream of '"STR_FORMAT"' (media index: '%d')"
 						"to zero_addr due to MoH zero-connection.",
@@ -1670,7 +1666,6 @@ static void call_ml_moh_handle_flags(struct call_monologue *from_ml, struct call
 				PS_SET(ps, ZERO_ADDR);
 				goto check_next; /* stop */
 			}
-			msl = msl->next;
 		}
 	}
 check_next:

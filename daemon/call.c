@@ -126,7 +126,6 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 	bool do_update = false;
 	bool has_srtp = false;
 	bool recv_checked = false;
-	struct packet_stream *ps;
 	int tmp_t_reason = UNKNOWN;
 	enum call_stream_state css;
 	int64_t timestamp;
@@ -174,9 +173,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 
 	ice_fragments_cleanup(c->sdp_fragments, false);
 
-	for (__auto_type it = c->streams.head; it; it = it->next) {
-		ps = it->data;
-
+	IQUEUE_FOREACH(&c->streams, ps) {
 		timestamp = packet_stream_last_packet(ps);
 
 		if (!ps->media)
@@ -899,9 +896,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 static void __assign_stream_fds(struct call_media *media, sfd_intf_list_q *intf_sfds) {
 	int reset_ice = 0;
 
-	for (__auto_type k = media->streams.head; k; k = k->next) {
-		struct packet_stream *ps = k->data;
-
+	IQUEUE_FOREACH(&media->streams, ps) {
 		// use opaque pointer to detect changes
 		void *old_selected_sfd = ps->selected_sfd;
 
@@ -967,7 +962,7 @@ TYPED_GHASHTABLE_IMPL(rtp_stats_ht, g_direct_hash, g_direct_equal, NULL, __rtp_s
 struct packet_stream *__packet_stream_new(call_t *call) {
 	struct packet_stream *stream;
 
-	stream = uid_alloc(&call->streams);
+	stream = iuid_alloc(&call->streams);
 	mutex_init(&stream->lock);
 	stream->call = call;
 	atomic64_set_na(&stream->last_packet_us, rtpe_now);
@@ -996,12 +991,12 @@ static int __num_media_streams(struct call_media *media, unsigned int num_ports)
 	while (media->streams.length < num_ports) {
 		stream = __packet_stream_new(call);
 		stream->media = media;
-		t_queue_push_tail(&media->streams, stream);
+		i_queue_push_tail(&media->streams, stream);
 		stream->component = media->streams.length;
 		ret++;
 	}
 
-	t_queue_truncate(&media->streams, num_ports);
+	i_queue_truncate(&media->streams, num_ports);
 
 	return ret;
 }
@@ -1156,8 +1151,8 @@ enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
 }
 
 void call_media_state_machine(struct call_media *m) {
-	for (__auto_type l = m->streams.head; l; l = l->next)
-		call_stream_state_machine(l->data);
+	IQUEUE_FOREACH(&m->streams, ps)
+		call_stream_state_machine(ps);
 }
 
 bool __init_stream(struct packet_stream *ps) {
@@ -1262,8 +1257,7 @@ void __add_sink_handler(sink_handler_q *q, struct packet_stream *sink, const str
 
 // called once before calling __streams_set_sinks once for each sink
 static void __reset_streams(struct call_media *media) {
-	for (__auto_type l = media->streams.head; l; l = l->next) {
-		struct packet_stream *ps = l->data;
+	IQUEUE_FOREACH(&media->streams, ps) {
 		t_queue_clear_full(&ps->rtp_sinks, free_sink_handler);
 		t_queue_clear_full(&ps->rtcp_sinks, free_sink_handler);
 		t_queue_clear_full(&ps->rtp_mirrors, free_sink_handler);
@@ -1280,9 +1274,7 @@ static bool __init_streams(struct call_media *A, const struct stream_params *sp,
 
 	dbg_int("Stream set flags media %u", A->index);
 
-	for (__auto_type l = A->streams.head; l; l = l->next) {
-		__auto_type a = l->data;
-
+	IQUEUE_FOREACH(&A->streams, a) {
 		/* RTP */
 		PS_SET(a, RTP); /* XXX technically not correct, could be udptl too */
 
@@ -1309,9 +1301,8 @@ static bool __init_streams(struct call_media *A, const struct stream_params *sp,
 
 		/* if muxing, this is the fallback RTCP port. it also contains the RTCP
 		 * crypto context */
-		l = l->next;
-		assert(l != NULL);
-		a = l->data;
+		a = IQUEUE_NEXT(&A->streams, a);
+		assert(a != NULL);
 
 		PS_CLEAR(a, RTP);
 		PS_SET(a, RTCP);
@@ -1353,18 +1344,16 @@ static bool __init_streams(struct call_media *A, const struct stream_params *sp,
  */
 __attribute__((nonnull(1, 2, 4)))
 static bool __streams_set_sinks(struct call_media *A, struct call_media *B,
-		const sdp_ng_flags *flags, const struct sink_attrs *attrs) {
-	__auto_type la = A->streams.head;
-	__auto_type lb = B->streams.head;
+		const sdp_ng_flags *flags, const struct sink_attrs *attrs)
+{
+	__auto_type a_rtp = A->streams.head;
+	__auto_type b_rtp = B->streams.head;
 
 	dbg_int("Sink init media %u -> %u", A->index, B->index);
 
-	while (la) {
-		if (!lb)
+	while (a_rtp) {
+		if (!b_rtp)
 			break; // nothing left to do
-
-		__auto_type a_rtp = la->data;
-		__auto_type b_rtp = lb->data;
 
 		/* RTP */
 		// reflect media - pretend reflection also for blackhole, as otherwise
@@ -1390,15 +1379,13 @@ static bool __streams_set_sinks(struct call_media *A, struct call_media *B,
 		}
 
 		/* RTCP */
-		lb = lb->next;
-		assert(lb != NULL);
-		__auto_type b_rtcp = lb->data;
+		__auto_type b_rtcp = IQUEUE_NEXT(&B->streams, b_rtp);
+		assert(b_rtcp != NULL);
 
 		/* if muxing, this is the fallback RTCP port. it also contains the RTCP
 		 * crypto context */
-		la = la->next;
-		assert(la != NULL);
-		__auto_type a_rtcp = la->data;
+		__auto_type a_rtcp = IQUEUE_NEXT(&A->streams, a_rtp);
+		assert(a_rtcp != NULL);
 
 		if (attrs->egress)
 			goto no_rtcp;
@@ -1423,8 +1410,8 @@ static bool __streams_set_sinks(struct call_media *A, struct call_media *B,
 		}
 
 no_rtcp:
-		la = la->next;
-		lb = lb->next;
+		a_rtp = IQUEUE_NEXT(&A->streams, a_rtcp);
+		b_rtp = IQUEUE_NEXT(&B->streams, b_rtcp);
 	}
 
 	return true;
@@ -2010,14 +1997,11 @@ del_next:
 
 
 static void __disable_streams(struct call_media *media, unsigned int num_ports) {
-	struct packet_stream *ps;
-
 	media->endpoint_map = NULL;
 
 	__num_media_streams(media, num_ports);
 
-	for (__auto_type l = media->streams.head; l; l = l->next) {
-		ps = l->data;
+	IQUEUE_FOREACH(&media->streams, ps) {
 		t_queue_clear(&ps->sfds);
 		ps->selected_sfd = NULL;
 	}
@@ -2094,10 +2078,8 @@ static void __rtcp_mux_logic(sdp_ng_flags *flags, struct call_media *media,
 }
 
 static void __dtls_restart(struct call_media *m) {
-	struct packet_stream *ps;
 
-	for (__auto_type l = m->streams.head; l; l = l->next) {
-		ps = l->data;
+	IQUEUE_FOREACH(&m->streams, ps) {
 		PS_CLEAR(ps, FINGERPRINT_VERIFIED);
 		dtls_shutdown(ps);
 		__init_stream(ps);
@@ -2652,8 +2634,8 @@ static void monologue_media_start(struct call_monologue *ml) {
 		if (!media)
 			continue;
 
-		for (__auto_type l = media->streams.head; l; l = l->next)
-			__init_stream(l->data);
+		IQUEUE_FOREACH(&media->streams, ps)
+			__init_stream(ps);
 
 		if (media->bundle && media->bundle != media && MEDIA_ISSET(media, BUNDLE_ONLY))
 			continue;
@@ -3398,9 +3380,9 @@ static struct call_media *monologue_add_zero_media(struct call_monologue *sender
 
 struct packet_stream *get_media_component(struct call_media *media, unsigned int component) {
 	// XXX maybe turn into array?
-	for (__auto_type l = media->streams.head; l; l = l->next) {
-		if (l->data->component == component)
-			return l->data;
+	IQUEUE_FOREACH(&media->streams, ps) {
+		if (ps->component == component)
+			return ps;
 	}
 	return NULL;
 }
@@ -3548,13 +3530,10 @@ static void monologue_bundle_set_fds(struct call_monologue *ml) {
 		if (media->ice_agent)
 			ice_shutdown(&media->ice_agent);
 
-		__auto_type msl = media->streams.head;
-		__auto_type bsl = bundle->streams.head;
+		__auto_type ms = media->streams.head;
+		__auto_type bs = bundle->streams.head;
 
-		while (msl) {
-			__auto_type ms = msl->data;
-			__auto_type bs = bsl->data;
-
+		while (ms) {
 			dtls_shutdown(ms);
 
 			// XXX close sockets that are not needed?
@@ -3567,8 +3546,8 @@ static void monologue_bundle_set_fds(struct call_monologue *ml) {
 
 			ms->selected_sfd = bs->selected_sfd;
 
-			msl = msl->next;
-			bsl = bsl->next;
+			ms = IQUEUE_NEXT(&media->streams, ms);
+			bs = IQUEUE_NEXT(&bundle->streams, bs);
 		}
 	}
 }
@@ -3598,8 +3577,7 @@ static void monologue_bundle_set_sinks(struct call_monologue *ml) {
 		__auto_type media = ml->medias->pdata[i];
 		if (!media)
 			continue;
-		for (__auto_type l = media->streams.head; l; l = l->next) {
-			__auto_type ps = l->data;
+		IQUEUE_FOREACH(&media->streams, ps) {
 			monologue_bundle_set_sink_handlers(&ps->rtp_sinks);
 			monologue_bundle_set_sink_handlers(&ps->rtcp_sinks);
 			monologue_bundle_set_sink_handlers(&ps->rtp_mirrors);
@@ -5115,7 +5093,7 @@ const rtp_payload_type *__rtp_stats_codec(struct call_media *m) {
 	if (!m->streams.head)
 		return NULL;
 
-	ps = m->streams.head->data;
+	ps = m->streams.head;
 
 	__auto_type iter = t_hash_table_iter(ps->rtp_stats);
 	struct rtp_stats *rs, *top = NULL;
@@ -5167,9 +5145,7 @@ next:
 }
 
 static void __call_cleanup(call_t *c) {
-	for (__auto_type l = c->streams.head; l; l = l->next) {
-		struct packet_stream *ps = l->data;
-
+	IQUEUE_FOREACH(&c->streams, ps) {
 		send_timer_put(&ps->send_timer);
 		jb_put(&ps->jb);
 		__unkernelize(ps, "final call cleanup");
@@ -5228,7 +5204,6 @@ static bool __remove_call_id_from_hash(str *callid, call_t *c) {
 
 /* called lock-free, but must hold a reference to the call */
 void call_destroy(call_t *c) {
-	struct packet_stream *ps=0;
 	struct call_monologue *ml;
 	struct call_media *md;
 	GList *k;
@@ -5328,9 +5303,7 @@ void call_destroy(call_t *c) {
 						STR_FMT(&md->format_str));
 			}
 
-			for (__auto_type o = md->streams.head; o; o = o->next) {
-				ps = o->data;
-
+			IQUEUE_FOREACH(&md->streams, ps) {
 				// stats output only - no cleanups
 
 				if (PS_ISSET(ps, FALLBACK_RTCP))
@@ -5458,7 +5431,6 @@ void media_subscription_free(struct media_subscription *p) {
 void call_media_free(struct call_media *md) {
 	crypto_params_sdes_queue_clear(&md->sdes_in);
 	crypto_params_sdes_queue_clear(&md->sdes_out);
-	t_queue_clear(&md->streams);
 	t_queue_clear(&md->endpoint_maps);
 	codec_store_cleanup(&md->codecs);
 	codec_store_cleanup(&md->offered_codecs);
@@ -5539,7 +5511,7 @@ static void __call_free(call_t *c) {
 	t_queue_clear(&c->callid_aliases);
 
 	while (c->streams.head) {
-		ps = t_queue_pop_head(&c->streams);
+		ps = i_queue_pop_head(&c->streams);
 		crypto_cleanup(&ps->crypto);
 		t_queue_clear(&ps->sfds);
 		t_hash_table_destroy(ps->rtp_stats);
@@ -5795,12 +5767,12 @@ static bool call_merge(call_t *call, call_t *call2) {
 
 	t_hash_table_foreach_remove(call2->sdp_fragments, fragment_move, call);
 
-	last_id = call->streams.head->data->unique_id;
+	last_id = call->streams.head->unique_id;
 	while (call2->streams.head) {
-		__auto_type stream = t_queue_pop_head(&call2->streams);
+		__auto_type stream = i_queue_pop_head(&call2->streams);
 		stream->unique_id = ++last_id;
 		stream->call = call;
-		t_queue_push_tail(&call->streams, stream);
+		i_queue_push_tail(&call->streams, stream);
 	}
 
 	last_id = call->stream_fds.head->data->unique_id;
@@ -6010,8 +5982,7 @@ void __media_unconfirm(struct call_media *media, const char *reason) {
 	if (!media)
 		return;
 
-	for (__auto_type m = media->streams.head; m; m = m->next) {
-		struct packet_stream *stream = m->data;
+	IQUEUE_FOREACH(&media->streams, stream) {
 		__stream_unconfirm(stream, reason);
 		__unconfirm_sinks(&stream->rtp_sinks, reason);
 		__unconfirm_sinks(&stream->rtcp_sinks, reason);
@@ -6031,8 +6002,7 @@ static void __unkernelize_sinks(sink_handler_q *q, const char *reason) {
 void call_media_unkernelize(struct call_media *media, const char *reason) {
 	if (!media)
 		return;
-	for (__auto_type m = media->streams.head; m; m = m->next) {
-		struct packet_stream *stream = m->data;
+	IQUEUE_FOREACH(&media->streams, stream) {
 		unkernelize(stream, reason);
 		__unkernelize_sinks(&stream->rtp_sinks, reason);
 		__unkernelize_sinks(&stream->rtcp_sinks, reason);
@@ -6070,8 +6040,7 @@ void monologue_destroy(struct call_monologue *monologue) {
 		struct call_media *m = monologue->medias->pdata[i];
 		if (!m)
 			continue;
-		for (__auto_type k = m->streams.head; k; k = k->next) {
-			struct packet_stream *ps = k->data;
+		IQUEUE_FOREACH(&m->streams, ps) {
 			if (ps->selected_sfd && ps->selected_sfd->socket.local.port)
 				ps->last_local_endpoint = ps->selected_sfd->socket.local;
 			ps->selected_sfd = NULL;
@@ -6717,7 +6686,7 @@ bool monologue_transform(struct call_monologue *ml, sdp_ng_flags *flags, medias_
 		// subscribe to itself
 		add_media_subscription(m, m, NULL);
 
-		__auto_type ps = m->streams.head->data;
+		__auto_type ps = m->streams.head;
 		ps->advertised_endpoint = ps->endpoint = media->destination;
 		__add_sink_handler(&ps->rtp_sinks, ps, NULL);
 

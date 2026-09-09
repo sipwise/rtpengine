@@ -676,7 +676,7 @@ static const char *__make_transform_handler(struct codec_handler *handler) {
 	g_string_append(req, "e6:outputd5:codec");
 	append_pt(req, &handler->dest_pt);
 
-	__auto_type ps = tfh->transform_media->streams.head->data;
+	__auto_type ps = tfh->transform_media->streams.head;
 	__auto_type sock = &ps->selected_sfd->socket;
 
 	g_string_append(req, "eee11:destinationd");
@@ -744,7 +744,7 @@ static const char *__make_transform_handler(struct codec_handler *handler) {
 		return "'transform' response media contained invalid 'address'";
 	tfh->remote.port = port;
 
-	ps = tfh->transform_media->streams.head->data;
+	ps = tfh->transform_media->streams.head;
 	ps->advertised_endpoint = ps->endpoint = tfh->remote;
 	PS_SET(ps, FILLED);
 

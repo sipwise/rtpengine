@@ -605,7 +605,7 @@ void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_e
 		return;
 
 	// we don't have a real fsin so just use the stream address
-	struct packet_stream *ps = media->streams.head->data;
+	struct packet_stream *ps = media->streams.head;
 
 
 	LOCK(&media->dtmf_lock);
@@ -801,7 +801,7 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 
 	if (!media->streams.head)
 		return "Media doesn't have an RTP stream";
-	struct packet_stream *ps = media->streams.head->data;
+	struct packet_stream *ps = media->streams.head;
 	struct ssrc_entry_call *ssrc_in = call_get_first_ssrc(&media->ssrc_hash_in);
 	if (!ssrc_in)
 		return "No SSRC context present for DTMF injection"; // XXX fall back to generating stream

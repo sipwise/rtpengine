@@ -1627,9 +1627,9 @@ void rtcp_send_report(struct call_media *media, struct ssrc_entry_call *ssrc_out
 		const struct packet_stream *locked)
 {
 	// figure out where to send it
-	struct packet_stream *ps = media->streams.head->data;
+	struct packet_stream *ps = media->streams.head;
 	// crypto context is held separately
-	struct packet_stream *rtcp_ps = media->streams.head->next ? media->streams.head->next->data : ps;
+	struct packet_stream *rtcp_ps = IQUEUE_NEXT(&media->streams, ps) ?: ps;
 
 	if (MEDIA_ISSET(media, RTCP_MUX))
 		;

@@ -39,7 +39,7 @@ typedef union {
 	stream_fd_q *sfds_q;
 	medias_arr *ma;
 	sfd_intf_list_q *siq;
-	packet_stream_q *psq;
+	streams_in_media_q *psq;
 	endpoint_map_q *emq;
 } callback_arg_t __attribute__ ((__transparent_union__));
 
@@ -1327,6 +1327,13 @@ static int rbl_cb_simple(str *s, GQueue *q, struct redis_list *list, void *ptr) 
 	return 0;
 }
 
+static int rbl_cb_ps_list(str *s, streams_in_media_q *q, struct redis_list *list, void *ptr) {
+	int j;
+	j = str_to_i(s, 0);
+	i_queue_push_tail(q, redis_list_get_idx_ptr(list, (unsigned) j));
+	return 0;
+}
+
 static int rbpa_cb_simple(str *s, medias_arr *pa, struct redis_list *list, void *ptr) {
 	int j;
 	j = str_to_i(s, 0);
@@ -1338,6 +1345,12 @@ static int json_build_list(callback_arg_t q, call_t *c, const char *key,
 		unsigned int idx, struct redis_list *list, parser_arg arg)
 {
 	return json_build_list_cb(q, c, key, idx, list, rbl_cb_simple, NULL, arg);
+}
+
+static int json_build_ps_list(callback_arg_t q, call_t *c, const char *key,
+		unsigned int idx, struct redis_list *list, parser_arg arg)
+{
+	return json_build_list_cb(q, c, key, idx, list, rbl_cb_ps_list, NULL, arg);
 }
 
 static int json_build_ptra(medias_arr *q, call_t *c, const char *key,
@@ -2030,7 +2043,7 @@ static int json_link_medias(call_t *c, struct redis_list *medias,
 		struct call_media *med = medias->ptrs[i];
 		if (!med || !med->monologue)
 			continue;
-		if (json_build_list(&med->streams, c, "streams", i, streams, arg))
+		if (json_build_ps_list(&med->streams, c, "streams", i, streams, arg))
 			return -1;
 		if (json_build_list(&med->endpoint_maps, c, "maps", i, maps, arg))
 			return -1;
@@ -2759,9 +2772,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free,
 
 		} // --- for
 
-		for (__auto_type l = c->streams.head; l; l = l->next) {
-			struct packet_stream *ps = l->data;
-
+		IQUEUE_FOREACH(&c->streams, ps) {
 			if (!ps->media || !ml_in_scope(scope, ps->media->monologue))
 				continue;
 
@@ -3024,10 +3035,8 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free,
 			if (!scope) {
 				snprintf(tmp, sizeof(tmp), "streams-%u", media->unique_id);
 				inner = parser->dict_add_list_dup(root, tmp);
-				for (__auto_type m = media->streams.head; m; m = m->next) {
-					struct packet_stream *ps = m->data;
+				IQUEUE_FOREACH(&media->streams, ps)
 					JSON_ADD_LIST_STRING("%u", ps->unique_id);
-				}
 			}
 
 			if (!scope) {
@@ -3439,8 +3448,7 @@ static void snapshot_apply_streams(call_t *c, struct call_monologue *ml, parser_
 		struct call_media *m = ml->medias->pdata[j];
 		if (!m)
 			continue;
-		for (__auto_type l = m->streams.head; l; l = l->next) {
-			struct packet_stream *ps = l->data;
+		IQUEUE_FOREACH(&m->streams, ps) {
 			struct redis_hash rh;
 			if (json_get_hash(&rh, "stream", ps->unique_id, root))
 				continue;

@@ -39,7 +39,6 @@ void cdr_update_entry(call_t * c) {
 	g_autoptr(GString) cdr = g_string_new("");
 	struct call_media *md;
 	const rtp_payload_type *rtp_pt;
-	struct packet_stream *ps=0;
 
 	if (IS_FOREIGN_CALL(c))
 		return;
@@ -107,9 +106,7 @@ void cdr_update_entry(call_t * c) {
 				g_string_append_printf(cdr, "payload_type=unknown, ");
 			}
 
-			for (__auto_type o = md->streams.head; o; o = o->next) {
-				ps = o->data;
-
+			IQUEUE_FOREACH(&md->streams, ps) {
 				if (PS_ISSET(ps, FALLBACK_RTCP))
 					continue;
 

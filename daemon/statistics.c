@@ -138,9 +138,9 @@ void statistics_update_oneway(call_t * c) {
 				if (!md)
 					continue;
 
-				for (__auto_type o = md->streams.head; o; o = o->next) {
-					ps = o->data;
-					if (PS_ISSET(ps, RTP)) {
+				IQUEUE_FOREACH(&md->streams, xps) {
+					if (PS_ISSET(xps, RTP)) {
+						ps = xps;
 						// --- only RTP is interesting
 						goto found;
 					}

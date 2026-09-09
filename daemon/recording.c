@@ -333,11 +333,9 @@ static void update_flags_proc(call_t *call, bool streams) {
 	update_metadata_call(call, NULL);
 	if (!streams)
 		return;
-	for (__auto_type l = call->streams.head; l; l = l->next) {
-		struct packet_stream *ps = l->data;
+	IQUEUE_FOREACH(&call->streams, ps)
 		append_meta_chunk_null(call->recording, "STREAM %u FORWARDING %u",
 				ps->unique_id, ML_ISSET(ps->media->monologue, REC_FORWARDING) ? 1 : 0);
-	}
 }
 static void recording_update_flags(call_t *call, bool streams) {
 	_rm(update_flags, call, streams);
@@ -399,8 +397,7 @@ void recording_start_daemon(call_t *call) {
 		struct call_media *m = l->data;
 		recording_setup_media(m);
 	}
-	for (__auto_type l = call->streams.head; l; l = l->next) {
-		struct packet_stream *ps = l->data;
+	IQUEUE_FOREACH(&call->streams, ps) {
 		recording_setup_stream(ps);
 		__unkernelize(ps, "recording start");
 		__reset_sink_handlers(ps);
@@ -1015,10 +1012,8 @@ static void finish_proc(call_t *call, bool discard) {
 
 	recording->proc.call_idx = UNINIT_IDX;
 
-	for (__auto_type l = call->streams.head; l; l = l->next) {
-		struct packet_stream *ps = l->data;
+	IQUEUE_FOREACH(&call->streams, ps)
 		ps->recording.proc.stream_idx = UNINIT_IDX;
-	}
 
 	if (!recording->proc.meta_filepath)
 		return;

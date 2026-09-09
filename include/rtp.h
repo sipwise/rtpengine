@@ -11,6 +11,7 @@ struct rtp_header;
 struct ssrc_hash;
 struct ssrc_entry_call;
 struct codec_store;
+struct packet_stream;
 
 typedef GString crypto_debug_string;
 

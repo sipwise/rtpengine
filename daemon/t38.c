@@ -213,7 +213,7 @@ static int t38_gateway_handler(t38_core_state_t *stat, void *user_data, const ui
 	// send our packet if we can
 	struct packet_stream *ps = NULL;
 	if (tg->t38_media && tg->t38_media->streams.head)
-		ps = tg->t38_media->streams.head->data;
+		ps = tg->t38_media->streams.head;
 
 	stream_fd *sfd = NULL;
 	if (ps) {
@@ -261,8 +261,8 @@ static bool t38_pcm_player(struct media_player *mp) {
 		return true;
 
 	if (tg->pcm_media && tg->pcm_media->streams.head
-			&& ((struct packet_stream *) tg->pcm_media->streams.head->data)->selected_sfd)
-		log_info_stream_fd(((struct packet_stream *) tg->pcm_media->streams.head->data)->selected_sfd);
+			&& tg->pcm_media->streams.head->selected_sfd)
+		log_info_stream_fd(tg->pcm_media->streams.head->selected_sfd);
 
 	ilog(LOG_DEBUG, "Generating T.38 PCM samples");
 
@@ -494,10 +494,10 @@ void t38_gateway_start(struct t38_gateway *tg, str_case_value_ht codec_set) {
 		return;
 
 	struct packet_stream *ps;
-	ps = tg->pcm_media->streams.head->data;
+	ps = tg->pcm_media->streams.head;
 	if (!PS_ISSET(ps, FILLED))
 		return;
-	ps = tg->t38_media->streams.head->data;
+	ps = tg->t38_media->streams.head;
 	if (!PS_ISSET(ps, FILLED))
 		return;
 

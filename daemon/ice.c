@@ -481,7 +481,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset
 	struct call_media *media;
 	call_t *call;
 	unsigned int comps;
-	struct packet_stream *components[MAX_COMPONENTS], *ps;
+	struct packet_stream *components[MAX_COMPONENTS];
 	candidate_q *candidates;
 
 	if (!ag)
@@ -517,8 +517,11 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset
 	/* get our component streams */
 	ZERO(components);
 	comps = 0;
-	for (__auto_type l = media->streams.head; l && comps < MAX_COMPONENTS; l = l->next)
-		components[comps++] = l->data;
+	IQUEUE_FOREACH(&media->streams, ps) {
+		if (comps >= MAX_COMPONENTS)
+			break;
+		components[comps++] = ps;
+	}
 	if (comps == 2 && (MEDIA_ISSET(media, RTCP_MUX) || !proto_is_rtp(media->protocol)))
 		components[1] = NULL;
 
@@ -534,7 +537,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset
 		/* skip invalid */
 		if (!cand->component_id || cand->component_id > G_N_ELEMENTS(components))
 			continue;
-		ps = components[cand->component_id - 1];
+		__auto_type ps = components[cand->component_id - 1];
 
 		if (ps) /* only count active components */
 			comps = MAX(comps, cand->component_id);
@@ -608,8 +611,11 @@ static void __ice_pairings(struct ice_agent *ag) {
 	struct packet_stream *components[MAX_COMPONENTS] = {0};
 	unsigned int comps = 0;
 
-	for (__auto_type l = media->streams.head; l && comps < MAX_COMPONENTS; l = l->next)
-		components[comps++] = l->data;
+	IQUEUE_FOREACH(&media->streams, ps) {
+		if (comps >= MAX_COMPONENTS)
+			break;
+		components[comps++] = ps;
+	}
 	if (comps == 2 && (MEDIA_ISSET(media, RTCP_MUX) || !proto_is_rtp(media->protocol)))
 		components[1] = NULL;
 
@@ -1215,7 +1221,6 @@ found:
 static int __check_valid(struct ice_agent *ag) {
 	struct call_media *media;
 	struct packet_stream *ps;
-	packet_stream_list *l;
 	candidate_pair_list *k;
 	candidate_pair_q all_compos;
 	struct ice_candidate_pair *pair;
@@ -1251,8 +1256,9 @@ static int __check_valid(struct ice_agent *ag) {
 		AGENT_SET(ag, USABLE);
 	}
 
-	for (l = media->streams.head, k = all_compos.head; l && k; l = l->next, k = k->next) {
-		ps = l->data;
+	for (ps = media->streams.head, k = all_compos.head; ps && k;
+			ps = IQUEUE_NEXT(&media->streams, ps), k = k->next)
+	{
 		pair = k->data;
 
 		LOCK(&ps->lock);

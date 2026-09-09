@@ -78,7 +78,7 @@ static str streams_print(medias_arr *s, int start, int end, const char *prefix, 
 			ilog(LOG_WARNING, "Media has no streams");
 			break;
 		}
-		ps = media->streams.head->data;
+		ps = media->streams.head;
 
 		if (format == SAF_TCP)
 			call_stream_address(o, ps, format, NULL, true);
@@ -928,7 +928,6 @@ static void ng_stats_media(ng_command_ctx_t *ctx, parser_arg list, const struct 
 		struct call_stats *totals, parser_arg ssrc)
 {
 	parser_arg dict, streams = {0}, flags;
-	struct packet_stream *ps;
 	const rtp_payload_type *rtp_pt = NULL;
 
 	if (!ctx)
@@ -985,10 +984,8 @@ static void ng_stats_media(ng_command_ctx_t *ctx, parser_arg list, const struct 
 	ng_stats_ssrc(parser, NULL, parser->dict_add_list(dict,  "egress SSRCs"), &m->ssrc_hash_out);
 
 stats:
-	for (auto_iter(l, m->streams.head); l; l = l->next) {
-		ps = l->data;
+	IQUEUE_FOREACH(&m->streams, ps)
 		ng_stats_stream(ctx, streams, ps, totals);
-	}
 }
 
 static void ng_stats_monologue(ng_command_ctx_t *ctx, parser_arg dict, const struct call_monologue *ml,
@@ -1419,7 +1416,7 @@ static const char *media_match(call_t *call, struct call_monologue **monologue,
 					continue;
 				if (!media->streams.head)
 					continue;
-				struct packet_stream *ps = media->streams.head->data;
+				struct packet_stream *ps = media->streams.head;
 				if (!sockaddr_eq(&addr, &ps->advertised_endpoint.address))
 					continue;
 				ilog(LOG_DEBUG, "Matched address %s%s%s to tag '" STR_FORMAT_M "'",
@@ -2590,7 +2587,7 @@ const char *call_transform_ng(ng_command_ctx_t *ctx) {
 		parser->dict_add_str_dup(dict, "id", &m->media_id);
 		if (!m->streams.head)
 			continue;
-		__auto_type ps = m->streams.head->data;
+		__auto_type ps = m->streams.head;
 		if (!ps->selected_sfd)
 			continue;
 		__auto_type sfd = ps->selected_sfd;

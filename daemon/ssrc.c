@@ -718,8 +718,8 @@ void ssrc_collect_metrics(struct call_media *media) {
 		}
 
 		if (media->streams.head) {
-			LOCK(&media->streams.head->data->lock);
-			RTPE_SAMPLE_SFD(jitter_measured, s->jitter, media->streams.head->data->selected_sfd);
+			LOCK(&media->streams.head->lock);
+			RTPE_SAMPLE_SFD(jitter_measured, s->jitter, media->streams.head->selected_sfd);
 		}
 	}
 }
