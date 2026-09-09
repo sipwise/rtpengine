@@ -1747,6 +1747,8 @@ static int json_medias(call_t *c, struct redis_list *medias, struct redis_list *
 		med->type_id = codec_get_type(&med->type);
 		if (!redis_hash_get_str(&s, rh, "media_id"))
 			memory_arena_str_cpy_free(&med->media_id, &s);
+		if (!redis_hash_get_str(&s, rh, "label"))
+			memory_arena_str_cpy_free(&med->label, &s);
 
 		if (redis_decode_media_fields(med, rh))
 			return -1;
@@ -2951,6 +2953,8 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free,
 					JSON_SET_SIMPLE_STR("format_str", &media->format_str);
 				if (media->media_id.s)
 					JSON_SET_SIMPLE_STR("media_id", &media->media_id);
+				if (media->label.s)
+					JSON_SET_SIMPLE_STR("label", &media->label);
 				JSON_SET_SIMPLE_CSTR("protocol", media->protocol ? media->protocol->name : "");
 				JSON_SET_SIMPLE_CSTR("desired_family", media->desired_family ? media->desired_family->rfc_name : "");
 				if (media->logical_intf)
