@@ -1320,16 +1320,14 @@ static int json_build_list_cb(callback_arg_t q, call_t *c, const char *key,
 	return 0;
 }
 
-static int rbl_cb_simple(str *s, callback_arg_t qp, struct redis_list *list, void *ptr) {
-	GQueue *q = qp.q;
+static int rbl_cb_simple(str *s, GQueue *q, struct redis_list *list, void *ptr) {
 	int j;
 	j = str_to_i(s, 0);
 	g_queue_push_tail(q, redis_list_get_idx_ptr(list, (unsigned) j));
 	return 0;
 }
 
-static int rbpa_cb_simple(str *s, callback_arg_t pap, struct redis_list *list, void *ptr) {
-	medias_arr *pa = pap.ma;
+static int rbpa_cb_simple(str *s, medias_arr *pa, struct redis_list *list, void *ptr) {
 	int j;
 	j = str_to_i(s, 0);
 	t_ptr_array_add(pa, redis_list_get_idx_ptr(list, (unsigned) j));
@@ -2050,8 +2048,7 @@ static int json_link_medias(call_t *c, struct redis_list *medias,
 	return 0;
 }
 
-static int rbl_cb_intf_sfds(str *s, callback_arg_t qp, struct redis_list *list, void *ptr) {
-	sfd_intf_list_q *q = qp.siq;
+static int rbl_cb_intf_sfds(str *s, sfd_intf_list_q *q, struct redis_list *list, void *ptr) {
 	int i;
 	struct sfd_intf_list *il;
 	struct endpoint_map *em;
