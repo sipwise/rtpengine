@@ -750,7 +750,7 @@ static struct call_media *call_get_media(struct call_monologue *ml, const str *t
 	med = call_media_new(call);
 	med->monologue = ml;
 	med->index = want_index;
-	med->type = call_str_cpy(type);
+	memory_arena_str_cpy_free(&med->type, type);
 	med->type_id = type_id;
 
 	ml->medias->pdata[arr_index] = med;
@@ -2239,7 +2239,7 @@ static void __dtls_logic(const sdp_ng_flags *flags,
 		}
 	}
 
-	other_media->tls_id = call_str_cpy(&sp->tls_id);
+	memory_arena_str_cpy_free(&other_media->tls_id, &sp->tls_id);
 
 	MEDIA_CLEAR(other_media, DTLS);
 	if (MEDIA_ISSET2(other_media, SETUP_PASSIVE, SETUP_ACTIVE)
@@ -2292,7 +2292,7 @@ static void media_loop_protect(struct stream_params *sp, struct call_media *medi
 static void generate_mid(struct call_media *media, unsigned int idx) {
 	char buf[64];
 	snprintf(buf, sizeof(buf), "%u", idx);
-	media->media_id = call_str_cpy_c(buf);
+	memory_arena_str_cpy_c_free(&media->media_id, buf);
 }
 
 __attribute__((nonnull(1, 2)))
@@ -2302,7 +2302,7 @@ static void media_update_media_id(struct call_media *media, struct stream_params
 	if (!media->media_id.len) {
 		// incoming side: we copy what we received
 		if (sp->media_id.len)
-			media->media_id = call_str_cpy(&sp->media_id);
+			memory_arena_str_cpy_free(&media->media_id, &sp->media_id);
 		if (media->media_id.s)
 			t_hash_table_insert(ml->media_ids, &media->media_id,
 					media);
@@ -2314,7 +2314,7 @@ static void media_update_media_id(struct call_media *media, struct stream_params
 			if (str_cmp_str(&media->media_id, &sp->media_id)) {
 				// mismatch - update
 				t_hash_table_remove(ml->media_ids, &media->media_id);
-				media->media_id = call_str_cpy(&sp->media_id);
+				memory_arena_str_cpy_free(&media->media_id, &sp->media_id);
 				t_hash_table_insert(ml->media_ids, &media->media_id,
 						media);
 			}
@@ -2366,7 +2366,7 @@ static void media_copy_media_id(struct call_media *media, struct call_media *oth
 
 	// outgoing side: we copy from the other side
 	if (other_media->media_id.len)
-		media->media_id = call_str_cpy(&other_media->media_id);
+		memory_arena_str_cpy_free(&media->media_id, &other_media->media_id);
 
 	media_gen_media_id(media, flags);
 }
@@ -2380,13 +2380,13 @@ static void __t38_reset(struct call_media *media, struct call_media *other_media
 
 	media->protocol = other_media->protocol;
 	media->type_id = other_media->type_id;
-	media->type = call_str_cpy(&other_media->type);
-	media->format_str = call_str_cpy(&other_media->format_str);
+	memory_arena_str_cpy_free(&media->type, &other_media->type);
+	memory_arena_str_cpy_free(&media->format_str, &other_media->format_str);
 }
 
 __attribute__((nonnull(1, 2)))
 static void media_update_protocol(struct call_media *media, struct stream_params *sp) {
-	media->protocol_str = call_str_cpy(&sp->protocol_str);
+	memory_arena_str_cpy_free(&media->protocol_str, &sp->protocol_str);
 	media->protocol = sp->protocol;
 }
 
@@ -2395,7 +2395,7 @@ static void media_set_protocol(struct call_media *media, struct call_media *othe
 		struct stream_params *sp, sdp_ng_flags *flags)
 {
 	/* deduct protocol from stream parameters received */
-	other_media->protocol_str = call_str_cpy(&sp->protocol_str);
+	memory_arena_str_cpy_free(&other_media->protocol_str, &sp->protocol_str);
 
 	if (other_media->protocol != sp->protocol) {
 		other_media->protocol = sp->protocol;
@@ -2435,7 +2435,7 @@ static void media_set_protocol(struct call_media *media, struct call_media *othe
 		media->protocol = other_media->protocol;
 
 	if (!media->protocol_str.s)
-		media->protocol_str = call_str_cpy(&other_media->protocol_str);
+		memory_arena_str_cpy_free(&media->protocol_str, &other_media->protocol_str);
 
 	// handler overrides requested by the user
 
@@ -2460,7 +2460,7 @@ static void media_set_protocol(struct call_media *media, struct call_media *othe
 		if (!media->protocol)
 			media->protocol = &transport_protocols[PROTO_RTP_AVP];
 		media->type_id = MT_AUDIO;
-		media->type = call_str_cpy_c("audio");
+		memory_arena_str_cpy_c_free(&media->type, "audio");
 		return;
 	}
 
@@ -2470,8 +2470,8 @@ static void media_set_protocol(struct call_media *media, struct call_media *othe
 	{
 		media->protocol = &transport_protocols[PROTO_UDPTL];
 		media->type_id = MT_IMAGE;
-		media->type = call_str_cpy_c("image");
-		media->format_str = call_str_cpy_c("t38");
+		memory_arena_str_cpy_c_free(&media->type, "image");
+		memory_arena_str_cpy_c_free(&media->format_str, "t38");
 		return;
 	}
 
@@ -2891,7 +2891,7 @@ static void media_set_siprec_label(struct call_media *media, sdp_ng_flags *flags
 
 	char buf[64];
 	snprintf(buf, sizeof(buf), "%u", id);
-	media->label = call_str_cpy_c(buf);
+	memory_arena_str_cpy_c_free(&media->label, buf);
 }
 
 __attribute__((nonnull(1, 2)))
@@ -2900,7 +2900,7 @@ static void media_update_label(struct call_media *media, sdp_ng_flags *flags, co
 	if (flags->siprec) // we generate our own
 		return;
 
-	media->label = call_str_cpy(label);
+	memory_arena_str_cpy_free(&media->label, label);
 }
 
 __attribute__((nonnull(1)))
@@ -3221,7 +3221,7 @@ static bool media_update_type(struct call_media *media, struct stream_params *sp
 
 	ilog(LOG_DEBUG, "Updating media type from '" STR_FORMAT "' to '" STR_FORMAT "'",
 			STR_FMT(&media->type), STR_FMT(&sp->type));
-	media->type = call_str_cpy(&sp->type);
+	memory_arena_str_cpy_free(&media->type, &sp->type);
 	media->type_id = codec_get_type(&media->type);
 
 	return true;
@@ -3229,7 +3229,7 @@ static bool media_update_type(struct call_media *media, struct stream_params *sp
 
 __attribute__((nonnull(1, 2)))
 static void media_copy_type(struct call_media *dst, struct call_media *src) {
-	dst->type = call_str_cpy(&src->type);
+	memory_arena_str_cpy_free(&dst->type, &src->type);
 	dst->type_id = src->type_id;
 }
 
@@ -3299,7 +3299,7 @@ static void media_update_attrs(struct call_media *media, struct stream_params *s
 __attribute__((nonnull(1, 2)))
 static void media_update_format(struct call_media *media, struct stream_params *sp) {
 	if (str_cmp_str(&media->format_str, &sp->format_str))
-		media->format_str = call_str_cpy(&sp->format_str);
+		memory_arena_str_cpy_free(&media->format_str, &sp->format_str);
 }
 
 __attribute__((nonnull(1, 2)))
@@ -3309,7 +3309,7 @@ static void media_copy_format(struct call_media *media, struct call_media *src) 
 
 	// update opposite side format string only if protocols match
 	if (media->protocol == src->protocol)
-		media->format_str = call_str_cpy(&src->format_str);
+		memory_arena_str_cpy_free(&media->format_str, &src->format_str);
 }
 
 __attribute__((nonnull(1, 2)))
@@ -5480,6 +5480,13 @@ void call_media_free(struct call_media *md) {
 	t_hash_table_destroy(md->extmap_ht);
 	t_queue_clear_full(&md->extmap, rtp_extension_free);
 	t_hash_table_destroy_ptr(&md->pt_media);
+
+	memory_arena_free_lw(md->type.s);
+	memory_arena_free_lw(md->protocol_str.s);
+	memory_arena_free_lw(md->format_str.s);
+	memory_arena_free_lw(md->media_id.s);
+	memory_arena_free_lw(md->label.s);
+	memory_arena_free_lw(md->tls_id.s);
 }
 
 void __monologue_free(struct call_monologue *m) {

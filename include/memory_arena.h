@@ -117,11 +117,19 @@ INLINE str memory_arena_str_cpy_fn_lw(const char *in, size_t len) {
 INLINE str memory_arena_str_cpy_lw(const str *in) {
 	return memory_arena_str_cpy_fn_lw((in ? in->s : NULL), (in ? in->len : 0));
 }
+INLINE void memory_arena_str_cpy_free(str *out, const str *in) {
+	memory_arena_free_lw(out->s);
+	*out = memory_arena_str_cpy_fn_lw((in ? in->s : NULL), (in ? in->len : 0));
+}
 INLINE str memory_arena_str_cpy_len_lw(const char *in, size_t len) {
 	return memory_arena_str_cpy_fn_lw(in, len);
 }
 INLINE str memory_arena_str_cpy_c_lw(const char *in) {
 	return memory_arena_str_cpy_len_lw(in, in ? strlen(in) : 0);
+}
+INLINE void memory_arena_str_cpy_c_free(str *out, const char *in) {
+	memory_arena_free_lw(out->s);
+	*out = memory_arena_str_cpy_len_lw(in, in ? strlen(in) : 0);
 }
 INLINE str *memory_arena_str_dup_lw(const str *in) {
 	__auto_type out = memory_arena_alloc_lw(str);

@@ -1716,7 +1716,7 @@ static int redis_decode_media_fields(struct call_media *med, const struct redis_
 		return -1;
 	med->desired_family = get_socket_family_rfc(&s);
 
-	med->format_str = !redis_hash_get_str(&s, rh, "format_str") ? call_str_cpy(&s) : STR_NULL;
+	memory_arena_str_cpy_free(&med->format_str, !redis_hash_get_str(&s, rh, "format_str") ? &s : NULL);
 
 	/* bandwidth data is not critical */
 	med->sdp_media_bandwidth.as = (!redis_hash_get_ld(&il, rh, "bandwidth_as")) ? il : -1;
@@ -1743,10 +1743,10 @@ static int json_medias(call_t *c, struct redis_list *medias, struct redis_list *
 			return -1;
 		if (redis_hash_get_str(&s, rh, "type"))
 			return -1;
-		med->type = call_str_cpy(&s);
+		memory_arena_str_cpy_free(&med->type, &s);
 		med->type_id = codec_get_type(&med->type);
 		if (!redis_hash_get_str(&s, rh, "media_id"))
-			med->media_id = call_str_cpy(&s);
+			memory_arena_str_cpy_free(&med->media_id, &s);
 
 		if (redis_decode_media_fields(med, rh))
 			return -1;
@@ -3349,8 +3349,8 @@ static void snapshot_apply_media(call_t *c, struct call_media *m,
 
 	// assigned unconditionally: these are written only when set, so an absent key
 	// means the rejected offer put it there and it has to go
-	m->protocol_str = !redis_hash_get_str(&s, rh, "protocol") ? call_str_cpy(&s) : STR_NULL;
-	m->tls_id = !redis_hash_get_str(&s, rh, "tls_id") ? call_str_cpy(&s) : STR_NULL;
+	memory_arena_str_cpy_free(&m->protocol_str, !redis_hash_get_str(&s, rh, "protocol") ? &s : NULL);
+	memory_arena_str_cpy_free(&m->tls_id, !redis_hash_get_str(&s, rh, "tls_id") ? &s : NULL);
 	m->fp_hash_func = !redis_hash_get_str(&s, rh, "preferred_hash_func")
 			? dtls_find_hash_func(&s) : NULL;
 	m->endpoint_map = !redis_hash_get_int64_t(&iv, rh, "endpoint_map")
