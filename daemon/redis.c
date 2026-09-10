@@ -2988,23 +2988,6 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free)
 	if (c->recording_random_tag.len)
 		JSON_SET_SIMPLE_STR("recording_random_tag", &c->recording_random_tag);
 
-	IQUEUE_FOREACH(&c->monologues, ml) {
-		if (!ml->checkpoint)
-			continue;
-		snprintf(tmp, sizeof(tmp), "checkpoint-%u", ml->unique_id);
-		inner = parser->dict_add_dict_dup(root, tmp);
-		JSON_SET_SIMPLE("pending", "%i", ml->checkpoint->pending ? 1 : 0);
-		if (ml->checkpoint->snapshot.len) {
-			/* nested as a string; heap buffer rather than a VLA, as escape() can
-			 * need up to 3x the input */
-			char *enc = g_malloc_n(ml->checkpoint->snapshot.len + 1, 3);
-			str encs = parser->escape(enc, ml->checkpoint->snapshot.s,
-					ml->checkpoint->snapshot.len);
-			parser->dict_add_str_dup(inner, "snapshot", &encs);
-			g_free(enc);
-		}
-	}
-
 	for (__auto_type l = c->stream_fds.head; l; l = l->next) {
 		stream_fd *sfd = l->data;
 
@@ -3049,6 +3032,21 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free)
 
 	IQUEUE_FOREACH(&c->monologues, ml) {
 		redis_encode_ml_basic(ml, parser, root);
+
+		if (ml->checkpoint) {
+			snprintf(tmp, sizeof(tmp), "checkpoint-%u", ml->unique_id);
+			inner = parser->dict_add_dict_dup(root, tmp);
+			JSON_SET_SIMPLE("pending", "%i", ml->checkpoint->pending ? 1 : 0);
+			if (ml->checkpoint->snapshot.len) {
+				/* nested as a string; heap buffer rather than a VLA, as escape() can
+				 * need up to 3x the input */
+				char *enc = g_malloc_n(ml->checkpoint->snapshot.len + 1, 3);
+				str encs = parser->escape(enc, ml->checkpoint->snapshot.s,
+						ml->checkpoint->snapshot.len);
+				parser->dict_add_str_dup(inner, "snapshot", &encs);
+				g_free(enc);
+			}
+		}
 
 		GList *k = g_hash_table_get_values(ml->associated_tags);
 		snprintf(tmp, sizeof(tmp), "associated_tags-%u", ml->unique_id);
