@@ -138,6 +138,11 @@
 			var; var = ((__typeof((list)->offset)) var)->link.next)
 
 
+#define IQUEUE_FOREACH_REV(list, var) \
+	for (__typeof ( ({ __typeof (*(list)->tail) __t; &__t; }) ) var = (list)->tail; \
+			var; var = ((__typeof((list)->offset)) var)->link.prev)
+
+
 #define IQUEUE_FOREACH_SAFE(list, var) \
 	for (__typeof ( ({ __typeof (*(list)->head) __t; &__t; }) ) var = (list)->head, \
 			__next ## var = var ? ((__typeof((list)->offset)) var)->link.next : NULL; \

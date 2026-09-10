@@ -356,7 +356,6 @@ struct codec_store {
 				strip_full:1; // set by codec_store_strip
 };
 
-TYPED_GQUEUE(endpoint_map, struct endpoint_map)
 
 struct stream_params {
 	unsigned int		index; /* starting with 1 */
@@ -391,6 +390,8 @@ struct stream_params {
 };
 
 struct endpoint_map {
+	IQUEUE_LINK		media_link;
+	IQUEUE_LINK		call_link;
 	unsigned int		unique_id;
 	struct endpoint		endpoint;
 	unsigned int		num_ports; // per interface
@@ -398,6 +399,10 @@ struct endpoint_map {
 	sfd_intf_list_q		intf_sfds; /* list of struct sfd_intf_list - contains stream_fd list */
 	unsigned int		wildcard:1;
 };
+
+typedef IQUEUE(struct endpoint_map, media_link) endpoints_in_media_q;
+typedef IQUEUE(struct endpoint_map, call_link) endpoints_in_call_q;
+
 
 struct loop_protector {
 	unsigned int		len;
@@ -552,7 +557,7 @@ struct call_media {
 
 	streams_in_media_q	streams;			/* normally RTP + RTCP */
 	struct endpoint_map	*endpoint_map;
-	endpoint_map_q		endpoint_maps;
+	endpoints_in_media_q	endpoint_maps;
 	struct ssrc_hash	ssrc_hash_in;
 	struct ssrc_hash	ssrc_hash_out;
 
@@ -806,7 +811,7 @@ struct call {
 	fragments_ht		sdp_fragments;
 	streams_in_call_q	streams;
 	stream_fd_q		stream_fds;	/* stream_fd */
-	endpoint_map_q		endpoint_maps;
+	endpoints_in_call_q	endpoint_maps;
 	struct dtls_cert	*dtls_cert;	/* for outgoing */
 	struct mqtt_timer	*mqtt_timer;
 

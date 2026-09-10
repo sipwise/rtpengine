@@ -40,7 +40,7 @@ typedef union {
 	medias_arr *ma;
 	sfd_intf_list_q *siq;
 	streams_in_media_q *psq;
-	endpoint_map_q *emq;
+	endpoints_in_media_q *emq;
 } callback_arg_t __attribute__ ((__transparent_union__));
 
 
@@ -1334,6 +1334,13 @@ static int rbl_cb_ps_list(str *s, streams_in_media_q *q, struct redis_list *list
 	return 0;
 }
 
+static int rbl_cb_em_list(str *s, endpoints_in_media_q *q, struct redis_list *list, void *ptr) {
+	int j;
+	j = str_to_i(s, 0);
+	i_queue_push_tail(q, redis_list_get_idx_ptr(list, (unsigned) j));
+	return 0;
+}
+
 static int rbpa_cb_simple(str *s, medias_arr *pa, struct redis_list *list, void *ptr) {
 	int j;
 	j = str_to_i(s, 0);
@@ -1351,6 +1358,12 @@ static int json_build_ps_list(callback_arg_t q, call_t *c, const char *key,
 		unsigned int idx, struct redis_list *list, parser_arg arg)
 {
 	return json_build_list_cb(q, c, key, idx, list, rbl_cb_ps_list, NULL, arg);
+}
+
+static int json_build_em_list(callback_arg_t q, call_t *c, const char *key,
+		unsigned int idx, struct redis_list *list, parser_arg arg)
+{
+	return json_build_list_cb(q, c, key, idx, list, rbl_cb_em_list, NULL, arg);
 }
 
 static int json_build_ptra(medias_arr *q, call_t *c, const char *key,
@@ -1811,7 +1824,7 @@ static int redis_maps(call_t *c, struct redis_list *maps) {
 		rh = &maps->rh[i];
 
 		/* from call.c:__get_endpoint_map() */
-		em = uid_alloc(&c->endpoint_maps);
+		em = iuid_alloc(&c->endpoint_maps);
 		t_queue_init(&em->intf_sfds);
 
 		em->wildcard = redis_hash_get_bool_flag(rh, "wildcard");
@@ -2045,7 +2058,7 @@ static int json_link_medias(call_t *c, struct redis_list *medias,
 			continue;
 		if (json_build_ps_list(&med->streams, c, "streams", i, streams, arg))
 			return -1;
-		if (json_build_list(&med->endpoint_maps, c, "maps", i, maps, arg))
+		if (json_build_em_list(&med->endpoint_maps, c, "maps", i, maps, arg))
 			return -1;
 
 		if (med->media_id.s)
@@ -3042,10 +3055,8 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free,
 			if (!scope) {
 				snprintf(tmp, sizeof(tmp), "maps-%u", media->unique_id);
 				inner = parser->dict_add_list_dup(root, tmp);
-				for (__auto_type m = media->endpoint_maps.head; m; m = m->next) {
-					struct endpoint_map *ep = m->data;
+				IQUEUE_FOREACH(&media->endpoint_maps, ep)
 					JSON_ADD_LIST_STRING("%u", ep->unique_id);
-				}
 			}
 
 			snprintf(tmp, sizeof(tmp), "payload_types-%u", media->unique_id);
@@ -3079,29 +3090,29 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free,
 			}
 		} // --- for medias.head
 
-		for (__auto_type l = scope ? NULL : c->endpoint_maps.head; l; l = l->next) {
-			struct endpoint_map *ep = l->data;
+		if (!scope) {
+			IQUEUE_FOREACH(&c->endpoint_maps, ep) {
+				snprintf(tmp, sizeof(tmp), "map-%u", ep->unique_id);
+				inner = parser->dict_add_dict_dup(root, tmp);
 
-			snprintf(tmp, sizeof(tmp), "map-%u", ep->unique_id);
-			inner = parser->dict_add_dict_dup(root, tmp);
+				{
+					JSON_SET_SIMPLE("wildcard","%i", ep->wildcard);
+					JSON_SET_SIMPLE("num_ports","%u", ep->num_ports);
+					JSON_SET_SIMPLE_CSTR("intf_preferred_family", ep->logical_intf->preferred_family->rfc_name);
+					JSON_SET_SIMPLE_STR("logical_intf", &ep->logical_intf->name);
+					JSON_SET_SIMPLE_CSTR("endpoint", endpoint_print_buf(&ep->endpoint));
 
-			{
-				JSON_SET_SIMPLE("wildcard","%i", ep->wildcard);
-				JSON_SET_SIMPLE("num_ports","%u", ep->num_ports);
-				JSON_SET_SIMPLE_CSTR("intf_preferred_family", ep->logical_intf->preferred_family->rfc_name);
-				JSON_SET_SIMPLE_STR("logical_intf", &ep->logical_intf->name);
-				JSON_SET_SIMPLE_CSTR("endpoint", endpoint_print_buf(&ep->endpoint));
+				}
 
-			}
-
-			snprintf(tmp, sizeof(tmp), "map_sfds-%u", ep->unique_id);
-			inner = parser->dict_add_list_dup(root, tmp);
-			for (__auto_type m = ep->intf_sfds.head; m; m = m->next) {
-				struct sfd_intf_list *il = m->data;
-				JSON_ADD_LIST_STRING("loc-%u", il->local_intf->unique_id);
-				for (__auto_type n = il->list.head; n; n = n->next) {
-					stream_fd *sfd = n->data;
-					JSON_ADD_LIST_STRING("%u", sfd->unique_id);
+				snprintf(tmp, sizeof(tmp), "map_sfds-%u", ep->unique_id);
+				inner = parser->dict_add_list_dup(root, tmp);
+				for (__auto_type m = ep->intf_sfds.head; m; m = m->next) {
+					struct sfd_intf_list *il = m->data;
+					JSON_ADD_LIST_STRING("loc-%u", il->local_intf->unique_id);
+					for (__auto_type n = il->list.head; n; n = n->next) {
+						stream_fd *sfd = n->data;
+						JSON_ADD_LIST_STRING("%u", sfd->unique_id);
+					}
 				}
 			}
 		} // --- for c->endpoint_maps.head
@@ -3144,8 +3155,7 @@ static stream_fd *snapshot_find_sfd(call_t *c, unsigned int id) {
 }
 
 static struct endpoint_map *snapshot_find_map(call_t *c, unsigned int id) {
-	for (__auto_type l = c->endpoint_maps.head; l; l = l->next) {
-		struct endpoint_map *map = l->data;
+	IQUEUE_FOREACH(&c->endpoint_maps, map) {
 		if (map->unique_id == id)
 			return map;
 	}

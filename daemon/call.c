@@ -807,8 +807,7 @@ static struct endpoint_map *__hunt_endpoint_map(struct call_media *media, unsign
 			return em;
 	}
 
-	for (__auto_type l = media->endpoint_maps.tail; l; l = l->prev) {
-		struct endpoint_map *em = l->data;
+	IQUEUE_FOREACH_REV(&media->endpoint_maps, em) {
 		if (em->logical_intf != media->logical_intf)
 			continue;
 
@@ -870,14 +869,14 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 	}
 
 	dbg_int("allocating new %sendpoint map", ep ? "" : "wildcard ");
-	em = uid_alloc(&media->call->endpoint_maps);
+	em = iuid_alloc(&media->call->endpoint_maps);
 	if (ep)
 		em->endpoint = *ep;
 	else
 		em->wildcard = 1;
 	em->logical_intf = media->logical_intf;
 	t_queue_init(&em->intf_sfds);
-	t_queue_push_tail(&media->endpoint_maps, em);
+	i_queue_push_tail(&media->endpoint_maps, em);
 	em->num_ports = num_ports;
 	media->endpoint_map = em;
 
@@ -5431,7 +5430,6 @@ void media_subscription_free(struct media_subscription *p) {
 void call_media_free(struct call_media *md) {
 	crypto_params_sdes_queue_clear(&md->sdes_in);
 	crypto_params_sdes_queue_clear(&md->sdes_out);
-	t_queue_clear(&md->endpoint_maps);
 	codec_store_cleanup(&md->codecs);
 	codec_store_cleanup(&md->offered_codecs);
 	t_queue_clear_full(&md->generic_attributes, sdp_attr_free);
@@ -5498,8 +5496,7 @@ static void __call_free(call_t *c) {
 	}
 
 	while (c->endpoint_maps.head) {
-		em = t_queue_pop_head(&c->endpoint_maps);
-
+		em = i_queue_pop_head(&c->endpoint_maps);
 		t_queue_clear_full(&em->intf_sfds, free_sfd_intf_list);
 	}
 
@@ -5787,11 +5784,11 @@ static bool call_merge(call_t *call, call_t *call2) {
 		t_queue_push_tail(&call->stream_fds, sfd);
 	}
 
-	last_id = call->endpoint_maps.head->data->unique_id;
+	last_id = call->endpoint_maps.head->unique_id;
 	while (call2->endpoint_maps.head) {
-		__auto_type endpoint_map = t_queue_pop_head(&call2->endpoint_maps);
+		__auto_type endpoint_map = i_queue_pop_head(&call2->endpoint_maps);
 		endpoint_map->unique_id = ++last_id;
-		t_queue_push_tail(&call->endpoint_maps, endpoint_map);
+		i_queue_push_tail(&call->endpoint_maps, endpoint_map);
 	}
 
 	// redirect hash table entry for old ID. store old ID in new call
