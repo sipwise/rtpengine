@@ -442,7 +442,7 @@ static intf_spec_ht __intf_spec_addr_type_hash;
 static local_intf_ht __local_intf_addr_type_hash;
 static logical_intf_q __preferred_lists_for_family[__SF_LAST];
 
-local_intf_q all_local_interfaces = TYPED_GQUEUE_INIT;
+all_local_intf_q all_local_interfaces = IQUEUE_INIT;
 
 TYPED_GHASHTABLE(local_sockets_ht, endpoint_t, stream_fd, endpoint_hash, endpoint_eq, NULL, stream_fd_put)
 static rwlock_t local_media_socket_endpoints_lock = RWLOCK_STATIC_INIT;
@@ -989,7 +989,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 	ifc->logical = lif;
 	ifc->stats = bufferpool_alloc0(static_bufferpool, sizeof(*ifc->stats));
 
-	t_queue_push_tail(&all_local_interfaces, ifc);
+	i_queue_push_tail(&all_local_interfaces, ifc);
 
 	__insert_local_intf_addr_type(&spec->local_address, ifc);
 	__insert_local_intf_addr_type(&ifc->advertised_address, ifc);
@@ -1031,8 +1031,7 @@ void interfaces_init(intf_config_q *interfaces) {
 }
 
 void interfaces_exclude_port(endpoint_t *e) {
-	for (__auto_type l = all_local_interfaces.head; l; l = l->next) {
-		__auto_type ifa = l->data;
+	IQUEUE_FOREACH(&all_local_interfaces, ifa) {
 		__auto_type spec = ifa->spec;
 		if (e->address.family != spec->local_address.addr.family)
 			continue;
@@ -4179,7 +4178,7 @@ void play_buffered(struct jb_packet *cp) {
 void interfaces_free(void) {
 	struct local_intf *ifc;
 
-	while ((ifc = t_queue_pop_head(&all_local_interfaces))) {
+	while ((ifc = i_queue_pop_head(&all_local_interfaces))) {
 		free(ifc->ice_foundation.s);
 		bufferpool_unref(ifc->stats);
 	}
@@ -4296,8 +4295,7 @@ const str *resolve_interface_from_peer_ip(const str *peer_ip) {
 	close_socket(&sock);
 
 	/* find first matching interface (loop preserves config ordering) */
-	for (__auto_type l = all_local_interfaces.head; l; l = l->next) {
-		struct local_intf *lif = l->data;
+	IQUEUE_FOREACH(&all_local_interfaces, lif) {
 		if (sockaddr_eq(&local_addr, &lif->spec->local_address.addr))
 			return &lif->logical->name;
 	}

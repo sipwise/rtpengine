@@ -183,6 +183,7 @@ struct interface_stats_block *interface_sampled_rate_stats_get(struct interface_
 		struct local_intf *lif, int64_t *time_diff_us);
 
 struct local_intf {
+	IQUEUE_LINK			glob_link;
 	struct intf_spec		*spec;
 	struct intf_address		advertised_address;
 	unsigned int			unique_id; /* starting with 0 - serves as preference */
@@ -201,6 +202,7 @@ struct sfd_intf_list {
 };
 TYPED_GQUEUE(socket_intf_list, struct socket_intf_list) /* RO */
 TYPED_GQUEUE(sfd_intf_list, struct sfd_intf_list)
+typedef IQUEUE(struct local_intf, glob_link) all_local_intf_q;
 
 /**
  * stream_fd is an entry-point object for RTP packets handling,
@@ -381,7 +383,7 @@ rtp_ext_handler rtp_extension_get_handler(const str *);
 extern struct rtp_extension media_rtp_ext_mid;
 
 
-extern local_intf_q all_local_interfaces; // read-only during runtime
+extern all_local_intf_q all_local_interfaces; // read-only during runtime
 
 extern __thread struct bufferpool *media_bufferpool;
 
