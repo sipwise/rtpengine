@@ -3497,10 +3497,8 @@ const char *call_stop_forwarding_ng(ng_command_ctx_t *ctx) {
 		ilog(LOG_INFO, "Stop forwarding (entire call)");
 		CALL_CLEAR(call, REC_FORWARDING);
 		if (flags.all == ALL_ALL) {
-			for (__auto_type l = call->monologues.head; l; l = l->next) {
-				monologue = l->data;
-				ML_CLEAR(monologue, REC_FORWARDING);
-			}
+			for (__auto_type l = call->monologues.head; l; l = l->next)
+				ML_CLEAR(l->data, REC_FORWARDING);
 		}
 	}
 
