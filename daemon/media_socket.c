@@ -4178,11 +4178,6 @@ void play_buffered(struct jb_packet *cp) {
 void interfaces_free(void) {
 	struct local_intf *ifc;
 
-	while ((ifc = i_queue_pop_head(&all_local_interfaces))) {
-		free(ifc->ice_foundation.s);
-		bufferpool_unref(ifc->stats);
-	}
-
 	t_hash_table_destroy(__logical_intf_name_family_hash);
 
 	__auto_type l_iter = t_hash_table_iter(__local_intf_addr_type_hash);
@@ -4223,6 +4218,12 @@ void interfaces_free(void) {
 			t_queue_clear(&lif->list);
 			g_free(lif);
 		}
+	}
+
+	while ((ifc = i_queue_pop_head(&all_local_interfaces))) {
+		free(ifc->ice_foundation.s);
+		bufferpool_unref(ifc->stats);
+		g_free(ifc);
 	}
 
 	t_hash_table_destroy_ptr(&local_media_socket_endpoints);
