@@ -389,14 +389,10 @@ void recording_start_daemon(call_t *call) {
 	// through all related objects and initialize the recording stuff. if this
 	// function is called right at the start of the call, all of the following
 	// is essentially a no-op
-	for (__auto_type l = call->monologues.head; l; l = l->next) {
-		struct call_monologue *ml = l->data;
+	IQUEUE_FOREACH(&call->monologues, ml)
 		rec_setup_monologue(ml);
-	}
-	for (__auto_type l = call->medias.head; l; l = l->next) {
-		struct call_media *m = l->data;
+	IQUEUE_FOREACH(&call->medias, m)
 		recording_setup_media(m);
-	}
 	IQUEUE_FOREACH(&call->streams, ps) {
 		recording_setup_stream(ps);
 		__unkernelize(ps, "recording start");
@@ -436,8 +432,7 @@ void recording_stop_daemon(call_t *call) {
 		return;
 	}
 
-	for (__auto_type l = call->monologues.head; l; l = l->next) {
-		struct call_monologue *ml = l->data;
+	IQUEUE_FOREACH(&call->monologues, ml) {
 		if (ML_ISSET(ml, REC_FORWARDING)) {
 			recording_update_flags(call, true);
 			return;
@@ -612,7 +607,7 @@ static void rec_pcap_meta_finish_file(call_t *call) {
 	char timebuffer[20];
 	struct tm timeinfo;
 	int64_t terminate;
-	terminate = (((struct call_monologue *)call->monologues.head->data)->terminated);
+	terminate = call->monologues.head->terminated;
 	fprintf(recording->pcap.meta_fp, "\nTimestamp terminated ms(first monologue): %.3lf", terminate / 1000.);
 	if (localtime_r(&start, &timeinfo) == NULL) {
 		ilog(LOG_ERROR, "Cannot get start local time, while cleaning up recording meta file: %s", strerror(errno));

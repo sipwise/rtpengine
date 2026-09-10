@@ -2173,8 +2173,7 @@ static int checkpoint_get_int(int64_t *out, const struct redis_hash *h, const ch
 }
 
 static int redis_restore_checkpoints(call_t *c, parser_arg root) {
-	for (__auto_type l = c->monologues.head; l; l = l->next) {
-		struct call_monologue *ml = l->data;
+	IQUEUE_FOREACH(&c->monologues, ml) {
 		struct redis_hash rh;
 		// absent for a call written by a version that had no checkpoints
 		if (json_get_hash(&rh, "checkpoint", ml->unique_id, root))
@@ -2989,8 +2988,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free)
 	if (c->recording_random_tag.len)
 		JSON_SET_SIMPLE_STR("recording_random_tag", &c->recording_random_tag);
 
-	for (__auto_type l = c->monologues.head; l; l = l->next) {
-		const struct call_monologue *ml = l->data;
+	IQUEUE_FOREACH(&c->monologues, ml) {
 		if (!ml->checkpoint)
 			continue;
 		snprintf(tmp, sizeof(tmp), "checkpoint-%u", ml->unique_id);
@@ -3049,9 +3047,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free)
 		}
 	} // --- for streams.head
 
-	for (__auto_type l = c->monologues.head; l; l = l->next) {
-		struct call_monologue *ml = l->data;
-
+	IQUEUE_FOREACH(&c->monologues, ml) {
 		redis_encode_ml_basic(ml, parser, root);
 
 		GList *k = g_hash_table_get_values(ml->associated_tags);
@@ -3069,12 +3065,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free)
 			JSON_ADD_LIST_STRING(STR_FORMAT, STR_FMT(alias->data));
 	} // --- for monologues.head
 
-	for (__auto_type l = c->medias.head; l; l = l->next) {
-		struct call_media *media = l->data;
-
-		if (!media)
-			continue;
-
+	IQUEUE_FOREACH(&c->medias, media) {
 		/* store media subscriptions */
 		snprintf(tmp, sizeof(tmp), "media-subscriptions-%u", media->unique_id);
 		inner = parser->dict_add_list_dup(root, tmp);

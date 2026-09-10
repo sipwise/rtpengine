@@ -75,7 +75,6 @@ static void call_stream_crypto_reset(struct packet_stream *ps);
 
 /* called with call->master_lock held in R */
 static void call_timer_delete_monologues(call_t *c) {
-	struct call_monologue *ml;
 	int64_t min_deleted = 0;
 	bool update = false;
 
@@ -83,9 +82,7 @@ static void call_timer_delete_monologues(call_t *c) {
 	rwlock_unlock_r(&c->master_lock);
 	rwlock_lock_w(&c->master_lock);
 
-	for (__auto_type i = c->monologues.head; i; i = i->next) {
-		ml = i->data;
-
+	IQUEUE_FOREACH(&c->monologues, ml) {
 		if (!ml->deleted_us)
 			continue;
 		if (ml->deleted_us > rtpe_now) {
@@ -140,8 +137,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 	if (final_timeout && rtpe_now >= (c->created + final_timeout)) {
 		ilog(LOG_INFO, "Closing call due to final timeout");
 		tmp_t_reason = FINAL_TIMEOUT;
-		for (__auto_type it = c->monologues.head; it; it = it->next) {
-			__auto_type ml = it->data;
+		IQUEUE_FOREACH(&c->monologues, ml) {
 			ml->terminated = rtpe_now;
 			ml->term_reason = tmp_t_reason;
 		}
@@ -239,8 +235,7 @@ no_sfd:
 	if (!recv_checked && !recv_good)
 		recv_good = silent_good;
 
-	for (__auto_type it = c->medias.head; it; it = it->next) {
-		struct call_media *media = it->data;
+	IQUEUE_FOREACH(&c->medias, media) {
 		if (media->protocol && media->protocol->srtp)
 			has_srtp = true;
 
@@ -280,8 +275,7 @@ no_sfd:
 	if (c->ml_deleted_us)
 		goto out;
 
-	for (__auto_type it = c->monologues.head; it; it = it->next) {
-		__auto_type ml = it->data;
+	IQUEUE_FOREACH(&c->monologues, ml) {
 		ml->terminated = rtpe_now;
 		ml->term_reason = tmp_t_reason;
 	}
@@ -436,7 +430,6 @@ fault:
 
 void kill_calls_timer(GSList *list, const char *url) {
 	call_t *ca;
-	struct call_monologue *cm;
 	char *url_prefix = NULL, *url_suffix = NULL;
 	const char *needle;
 	struct xmlrpc_helper *xh = NULL;
@@ -493,8 +486,7 @@ void kill_calls_timer(GSList *list, const char *url) {
 
 		switch (rtpe_config.fmt) {
 		case XF_SEMS:
-			for (__auto_type csl = ca->monologues.head; csl; csl = csl->next) {
-				cm = csl->data;
+			IQUEUE_FOREACH(&ca->monologues, cm) {
 				if (!cm->tag.s || !cm->tag.len)
 					continue;
 				g_queue_push_tail(&xh->strings, strdup(url_buf));
@@ -507,8 +499,7 @@ void kill_calls_timer(GSList *list, const char *url) {
 			g_queue_push_tail(&xh->strings, str_dup(&ca->callid));
 			break;
 		case XF_KAMAILIO:
-			for (__auto_type csl = ca->monologues.head; csl; csl = csl->next) {
-				cm = csl->data;
+			IQUEUE_FOREACH(&ca->monologues, cm) {
 				if (!cm->tag.s || !cm->tag.len)
 					continue;
 
@@ -688,7 +679,7 @@ const struct extmap_ops extmap_ops_long = {
 
 struct call_media *call_media_new(call_t *call) {
 	struct call_media *med;
-	med = uid_alloc(&call->medias);
+	med = iuid_alloc(&call->medias);
 	med->call = call;
 	codec_store_init(&med->codecs, med);
 	codec_store_init(&med->offered_codecs, med);
@@ -5129,7 +5120,7 @@ static int64_t add_ongoing_calls_dur_in_interval(int64_t interval_start,
 
 		if (!call->monologues.head || IS_FOREIGN_CALL(call))
 			goto next;
-		ml = call->monologues.head->data;
+		ml = call->monologues.head;
 		if (interval_start > ml->started) {
 			res += interval_duration;
 		} else {
@@ -5159,8 +5150,7 @@ static void __call_cleanup(call_t *c) {
 		t_queue_clear_full(&ps->rtp_mirrors, free_sink_handler);
 	}
 
-	for (__auto_type l = c->medias.head; l; l = l->next) {
-		struct call_media *md = l->data;
+	IQUEUE_FOREACH(&c->medias, md) {
 		ice_shutdown(&md->ice_agent);
 		call_media_stop(md);
 		t38_gateway_put(&md->t38_gateway);
@@ -5171,8 +5161,7 @@ static void __call_cleanup(call_t *c) {
 		sdp_sp_clear(&md->sp);
 	}
 
-	for (__auto_type l = c->monologues.head; l; l = l->next) {
-		struct call_monologue *ml = l->data;
+	IQUEUE_FOREACH(&c->monologues, ml) {
 		if (ml->tone_freqs)
 			g_array_free(ml->tone_freqs, true);
 		obj_release(ml->janus_session);
@@ -5203,7 +5192,6 @@ static bool __remove_call_id_from_hash(str *callid, call_t *c) {
 
 /* called lock-free, but must hold a reference to the call */
 void call_destroy(call_t *c) {
-	struct call_monologue *ml;
 	struct call_media *md;
 	GList *k;
 	const rtp_payload_type *rtp_pt;
@@ -5248,9 +5236,7 @@ void call_destroy(call_t *c) {
 
 	ilog(LOG_INFO, "Final packet stats:");
 
-	for (__auto_type l = c->monologues.head; l; l = l->next) {
-		ml = l->data;
-
+	IQUEUE_FOREACH(&c->monologues, ml) {
 		// stats output only - no cleanups
 
 		ilog(LOG_INFO, "--- Tag '" STR_FORMAT_M "'%s" STR_FORMAT "%s, created "
@@ -5486,12 +5472,12 @@ static void __call_free(call_t *c) {
 	mqtt_timer_stop(&c->mqtt_timer);
 
 	while (c->monologues.head) {
-		m = t_queue_pop_head(&c->monologues);
+		m = i_queue_pop_head(&c->monologues);
 		__monologue_free(m);
 	}
 
 	while (c->medias.head) {
-		md = t_queue_pop_head(&c->medias);
+		md = i_queue_pop_head(&c->medias);
 		call_media_free(md);
 	}
 
@@ -5720,8 +5706,8 @@ static bool call_merge(call_t *call, call_t *call2) {
 	}
 
 	// chcek for tag collisions: duplicate tags are a failure
-	for (auto_iter(l, call2->monologues.head); l; l = l->next) {
-		if (t_hash_table_lookup(call->tags, &l->data->tag))
+	IQUEUE_FOREACH(&call2->monologues, ml) {
+		if (t_hash_table_lookup(call->tags, &ml->tag))
 			return false;
 	}
 
@@ -5739,12 +5725,12 @@ static bool call_merge(call_t *call, call_t *call2) {
 	// move all contained objects: we have to renumber all unique IDs, and redirect any
 	// `call` pointers
 
-	unsigned int last_id = call->monologues.head->data->unique_id;
+	unsigned int last_id = call->monologues.head->unique_id;
 	while (call2->monologues.head) {
-		__auto_type ml = t_queue_pop_head(&call2->monologues);
+		__auto_type ml = i_queue_pop_head(&call2->monologues);
 		ml->unique_id = ++last_id;
 		ml->call = call;
-		t_queue_push_tail(&call->monologues, ml);
+		i_queue_push_tail(&call->monologues, ml);
 		t_hash_table_insert(call->tags, &ml->tag, ml);
 		for (auto_iter(l, ml->tag_aliases.head); l; l = l->next)
 			t_hash_table_insert(call->tags, l->data, ml);
@@ -5754,12 +5740,12 @@ static bool call_merge(call_t *call, call_t *call2) {
 			t_hash_table_insert(call->labels, &ml->label, ml);
 	}
 
-	last_id = call->medias.head->data->unique_id;
+	last_id = call->medias.head->unique_id;
 	while (call2->medias.head) {
-		__auto_type media = t_queue_pop_head(&call2->medias);
+		__auto_type media = i_queue_pop_head(&call2->medias);
 		media->unique_id = ++last_id;
 		media->call = call;
-		t_queue_push_tail(&call->medias, media);
+		i_queue_push_tail(&call->medias, media);
 	}
 
 	t_hash_table_foreach_remove(call2->sdp_fragments, fragment_move, call);
@@ -5880,7 +5866,7 @@ struct call_monologue *__monologue_create(call_t *call, const str *callid) {
 	struct call_monologue *ret;
 
 	dbg_int("creating new monologue");
-	ret = uid_alloc(&call->monologues);
+	ret = iuid_alloc(&call->monologues);
 
 	ret->call = call;
 	ret->call_id = call_str_cpy(callid);
@@ -6161,9 +6147,7 @@ static void __tags_associate(struct call_monologue *a, struct call_monologue *b)
  * Check whether the call object contains some other monologues, which can have own associations.
  */
 static bool call_monologues_associations_left(call_t * c) {
-	for (__auto_type l = c->monologues.head; l; l = l->next)
-	{
-		struct call_monologue *ml = l->data;
+	IQUEUE_FOREACH(&c->monologues, ml) {
 		if (g_hash_table_size(ml->associated_tags) > 0)
 			return true;
 	}
@@ -6480,10 +6464,8 @@ static int call_delete_full(call_t *c, const str *callid, ng_command_ctx_t *ctx,
 	if (c->callid_aliases.length != 0)
 		return call_delete_by_id(c, callid, ctx, delete_delay, stats);
 
-	for (__auto_type i = c->monologues.head; i; i = i->next) {
-		__auto_type ml = i->data;
+	IQUEUE_FOREACH(&c->monologues, ml)
 		monologue_stop(ml, false);
-	}
 
 	return call_do_delete_full(c, delete_delay);
 }
@@ -6531,8 +6513,7 @@ static int call_delete_monologue(call_t *c, const str *callid, struct call_monol
 static int call_delete_by_id(call_t *c, const str *callid, ng_command_ctx_t *ctx, int64_t delete_delay,
 		bool stats)
 {
-	for (__auto_type i = c->monologues.head; i; i = i->next) {
-		__auto_type ml = i->data;
+	IQUEUE_FOREACH(&c->monologues, ml) {
 		if (str_cmp_str(&ml->call_id, callid))
 			continue;
 
@@ -6558,7 +6539,6 @@ int call_delete_branch(call_t *c, const str *callid, const str *branch,
 	const str *fromtag, const str *totag, ng_command_ctx_t *ctx, int64_t delete_delay,
 	bool stats)
 {
-	struct call_monologue *ml;
 	const str *match_tag;
 
 	if (delete_delay < 0)
@@ -6566,8 +6546,7 @@ int call_delete_branch(call_t *c, const str *callid, const str *branch,
 	else
 		delete_delay *= 1000000L;
 
-	for (__auto_type i = c->monologues.head; i; i = i->next) {
-		ml = i->data;
+	IQUEUE_FOREACH(&c->monologues, ml) {
 		ml->terminated = rtpe_now;
 		ml->term_reason = REGULAR;
 	}
@@ -6577,14 +6556,14 @@ int call_delete_branch(call_t *c, const str *callid, const str *branch,
 
 	if ((!totag || !totag->len) && branch && branch->len) {
 		// try a via-branch match
-		ml = t_hash_table_lookup(c->viabranches, branch);
+		__auto_type ml = t_hash_table_lookup(c->viabranches, branch);
 		if (ml)
 			return call_delete_monologue(c, callid, ml, fromtag, totag, ctx, delete_delay, stats);
 	}
 
 	match_tag = (totag && totag->len) ? totag : fromtag;
 
-	ml = call_get_monologue(c, match_tag);
+	__auto_type ml = call_get_monologue(c, match_tag);
 	if (ml)
 		return call_delete_monologue(c, callid, ml, fromtag, totag, ctx, delete_delay, stats);
 
@@ -6902,8 +6881,7 @@ int call_checkpoint_rollback(call_t *call, struct call_monologue *a, struct call
 }
 
 void call_checkpoint_free_all(call_t *call) {
-	for (__auto_type l = call->monologues.head; l; l = l->next) {
-		struct call_monologue *ml = l->data;
+	IQUEUE_FOREACH(&call->monologues, ml) {
 		if (!ml->checkpoint)
 			continue;
 		redis_snapshot_free(&ml->checkpoint->snapshot);

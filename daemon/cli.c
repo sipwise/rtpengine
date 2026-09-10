@@ -337,7 +337,6 @@ static void cli_handler_do(const cli_handler_t *handler, str *instr,
 }
 
 static void destroy_own_foreign_calls(bool foreign_call, unsigned int uint_keyspace_db) {
-	struct call_monologue *ml = NULL;
 	call_q calls = TYPED_GQUEUE_INIT;
 
 	ITERATE_CALL_LIST_START(CALL_ITERATOR_MAIN, c);
@@ -363,8 +362,7 @@ next:;
 	call_t *c = NULL;
 	while ((c = t_queue_pop_head(&calls))) {
 		if (!c->ml_deleted_us) {
-			for (__auto_type i = c->monologues.head; i; i = i->next) {
-				ml = i->data;
+			IQUEUE_FOREACH(&c->monologues, ml) {
 				ml->terminated = rtpe_now;
 				ml->term_reason = FORCED;
 			}
@@ -687,8 +685,6 @@ static void cli_incoming_list_callid(str *instr, struct cli_writer *cw) {
 
 
 static void cli_list_call_info(struct cli_writer *cw, call_t *c) {
-	struct call_monologue *ml;
-
 	cw->cw_printf(cw,
 			 "\n"
 			 "callid: " STR_FORMAT "\n",
@@ -714,10 +710,9 @@ static void cli_list_call_info(struct cli_writer *cw, call_t *c) {
 			 atomic64_get_na(&c->last_redis_update_us),
 			 IS_FOREIGN_CALL(c) ? "yes" : "no", c->recording ? "yes" : "no");
 
-	for (__auto_type l = c->monologues.head; l; l = l->next) {
-		ml = l->data;
+	IQUEUE_FOREACH(&c->monologues, ml)
 		cli_list_tag_info(cw, ml);
-	}
+
 	cw->cw_printf(cw, "\n");
 }
 
@@ -1079,7 +1074,6 @@ static void cli_generic_handler(str *instr, struct cli_writer *cw, const cli_han
 
 static void cli_incoming_terminate(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
    call_t * c=0;
-   struct call_monologue *ml;
 
    if (instr->len == 0) {
        cw->cw_printf(cw, "More parameters required.\n");
@@ -1132,8 +1126,7 @@ static void cli_incoming_terminate(str *instr, struct cli_writer *cw, const cli_
    }
 
    if (!c->ml_deleted_us) {
-	   for (__auto_type i = c->monologues.head; i; i = i->next) {
-		   ml = i->data;
+	   IQUEUE_FOREACH(&c->monologues, ml) {
 		   ml->terminated = rtpe_now;
 		   ml->term_reason = FORCED;
 	   }

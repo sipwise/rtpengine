@@ -524,6 +524,7 @@ enum {
 struct call_media {
 	struct call_monologue	*monologue;			/* RO */
 	call_t			*call;				/* RO */
+	IQUEUE_LINK		link;
 
 	unsigned int		index;				/* RO */
 	unsigned int		unique_id;			/* RO */
@@ -611,6 +612,7 @@ struct call_media {
 	unsigned int		update_iter;
 };
 
+typedef IQUEUE(struct call_media, link) medias_in_call_q;
 TYPED_GPTRARRAY(medias_arr, struct call_media)
 
 
@@ -628,6 +630,7 @@ struct call_monologue {
 	call_t			*call;			/* RO */
 	str			call_id;		// RO - in case of merged calls with ID aliases
 	unsigned int		unique_id;		/* RO */
+	IQUEUE_LINK		link;
 
 	str			tag;
 	str			viabranch;
@@ -694,6 +697,8 @@ struct call_monologue {
 
 	struct call_checkpoint	*checkpoint;
 };
+
+typedef IQUEUE(struct call_monologue, link) monologues_in_call_q;
 
 TYPED_GHASHTABLE(str_ml_ht, str, struct call_monologue, str_hash, str_equal, NULL, NULL)
 
@@ -801,8 +806,8 @@ struct call {
 	rwlock_t		master_lock;
 
 	/* everything below is protected by the master_lock */
-	monologues_q		monologues;	/* call_monologue */
-	medias_q		medias;		/* call_media */
+	monologues_in_call_q	monologues;
+	medias_in_call_q	medias;
 	str_ml_ht		tags;
 	str_ml_ht		viabranches;
 	str_ml_ht		labels;
@@ -1043,10 +1048,8 @@ G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(call_q, call_q_unlock_release);
 #define call_str_dup memory_arena_str_dup
 
 INLINE void __call_unkernelize(call_t *call, const char *reason) {
-	for (__auto_type l = call->monologues.head; l; l = l->next) {
-		struct call_monologue *ml = l->data;
+	IQUEUE_FOREACH(&call->monologues, ml)
 		__monologue_unconfirm(ml, reason);
-	}
 }
 INLINE endpoint_t *packet_stream_local_addr(struct packet_stream *ps) {
 	if (ps->selected_sfd)

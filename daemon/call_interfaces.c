@@ -1183,7 +1183,6 @@ void ng_call_stats(ng_command_ctx_t *ctx, call_t *call, const str *fromtag, cons
 {
 	parser_arg tags = {0}, dict;
 	const str *match_tag;
-	struct call_monologue *ml;
 	struct call_stats t_b;
 	parser_arg ssrc = {0};
 	const ng_parser_t *parser = NULL;
@@ -1216,13 +1215,11 @@ stats:
 	match_tag = (totag && totag->s && totag->len) ? totag : fromtag;
 
 	if (!match_tag || !match_tag->len) {
-		for (__auto_type l = call->monologues.head; l; l = l->next) {
-			ml = l->data;
+		IQUEUE_FOREACH(&call->monologues, ml)
 			ng_stats_monologue(ctx, tags, ml, totals, ssrc);
-		}
 	}
 	else {
-		ml = call_get_monologue(call, match_tag);
+		__auto_type ml = call_get_monologue(call, match_tag);
 		if (ml) {
 			ng_stats_monologue(ctx, tags, ml, totals, ssrc);
 			g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
@@ -1408,10 +1405,10 @@ static const char *media_match(call_t *call, struct call_monologue **monologue,
 		if (!sockaddr_parse_any_str(&addr, &flags->address))
 			return "Failed to parse network address";
 		// walk our structures to find a matching stream
-		for (__auto_type l = call->monologues.head; l; l = l->next) {
-			*monologue = l->data;
-			for (unsigned int k = 0; k < (*monologue)->medias->len; k++) {
-				struct call_media *media = (*monologue)->medias->pdata[k];
+		IQUEUE_FOREACH(&call->monologues, ml) {
+			*monologue = ml;
+			for (unsigned int k = 0; k < ml->medias->len; k++) {
+				struct call_media *media = ml->medias->pdata[k];
 				if (!media)
 					continue;
 				if (!media->streams.head)
@@ -1420,7 +1417,7 @@ static const char *media_match(call_t *call, struct call_monologue **monologue,
 				if (!sockaddr_eq(&addr, &ps->advertised_endpoint.address))
 					continue;
 				ilog(LOG_DEBUG, "Matched address %s%s%s to tag '" STR_FORMAT_M "'",
-						FMT_M(sockaddr_print_buf(&addr)), STR_FMT_M(&(*monologue)->tag));
+						FMT_M(sockaddr_print_buf(&addr)), STR_FMT_M(&ml->tag));
 				goto found;
 			}
 		}
@@ -1493,8 +1490,7 @@ static const char *medias_match(call_q *calls, medias_q *medias,
 	call_t *call = calls->head->data;
 
 	if (flags->all == ALL_ALL) {
-		for (__auto_type l = call->medias.head; l; l = l->next) {
-			struct call_media *media = l->data;
+		IQUEUE_FOREACH(&call->medias, media) {
 			if (!media || (media->monologue->tagtype != FROM_TAG &&
 				media->monologue->tagtype != TO_TAG))
 			{
@@ -1596,8 +1592,8 @@ const char *call_stop_forwarding_ng(ng_command_ctx_t *ctx) {
 		ilog(LOG_INFO, "Stop forwarding (entire call)");
 		CALL_CLEAR(call, REC_FORWARDING);
 		if (flags.all == ALL_ALL) {
-			for (__auto_type l = call->monologues.head; l; l = l->next)
-				ML_CLEAR(l->data, REC_FORWARDING);
+			IQUEUE_FOREACH(&call->monologues, ml)
+				ML_CLEAR(ml, REC_FORWARDING);
 		}
 	}
 
@@ -1677,10 +1673,8 @@ static void call_set_dtmf_block(call_t *call, struct call_monologue *monologue, 
 		if (monologue)
 			call_monologue_set_block_mode(monologue, flags);
 		else {
-			for (__auto_type l = call->monologues.head; l; l = l->next) {
-				struct call_monologue *ml = l->data;
+			IQUEUE_FOREACH(&call->monologues, ml)
 				call_monologue_set_block_mode(ml, flags);
-			}
 		}
 	}
 
@@ -1733,25 +1727,24 @@ const char *call_unblock_dtmf_ng(ng_command_ctx_t *ctx) {
 		enum block_dtmf_mode prev_mode = call->block_dtmf;
 		call->block_dtmf = BLOCK_DTMF_OFF;
 		if (flags.all == ALL_ALL || is_dtmf_replace_mode(prev_mode) || flags.delay_buffer >= 0) {
-			for (__auto_type l = call->monologues.head; l; l = l->next) {
-				monologue = l->data;
+			IQUEUE_FOREACH(&call->monologues, ml) {
 				enum block_dtmf_mode prev_ml_mode = BLOCK_DTMF_OFF;
 				if (flags.all == ALL_ALL) {
-					prev_ml_mode = monologue->block_dtmf;
-					monologue->block_dtmf = BLOCK_DTMF_OFF;
+					prev_ml_mode = ml->block_dtmf;
+					ml->block_dtmf = BLOCK_DTMF_OFF;
 				}
 				if (flags.delay_buffer >= 0) {
-					for (unsigned int i = 0; i < monologue->medias->len; i++) {
-						struct call_media *media = monologue->medias->pdata[i];
+					for (unsigned int i = 0; i < ml->medias->len; i++) {
+						struct call_media *media = ml->medias->pdata[i];
 						if (!media)
 							continue;
 						media->buffer_delay = flags.delay_buffer;
 					}
 				}
-				bf_set_clear(&monologue->ml_flags, ML_FLAG_DETECT_DTMF, flags.detect_dtmf);
+				bf_set_clear(&ml->ml_flags, ML_FLAG_DETECT_DTMF, flags.detect_dtmf);
 				if (is_dtmf_replace_mode(prev_ml_mode) || is_dtmf_replace_mode(prev_mode)
 						|| flags.delay_buffer >= 0)
-					codec_update_all_handlers(monologue);
+					codec_update_all_handlers(ml);
 			}
 		}
 	}
@@ -1902,10 +1895,8 @@ static const char *call_block_silence_media(ng_command_ctx_t *ctx, bool on_off, 
 		if (!on_off) {
 			ilog(LOG_INFO, "%s media (entire call and participants)", ucase_verb);
 			if (flags.all == ALL_ALL) {
-				for (__auto_type l = call->monologues.head; l; l = l->next) {
-					monologue = l->data;
-					bf_set_clear(&monologue->ml_flags, ml_flag, on_off);
-				}
+				IQUEUE_FOREACH(&call->monologues, ml)
+					bf_set_clear(&ml->ml_flags, ml_flag, on_off);
 			}
 		} else {
 			ilog(LOG_INFO, "%s media (entire call)", ucase_verb);
@@ -1949,7 +1940,8 @@ static const char *play_media_select_party(call_t **call, monologues_q *monologu
 	if (err)
 		return err;
 	if (flags->all == ALL_ALL)
-		t_queue_append(monologues, &(*call)->monologues);
+		IQUEUE_FOREACH(&(*call)->monologues, ml)
+			t_queue_push_tail(monologues, ml);
 	else if (!monologue)
 		return "No participant party specified";
 	else

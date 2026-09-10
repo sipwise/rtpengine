@@ -65,7 +65,7 @@ static void __cleanup(void) {
 	t_queue_clear_full(&flags.codec_accept, str_free);
 	t_queue_clear_full(&flags.codec_consume, str_free);
 	t_queue_clear_full(&flags.codec_mask, str_free);
-	t_queue_clear(&call.monologues);
+	i_queue_init(&call.monologues);
 
 	codec_store_cleanup(&rtp_types_sp.codecs);
 	memset(&flags, 0, sizeof(flags));
@@ -387,7 +387,7 @@ static void end(void) {
 	call_media_free(media_A);
 	call_media_free(media_B);
 	t_hash_table_destroy(call.tags);
-	t_queue_clear(&call.medias);
+	i_queue_init(&call.medias);
 	if (ml_A)
 		__monologue_free(ml_A);
 	if (ml_B)

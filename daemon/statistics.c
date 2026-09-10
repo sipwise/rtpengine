@@ -121,7 +121,6 @@ void statistics_update_foreignown_inc(call_t * c) {
 }
 
 void statistics_update_oneway(call_t * c) {
-	struct call_monologue *ml;
 	struct call_media *md;
 
 	if (IS_OWN_CALL(c)) {
@@ -129,9 +128,7 @@ void statistics_update_oneway(call_t * c) {
 		unsigned int total_nopacket_relayed_sess = 0;
 		struct packet_stream *ps, *ps2;
 
-		for (__auto_type l = c->monologues.head; l; l = l->next) {
-			ml = l->data;
-
+		IQUEUE_FOREACH(&c->monologues, ml) {
 			// --- go through partner ml and search the RTP
 			for (unsigned int i = 0; i < ml->medias->len; i++) {
 				md = ml->medias->pdata[i];
@@ -167,7 +164,7 @@ found:;
 	}
 
 	if (c->monologues.head) {
-		ml = c->monologues.head->data;
+		__auto_type ml = c->monologues.head;
 
 		if (IS_OWN_CALL(c)) {
 			if (ml->term_reason==TIMEOUT)
