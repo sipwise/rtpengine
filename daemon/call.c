@@ -5443,6 +5443,8 @@ void call_media_free(struct call_media *md) {
 	memory_arena_free_lw(md->media_id.s);
 	memory_arena_free_lw(md->label.s);
 	memory_arena_free_lw(md->tls_id.s);
+
+	memory_arena_free_lw(md);
 }
 
 void __monologue_free(struct call_monologue *m) {
@@ -5455,6 +5457,8 @@ void __monologue_free(struct call_monologue *m) {
 	t_queue_clear_full(&m->all_attributes, sdp_attr_free);
 	t_queue_clear(&m->tag_aliases);
 	t_queue_clear(&m->groups_other);
+
+	memory_arena_free_lw(m);
 }
 
 static void __call_free(call_t *c) {
@@ -5484,6 +5488,7 @@ static void __call_free(call_t *c) {
 	while (c->endpoint_maps.head) {
 		em = i_queue_pop_head(&c->endpoint_maps);
 		t_queue_clear_full(&em->intf_sfds, free_sfd_intf_list);
+		memory_arena_free_lw(em);
 	}
 
 	t_hash_table_destroy(c->tags);
@@ -5500,6 +5505,7 @@ static void __call_free(call_t *c) {
 		t_hash_table_destroy(ps->rtp_stats);
 		bufferpool_unref(ps->stats_in);
 		bufferpool_unref(ps->stats_out);
+		memory_arena_free_lw(ps);
 	}
 
 	memory_arena = NULL;

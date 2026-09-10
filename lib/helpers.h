@@ -258,14 +258,14 @@ void thread_create_looper(enum thread_looper_action (*f)(void), const char *sche
 /*** ALLOC WITH UNIQUE ID HELPERS ***/
 
 #define uid_alloc(q) ({ \
-		__typeof__((q)->__t) __ret = memory_arena_alloc0(__typeof__(*(q)->__t)); \
+		__typeof__((q)->__t) __ret = memory_arena_alloc0_lw(__typeof__(*(q)->__t)); \
 		__ret->unique_id = (q)->length; \
 		t_queue_push_tail(q, __ret); \
 		__ret; \
 	})
 
 #define iuid_alloc(q) ({ \
-		__typeof__((q)->head) __ret = memory_arena_alloc0(__typeof__(*(q)->head)); \
+		__typeof__((q)->head) __ret = memory_arena_alloc0_lw(__typeof__(*(q)->head)); \
 		__ret->unique_id = (q)->length; \
 		i_queue_push_tail(q, __ret); \
 		__ret; \
