@@ -1376,6 +1376,18 @@ Spaces in each string may be replaced by hyphens.
     negotiated are removed from forwarded RTP. Once set, the flag remains
     in effect for the lifetime of the call.
 
+* `fixed egress SSRC`
+
+    Pick an SSRC for each media at signalling time and use it for all RTP sent
+    towards that media, instead of passing through the SSRC that the other side
+    happens to be sending. The chosen values are returned in the response, and
+    they stay in place for the lifetime of the call, so a source that changes
+    its own SSRC mid-call is still forwarded under the same one, with the
+    sequence numbering carried across the change.
+
+    Intended for feeding media into a system that has to bind a receiver to an
+    SSRC up front, such as a WebRTC selective forwarding unit.
+
 * `strict source`
 
 	Normally, *rtpengine* attempts to learn the correct endpoint address for every stream during
@@ -1820,6 +1832,10 @@ A response message contains the key `sdp` in addition to `result`, which contain
 SDP body that the SIP proxy should insert into the SIP message. If `supports`
 requested a supported extension, the response can also contain a `supported`
 list.
+
+With `fixed egress SSRC` set, the response also contains `egress SSRC`, a list with
+one entry per `m=` section of the returned SDP, in the same order. Each entry gives
+the `index` and `type` of the media along with the `SSRC` chosen for it.
 
 Example response:
 

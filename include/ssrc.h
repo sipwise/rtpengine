@@ -93,6 +93,11 @@ struct ssrc_entry_call {
 	uint32_t jitter, transit;
 	// output only
 	uint16_t seq_diff;
+
+	/* for a fixed egress SSRC: the last ingress SSRC seen, so a change of
+	 * source can be spotted and the sequence numbering carried across it */
+	uint32_t fixed_in_ssrc;
+	bool fixed_in_ssrc_set;
 };
 
 struct ssrc_time_item {

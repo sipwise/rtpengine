@@ -689,6 +689,21 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char *addr)
 		/* place return output SDP */
 		ctx->ngbuf->sdp_out = sdp_out.s;
 		ctx->parser_ctx.parser->dict_add_str(output, "sdp", &sdp_out);
+
+		/* report the SSRCs picked for media sent towards the recipient of this SDP,
+		 * one entry per m= section */
+		if (flags.fixed_egress_ssrc && to_ml->medias) {
+			parser_arg ssrcs = parser->dict_add_list(output, "egress SSRC");
+			for (unsigned int i = 0; i < to_ml->medias->len; i++) {
+				struct call_media *media = to_ml->medias->pdata[i];
+				if (!media || !media->fixed_egress_ssrc)
+					continue;
+				parser_arg ent = parser->list_add_dict(ssrcs);
+				parser->dict_add_int(ent, "index", media->index);
+				parser->dict_add_str(ent, "type", &media->type);
+				parser->dict_add_int(ent, "SSRC", media->fixed_egress_ssrc);
+			}
+		}
 		if (flags.supports_rollback) {
 			parser_arg supported = parser->dict_add_list(output, "supported");
 			parser->list_add_string(supported, "rollback");

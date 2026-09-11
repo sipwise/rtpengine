@@ -550,6 +550,9 @@ struct call_media {
 	struct ssrc_hash	ssrc_hash_in;
 	struct ssrc_hash	ssrc_hash_out;
 
+	/* fixed SSRC to use for RTP sent towards this media, 0 if unset */
+	uint32_t		fixed_egress_ssrc;
+
 	struct codec_store	codecs;
 	struct codec_store	offered_codecs;
 	sdp_attr_q		generic_attributes;			/* sdp_attr_new() */

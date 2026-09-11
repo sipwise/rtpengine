@@ -327,7 +327,9 @@ RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 		     /* prevents double MoH holds */
 		     moh_double_hold:1,
 		     /* process RTP header extensions even if none were negotiated */
-		     force_strip_extmap:1;
+		     force_strip_extmap:1,
+		     /* pick a fixed egress SSRC per media and report it */
+		     fixed_egress_ssrc:1;
 };
 
 

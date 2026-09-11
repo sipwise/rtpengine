@@ -3165,6 +3165,11 @@ static void media_init_from_flags(struct call_media *media, sdp_ng_flags *flags)
 
 	if (flags->recrypt)
 		MEDIA_SET(media, RECRYPT);
+
+	if (flags->fixed_egress_ssrc) {
+		while (!media->fixed_egress_ssrc)
+			media->fixed_egress_ssrc = ssl_random();
+	}
 }
 
 __attribute__((nonnull(1, 2)))

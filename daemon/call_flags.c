@@ -973,6 +973,10 @@ const char *call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 		case CSH_LOOKUP("strict source"):
 			out->strict_source = true;
 			break;
+		case CSH_LOOKUP("fixed-egress-SSRC"):
+		case CSH_LOOKUP("fixed egress SSRC"):
+			out->fixed_egress_ssrc = true;
+			break;
 		case CSH_LOOKUP("strip-extmap"):
 		case CSH_LOOKUP("strip extmap"):
 			return call_ng_flags_str_ht(STR_PTR("all"), 0, &out->rtpext_strip);
