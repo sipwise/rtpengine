@@ -1914,20 +1914,25 @@ void sdp_attr_free(struct sdp_attr *c) {
 	g_free(c);
 }
 
-sdp_origin sdp_orig_dup(const sdp_origin *orig) {
-	sdp_origin copy = {};
-	copy.username = call_str_cpy(&orig->username);
-	copy.session_id = call_str_cpy(&orig->session_id);
-	copy.version_num = orig->version_num;
-	copy.version_output_pos = orig->version_output_pos;
-	copy.parsed = orig->parsed;
+void sdp_orig_dup(sdp_origin *copy, const sdp_origin *orig) {
+	memory_arena_str_cpy_free(&copy->username, &orig->username);
+	memory_arena_str_cpy_free(&copy->session_id, &orig->session_id);
+	copy->version_num = orig->version_num;
+	copy->version_output_pos = orig->version_output_pos;
+	copy->parsed = orig->parsed;
 	/* struct network_address */
-	copy.address.network_type = call_str_cpy(&orig->address.network_type);
-	copy.address.address_type = call_str_cpy(&orig->address.address_type);
-	copy.address.address = call_str_cpy(&orig->address.address);
-	copy.address.parsed = orig->address.parsed;
+	memory_arena_str_cpy_free(&copy->address.network_type, &orig->address.network_type);
+	memory_arena_str_cpy_free(&copy->address.address_type, &orig->address.address_type);
+	memory_arena_str_cpy_free(&copy->address.address, &orig->address.address);
+	copy->address.parsed = orig->address.parsed;
+}
 
-	return copy;
+void sdp_orig_free(sdp_origin *orig) {
+	memory_arena_free_lw(orig->username.s);
+	memory_arena_free_lw(orig->session_id.s);
+	memory_arena_free_lw(orig->address.network_type.s);
+	memory_arena_free_lw(orig->address.address_type.s);
+	memory_arena_free_lw(orig->address.address.s);
 }
 
 static void sdp_attr_append1(sdp_attr_q *dst, const struct sdp_attribute *attr) {
@@ -3058,7 +3063,7 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 		orig_address = STR(sockaddr_print_buf(&first_ps->selected_sfd->local_intf->advertised_address.addr));
 	}
 
-	monologue->sdp_orig_out = sdp_orig_dup(&(sdp_origin) {
+	sdp_orig_dup(&monologue->sdp_orig_out, &(sdp_origin) {
 			.username = username,
 			.session_id = session_id,
 			.version_num = session_version,

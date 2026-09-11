@@ -1605,30 +1605,30 @@ static void redis_decode_monologue_sdp(struct call_monologue *ml, const struct r
 		ml->sdp_orig_in.parsed = 1;
 		redis_hash_get_llu(&ml->sdp_orig_in.version_num, rh, "sdp_orig_version_num");
 		if (!redis_hash_get_str(&s, rh, "sdp_orig_username"))
-			ml->sdp_orig_in.username = call_str_cpy(&s);
+			memory_arena_str_cpy_free(&ml->sdp_orig_in.username, &s);
 		if (!redis_hash_get_str(&s, rh, "sdp_orig_session_id"))
-			ml->sdp_orig_in.session_id = call_str_cpy(&s);
+			memory_arena_str_cpy_free(&ml->sdp_orig_in.session_id, &s);
 		if (!redis_hash_get_str(&s, rh, "sdp_orig_address_network_type"))
-			ml->sdp_orig_in.address.network_type = call_str_cpy(&s);
+			memory_arena_str_cpy_free(&ml->sdp_orig_in.address.network_type, &s);
 		if (!redis_hash_get_str(&s, rh, "sdp_orig_address_address_type"))
-			ml->sdp_orig_in.address.address_type = call_str_cpy(&s);
+			memory_arena_str_cpy_free(&ml->sdp_orig_in.address.address_type, &s);
 		if (!redis_hash_get_str(&s, rh, "sdp_orig_address_address"))
-			ml->sdp_orig_in.address.address = call_str_cpy(&s);
+			memory_arena_str_cpy_free(&ml->sdp_orig_in.address.address, &s);
 	}
 	/* o= last used of the other side*/
 	if (!redis_hash_get_str(&s, rh, "last_sdp_orig_parsed")) {
 		ml->sdp_orig_out.parsed = 1;
 		redis_hash_get_llu(&ml->sdp_orig_out.version_num, rh, "last_sdp_orig_version_num");
 		if (!redis_hash_get_str(&s, rh, "last_sdp_orig_username"))
-			ml->sdp_orig_out.username = call_str_cpy(&s);
+			memory_arena_str_cpy_free(&ml->sdp_orig_out.username, &s);
 		if (!redis_hash_get_str(&s, rh, "last_sdp_orig_session_id"))
-			ml->sdp_orig_out.session_id = call_str_cpy(&s);
+			memory_arena_str_cpy_free(&ml->sdp_orig_out.session_id, &s);
 		if (!redis_hash_get_str(&s, rh, "last_sdp_orig_address_network_type"))
-			ml->sdp_orig_out.address.network_type = call_str_cpy(&s);
+			memory_arena_str_cpy_free(&ml->sdp_orig_out.address.network_type, &s);
 		if (!redis_hash_get_str(&s, rh, "last_sdp_orig_address_address_type"))
-			ml->sdp_orig_out.address.address_type = call_str_cpy(&s);
+			memory_arena_str_cpy_free(&ml->sdp_orig_out.address.address_type, &s);
 		if (!redis_hash_get_str(&s, rh, "last_sdp_orig_address_address"))
-			ml->sdp_orig_out.address.address = call_str_cpy(&s);
+			memory_arena_str_cpy_free(&ml->sdp_orig_out.address.address, &s);
 	}
 
 	ml->sdp_session_bandwidth.as = (!redis_hash_get_ld(&il, rh, "sdp_session_as")) ? il : -1;

@@ -2761,9 +2761,8 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 	/* consume sdp session parts */
 	{
 		/* origin (name, version etc.) */
-		if (flags->session_sdp_orig.parsed) {
-			ml->sdp_orig_in = sdp_orig_dup(&flags->session_sdp_orig);
-		}
+		if (flags->session_sdp_orig.parsed)
+			sdp_orig_dup(&ml->sdp_orig_in, &flags->session_sdp_orig);
 
 		/* sdp session name */
 		if (flags->session_sdp_name.len &&
@@ -5462,6 +5461,8 @@ void __monologue_free(struct call_monologue *m) {
 	t_queue_clear_full(&m->all_attributes, sdp_attr_free);
 	t_queue_clear(&m->tag_aliases);
 	t_queue_clear(&m->groups_other);
+	sdp_orig_free(&m->sdp_orig_in);
+	sdp_orig_free(&m->sdp_orig_out);
 
 	memory_arena_free_lw(m);
 }

@@ -1041,8 +1041,6 @@ G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(call_q, call_q_unlock_release);
 #include "str.h"
 #include "rtp.h"
 
-#define call_malloc memory_arena_alloc
-
 #define call_strdup memory_arena_strdup
 #define call_strdup_str memory_arena_strdup_str
 #define call_str_cpy_len memory_arena_str_cpy_len
