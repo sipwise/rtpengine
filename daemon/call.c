@@ -2780,9 +2780,9 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 		ml->sdp_session_bandwidth.ct = flags->session_bandwidth.ct;
 		ml->sdp_session_bandwidth.tias = flags->session_bandwidth.tias;
 
-		t_queue_clear(&ml->groups_other);
+		t_queue_clear_full(&ml->groups_other, memory_arena_str_dup_free_lw);
 		for (__auto_type ll = flags->groups_other.head; ll; ll = ll->next)
-			t_queue_push_tail(&ml->groups_other, call_str_dup(ll->data));
+			t_queue_push_tail(&ml->groups_other, memory_arena_str_dup_lw(ll->data));
 
 		if (t_hash_table_is_set(flags->bundles) && flags->bundle_accept)
 			ML_SET(ml, BUNDLE);
@@ -5460,7 +5460,7 @@ void __monologue_free(struct call_monologue *m) {
 	t_queue_clear_full(&m->generic_attributes, sdp_attr_free);
 	t_queue_clear_full(&m->all_attributes, sdp_attr_free);
 	t_queue_clear(&m->tag_aliases);
-	t_queue_clear(&m->groups_other);
+	t_queue_clear_full(&m->groups_other, memory_arena_str_dup_free_lw);
 	sdp_orig_free(&m->sdp_orig_in);
 	sdp_orig_free(&m->sdp_orig_out);
 	memory_arena_free_lw(m->sdp_session_name.s);
