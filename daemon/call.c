@@ -5514,7 +5514,7 @@ static void __call_free(call_t *c) {
 	t_hash_table_destroy(c->labels);
 	t_hash_table_destroy(c->sdps);
 	t_hash_table_destroy(c->endpoints);
-	t_queue_clear(&c->callid_aliases);
+	t_queue_clear_full(&c->callid_aliases, memory_arena_str_dup_free_lw);
 
 	while (c->streams.head) {
 		ps = i_queue_pop_head(&c->streams);
@@ -5805,7 +5805,7 @@ static bool call_merge(call_t *call, call_t *call2) {
 
 	// redirect hash table entry for old ID. store old ID in new call
 
-	t_queue_push_tail(&call->callid_aliases, call_str_dup(&call2->callid));
+	t_queue_push_tail(&call->callid_aliases, memory_arena_str_dup_lw(&call2->callid));
 
 	while (call2->callid_aliases.length)
 		t_queue_push_tail(&call->callid_aliases, t_queue_pop_head(&call2->callid_aliases));
