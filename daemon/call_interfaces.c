@@ -151,7 +151,7 @@ fail:
 
 static void updated_created_from(call_t *c, const char *addr) {
 	if (!c->created_from.len && addr)
-		c->created_from = call_str_cpy_c(addr);
+		c->created_from = memory_arena_str_cpy_c_lw(addr);
 }
 
 static str call_update_lookup_udp(char **out, enum ng_opmode opmode, const char* addr) {

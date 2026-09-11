@@ -237,7 +237,7 @@ static const char *janus_videoroom_create(struct janus_session *session, struct 
 			continue;
 		}
 		if (!call->created_from.len)
-			call->created_from = STR_CONST("janus");
+			call->created_from = memory_arena_str_cpy_c_lw("janus");
 		t_hash_table_insert(janus_rooms, &room->id, room);
 		rwlock_unlock_w(&call->master_lock);
 		obj_put(call);

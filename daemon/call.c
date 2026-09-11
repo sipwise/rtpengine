@@ -5527,6 +5527,7 @@ static void __call_free(call_t *c) {
 	}
 
 	memory_arena_free_lw(c->callid.s);
+	memory_arena_free_lw(c->created_from.s);
 
 	memory_arena = NULL;
 	arena_free(&c->buffer);

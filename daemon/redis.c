@@ -2335,7 +2335,7 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	redis_hash_get_time_t(&c->deleted_us, &call, "deleted");
 	redis_hash_get_time_t(&c->ml_deleted_us, &call, "ml_deleted");
 	if (!redis_hash_get_str(&id, &call, "created_from"))
-		c->created_from = call_str_cpy(&id);
+		memory_arena_str_cpy_free(&c->created_from, &id);
 	if (!redis_hash_get_int(&i, &call, "block_dtmf"))
 		c->block_dtmf = i;
 	if (!redis_hash_get_a64(&a64, &call, "call_flags"))
