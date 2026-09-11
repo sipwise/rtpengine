@@ -1915,7 +1915,7 @@ static int rbl_subs_cb(str *s, callback_arg_t dummy, struct redis_list *list, vo
 
 static int cb_tag_aliases(str *s, callback_arg_t dummy, struct redis_list *list, void *ptr) {
 	struct call_monologue *ml = ptr;
-	t_queue_push_tail(&ml->tag_aliases, call_str_dup(s));
+	t_queue_push_tail(&ml->tag_aliases, memory_arena_str_dup_lw(s));
 	return 0;
 }
 

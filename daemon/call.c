@@ -5459,7 +5459,7 @@ void __monologue_free(struct call_monologue *m) {
 		g_string_free(m->last_out_sdp, TRUE);
 	t_queue_clear_full(&m->generic_attributes, sdp_attr_free);
 	t_queue_clear_full(&m->all_attributes, sdp_attr_free);
-	t_queue_clear(&m->tag_aliases);
+	t_queue_clear_full(&m->tag_aliases, memory_arena_str_dup_free_lw);
 	t_queue_clear_full(&m->groups_other, memory_arena_str_dup_free_lw);
 	sdp_orig_free(&m->sdp_orig_in);
 	sdp_orig_free(&m->sdp_orig_out);
@@ -5473,6 +5473,7 @@ void __monologue_free(struct call_monologue *m) {
 	memory_arena_free_lw(m->moh_file.s);
 	memory_arena_free_lw(m->label.s);
 	memory_arena_free_lw(m->metadata.s);
+	memory_arena_free_lw(m->tag.s);
 
 	memory_arena_free_lw(m);
 }
@@ -5917,7 +5918,7 @@ void __monologue_tag(struct call_monologue *ml, const str *tag) {
 
 	if (!ml->tag.s) {
 		dbg_int("tagging monologue with '" STR_FORMAT "'", STR_FMT(tag));
-		ml->tag = call_str_cpy(tag);
+		ml->tag = memory_arena_str_cpy_lw(tag);
 		t_hash_table_insert(call->tags, &ml->tag, ml);
 		return;
 	}
@@ -5931,12 +5932,12 @@ void __monologue_tag(struct call_monologue *ml, const str *tag) {
 	// remove old entry first, as `ml->tag` will be changed
 	t_hash_table_remove(call->tags, &ml->tag);
 	// duplicate string and save as alias
-	str *old_tag = call_str_dup(&ml->tag);
+	str *old_tag = memory_arena_str_dup_lw(&ml->tag);
 	t_queue_push_tail(&ml->tag_aliases, old_tag);
 	// add duplicated old tag into hash table
 	t_hash_table_insert(call->tags, old_tag, ml);
 	// update tag to new one
-	ml->tag = call_str_cpy(tag);
+	memory_arena_str_cpy_free(&ml->tag, tag);
 	// and add new one to hash table
 	t_hash_table_insert(call->tags, &ml->tag, ml);
 }
