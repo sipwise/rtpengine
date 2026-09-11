@@ -2210,6 +2210,13 @@ static int handler_func_passthrough(struct codec_handler *h, struct media_packet
 
 	ML_CLEAR(mp->media->monologue, DTMF_INJECTION_ACTIVE);
 
+	// substitute a fixed egress SSRC. done here rather than in the SSRC
+	// passthrough handler as that one is only built with transcoding support.
+	if (mp->rtp && mp->media_out->fixed_egress_ssrc && mp->ssrc_out) {
+		mp->rtp->ssrc = htonl(mp->ssrc_out->h.ssrc);
+		mp->rtp->seq_num = htons(ntohs(mp->rtp->seq_num) + mp->ssrc_out->seq_diff);
+	}
+
 	__buffer_delay_raw(h->delay_buffer, h, codec_add_raw_packet, mp, h->source_pt.clock_rate);
 
 	return 0;

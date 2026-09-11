@@ -1858,7 +1858,8 @@ static const char *kernelize_one(kernelize_state *s,
 
 	}
 
-	if (MEDIA_ISSET(media, ECHO) || sink_handler->attrs.transcoding)
+	if (MEDIA_ISSET(media, ECHO) || sink_handler->attrs.transcoding
+			|| sink->media->fixed_egress_ssrc)
 		redi->output.ssrc_subst = 1;
 
 	__re_address_translate_ep(&redi->output.dst_addr, &sink->endpoint);
@@ -3048,15 +3049,39 @@ static void media_packet_rtp_out(struct packet_handler_ctx *phc, struct sink_han
 
 	const char *unkern = NULL;
 
+	uint32_t fixed_ssrc = phc->mp.media_out->fixed_egress_ssrc;
+
+	/* A fixed egress SSRC is just a mapping from the ingress SSRC, so record it
+	 * where every consumer already looks for one. */
+	if (fixed_ssrc && phc->mp.ssrc_in)
+		phc->mp.ssrc_in->ssrc_map_out = fixed_ssrc;
+
 	if (G_LIKELY(!phc->rtcp && phc->mp.rtp)) {
 		unkern = __stream_ssrc_out(phc->out_srtp, phc->mp.rtp->ssrc, phc->mp.ssrc_in,
 				&phc->mp.ssrc_out, &phc->mp.media_out->ssrc_hash_out,
-				sh->attrs.transcoding ? true : false);
+				sh->attrs.transcoding || fixed_ssrc);
+
+		/* a fixed egress SSRC outlives the ingress SSRC, so carry the
+		 * sequence numbering across a change of source */
+		if (fixed_ssrc && phc->mp.ssrc_out) {
+			struct ssrc_entry_call *so = phc->mp.ssrc_out;
+			uint32_t in_ssrc = ntohl(phc->mp.rtp->ssrc);
+			uint16_t seq = ntohs(phc->mp.rtp->seq_num);
+			if (so->fixed_in_ssrc_set && so->fixed_in_ssrc != in_ssrc) {
+				/* the egress sequence counter lives in memory shared with
+				 * the kernel module, so it stays current even while the
+				 * stream is offloaded and userspace sees no packets */
+				uint16_t last = atomic_get_na(&so->stats->ext_seq);
+				so->seq_diff = last + 1 - seq;
+			}
+			so->fixed_in_ssrc = in_ssrc;
+			so->fixed_in_ssrc_set = true;
+		}
 	}
 	else if (phc->rtcp && phc->mp.rtcp) {
 		unkern = __stream_ssrc_out(phc->out_srtp, phc->mp.rtcp->ssrc, phc->mp.ssrc_in,
 				&phc->mp.ssrc_out, &phc->mp.media_out->ssrc_hash_out,
-				sh->attrs.transcoding ? true : false);
+				sh->attrs.transcoding || fixed_ssrc);
 	}
 
 	if (unkern)
