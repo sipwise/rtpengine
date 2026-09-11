@@ -2809,6 +2809,7 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 	__tos_change(call, flags);
 
 	if (flags->label.s) {
+		t_hash_table_remove(call->labels, &ml->label);
 		ml->label = call_str_cpy(&flags->label);
 		t_hash_table_replace(call->labels, &ml->label, ml);
 	}
