@@ -5475,6 +5475,7 @@ void __monologue_free(struct call_monologue *m) {
 	memory_arena_free_lw(m->metadata.s);
 	memory_arena_free_lw(m->tag.s);
 	memory_arena_free_lw(m->call_id.s);
+	memory_arena_free_lw(m->viabranch.s);
 
 	memory_arena_free_lw(m);
 }
@@ -5953,10 +5954,10 @@ void __monologue_viabranch(struct call_monologue *ml, const str *viabranch) {
 	if (!viabranch || !viabranch->len)
 		return;
 
-	dbg_int("tagging monologue with viabranch '"STR_FORMAT"'", STR_FMT(viabranch));
+	dbg_int("tagging monologue with viabranch '" STR_FORMAT "'", STR_FMT(viabranch));
 	if (ml->viabranch.s)
 		t_hash_table_remove(call->viabranches, &ml->viabranch);
-	ml->viabranch = call_str_cpy(viabranch);
+	memory_arena_str_cpy_free(&ml->viabranch, viabranch);
 	t_hash_table_insert(call->viabranches, &ml->viabranch, ml);
 }
 
