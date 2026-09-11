@@ -118,6 +118,10 @@ INLINE str memory_arena_str_cpy_lw(const str *in) {
 	return memory_arena_str_cpy_fn_lw((in ? in->s : NULL), (in ? in->len : 0));
 }
 INLINE void memory_arena_str_cpy_free(str *out, const str *in) {
+	if (in && out->s == in->s) {
+		out->len = in->len;
+		return;
+	}
 	memory_arena_free_lw(out->s);
 	*out = memory_arena_str_cpy_fn_lw((in ? in->s : NULL), (in ? in->len : 0));
 }
