@@ -278,7 +278,7 @@ static void update_call_field(call_t *call, str *dst_field, const str *src_field
 		return;
 
 	if (src_field && src_field->len && str_cmp_str(src_field, dst_field))
-		*dst_field = call_str_cpy(src_field);
+		memory_arena_str_cpy_free(dst_field, src_field);
 
 	if (call->recording && dst_field->len) {
 		va_list ap;
@@ -862,11 +862,18 @@ void recording_finish(call_t *call, bool discard) {
 	call->recording_meta_prefix = STR_NULL;
 	memory_arena_free_lw(call->recording_random_tag.s);
 	call->recording_random_tag = STR_NULL;
+
 	// also clear per-recording path overrides so they are not
 	// inadvertently reused if the next start recording omits them
+	memory_arena_free_lw(call->recording_file.s);
 	call->recording_file = STR_NULL;
+	memory_arena_free_lw(call->recording_path.s);
 	call->recording_path = STR_NULL;
+	memory_arena_free_lw(call->recording_pattern.s);
 	call->recording_pattern = STR_NULL;
+
+	memory_arena_free_lw(call->metadata.s);
+	call->metadata = STR_NULL;
 }
 
 

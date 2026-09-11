@@ -1662,9 +1662,9 @@ static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 		if (!redis_hash_get_str(&s, rh, "via-branch"))
 			__monologue_viabranch(ml, &s);
 		if (!redis_hash_get_str(&s, rh, "label"))
-			ml->label = call_str_cpy(&s);
+			memory_arena_str_cpy_free(&ml->label, &s);
 		if (!redis_hash_get_str(&s, rh, "metadata"))
-			ml->metadata = call_str_cpy(&s);
+			memory_arena_str_cpy_free(&ml->metadata, &s);
 		redis_hash_get_time_t(&ml->deleted_us, rh, "deleted");
 		if (!redis_hash_get_int(&ii, rh, "block_dtmf"))
 			ml->block_dtmf = ii;
@@ -2388,15 +2388,15 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 		memory_arena_str_cpy_free(&c->recording_meta_prefix, &s);
 		// coverity[check_return : FALSE]
 		redis_hash_get_str(&s, &call, "recording_metadata");
-		c->metadata = call_str_cpy(&s);
+		memory_arena_str_cpy_free(&c->metadata, &s);
 		redis_hash_get_str(&s, &call, "recording_file");
-		c->recording_file = call_str_cpy(&s);
+		memory_arena_str_cpy_free(&c->recording_file, &s);
 		redis_hash_get_str(&s, &call, "recording_path");
-		c->recording_path = call_str_cpy(&s);
+		memory_arena_str_cpy_free(&c->recording_path, &s);
 		redis_hash_get_str(&s, &call, "recording_pattern");
-		c->recording_pattern = call_str_cpy(&s);
+		memory_arena_str_cpy_free(&c->recording_pattern, &s);
 		redis_hash_get_str(&s, &call, "recording_random_tag");
-		c->recording_random_tag = call_str_cpy(&s);
+		memory_arena_str_cpy_free(&c->recording_random_tag, &s);
 		recording_start_daemon(c);
 	}
 

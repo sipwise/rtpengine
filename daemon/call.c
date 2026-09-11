@@ -2810,7 +2810,7 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 
 	if (flags->label.s) {
 		t_hash_table_remove(call->labels, &ml->label);
-		ml->label = call_str_cpy(&flags->label);
+		memory_arena_str_cpy_free(&ml->label, &flags->label);
 		t_hash_table_replace(call->labels, &ml->label, ml);
 	}
 
@@ -5471,6 +5471,8 @@ void __monologue_free(struct call_monologue *m) {
 	memory_arena_free_lw(m->sdp_session_information.s);
 	memory_arena_free_lw(m->moh_blob.s);
 	memory_arena_free_lw(m->moh_file.s);
+	memory_arena_free_lw(m->label.s);
+	memory_arena_free_lw(m->metadata.s);
 
 	memory_arena_free_lw(m);
 }
