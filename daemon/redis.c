@@ -1658,7 +1658,7 @@ static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 		if (!redis_hash_get_str(&s, rh, "tag"))
 			__monologue_tag(ml, &s);
 		if (!redis_hash_get_str(&s, rh, "call_id"))
-			ml->call_id = call_str_cpy(&s);
+			memory_arena_str_cpy_free(&ml->call_id, &s);
 		if (!redis_hash_get_str(&s, rh, "via-branch"))
 			__monologue_viabranch(ml, &s);
 		if (!redis_hash_get_str(&s, rh, "label"))

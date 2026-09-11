@@ -5474,6 +5474,7 @@ void __monologue_free(struct call_monologue *m) {
 	memory_arena_free_lw(m->label.s);
 	memory_arena_free_lw(m->metadata.s);
 	memory_arena_free_lw(m->tag.s);
+	memory_arena_free_lw(m->call_id.s);
 
 	memory_arena_free_lw(m);
 }
@@ -5525,6 +5526,8 @@ static void __call_free(call_t *c) {
 		memory_arena_free_lw(ps);
 	}
 
+	memory_arena_free_lw(c->callid.s);
+
 	memory_arena = NULL;
 	arena_free(&c->buffer);
 
@@ -5548,7 +5551,7 @@ static call_t *call_create(const str *callid) {
 	c->sdps = str_ml_ht_new();
 	c->endpoints = endpoint_ml_ht_new();
 	call_memory_arena_set(c);
-	c->callid = call_str_cpy(callid);
+	c->callid = memory_arena_str_cpy_lw(callid);
 	c->created = rtpe_now;
 	c->dtls_cert = dtls_cert();
 	c->tos = rtpe_config.default_tos;
@@ -5892,7 +5895,7 @@ struct call_monologue *__monologue_create(call_t *call, const str *callid) {
 	ret = iuid_alloc(&call->monologues);
 
 	ret->call = call;
-	ret->call_id = call_str_cpy(callid);
+	ret->call_id = memory_arena_str_cpy_lw(callid);
 	ret->created_us = rtpe_now;
 	ret->associated_tags = g_hash_table_new(g_direct_hash, g_direct_equal);
 	ret->medias = medias_arr_new();
