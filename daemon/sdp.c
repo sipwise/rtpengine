@@ -1898,12 +1898,12 @@ static bool legacy_osrtp_accept(struct stream_params *sp, sdp_streams_q *streams
 }
 
 static struct sdp_attr *sdp_attr_dup(const struct sdp_attribute *c) {
-	struct sdp_attr *ac = g_new0(__typeof(*ac), 1);
+	struct sdp_attr *ac = memory_arena_alloc0_lw(__typeof(*ac));
 
-	ac->strs.name = call_str_cpy(&c->strs.name);
-	ac->strs.value = call_str_cpy(&c->strs.value);
-	ac->strs.line_value = call_str_cpy(&c->strs.line_value);
-	ac->strs.key = call_str_cpy(&c->strs.key);
+	ac->strs.name = memory_arena_str_cpy_lw(&c->strs.name);
+	ac->strs.value = memory_arena_str_cpy_lw(&c->strs.value);
+	ac->strs.line_value = memory_arena_str_cpy_lw(&c->strs.line_value);
+	ac->strs.key = memory_arena_str_cpy_lw(&c->strs.key);
 	ac->other = c->other;
 	ac->attr = c->attr;
 
@@ -1911,7 +1911,11 @@ static struct sdp_attr *sdp_attr_dup(const struct sdp_attribute *c) {
 }
 
 void sdp_attr_free(struct sdp_attr *c) {
-	g_free(c);
+	memory_arena_free_lw(c->strs.name.s);
+	memory_arena_free_lw(c->strs.value.s);
+	memory_arena_free_lw(c->strs.line_value.s);
+	memory_arena_free_lw(c->strs.key.s);
+	memory_arena_free_lw(c);
 }
 
 void sdp_orig_dup(sdp_origin *copy, const sdp_origin *orig) {
