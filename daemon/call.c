@@ -2751,49 +2751,47 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 	if (flags->moh_zero_connection)
 		ML_SET(ml, MOH_ZEROCONN);
 	if (flags->moh_blob.len)
-		ml->moh_blob = call_str_cpy(&flags->moh_blob);
+		memory_arena_str_cpy_free(&ml->moh_blob, &flags->moh_blob);
 	if (flags->moh_file.len)
-		ml->moh_file = call_str_cpy(&flags->moh_file);
+		memory_arena_str_cpy_free(&ml->moh_file, &flags->moh_file);
 	if (flags->moh_db_id > 0)
 		/* only set when defined by flags, must be kept then for future offer/answer exchanges */
 		ml->moh_db_id = flags->moh_db_id;
 
 	/* consume sdp session parts */
+	/* origin (name, version etc.) */
+	if (flags->session_sdp_orig.parsed)
+		sdp_orig_dup(&ml->sdp_orig_in, &flags->session_sdp_orig);
+
+	/* sdp session name */
+	if (flags->session_sdp_name.len &&
+		(!ml->sdp_session_name.len || /* if not set yet */
+		(ml->sdp_session_name.len && !flags->replace_sess_name))) /* replace_sess_name = do not replace if possible*/
 	{
-		/* origin (name, version etc.) */
-		if (flags->session_sdp_orig.parsed)
-			sdp_orig_dup(&ml->sdp_orig_in, &flags->session_sdp_orig);
-
-		/* sdp session name */
-		if (flags->session_sdp_name.len &&
-			(!ml->sdp_session_name.len || /* if not set yet */
-			(ml->sdp_session_name.len && !flags->replace_sess_name))) /* replace_sess_name = do not replace if possible*/
-		{
-			memory_arena_str_cpy_free(&ml->sdp_session_name, &flags->session_sdp_name);
-		}
-		memory_arena_str_cpy_free(&ml->sdp_session_timing, &flags->session_timing);
-		/* sdp bandwidth per session level
-		 * 0 value is supported (e.g. b=RR:0 and b=RS:0), to be able to disable rtcp */
-		ml->sdp_session_bandwidth.as = flags->session_bandwidth.as;
-		ml->sdp_session_bandwidth.rr = flags->session_bandwidth.rr;
-		ml->sdp_session_bandwidth.rs = flags->session_bandwidth.rs;
-		ml->sdp_session_bandwidth.ct = flags->session_bandwidth.ct;
-		ml->sdp_session_bandwidth.tias = flags->session_bandwidth.tias;
-
-		t_queue_clear_full(&ml->groups_other, memory_arena_str_dup_free_lw);
-		for (__auto_type ll = flags->groups_other.head; ll; ll = ll->next)
-			t_queue_push_tail(&ml->groups_other, memory_arena_str_dup_lw(ll->data));
-
-		if (t_hash_table_is_set(flags->bundles) && flags->bundle_accept)
-			ML_SET(ml, BUNDLE);
-		else if (flags->bundle_reject)
-			ML_CLEAR(ml, BUNDLE);
-
-		memory_arena_str_cpy_free(&ml->sdp_session_uri, &flags->session_uri);
-		memory_arena_str_cpy_free(&ml->sdp_session_email, &flags->session_email);
-		memory_arena_str_cpy_free(&ml->sdp_session_phone, &flags->session_phone);
-		memory_arena_str_cpy_free(&ml->sdp_session_information, &flags->session_information);
+		memory_arena_str_cpy_free(&ml->sdp_session_name, &flags->session_sdp_name);
 	}
+	memory_arena_str_cpy_free(&ml->sdp_session_timing, &flags->session_timing);
+	/* sdp bandwidth per session level
+	 * 0 value is supported (e.g. b=RR:0 and b=RS:0), to be able to disable rtcp */
+	ml->sdp_session_bandwidth.as = flags->session_bandwidth.as;
+	ml->sdp_session_bandwidth.rr = flags->session_bandwidth.rr;
+	ml->sdp_session_bandwidth.rs = flags->session_bandwidth.rs;
+	ml->sdp_session_bandwidth.ct = flags->session_bandwidth.ct;
+	ml->sdp_session_bandwidth.tias = flags->session_bandwidth.tias;
+
+	t_queue_clear_full(&ml->groups_other, memory_arena_str_dup_free_lw);
+	for (__auto_type ll = flags->groups_other.head; ll; ll = ll->next)
+		t_queue_push_tail(&ml->groups_other, memory_arena_str_dup_lw(ll->data));
+
+	if (t_hash_table_is_set(flags->bundles) && flags->bundle_accept)
+		ML_SET(ml, BUNDLE);
+	else if (flags->bundle_reject)
+		ML_CLEAR(ml, BUNDLE);
+
+	memory_arena_str_cpy_free(&ml->sdp_session_uri, &flags->session_uri);
+	memory_arena_str_cpy_free(&ml->sdp_session_email, &flags->session_email);
+	memory_arena_str_cpy_free(&ml->sdp_session_phone, &flags->session_phone);
+	memory_arena_str_cpy_free(&ml->sdp_session_information, &flags->session_information);
 
 	// reset offer ipv4/ipv6/mixed media stats
 	if (flags->opmode == OP_OFFER) {
@@ -3269,7 +3267,7 @@ static void media_update_attrs(struct call_media *media, struct stream_params *s
 
 	/* bandwidth */
 	media->sdp_media_bandwidth = sp->media_session_bandwidth;
-	media->sdp_information = call_str_cpy(&sp->sdp_information);
+	memory_arena_str_cpy_free(&media->sdp_information, &sp->sdp_information);
 }
 
 __attribute__((nonnull(1, 2)))
@@ -5447,6 +5445,7 @@ void call_media_free(struct call_media *md) {
 	memory_arena_free_lw(md->media_id.s);
 	memory_arena_free_lw(md->label.s);
 	memory_arena_free_lw(md->tls_id.s);
+	memory_arena_free_lw(md->sdp_information.s);
 
 	memory_arena_free_lw(md);
 }
@@ -5469,6 +5468,8 @@ void __monologue_free(struct call_monologue *m) {
 	memory_arena_free_lw(m->sdp_session_email.s);
 	memory_arena_free_lw(m->sdp_session_phone.s);
 	memory_arena_free_lw(m->sdp_session_information.s);
+	memory_arena_free_lw(m->moh_blob.s);
+	memory_arena_free_lw(m->moh_file.s);
 
 	memory_arena_free_lw(m);
 }
