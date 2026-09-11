@@ -647,7 +647,7 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char *addr)
 		call_set_dtmf_block(call, from_ml, &flags);
 
 	if (flags.alias_key == AK_SDP)
-		t_hash_table_insert(call->sdps, call_str_dup(&sdp), from_ml);
+		t_hash_table_replace(call->sdps, memory_arena_str_dup_lw(&sdp), from_ml);
 	else if (flags.alias_key == AK_ADDRESS && streams.length && streams.head->data->rtp_endpoint.port)
 		t_hash_table_insert(call->endpoints, memory_arena_objdup(streams.head->data->rtp_endpoint),
 				from_ml);

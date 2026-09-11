@@ -5549,7 +5549,7 @@ static call_t *call_create(const str *callid) {
 	c->tags = str_ml_ht_new();
 	c->viabranches = str_ml_ht_new();
 	c->labels = str_ml_ht_new();
-	c->sdps = str_ml_ht_new();
+	c->sdps = alloc_str_ml_ht_new();
 	c->endpoints = endpoint_ml_ht_new();
 	call_memory_arena_set(c);
 	c->callid = memory_arena_str_cpy_lw(callid);

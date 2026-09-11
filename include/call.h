@@ -704,6 +704,8 @@ struct call_monologue {
 typedef IQUEUE(struct call_monologue, link) monologues_in_call_q;
 
 TYPED_GHASHTABLE(str_ml_ht, str, struct call_monologue, str_hash, str_equal, NULL, NULL)
+TYPED_GHASHTABLE(alloc_str_ml_ht, str, struct call_monologue, str_hash, str_equal,
+		memory_arena_str_dup_free_lw, NULL)
 
 struct sdp_fragment;
 TYPED_GQUEUE(fragment, struct sdp_fragment)
@@ -814,7 +816,7 @@ struct call {
 	str_ml_ht		tags;
 	str_ml_ht		viabranches;
 	str_ml_ht		labels;
-	str_ml_ht		sdps;
+	alloc_str_ml_ht		sdps;
 	endpoint_ml_ht		endpoints;
 	fragments_ht		sdp_fragments;
 	streams_in_call_q	streams;
