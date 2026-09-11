@@ -1404,6 +1404,7 @@ static const char *media_block_match(call_t **call, struct call_monologue **mono
 
 	// for generic ops, handle set-label here if given
 	if (IS_OP_OTHER(flags->opmode) && flags->set_label.len && *monologue) {
+		t_hash_table_remove((*call)->labels, &(*monologue)->label);
 		(*monologue)->label = call_str_cpy(&flags->set_label);
 		t_hash_table_replace((*call)->labels, &(*monologue)->label, *monologue);
 	}
