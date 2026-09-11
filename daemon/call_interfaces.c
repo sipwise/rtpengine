@@ -612,7 +612,7 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char *addr)
 	updated_created_from(call, addr);
 
 	if (flags.xmlrpc_callback.len)
-		call->xmlrpc_callback = call_str_cpy(&flags.xmlrpc_callback);
+		memory_arena_str_cpy_free(&call->xmlrpc_callback, &flags.xmlrpc_callback);
 	if (flags.dtmf_log_dest.address.family)
 		call->dtmf_log_dest = flags.dtmf_log_dest;
 
