@@ -86,7 +86,7 @@ include ../lib/common.Makefile
 	daemon-tests-measure-rtp daemon-tests-mos-legacy daemon-tests-mos-fullband daemon-tests-config-file \
 	daemon-tests-templ-def daemon-tests-templ-def-offer daemon-tests-t38 daemon-tests-evs-dtx \
 	daemon-tests-transform daemon-tests-http daemon-tests-heuristic daemon-tests-asymmetric \
-	daemon-tests-dtx-no-shift daemon-tests-rtcp daemon-tests-redis-subscribe daemon-tests-rtp-ext \
+	daemon-tests-dtx-no-shift daemon-tests-rtcp daemon-tests-redis-subscribe daemon-tests-rtp-ext daemon-tests-ssrc \
 	daemon-tests-bundle daemon-tests-dtls daemon-tests-rollback \
 	daemon-tests-rollback-redis \
 	daemon-tests-recording daemon-tests-create daemon-tests-alias \
@@ -139,7 +139,7 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-sdp-manipulations daemon-tests-sdes-manipulations \
 	daemon-tests-sdp-orig-replacements daemon-tests-moh daemon-tests-evs-dtx daemon-tests-transform \
 	daemon-tests-transcode-config daemon-tests-codec-prefs daemon-tests-http daemon-tests-heuristic \
-	daemon-tests-asymmetric daemon-tests-rtcp daemon-tests-redis-subscribe daemon-tests-rtp-ext \
+	daemon-tests-asymmetric daemon-tests-rtcp daemon-tests-redis-subscribe daemon-tests-rtp-ext daemon-tests-ssrc \
 	daemon-tests-bundle daemon-tests-dtls daemon-tests-rollback daemon-tests-rollback-redis \
 	daemon-tests-recording daemon-tests-create \
 	daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-dtx-no-shift \
@@ -294,6 +294,9 @@ daemon-tests-rtcp:	daemon-test-deps
 
 daemon-tests-rtp-ext:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-rtp-ext.pl
+
+daemon-tests-ssrc:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-ssrc.pl
 
 daemon-tests-bundle:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-bundle.pl

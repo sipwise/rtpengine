@@ -26,9 +26,14 @@ BEGIN {
 	our @EXPORT = qw(autotest_start new_call new_call_nc offer answer ft tt cid snd snd_no srtp_snd rtp rcv srtp_rcv rcv_no rcv_maybe
 		srtp_dec escape rtpm rtpmre reverse_tags new_ft new_tt crlf sdp_split rtpe_req offer_answer
 		autotest_init subscribe_request subscribe_answer publish create create_answer
-		use_json rtpe_raw_req);
+		use_json rtpe_raw_req last_resp);
 };
 
+
+my $last_response;
+sub last_resp {
+	return $last_response;
+}
 
 my $rtpe_stdout;
 my $rtpe_stderr;
@@ -183,6 +188,7 @@ sub offer_answer {
 	$req->{'from-tag'} //= $ft;
 	$req->{sdp} = $sdp_in;
 	my $resp = rtpe_req($cmd, $name, $req);
+	$last_response = $resp;
 	return sdp_match($cmd, $name, $resp->{sdp}, $exp_sdp_out);
 }
 sub offer {
