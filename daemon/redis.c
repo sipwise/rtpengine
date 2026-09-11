@@ -1596,10 +1596,10 @@ static void redis_decode_monologue_sdp(struct call_monologue *ml, const struct r
 	long il;
 	/* s= */
 	if (!redis_hash_get_str(&s, rh, "sdp_session_name"))
-		ml->sdp_session_name = call_str_cpy(&s);
+		memory_arena_str_cpy_free(&ml->sdp_session_name, &s);
 	/* t= */
 	if (!redis_hash_get_str(&s, rh, "sdp_session_timing"))
-		ml->sdp_session_timing = call_str_cpy(&s);
+		memory_arena_str_cpy_free(&ml->sdp_session_timing, &s);
 	/* o= */
 	if (!redis_hash_get_str(&s, rh, "sdp_orig_parsed")) {
 		ml->sdp_orig_in.parsed = 1;

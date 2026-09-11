@@ -2769,9 +2769,9 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 			(!ml->sdp_session_name.len || /* if not set yet */
 			(ml->sdp_session_name.len && !flags->replace_sess_name))) /* replace_sess_name = do not replace if possible*/
 		{
-			ml->sdp_session_name = call_str_cpy(&flags->session_sdp_name);
+			memory_arena_str_cpy_free(&ml->sdp_session_name, &flags->session_sdp_name);
 		}
-		ml->sdp_session_timing = call_str_cpy(&flags->session_timing);
+		memory_arena_str_cpy_free(&ml->sdp_session_timing, &flags->session_timing);
 		/* sdp bandwidth per session level
 		 * 0 value is supported (e.g. b=RR:0 and b=RS:0), to be able to disable rtcp */
 		ml->sdp_session_bandwidth.as = flags->session_bandwidth.as;
@@ -2789,10 +2789,10 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 		else if (flags->bundle_reject)
 			ML_CLEAR(ml, BUNDLE);
 
-		ml->sdp_session_uri = call_str_cpy(&flags->session_uri);
-		ml->sdp_session_email = call_str_cpy(&flags->session_email);
-		ml->sdp_session_phone = call_str_cpy(&flags->session_phone);
-		ml->sdp_session_information = call_str_cpy(&flags->session_information);
+		memory_arena_str_cpy_free(&ml->sdp_session_uri, &flags->session_uri);
+		memory_arena_str_cpy_free(&ml->sdp_session_email, &flags->session_email);
+		memory_arena_str_cpy_free(&ml->sdp_session_phone, &flags->session_phone);
+		memory_arena_str_cpy_free(&ml->sdp_session_information, &flags->session_information);
 	}
 
 	// reset offer ipv4/ipv6/mixed media stats
@@ -5463,6 +5463,12 @@ void __monologue_free(struct call_monologue *m) {
 	t_queue_clear(&m->groups_other);
 	sdp_orig_free(&m->sdp_orig_in);
 	sdp_orig_free(&m->sdp_orig_out);
+	memory_arena_free_lw(m->sdp_session_name.s);
+	memory_arena_free_lw(m->sdp_session_timing.s);
+	memory_arena_free_lw(m->sdp_session_uri.s);
+	memory_arena_free_lw(m->sdp_session_email.s);
+	memory_arena_free_lw(m->sdp_session_phone.s);
+	memory_arena_free_lw(m->sdp_session_information.s);
 
 	memory_arena_free_lw(m);
 }
