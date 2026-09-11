@@ -2385,7 +2385,7 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 
 	// presence of this key determines whether we were recording at all
 	if (!redis_hash_get_str(&s, &call, "recording_meta_prefix")) {
-		c->recording_meta_prefix = call_str_cpy(&s);
+		memory_arena_str_cpy_free(&c->recording_meta_prefix, &s);
 		// coverity[check_return : FALSE]
 		redis_hash_get_str(&s, &call, "recording_metadata");
 		c->metadata = call_str_cpy(&s);

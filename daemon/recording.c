@@ -374,8 +374,8 @@ void recording_start_daemon(call_t *call) {
 		char rand_str[rand_bytes * 2 + 1];
 		rand_hex_str(rand_str, rand_bytes);
 		g_autoptr(char) meta_prefix = g_strdup_printf("%s-%s", escaped_callid, rand_str);
-		call->recording_meta_prefix = call_str_cpy(STR_PTR(meta_prefix));
-		call->recording_random_tag = call_str_cpy(&STR_CONST(rand_str));
+		call->recording_meta_prefix = memory_arena_str_cpy_lw(STR_PTR(meta_prefix));
+		call->recording_random_tag = memory_arena_str_cpy_lw(&STR_CONST(rand_str));
 	}
 
 	_rm(init_struct, call);
@@ -858,7 +858,10 @@ void recording_finish(call_t *call, bool discard) {
 
 	// clear the meta prefix to ensure that pcaps for subsequent
 	// start recordings dont overwrite previous ones
+	memory_arena_free_lw(call->recording_meta_prefix.s);
 	call->recording_meta_prefix = STR_NULL;
+	memory_arena_free_lw(call->recording_random_tag.s);
+	call->recording_random_tag = STR_NULL;
 	// also clear per-recording path overrides so they are not
 	// inadvertently reused if the next start recording omits them
 	call->recording_file = STR_NULL;
