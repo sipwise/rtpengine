@@ -961,6 +961,11 @@ static void ng_stats_media(ng_command_ctx_t *ctx, parser_arg list, const struct 
 	if (rtp_pt)
 		parser->dict_add_str_dup(dict, "codec", &rtp_pt->encoding_with_params);
 
+	/* available right away, unlike the `egress SSRCs` list below, which only
+	 * fills in once a packet has been forwarded */
+	if (m->fixed_egress_ssrc)
+		parser->dict_add_int(dict, "fixed egress SSRC", m->fixed_egress_ssrc);
+
 	streams = parser->dict_add_list(dict, "streams");
 
 	flags = parser->dict_add_list(dict, "flags");

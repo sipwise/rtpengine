@@ -78,6 +78,16 @@ a=rtcp:PORT
 SDP
 
 
+# the same values are reported per media by `query`, before any media has flowed
+
+$resp = rtpe_req('query', 'egress SSRC in query', { 'call-id' => cid() });
+
+is $resp->{tags}{tt()}{medias}[0]{'fixed egress SSRC'}, $egress,
+		'query reports the fixed egress SSRC facing the answerer';
+ok(($resp->{tags}{ft()}{medias}[0]{'fixed egress SSRC'} // 0) > 0,
+		'query reports a fixed egress SSRC facing the offerer as well');
+
+
 # RTP towards the answerer carries the reported SSRC, not the one the sender used
 
 snd($sock_a, $port_b, rtp(8, 1000, 3000, 0x1234, "\x00" x 160));
