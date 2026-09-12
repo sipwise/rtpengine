@@ -1385,6 +1385,8 @@ Spaces in each string may be replaced by hyphens.
     its own SSRC mid-call is still forwarded under the same one, with the
     sequence numbering carried across the change.
 
+    The same values are reported per media in the `query` response.
+
     Intended for feeding media into a system that has to bind a receiver to an
     SSRC up front, such as a WebRTC selective forwarding unit.
 
@@ -2049,6 +2051,12 @@ The response dictionary contains the following keys:
 
 			If the protocol is recognized by *rtpengine*, this string contains it.
 			Usually `RTP/AVP` or `RTP/SAVPF`.
+
+		+ `fixed egress SSRC`
+
+			The SSRC used for all RTP sent towards this media, if the
+			`fixed egress SSRC` flag was given. Reported as soon as the flag
+			takes effect, before any media has been forwarded.
 
 		+ `flags`
 
