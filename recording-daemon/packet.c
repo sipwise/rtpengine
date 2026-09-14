@@ -64,7 +64,7 @@ static ssrc_t *ssrc_get(stream_t *stream, unsigned long ssrc) {
 	ret->metafile = mf;
 	ret->stream = stream;
 	ret->ssrc = ssrc;
-	packet_sequencer_init(&ret->sequencer, (void (*)(seq_packet_t *)) packet_free);
+	packet_sequencer_init(&ret->sequencer, (void (*)(seq_packet_t *)) packet_free, false);
 
 	g_hash_table_insert(mf->ssrc_hash, GUINT_TO_POINTER(ssrc), ret);
 

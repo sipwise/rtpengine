@@ -434,6 +434,7 @@ struct packet_sequencer_s {
 	unsigned int lost_count;
 	unsigned int ext_seq; // last received
 	int roc; // rollover counter XXX duplicate with SRTP encryption context
+	bool marker_delay; // initially set for video-type RTP
 };
 
 
@@ -494,7 +495,7 @@ INLINE int encoder_input_data(encoder_t *enc, AVFrame *frame,
 }
 
 
-void packet_sequencer_init(packet_sequencer_t *ps, void (*)(seq_packet_t *));
+void packet_sequencer_init(packet_sequencer_t *ps, void (*)(seq_packet_t *), bool marker_delay);
 void packet_sequencer_destroy(packet_sequencer_t *ps);
 void *packet_sequencer_next_packet(packet_sequencer_t *ps);
 bool packet_sequencer_next_ok(packet_sequencer_t *ps);

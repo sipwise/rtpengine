@@ -2302,7 +2302,8 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 		seq = g_hash_table_lookup(ssrc_in->sequencers, mp->media_out);
 	if (!seq) {
 		seq = g_new0(__typeof(*seq), 1);
-		packet_sequencer_init(seq, (void (*)(seq_packet_t *)) __transcode_packet_free);
+		packet_sequencer_init(seq, (void (*)(seq_packet_t *)) __transcode_packet_free,
+				h->source_pt.codec_def->media_type == MT_VIDEO ? true : false);
 		g_hash_table_insert(ssrc_in->sequencers, mp->media_out, seq);
 		ssrc_in->media_cache = mp->media_out;
 		ssrc_in->sequencer_cache = seq;

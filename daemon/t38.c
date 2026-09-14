@@ -450,7 +450,7 @@ int t38_gateway_pair(struct call_media *t38_media, struct call_media *pcm_media,
 	my_span_set_log(ls, spandsp_logging_func);
 	span_log_set_level(ls, span_log_level_map(get_log_level(spandsp)));
 
-	packet_sequencer_init(&tg->sequencer, (void (*)(seq_packet_t *)) __udptl_packet_free);
+	packet_sequencer_init(&tg->sequencer, (void (*)(seq_packet_t *)) __udptl_packet_free, false);
 	tg->sequencer.a_seq = 0;
 
 	// done - add references to media structs

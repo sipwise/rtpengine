@@ -515,10 +515,11 @@ void codeclib_init(int print) {
 
 
 
-void packet_sequencer_init(packet_sequencer_t *ps, void (*ffunc)(seq_packet_t *)) {
+void packet_sequencer_init(packet_sequencer_t *ps, void (*ffunc)(seq_packet_t *), bool marker_delay) {
 	ps->free_func = ffunc;
 	ps->a_seq = -1u;
 	ps->a_nxt = -1u;
+	ps->marker_delay = marker_delay;
 }
 static void sequencer_packets_clear(packet_sequencer_t *ps) {
 	for (unsigned int i = 0; i < G_N_ELEMENTS(ps->packets); i++) {
@@ -534,6 +535,11 @@ void packet_sequencer_destroy(packet_sequencer_t *ps) {
 }
 // caller must take care of locking
 static void *__packet_sequencer_next_packet(packet_sequencer_t *ps, unsigned int num_wait) {
+	if (G_UNLIKELY(ps->marker_delay)) {
+		cdbg("waiting for marker");
+		return NULL;
+	}
+
 	// see if we have a packet with the correct seq nr in the queue
 	unsigned int ix;
 	seq_packet_t *packet = ps->packets[ps->a_idx];
@@ -600,6 +606,8 @@ void *packet_sequencer_force_next_packet(packet_sequencer_t *ps) {
 }
 
 bool packet_sequencer_next_ok(packet_sequencer_t *ps) {
+	if (ps->marker_delay)
+		return false;
 	if (ps->packets[ps->a_idx])
 		return true;
 	return false;
@@ -624,8 +632,15 @@ int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *p) {
 	if (diff < (-0xffff + (signed) G_N_ELEMENTS(ps->packets)))
 		goto seq_ok;
 	// recent duplicate: p->seq = 1000, ps->seq = 1080, diff = -80
-	if (diff < 0 && diff > -(signed) G_N_ELEMENTS(ps->packets))
-		return -1;
+	if (diff < 0 && diff > -(signed) G_N_ELEMENTS(ps->packets)) {
+		if (!ps->marker_delay)
+			return -1;
+		// special case: we're waiting for the marker bit and there was
+		// an initial out-of-order packet
+		ps->a_seq += diff;
+		ps->a_idx = (ps->a_idx + diff) % G_N_ELEMENTS(ps->packets);
+		goto seq_ok;
+	}
 	// recent duplicate after wrap-around: p->seq = 65530, ps->seq = 30, diff = 65500
 	if (diff > (0xffff - (signed) G_N_ELEMENTS(ps->packets)))
 		return -1;
@@ -636,7 +651,10 @@ int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *p) {
 	ret = 1;
 	sequencer_packets_clear(ps);
 	// seq ok - fall through
-seq_ok:;
+seq_ok:
+	if (p->marker)
+		ps->marker_delay = false;
+
 	// slot of this packet
 	unsigned int idx = (ps->a_idx + p->seq - ps->a_seq) % G_N_ELEMENTS(ps->packets);
 	// packet already present?

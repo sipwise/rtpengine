@@ -7,9 +7,9 @@ static void ffunc(seq_packet_t *a) {
 	num_freed++;
 }
 
-int main(void) {
+void test1(void) {
 	packet_sequencer_t ps = {0};
-	packet_sequencer_init(&ps, ffunc);
+	packet_sequencer_init(&ps, ffunc, false);
 
 	void *p;
 	int i;
@@ -25,7 +25,7 @@ int main(void) {
 
 	assert(num_freed == 0);
 
-	seq_packet_t pks[256];
+	seq_packet_t pks[10] = {0};
 
 	pks[0].seq = 100;
 	i = packet_sequencer_insert(&ps, &pks[0]);
@@ -284,6 +284,227 @@ int main(void) {
 
 
 	packet_sequencer_destroy(&ps);
+}
+
+void test2(void) {
+	packet_sequencer_t ps = {0};
+	packet_sequencer_init(&ps, ffunc, false);
+
+	void *p;
+	int i;
+
+	seq_packet_t pks[3] = {0};
+
+	pks[0].seq = 100;
+	i = packet_sequencer_insert(&ps, &pks[0]);
+	assert(i == 0);
+	assert(num_freed == 0);
+
+	i = packet_sequencer_next_ok(&ps);
+	assert(i);
+
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == &pks[0]);
+	assert(num_freed == 0);
+
+	pks[1].seq = 99;
+	i = packet_sequencer_insert(&ps, &pks[1]);
+	assert(i == -1);
+	assert(num_freed == 0);
+
+	i = packet_sequencer_next_ok(&ps);
+	assert(!i);
+
+	p = packet_sequencer_next_packet(&ps);
+	assert(!p);
+	assert(num_freed == 0);
+
+	pks[2].seq = 101;
+	i = packet_sequencer_insert(&ps, &pks[2]);
+	assert(i == 0);
+	assert(num_freed == 0);
+
+	i = packet_sequencer_next_ok(&ps);
+	assert(i);
+
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == &pks[2]);
+	assert(num_freed == 0);
+
+	packet_sequencer_destroy(&ps);
+}
+
+void test3(void) {
+	packet_sequencer_t ps = {0};
+	packet_sequencer_init(&ps, ffunc, false);
+
+	void *p;
+	int i;
+
+	seq_packet_t pks[3] = {0};
+
+	pks[0].seq = 100;
+	i = packet_sequencer_insert(&ps, &pks[0]);
+	assert(i == 0);
+	assert(num_freed == 0);
+
+	i = packet_sequencer_next_ok(&ps);
+	assert(i);
+
+	pks[1].seq = 99;
+	i = packet_sequencer_insert(&ps, &pks[1]);
+	assert(i == -1);
+	assert(num_freed == 0);
+
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == &pks[0]);
+	assert(num_freed == 0);
+
+	i = packet_sequencer_next_ok(&ps);
+	assert(!i);
+
+	p = packet_sequencer_next_packet(&ps);
+	assert(!p);
+	assert(num_freed == 0);
+
+	pks[2].seq = 101;
+	i = packet_sequencer_insert(&ps, &pks[2]);
+	assert(i == 0);
+	assert(num_freed == 0);
+
+	i = packet_sequencer_next_ok(&ps);
+	assert(i);
+
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == &pks[2]);
+	assert(num_freed == 0);
+
+	packet_sequencer_destroy(&ps);
+}
+
+void test4(void) {
+	packet_sequencer_t ps = {0};
+	packet_sequencer_init(&ps, ffunc, true);
+
+	void *p;
+	int i;
+
+	seq_packet_t pks[3] = {0};
+
+	pks[0].seq = 100;
+	i = packet_sequencer_insert(&ps, &pks[0]);
+	assert(i == 0);
+	assert(num_freed == 0);
+
+	i = packet_sequencer_next_ok(&ps);
+	assert(!i);
+
+	p = packet_sequencer_next_packet(&ps);
+	assert(!p);
+	assert(num_freed == 0);
+
+	pks[1].seq = 99;
+	i = packet_sequencer_insert(&ps, &pks[1]);
+	assert(i == 0);
+	assert(num_freed == 0);
+
+	i = packet_sequencer_next_ok(&ps);
+	assert(!i);
+
+	p = packet_sequencer_next_packet(&ps);
+	assert(!p);
+	assert(num_freed == 0);
+
+	pks[2].seq = 101;
+	pks[2].marker = true;
+	i = packet_sequencer_insert(&ps, &pks[2]);
+	assert(i == 2);
+	assert(num_freed == 0);
+
+	i = packet_sequencer_next_ok(&ps);
+	assert(i);
+
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == &pks[1]);
+	assert(num_freed == 0);
+
+	i = packet_sequencer_next_ok(&ps);
+	assert(i);
+
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == &pks[0]);
+	assert(num_freed == 0);
+
+	i = packet_sequencer_next_ok(&ps);
+	assert(i);
+
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == &pks[2]);
+	assert(num_freed == 0);
+
+	packet_sequencer_destroy(&ps);
+}
+
+void test5(void) {
+	packet_sequencer_t ps = {0};
+	packet_sequencer_init(&ps, ffunc, true);
+
+	void *p;
+	int i;
+
+	seq_packet_t pks[3] = {0};
+
+	pks[0].seq = 100;
+	i = packet_sequencer_insert(&ps, &pks[0]);
+	assert(i == 0);
+	assert(num_freed == 0);
+
+	i = packet_sequencer_next_ok(&ps);
+	assert(!i);
+
+	pks[1].seq = 99;
+	i = packet_sequencer_insert(&ps, &pks[1]);
+	assert(i == 0);
+	assert(num_freed == 0);
+
+	p = packet_sequencer_next_packet(&ps);
+	assert(!p);
+	assert(num_freed == 0);
+
+	i = packet_sequencer_next_ok(&ps);
+	assert(!i);
+
+	p = packet_sequencer_next_packet(&ps);
+	assert(!p);
+	assert(num_freed == 0);
+
+	pks[2].seq = 101;
+	pks[2].marker = true;
+	i = packet_sequencer_insert(&ps, &pks[2]);
+	assert(i == 2);
+	assert(num_freed == 0);
+
+	i = packet_sequencer_next_ok(&ps);
+	assert(i);
+
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == &pks[1]);
+	assert(num_freed == 0);
+
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == &pks[0]);
+	assert(num_freed == 0);
+
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == &pks[2]);
+	assert(num_freed == 0);
+
+	packet_sequencer_destroy(&ps);
+}
+
+
+int main(void) {
+	test1();
 
 	return 0;
 }
