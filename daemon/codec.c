@@ -429,6 +429,9 @@ static void __transform_handler_destroy(struct transform_handler *tfh) {
 		if (!ret || !(result = bencode_dictionary_get_str(ret, "result")).len || str_cmp(&result, "ok"))
 			ilog(LOG_WARN, "Failed to delete remote 'transform' session");
 	}
+
+	memory_arena_free_lw(tfh->call_id.s);
+	memory_arena_free_lw(tfh->tag.s);
 }
 
 static void __handler_shutdown(struct codec_handler *handler) {
@@ -711,12 +714,12 @@ static const char *__make_transform_handler(struct codec_handler *handler) {
 	str s = bencode_dictionary_get_str(ret, "call-id");
 	if (!s.len)
 		return "'transform' response didn't contain 'call-id'";
-	tfh->call_id = call_str_cpy(&s);
+	memory_arena_str_cpy_free(&tfh->call_id, &s);
 
 	s = bencode_dictionary_get_str(ret, "from-tag");
 	if (!s.len)
 		return "'transform' response didn't contain 'from-tag'";
-	tfh->tag = call_str_cpy(&s);
+	memory_arena_str_cpy_free(&tfh->tag, &s);
 
 	__auto_type remote_media = bencode_dictionary_get_expect(ret, "media", BENCODE_LIST);
 	if (!remote_media)
