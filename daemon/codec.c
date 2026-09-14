@@ -239,8 +239,7 @@ struct transcode_packet {
 	unsigned long ts;
 	str *payload;
 	struct codec_handler *handler;
-	bool marker:1,
-	     bypass_seq:1;
+	bool bypass_seq;
 	tc_code (*packet_func)(struct codec_ssrc_handler *, struct codec_ssrc_handler *, struct transcode_packet *,
 			struct media_packet *);
 	int (*dup_func)(struct codec_ssrc_handler *, struct codec_ssrc_handler *, struct transcode_packet *,
@@ -2268,7 +2267,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 	packet->payload = str_dup(&mp->payload);
 	uint32_t packet_ts = ntohl(mp->rtp->timestamp);
 	packet->ts = packet_ts;
-	packet->marker = (mp->rtp->m_pt & 0x80) ? true : false;
+	packet->p.marker = (mp->rtp->m_pt & 0x80) ? true : false;
 
 	atomic64_inc_na(&ssrc_in->stats->packets);
 	atomic64_add_na(&ssrc_in->stats->bytes, mp->payload.len);
@@ -2666,11 +2665,11 @@ skip:
 	memcpy(buf + sizeof(struct rtp_header), packet->payload->s, packet->payload->len);
 	if (packet->bypass_seq) // inject original seq
 		codec_output_rtp(mp, &ch->csch, packet->handler ? : h, buf, packet->payload->len, packet->ts,
-				(struct rtp_markers) { .marker = packet->marker },
+				(struct rtp_markers) { .marker = packet->p.marker },
 				packet->p.seq, -1, payload_type, ts_delay);
 	else // use our own sequencing
 		input_ch->codec_output_rtp_seq(mp, &ch->csch, packet->handler ? : h, buf, packet->payload->len, packet->ts,
-				(struct rtp_markers) { .marker = packet->marker },
+				(struct rtp_markers) { .marker = packet->p.marker },
 				payload_type, ts_delay);
 	mp->ssrc_out->seq_diff++;
 
@@ -2793,7 +2792,7 @@ static tc_code packet_dtmf(struct codec_ssrc_handler *ch, struct codec_ssrc_hand
 				dup->bypass_seq = false;
 				dup->ts = ts;
 				if (is_dtmf == 1)
-					dup->marker = true;
+					dup->p.marker = true;
 
 				tc_code ret = TCC_OK;
 
@@ -4880,7 +4879,7 @@ static tc_code __rtp_decode_direct(struct codec_ssrc_handler *ch, struct codec_s
 					packet->payload,
 					packet->ts,
 					&mp->ptime,
-					packet->marker,
+					packet->p.marker,
 					ch->handler->packet_decoded,
 					ch, mp);
 			code = ret == 0 ? TCC_OK : TCC_ERR;

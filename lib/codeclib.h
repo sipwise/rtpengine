@@ -422,6 +422,7 @@ struct encoder_s {
 
 struct seq_packet_s {
 	int seq;
+	bool marker;
 };
 struct packet_sequencer_s {
 	seq_packet_t *packets[128]; // should be 2^n
