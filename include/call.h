@@ -897,6 +897,7 @@ struct media_subscription *call_ml_get_top_ms(struct call_monologue *ml);
 bool call_ml_sendonly_inactive(struct call_monologue *ml);
 struct media_subscription *call_media_get_top_ms(struct call_media *cm);
 struct media_subscription *call_get_media_subscription(subscription_ht ht, struct call_media *cm);
+bool media_has_inject_subscriptions(const struct call_media *media);
 struct call_monologue *ml_medias_subscribed_to_single_ml(struct call_monologue *ml);
 
 __attribute__((nonnull(1)))
