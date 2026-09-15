@@ -2800,7 +2800,9 @@ An optional key `source-call-id` can be given to identify the source
 participant in a different call. In this case both calls are merged internally
 before creating the injection.
 
-The command currently applies to audio media only.
+The command currently applies to audio media only. Mixing requires transcoding
+support and uses the audio player with the configured `--audio-buffer-length`
+and `--audio-buffer-delay` settings.
 
 Example:
 
@@ -2817,6 +2819,11 @@ Example:
 ## `inject stop` Message
 
 Stops one-way media injection previously started by `inject start`.
+
+Deleting the source participant or removing the injection with `unsubscribe`
+also stops the injection. Other injections and active media playback are
+preserved. The implicitly enabled audio player is stopped when no longer needed;
+independent audio-player settings continue to apply.
 
 The same participant selection keys as for `inject start` must be provided:
 

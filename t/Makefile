@@ -91,7 +91,7 @@ include ../lib/common.Makefile
 	daemon-tests-rollback-redis \
 	daemon-tests-recording daemon-tests-create daemon-tests-alias \
 	daemon-tests-kernel-api \
-	daemon-tests-video
+	daemon-tests-video daemon-tests-inject
 
 TESTS := test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
 ifeq ($(with_transcoding),yes)
@@ -145,7 +145,7 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-dtx-no-shift \
 	daemon-tests-alias \
 	daemon-tests-kernel-api \
-	daemon-tests-video
+	daemon-tests-video daemon-tests-inject
 
 daemon-test-deps:	tests-preload.so
 	$(MAKE) -C ../daemon
@@ -282,6 +282,9 @@ daemon-tests-evs-dtx:	daemon-test-deps
 
 daemon-tests-video:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-video.pl
+
+daemon-tests-inject:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-inject.pl
 
 daemon-tests-codec-prefs:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-codec-prefs.pl

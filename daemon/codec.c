@@ -1425,6 +1425,26 @@ static GTree *codec_make_prefs_tree(rtp_payload_type *pt, struct codec_store *cs
 	return ret;
 }
 
+static bool codec_update_audio_player_flags(struct call_media *sink, const sdp_ng_flags *flags) {
+	bool explicit_player = MEDIA_ISSET(sink, AUDIO_PLAYER) && !MEDIA_ISSET(sink, AUDIO_PLAYER_IMPLICIT);
+	MEDIA_CLEAR(sink, AUDIO_PLAYER_IMPLICIT);
+	if (explicit_player)
+		return true;
+	MEDIA_CLEAR(sink, AUDIO_PLAYER);
+
+	bool playing = media_player_is_active(sink);
+	if (media_has_inject_subscriptions(sink)
+			|| (playing && audio_player_is_active(sink))
+			|| (rtpe_config.use_audio_player == UAP_PLAY_MEDIA
+				&& ((flags && flags->opmode == OP_PLAY_MEDIA) || playing)))
+	{
+		MEDIA_SET(sink, AUDIO_PLAYER_IMPLICIT);
+		return true;
+	}
+	return false;
+}
+
+
 /**
  * receiver - media / sink - other_media
  * call must be locked in W
@@ -1437,6 +1457,8 @@ void __codec_handlers_update(struct call_media *source, struct call_media *sink,
 
 	if (!source_ml || !sink_ml)
 		return;
+
+	bool use_audio_player = codec_update_audio_player_flags(sink, a.flags);
 
 	/* required for updating the transcoding attrs of subscriber */
 	struct media_subscription *ms = call_get_media_subscription(source->media_subscribers_ht, sink);
@@ -1494,21 +1516,6 @@ void __codec_handlers_update(struct call_media *source, struct call_media *sink,
 	source->rtcp_handler = NULL;
 	source->dtmf_count = 0;
 	GSList *passthrough_handlers = NULL;
-
-	// default choice of audio player usage is based on whether it was in use previously,
-	// overridden by signalling flags, overridden by global option
-	bool use_audio_player = !!MEDIA_ISSET(sink, AUDIO_PLAYER) && !MEDIA_ISSET(sink, AUDIO_PLAYER_IMPLICIT);
-
-	bool implicit_audio_player = false;
-	MEDIA_CLEAR(sink, AUDIO_PLAYER_IMPLICIT);
-
-	if (rtpe_config.use_audio_player == UAP_PLAY_MEDIA) {
-		// check for implicitly enabled player
-		if ((a.flags && a.flags->opmode == OP_PLAY_MEDIA) || (media_player_is_active(sink))) {
-			use_audio_player = true;
-			implicit_audio_player = true;
-		}
-	}
 
 	// first gather info about what we can send
 	g_auto(supp_ht) supplemental_sinks_store = {0};
@@ -1807,12 +1814,12 @@ sink_pt_fixed:;
 
 transcode:
 		// enable audio player if not explicitly disabled
-		if ((rtpe_config.use_audio_player == UAP_TRANSCODING
+		if (!use_audio_player && ((rtpe_config.use_audio_player == UAP_TRANSCODING
 					&& (!a.flags || a.flags->audio_player != AP_OFF))
-				|| (a.flags && a.flags->audio_player == AP_TRANSCODING))
+				|| (a.flags && a.flags->audio_player == AP_TRANSCODING)))
 		{
 			use_audio_player = true;
-			implicit_audio_player = true;
+			MEDIA_SET(sink, AUDIO_PLAYER_IMPLICIT);
 		}
 
 		if (use_audio_player) {
@@ -1864,8 +1871,6 @@ next:
 		MEDIA_CLEAR(sink, AUDIO_PLAYER);
 		audio_player_stop(sink);
 	}
-	else if (implicit_audio_player)
-		MEDIA_SET(sink, AUDIO_PLAYER_IMPLICIT);
 
 	if (is_transcoding) {
 		if (a.reset_transcoding && ms)
@@ -5001,6 +5006,13 @@ void __codec_update_media_source_handlers(struct call_media *sink_media, struct 
 		__codec_handlers_update(source_media, sink_media, a);
 		__media_unconfirm(source_media, "updating codec source handlers");
 	}
+
+#ifdef WITH_TRANSCODING
+	if (!sink_media->media_subscriptions.head)
+		codec_update_audio_player_flags(sink_media, a.flags);
+	if (!MEDIA_ISSET(sink_media, AUDIO_PLAYER) && !MEDIA_ISSET(sink_media, AUDIO_PLAYER_IMPLICIT))
+		audio_player_stop(sink_media);
+#endif
 
 	__media_unconfirm(sink_media, "updating codec source handlers");
 }
