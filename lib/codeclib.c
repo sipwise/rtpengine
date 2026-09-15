@@ -2415,18 +2415,18 @@ static void libopus_set_enc_opts(str *key, str *val, void *p) {
 			opts->complexity = str_to_i(val, -1);
 			break;
 		case CSH_LOOKUP("application"):
-			switch (__csh_lookup(val)) {
-				case CSH_LOOKUP("VOIP"):
-				case CSH_LOOKUP("VoIP"):
-				case CSH_LOOKUP("voip"):
+			switch (__csh_lookup_n(1, val)) {
+				case CSH_LOOKUP_N(1, "VOIP"):
+				case CSH_LOOKUP_N(1, "VoIP"):
+				case CSH_LOOKUP_N(1, "voip"):
 					opts->application = OPUS_APPLICATION_VOIP;
 					break;
-				case CSH_LOOKUP("audio"):
+				case CSH_LOOKUP_N(1, "audio"):
 					opts->application = OPUS_APPLICATION_AUDIO;
 					break;
-				case CSH_LOOKUP("low-delay"):
-				case CSH_LOOKUP("low delay"):
-				case CSH_LOOKUP("lowdelay"):
+				case CSH_LOOKUP_N(1, "low-delay"):
+				case CSH_LOOKUP_N(1, "low delay"):
+				case CSH_LOOKUP_N(1, "lowdelay"):
 					opts->application = OPUS_APPLICATION_RESTRICTED_LOWDELAY;
 					break;
 				default:
