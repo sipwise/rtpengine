@@ -1,3 +1,24 @@
+ngcp-rtpengine (26.1.1.11+0~mr26.1.1.11) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [0968947] MT#55283 don't do ICE checks on closed sockets
+  * [33806ef] MT#55283 move functions
+  * [8235d2c] MT#55283 add early DTLS tests
+  * [6e90400] MT#55283 ignore incorrect use of DTLS=passive
+  * [26e8e31] MT#55283 retain TLS ID for answer role change
+  * [2dc3ad4] MT#55283 improve setup=actpass logic
+  * [5e59405] MT#55283 combine DTLS= and DTLS-reverse=
+  * [fcc2c36] MT#55283 tests for I0ded946, I49dcd93, I5423928
+  * [738284a] MT#55283 fix compiler warnings
+  * [9010d5e] MT#55283 fix compiler warning
+  * [46faa5c] MT#55283 fix compiler warning
+  * [7155dec] MT#55283 close ports that can't be used
+  * [15a2132] MT#55283 fix stop_forwarding monologue mixup
+  * [4c1e32b] MT#55283 fix hash table update
+  * [2b8205e] MT#55283 fix nested string lookup booboo
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 16 Sep 2026 16:20:51 +0200
+
 ngcp-rtpengine (26.1.1.10+0~mr26.1.1.10) unstable; urgency=medium
 
   [ Richard Fuchs ]
