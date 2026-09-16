@@ -1,3 +1,17 @@
+ngcp-rtpengine (13.5.1.26+0~mr13.5.1.26) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [8f0e7cb] MT#55283 don't do ICE checks on closed sockets
+  * [1c8b677] MT#55283 fix compiler warnings
+  * [938e73c] MT#55283 fix compiler warning
+  * [d663852] MT#55283 fix compiler warning
+  * [a0d3949] MT#55283 close ports that can't be used
+  * [51aca55] MT#55283 fix stop_forwarding monologue mixup
+  * [a63fdfd] MT#55283 fix hash table update
+  * [a34f3b8] MT#55283 fix nested string lookup booboo
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 16 Sep 2026 16:21:18 +0200
+
 ngcp-rtpengine (13.5.1.25+0~mr13.5.1.25) unstable; urgency=medium
 
   [ Richard Fuchs ]
