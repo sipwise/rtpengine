@@ -1,3 +1,10 @@
+ngcp-rtpengine (13.5.1.27+0~mr13.5.1.27) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [df34b8f] MT#55283 set mux-offer when require is set
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 17 Sep 2026 15:03:32 +0200
+
 ngcp-rtpengine (13.5.1.26+0~mr13.5.1.26) unstable; urgency=medium
 
   [ Richard Fuchs ]
