@@ -595,7 +595,10 @@ static const char *websocket_ng_process_generic(struct websocket_message *wm,
 	buf->cmd = STR_LEN(buf->body->str, buf->body->len);
 	buf->endpoint = wm->wc->endpoint;
 
-	cb(&buf->cmd, &buf->endpoint, buf->addr, NULL, websocket_ng_send_ws, wm->wc, &buf->obj);
+	// no real listening socket_t behind a websocket connection -- NULL here
+	// means Homer NG tracing (if enabled) attaches no local endpoint,
+	// rather than control_ng_process() reinterpreting wm->wc as one
+	cb(&buf->cmd, &buf->endpoint, buf->addr, NULL, websocket_ng_send_ws, wm->wc, &buf->obj, NULL);
 
 	obj_put(buf);
 
@@ -622,11 +625,12 @@ static const char *websocket_http_ng_generic(struct websocket_message *wm,
 	buf->cmd = STR_LEN(buf->body->str, buf->body->len);
 	buf->endpoint = wm->wc->endpoint;
 
+	// see websocket_ng_process_generic() above re: passing NULL here
 	if (cb(&buf->cmd, &buf->endpoint, buf->addr, NULL,
 				wm->content_type == CT_JSON
 				? websocket_ng_send_http_json
 				: websocket_ng_send_http_ng, wm->wc,
-				&buf->obj))
+				&buf->obj, NULL))
 		websocket_http_complete(wm->wc, 600, "text/plain", 6, "error\n");
 
 	obj_put(buf);

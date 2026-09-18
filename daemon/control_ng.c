@@ -919,9 +919,24 @@ send_resp:
 	CH(homer_trace_msg_out, hctx, reply);
 }
 
+// local_sock is the listening/connection socket this request arrived on, used
+// only to fill in ng_ctx.local_ep for Homer NG tracing (see homer_trace_msg_in/
+// _out below). It is intentionally separate from the opaque p1 argument, which
+// each transport's own cb() interprets however it likes (a socket_t* for UDP/
+// TCP, a struct websocket_conn* for the websocket transports) -- p1 must not be
+// reused as local_sock, since that means blindly reinterpreting whatever p1
+// happens to be as a socket_t*. That's exactly what this function used to do,
+// and it segfaulted in homer_send() as soon as NG tracing to Homer
+// (homer-enable-ng) was combined with an NG-over-websocket connection: the
+// websocket transports pass a struct websocket_conn* as p1, which is a
+// different type than the socket_t* every other transport passes there.
+// Callers that have no real listening socket_t to offer (currently: both
+// websocket transports) pass NULL here, same as if p1 itself had been NULL
+// before this fix -- Homer tracing then attaches no local endpoint, which is
+// preferable to a wild pointer dereference.
 int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockaddr_t *local,
 		void (*cb)(str *, str *, const endpoint_t *, const sockaddr_t *, void *),
-		void *p1, struct obj *ref)
+		void *p1, struct obj *ref, const socket_t *local_sock)
 {
 	str data;
 	str_chr_str(&data, buf, ' ');
@@ -941,7 +956,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockad
 		ilogs(control, LOG_INFO, "Detected command from %s as a duplicate", addr);
 
 		ng_ctx hctx  = {.sin_ep = sin,
-				.local_ep = p1 ? &(((socket_t*)p1)->local) : NULL,
+				.local_ep = local_sock ? &local_sock->local : NULL,
 				.cookie = cookie,
 				.command = cached->command,
 				.callid = cached->callid,
@@ -959,7 +974,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockad
 	g_autoptr(ng_buffer) ngbuf = NULL;
 
 	ng_ctx hctx = {.sin_ep = sin,
-			.local_ep = p1 ? &(((socket_t*)p1)->local) : NULL,
+			.local_ep = local_sock ? &local_sock->local : NULL,
 			.cookie = cookie,
 			.command = -1};
 
@@ -975,8 +990,15 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockad
 
 int control_ng_process_plain(str *data, const endpoint_t *sin, char *addr, const sockaddr_t *local,
 		void (*cb)(str *, str *, const endpoint_t *, const sockaddr_t *, void *),
-		void *p1, struct obj *ref)
+		void *p1, struct obj *ref, const socket_t *local_sock)
 {
+	// unused here: this path never runs the homer tracing code
+	// that local_sock exists for, but the signature must match
+	// control_ng_process() exactly -- both are invoked through the
+	// same `__typeof__(control_ng_process) cb` function pointer in
+	// websocket.c
+	(void) local_sock;
+
 	g_autoptr(ng_buffer) ngbuf = NULL;
 
 	str reply;
@@ -1015,7 +1037,7 @@ static void control_ng_incoming(struct obj *obj, struct udp_buffer *udp_buf)
 {
 	control_ng_process(&udp_buf->str, &udp_buf->sin, udp_buf->addr, &udp_buf->local_addr,
 			control_ng_send_from, udp_buf->listener,
-			&udp_buf->obj);
+			&udp_buf->obj, udp_buf->listener);
 }
 
 static void control_incoming(struct streambuf_stream *s) {
@@ -1080,7 +1102,8 @@ static void control_stream_readable(struct streambuf_stream *s) {
 	ilog(LOG_DEBUG, "Got %zu bytes from %s", s->inbuf->buf->len, s->addr);
 	while ((data = chunk_message(s->inbuf))) {
 		ilog(LOG_DEBUG, "Got control ng message from %s", s->addr);
-		control_ng_process(data, &s->sock.remote, s->addr, NULL, control_ng_send, &s->sock, s->parent);
+		control_ng_process(data, &s->sock.remote, s->addr, NULL, control_ng_send, &s->sock, s->parent,
+				&s->sock);
 		free(data);
 	}
 
