@@ -919,9 +919,9 @@ send_resp:
 	CH(homer_trace_msg_out, hctx, reply);
 }
 
-int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockaddr_t *local,
-		void (*cb)(str *, str *, const endpoint_t *, const sockaddr_t *, void *),
-		void *p1, struct obj *ref)
+int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const endpoint_t *local,
+		void (*cb)(str *, str *, const endpoint_t *, const endpoint_t *, ng_cb_arg),
+		ng_cb_arg a, struct obj *ref)
 {
 	str data;
 	str_chr_str(&data, buf, ' ');
@@ -941,14 +941,14 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockad
 		ilogs(control, LOG_INFO, "Detected command from %s as a duplicate", addr);
 
 		ng_ctx hctx  = {.sin_ep = sin,
-				.local_ep = p1 ? &(((socket_t*)p1)->local) : NULL,
+				.local_ep = local ?: NULL,
 				.cookie = cookie,
 				.command = cached->command,
 				.callid = cached->callid,
 				.should_trace = should_trace_msg(cached->command)};
 
 		CH(homer_trace_msg_in, &hctx, &data);
-		cb(&cookie, &cached->reply, sin, local, p1);
+		cb(&cookie, &cached->reply, sin, local, a);
 		CH(homer_trace_msg_out, &hctx, &cached->reply);
 
 		cache_entry_free(cached);
@@ -959,37 +959,36 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockad
 	g_autoptr(ng_buffer) ngbuf = NULL;
 
 	ng_ctx hctx = {.sin_ep = sin,
-			.local_ep = p1 ? &(((socket_t*)p1)->local) : NULL,
+			.local_ep = local ?: NULL,
 			.cookie = cookie,
 			.command = -1};
 
 	control_ng_process_payload(trace_ng ? &hctx : NULL,
 								&reply, &data, sin, addr, ref, &ngbuf);
 
-	cb(&cookie, &reply, sin, local, p1);
+	cb(&cookie, &reply, sin, local, a);
 	cache_entry ce = {.reply = reply, .command = hctx.command, .callid = hctx.callid};
 	cookie_cache_insert(&ng_cookie_cache, &cookie, &ce);
 
 	return 0;
 }
 
-int control_ng_process_plain(str *data, const endpoint_t *sin, char *addr, const sockaddr_t *local,
-		void (*cb)(str *, str *, const endpoint_t *, const sockaddr_t *, void *),
-		void *p1, struct obj *ref)
+int control_ng_process_plain(str *data, const endpoint_t *sin, char *addr, const endpoint_t *local,
+		void (*cb)(str *, str *, const endpoint_t *, const endpoint_t *, ng_cb_arg),
+		ng_cb_arg a, struct obj *ref)
 {
 	g_autoptr(ng_buffer) ngbuf = NULL;
 
 	str reply;
 	control_ng_process_payload(NULL, &reply, data, sin, addr, ref, &ngbuf);
-	cb(NULL, &reply, sin, local, p1);
+	cb(NULL, &reply, sin, local, a);
 
 	return 0;
 }
 
-INLINE void control_ng_send_generic(str *cookie, str *body, const endpoint_t *sin, const sockaddr_t *from,
-		void *p1)
+INLINE void control_ng_send_generic(str *cookie, str *body, const endpoint_t *sin, const endpoint_t *from,
+		socket_t *ul)
 {
-	socket_t *ul = p1;
 	struct iovec iov[3];
 	unsigned int iovlen;
 
@@ -1002,13 +1001,17 @@ INLINE void control_ng_send_generic(str *cookie, str *body, const endpoint_t *si
 	iov[2].iov_base = body->s;
 	iov[2].iov_len = body->len;
 
-	socket_sendiov(ul, iov, iovlen, sin, from);
+	socket_sendiov(ul, iov, iovlen, sin, &from->address);
 }
-static void control_ng_send(str *cookie, str *body, const endpoint_t *sin, const sockaddr_t *from, void *p1) {
-	control_ng_send_generic(cookie, body, sin, NULL, p1);
+static void control_ng_send(str *cookie, str *body, const endpoint_t *sin, const endpoint_t *from,
+		socket_t *s)
+{
+	control_ng_send_generic(cookie, body, sin, NULL, s);
 }
-static void control_ng_send_from(str *cookie, str *body, const endpoint_t *sin, const sockaddr_t *from, void *p1) {
-	control_ng_send_generic(cookie, body, sin, from, p1);
+static void control_ng_send_from(str *cookie, str *body, const endpoint_t *sin, const endpoint_t *from,
+		socket_t *s)
+{
+	control_ng_send_generic(cookie, body, sin, from, s);
 }
 
 static void control_ng_incoming(struct obj *obj, struct udp_buffer *udp_buf)

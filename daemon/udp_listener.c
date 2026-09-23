@@ -38,10 +38,11 @@ static void udp_listener_incoming(int fd, void *p) {
 			udp_buf = obj_alloc0(struct udp_buffer, NULL);
 			udp_buf->str.s = udp_buf->buf + RTP_BUFFER_HEAD_ROOM;
 			udp_buf->listener = cb->ul;
+			udp_buf->local_addr.port = cb->ul->local.port;
 		}
 
 		len = socket_recvfrom_to(udp_buf->listener, udp_buf->str.s, MAX_UDP_LENGTH, &udp_buf->sin,
-				&udp_buf->local_addr);
+				&udp_buf->local_addr.address);
 		if (len < 0) {
 			if (errno == EINTR)
 				continue;

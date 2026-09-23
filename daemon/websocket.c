@@ -533,23 +533,20 @@ static const char *websocket_cli_process(struct websocket_message *wm) {
 }
 
 
-static void websocket_ng_send_ws(str *cookie, str *body, const endpoint_t *sin, const sockaddr_t *from,
-		void *p1)
+static void websocket_ng_send_ws(str *cookie, str *body, const endpoint_t *sin, const endpoint_t *from,
+		struct websocket_conn *wc)
 {
-	struct websocket_conn *wc = p1;
-	{
-		LOCK(&wc->lock);
-		if (cookie) {
-			__websocket_queue_raw(wc, cookie->s, cookie->len);
-			__websocket_queue_raw(wc, " ", 1);
-		}
-		__websocket_queue_raw(wc, body->s, body->len);
-		__websocket_write_binary(wc, NULL, 0);
-		__websocket_write_done(wc);
+	LOCK(&wc->lock);
+	if (cookie) {
+		__websocket_queue_raw(wc, cookie->s, cookie->len);
+		__websocket_queue_raw(wc, " ", 1);
 	}
+	__websocket_queue_raw(wc, body->s, body->len);
+	__websocket_write_binary(wc, NULL, 0);
+	__websocket_write_done(wc);
 }
 
-static void websocket_ng_send_http(str *cookie, str *body, const endpoint_t *sin, const sockaddr_t *from,
+static void websocket_ng_send_http(str *cookie, str *body, const endpoint_t *sin, const endpoint_t *from,
 		struct websocket_conn *wc, const char *content_type)
 {
 	LOCK(&wc->lock);
@@ -564,16 +561,16 @@ static void websocket_ng_send_http(str *cookie, str *body, const endpoint_t *sin
 	__websocket_write_done(wc);
 }
 
-static void websocket_ng_send_http_ng(str *cookie, str *body, const endpoint_t *sin, const sockaddr_t *from,
-		void *p1)
+static void websocket_ng_send_http_ng(str *cookie, str *body, const endpoint_t *sin, const endpoint_t *from,
+		struct websocket_conn *wc)
 {
-	websocket_ng_send_http(cookie, body, sin, from, p1, "application/x-rtpengine-ng");
+	websocket_ng_send_http(cookie, body, sin, from, wc, "application/x-rtpengine-ng");
 }
 
-static void websocket_ng_send_http_json(str *cookie, str *body, const endpoint_t *sin, const sockaddr_t *from,
-		void *p1)
+static void websocket_ng_send_http_json(str *cookie, str *body, const endpoint_t *sin, const endpoint_t *from,
+		struct websocket_conn *wc)
 {
-	websocket_ng_send_http(cookie, body, sin, from, p1, "application/json");
+	websocket_ng_send_http(cookie, body, sin, from, wc, "application/json");
 }
 
 static void __ng_buf_free(struct websocket_ng_buf *buf) {

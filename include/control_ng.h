@@ -177,10 +177,19 @@ struct control_ng *control_ng_tcp_new(const endpoint_t *);
 void notify_ng_tcp_clients(str *);
 void control_ng_init(void);
 void control_ng_cleanup(void);
-int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockaddr_t *local,
-		void (*cb)(str *, str *, const endpoint_t *, const sockaddr_t *, void *), void *p1, struct obj *);
-int control_ng_process_plain(str *buf, const endpoint_t *sin, char *addr, const sockaddr_t *local,
-		void (*cb)(str *, str *, const endpoint_t *, const sockaddr_t *, void *), void *p1, struct obj *);
+
+typedef union {
+	socket_t *s;
+	struct websocket_conn *wc;
+} ng_cb_arg __attribute__ ((__transparent_union__));
+
+int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const endpoint_t *local,
+		void (*cb)(str *, str *, const endpoint_t *, const endpoint_t *, ng_cb_arg),
+		ng_cb_arg, struct obj *);
+int control_ng_process_plain(str *buf, const endpoint_t *sin, char *addr, const endpoint_t *local,
+		void (*cb)(str *, str *, const endpoint_t *, const endpoint_t *, ng_cb_arg),
+		ng_cb_arg, struct obj *);
+
 void init_ng_tracing(void);
 
 ng_buffer *ng_buffer_new(struct obj *ref);
