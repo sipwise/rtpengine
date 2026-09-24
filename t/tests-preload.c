@@ -513,6 +513,19 @@ int getsockname(int fd, struct sockaddr *addr, socklen_t *addrlen) {
 	if (s->used_domain != AF_UNIX || s->wanted_domain == AF_UNIX || !s->bound)
 		goto do_getsockname;
 
+	if (s->sockname.ss_family == 0) {
+		struct sockaddr_un sun;
+		socklen_t len = sizeof(sun);
+		int ret = real_getsockname(fd, (struct sockaddr *) &sun, &len);
+		err = "failed";
+		if (ret)
+			goto do_getsockname_warn;
+		err = "not a Unix socket";
+		if (sun.sun_family != AF_UNIX)
+			goto do_getsockname_warn;
+		addr_translate_reverse(&s->sockname, &len, s->wanted_domain, &sun);
+	}
+
 	switch (s->wanted_domain) {
 		case AF_INET:
 			if (*addrlen < sizeof(struct sockaddr_in))
