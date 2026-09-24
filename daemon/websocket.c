@@ -35,6 +35,7 @@ struct websocket_conn {
 	// used in the single threaded libwebsockets context
 	struct lws *wsi;
 	endpoint_t endpoint;
+	endpoint_t local;
 	char *uri; // for websocket connections only
 	struct websocket_message *wm; // while in progress
 
@@ -577,12 +578,29 @@ static void __ng_buf_free(struct websocket_ng_buf *buf) {
 	g_string_free(buf->body, TRUE);
 }
 
+static const endpoint_t *websocket_get_local_endpoint(struct websocket_conn *wc) {
+	if (wc->local.address.family)
+		return &wc->local;
+
+	int fd = lws_get_socket_fd(wc->wsi);
+	if (fd == -1)
+		return NULL;
+	struct sockaddr_storage addr;
+	socklen_t len = sizeof(addr);
+	int r = getsockname(fd, (struct sockaddr *) &addr, &len);
+	if (r)
+		return NULL;
+	endpoint_parse_sockaddr_storage(&wc->local, &addr);
+	return &wc->local;
+}
+
 static const char *websocket_ng_process_generic(struct websocket_message *wm,
 		__typeof__(control_ng_process) cb)
 {
 	__auto_type buf = obj_alloc0(struct websocket_ng_buf, __ng_buf_free);
+	__auto_type wc = wm->wc;
 
-	endpoint_print(&wm->wc->endpoint, buf->addr, sizeof(buf->addr));
+	endpoint_print(&wc->endpoint, buf->addr, sizeof(buf->addr));
 
 	ilogs(http, LOG_DEBUG, "Processing websocket NG req from %s", buf->addr);
 
@@ -590,9 +608,12 @@ static const char *websocket_ng_process_generic(struct websocket_message *wm,
 	buf->body = wm->body;
 	wm->body = g_string_new("");
 	buf->cmd = STR_LEN(buf->body->str, buf->body->len);
-	buf->endpoint = wm->wc->endpoint;
+	buf->endpoint = wc->endpoint;
 
-	cb(&buf->cmd, &buf->endpoint, buf->addr, NULL, websocket_ng_send_ws, wm->wc, &buf->obj);
+	const endpoint_t *local = websocket_get_local_endpoint(wc);
+
+	cb(&buf->cmd, &buf->endpoint, buf->addr, local,
+			websocket_ng_send_ws, wc, &buf->obj);
 
 	obj_put(buf);
 
@@ -608,8 +629,9 @@ static const char *websocket_http_ng_generic(struct websocket_message *wm,
 		__typeof__(control_ng_process) cb)
 {
 	__auto_type buf = obj_alloc0(struct websocket_ng_buf, __ng_buf_free);
+	__auto_type wc = wm->wc;
 
-	endpoint_print(&wm->wc->endpoint, buf->addr, sizeof(buf->addr));
+	endpoint_print(&wc->endpoint, buf->addr, sizeof(buf->addr));
 
 	ilogs(http, LOG_DEBUG, "Responding to POST /ng from %s", buf->addr);
 
@@ -617,12 +639,14 @@ static const char *websocket_http_ng_generic(struct websocket_message *wm,
 	buf->body = wm->body;
 	wm->body = g_string_new("");
 	buf->cmd = STR_LEN(buf->body->str, buf->body->len);
-	buf->endpoint = wm->wc->endpoint;
+	buf->endpoint = wc->endpoint;
 
-	if (cb(&buf->cmd, &buf->endpoint, buf->addr, NULL,
+	const endpoint_t *local = websocket_get_local_endpoint(wc);
+
+	if (cb(&buf->cmd, &buf->endpoint, buf->addr, local,
 				wm->content_type == CT_JSON
 				? websocket_ng_send_http_json
-				: websocket_ng_send_http_ng, wm->wc,
+				: websocket_ng_send_http_ng, wc,
 				&buf->obj))
 		websocket_http_complete(wm->wc, 600, "text/plain", 6, "error\n");
 
