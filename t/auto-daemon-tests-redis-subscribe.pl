@@ -332,6 +332,8 @@ $json_exp = {
 	       'pref_family' => 'IP4',
 	       'stream' => '3'
 	     },
+  'ssrc_out_table-0' => [],
+  'ssrc_out_table-1' => [],
   'ssrc_table-0' => [],
   'ssrc_table-1' => [],
   'stream-0' => {
