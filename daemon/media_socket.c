@@ -3549,8 +3549,6 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	if (!phc->mp.stream->selected_sfd)
 		goto out;
 
-	CALL_CLEAR(phc->mp.call, FOREIGN_MEDIA);
-
 	if (CALL_ISSET(phc->mp.call, DROP_TRAFFIC))
 		goto drop;
 
@@ -3591,6 +3589,9 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 	if (media_packet_address_check(phc))
 		goto drop;
+
+	// only media we accept ends the grace period after a takeover
+	CALL_CLEAR(phc->mp.call, FOREIGN_MEDIA);
 
 	PS_SET(phc->mp.stream, RECEIVED);
 
