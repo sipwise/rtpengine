@@ -1494,7 +1494,7 @@ static int redis_sfds(call_t *c, struct redis_list *sfds) {
 	struct local_intf *loc;
 	unsigned int loc_uid;
 	stream_fd *sfd;
-	int port, fd;
+	int port, fd, confirmed;
 	const char *err;
 
 	for (i = 0; i < sfds->len; i++) {
@@ -1545,6 +1545,9 @@ static int redis_sfds(call_t *c, struct redis_list *sfds) {
 		if (redis_hash_get_sdes_params1(&sfd->crypto.params, rh, "") == -1)
 			return -1;
 
+		if (!redis_hash_get_int(&confirmed, rh, "confirmed"))
+			sfd->confirmed = confirmed;
+
 		sfds->ptrs[i] = sfd;
 	}
 	return 0;
@@ -1555,12 +1558,19 @@ err:
 }
 
 static int redis_decode_stream_fields(struct packet_stream *ps, const struct redis_hash *rh) {
+	str s;
+	int64_t iv;
+
 	if (redis_hash_get_a64(&ps->ps_flags, rh, "ps_flags"))
 		return -1;
 	if (redis_hash_get_endpoint(&ps->endpoint, rh, "endpoint"))
 		return -1;
 	if (redis_hash_get_endpoint(&ps->advertised_endpoint, rh, "advertised_endpoint"))
 		return -1;
+	if (!redis_hash_get_str(&s, rh, "learned_endpoint") && s.len)
+		redis_hash_get_endpoint(&ps->learned_endpoint, rh, "learned_endpoint");
+	if (!redis_hash_get_int64_t(&iv, rh, "el_flags"))
+		ps->el_flags = iv;
 	return 0;
 }
 
@@ -2850,6 +2860,10 @@ static parser_arg redis_encode_stream_basic(struct packet_stream *ps, const ng_p
 	JSON_SET_SIMPLE("component","%u",ps->component);
 	JSON_SET_SIMPLE_CSTR("endpoint",endpoint_print_buf(&ps->endpoint));
 	JSON_SET_SIMPLE_CSTR("advertised_endpoint",endpoint_print_buf(&ps->advertised_endpoint));
+	JSON_SET_SIMPLE_CSTR("learned_endpoint",
+			ps->learned_endpoint.address.family
+			? endpoint_print_buf(&ps->learned_endpoint) : "");
+	JSON_SET_SIMPLE("el_flags", "%u", ps->el_flags);
 
 	JSON_SET_SIMPLE("stats-packets","%" PRIu64, atomic64_get_na(&ps->stats_in->packets));
 	JSON_SET_SIMPLE("stats-bytes","%" PRIu64, atomic64_get_na(&ps->stats_in->bytes));
@@ -2933,14 +2947,10 @@ static str redis_encode_json_ml(ng_parser_ctx_t *ctx, call_t *c, void **to_free,
 
 			inner = redis_encode_stream_basic(ps, parser, root);
 
-			JSON_SET_SIMPLE_CSTR("learned_endpoint",
-					ps->learned_endpoint.address.family
-					? endpoint_print_buf(&ps->learned_endpoint) : "");
 			JSON_SET_SIMPLE_CSTR("last_local_endpoint",
 					ps->last_local_endpoint.address.family
 					? endpoint_print_buf(&ps->last_local_endpoint) : "");
 			JSON_SET_SIMPLE("ep_detect_signal", "%" PRId64, ps->ep_detect_signal);
-			JSON_SET_SIMPLE("el_flags", "%u", ps->el_flags);
 			json_update_detected_endpoints(parser, inner, ps);
 		}
 	}
@@ -3000,6 +3010,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free)
 		JSON_SET_SIMPLE_STR("logical_intf", &sfd->local_intf->logical->name);
 		JSON_SET_SIMPLE("local_intf_uid","%u", sfd->local_intf->unique_id);
 		JSON_SET_SIMPLE("stream","%u", sfd->stream->unique_id);
+		JSON_SET_SIMPLE("confirmed", "%i", sfd->confirmed);
 
 		json_update_crypto_params(parser, inner, "", &sfd->crypto.params);
 
@@ -3218,8 +3229,6 @@ static void snapshot_apply_stream(call_t *c, struct packet_stream *ps,
 	// propagated rather than ignored, so a malformed snapshot isn't applied piecemeal
 	if (redis_decode_stream_fields(ps, rh))
 		return;
-	if (!redis_hash_get_str(&s, rh, "learned_endpoint") && s.len)
-		redis_hash_get_endpoint(&ps->learned_endpoint, rh, "learned_endpoint");
 	if (!redis_hash_get_str(&s, rh, "last_local_endpoint") && s.len)
 		redis_hash_get_endpoint(&ps->last_local_endpoint, rh, "last_local_endpoint");
 
@@ -3234,8 +3243,6 @@ static void snapshot_apply_stream(call_t *c, struct packet_stream *ps,
 
 	if (!redis_hash_get_int64_t(&iv, rh, "ep_detect_signal"))
 		ps->ep_detect_signal = iv;
-	if (!redis_hash_get_int64_t(&iv, rh, "el_flags"))
-		ps->el_flags = iv;
 
 	/* only recorded when a suite is in use, so an absent one means the rejected
 	 * offer's context has to go, or a plain-RTP media keeps SRTP configured */
