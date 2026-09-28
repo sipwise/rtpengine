@@ -2139,7 +2139,6 @@ static const char *json_build_ssrc_iter(const ng_parser_t *parser, parser_arg di
 
 	uint32_t ssrc = parser_get_ll(dict, "ssrc");
 	struct ssrc_entry_call *se_in = get_ssrc(ssrc, &md->ssrc_hash_in);
-	struct ssrc_entry_call *se_out = get_ssrc(ssrc, &md->ssrc_hash_out);
 
 	if (se_in) {
 		atomic_set_na(&se_in->stats->ext_seq, parser_get_ll(dict, "in_srtp_index"));
@@ -2147,6 +2146,16 @@ static const char *json_build_ssrc_iter(const ng_parser_t *parser, parser_arg di
 		payload_tracker_add(&se_in->tracker, parser_get_ll(dict, "in_payload_type"));
 		obj_put(&se_in->h);
 	}
+
+	return NULL;
+}
+
+static const char *json_build_ssrc_out_iter(const ng_parser_t *parser, parser_arg dict, helper_arg arg) {
+	struct call_media *md = arg.md;
+
+	uint32_t ssrc = parser_get_ll(dict, "ssrc");
+	struct ssrc_entry_call *se_out = get_ssrc(ssrc, &md->ssrc_hash_out);
+
 	if (se_out) {
 		atomic_set_na(&se_out->stats->ext_seq, parser_get_ll(dict, "out_srtp_index"));
 		atomic_set_na(&se_out->stats->rtcp_seq, parser_get_ll(dict, "out_srtcp_index"));
@@ -2166,6 +2175,11 @@ static int json_build_ssrc(struct call_media *md, parser_arg arg) {
 		return 0;
 	}
 	redis_parser->list_iter(redis_parser, list, NULL, json_build_ssrc_iter, md);
+
+	snprintf(tmp, sizeof(tmp), "ssrc_out_table-%u", md->unique_id);
+	list = redis_parser->dict_get_expect(arg, tmp, BENCODE_LIST);
+	if (list.gen)
+		redis_parser->list_iter(redis_parser, list, NULL, json_build_ssrc_out_iter, md);
 	return 0;
 }
 
@@ -2795,10 +2809,20 @@ static parser_arg redis_encode_media_basic(struct call_media *media, const ng_pa
 		JSON_SET_SIMPLE("in_srtp_index", "%u", atomic_get_na(&se->stats->ext_seq));
 		JSON_SET_SIMPLE("in_srtcp_index", "%u", atomic_get_na(&se->stats->rtcp_seq));
 		JSON_SET_SIMPLE("in_payload_type", "%i", se->tracker.most[0]);
-		//JSON_SET_SIMPLE("out_srtp_index", "%u", atomic_get_na(&se->output_ctx.stats->ext_seq));
-		//JSON_SET_SIMPLE("out_srtcp_index", "%u", atomic_get_na(&se->output_ctx.stats->rtcp_seq));
-		//JSON_SET_SIMPLE("out_payload_type", "%i", se->output_ctx.tracker.most[0]);
 		// XXX add rest of info
+	}
+
+	LOCK(&media->ssrc_hash_out.lock);
+	snprintf(tmp, sizeof(tmp), "ssrc_out_table-%u", media->unique_id);
+	list = parser->dict_add_list_dup(root, tmp);
+	for (GList *m = media->ssrc_hash_out.nq.head; m; m = m->next) {
+		struct ssrc_entry_call *se = m->data;
+		inner = parser->list_add_dict(list);
+
+		JSON_SET_SIMPLE("ssrc", "%" PRIu32, se->h.ssrc);
+		JSON_SET_SIMPLE("out_srtp_index", "%u", atomic_get_na(&se->stats->ext_seq));
+		JSON_SET_SIMPLE("out_srtcp_index", "%u", atomic_get_na(&se->stats->rtcp_seq));
+		JSON_SET_SIMPLE("out_payload_type", "%i", se->tracker.most[0]);
 	}
 
 	snprintf(tmp, sizeof(tmp), "media-%u", media->unique_id);

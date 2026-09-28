@@ -242,6 +242,8 @@ $json_exp = {
 	       'pref_family' => 'IP4',
 	       'stream' => '3'
 	     },
+  'ssrc_out_table-0' => [],
+  'ssrc_out_table-1' => [],
   'ssrc_table-0' => [],
   'ssrc_table-1' => [],
   'stream-0' => {
@@ -507,6 +509,8 @@ $json_exp = {
 	       'pref_family' => 'IP4',
 	       'stream' => '3'
 	     },
+  'ssrc_out_table-0' => [],
+  'ssrc_out_table-1' => [],
   'ssrc_table-0' => [],
   'ssrc_table-1' => [],
   'stream-0' => {
@@ -781,6 +785,8 @@ $json_exp = {
 	       'pref_family' => 'IP4',
 	       'stream' => '3'
 	     },
+  'ssrc_out_table-0' => [],
+  'ssrc_out_table-1' => [],
   'ssrc_table-0' => [],
   'ssrc_table-1' => [],
   'stream-0' => {
@@ -1049,6 +1055,8 @@ $json_exp = {
 	       'pref_family' => 'IP4',
 	       'stream' => '3'
 	     },
+  'ssrc_out_table-0' => [],
+  'ssrc_out_table-1' => [],
   'ssrc_table-0' => [],
   'ssrc_table-1' => [],
   'stream-0' => {
@@ -1431,6 +1439,9 @@ $json_exp = {
                        'pref_family' => 'IP4',
                        'stream' => '7'
                      },
+          'ssrc_out_table-0' => [],
+          'ssrc_out_table-1' => [],
+          'ssrc_out_table-2' => [],
           'ssrc_table-0' => [],
           'ssrc_table-1' => [],
           'ssrc_table-2' => [],
@@ -1773,6 +1784,7 @@ $json_exp = {
 	       'pref_family' => 'IP4',
 	       'stream' => '1'
 	     },
+  'ssrc_out_table-0' => [],
   'ssrc_table-0' => [],
   'stream-0' => {
 		  'advertised_endpoint' => '198.51.100.14:6042',
@@ -1978,6 +1990,8 @@ $json_exp = {
 	       'pref_family' => 'IP4',
 	       'stream' => '3'
 	     },
+  'ssrc_out_table-0' => [],
+  'ssrc_out_table-1' => [],
   'ssrc_table-0' => [],
   'ssrc_table-1' => [],
   'stream-0' => {
@@ -2226,6 +2240,8 @@ $json_exp = {
 	       'pref_family' => 'IP4',
 	       'stream' => '3'
 	     },
+  'ssrc_out_table-0' => [],
+  'ssrc_out_table-1' => [],
   'ssrc_table-0' => [],
   'ssrc_table-1' => [],
   'stream-0' => {
@@ -2529,6 +2545,9 @@ $json_exp = {
 	       'pref_family' => 'IP4',
 	       'stream' => '5'
 	     },
+  'ssrc_out_table-0' => [],
+  'ssrc_out_table-1' => [],
+  'ssrc_out_table-2' => [],
   'ssrc_table-0' => [],
   'ssrc_table-1' => [],
   'ssrc_table-2' => [],
