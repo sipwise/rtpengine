@@ -301,6 +301,7 @@ $json_exp = {
 		   ],
   'rtp_sinks-3' => [],
   'sfd-0' => {
+	       'confirmed' => '0',
 	       'fd' => qr/^\d+$/,
 	       'local_intf_uid' => '0',
 	       'localport' => qr/^\d+$/,
@@ -309,6 +310,7 @@ $json_exp = {
 	       'stream' => '0'
 	     },
   'sfd-1' => {
+	       'confirmed' => '0',
 	       'fd' => qr/^\d+$/,
 	       'local_intf_uid' => '0',
 	       'localport' => qr/^\d+$/,
@@ -317,6 +319,7 @@ $json_exp = {
 	       'stream' => '1'
 	     },
   'sfd-2' => {
+	       'confirmed' => '0',
 	       'fd' => qr/^\d+$/,
 	       'local_intf_uid' => '0',
 	       'localport' => qr/^\d+$/,
@@ -325,6 +328,7 @@ $json_exp = {
 	       'stream' => '2'
 	     },
   'sfd-3' => {
+	       'confirmed' => '0',
 	       'fd' => qr/^\d+$/,
 	       'local_intf_uid' => '0',
 	       'localport' => qr/^\d+$/,
@@ -337,7 +341,9 @@ $json_exp = {
   'stream-0' => {
 		  'advertised_endpoint' => '',
 		  'component' => '1',
+		  'el_flags' => '0',
 		  'endpoint' => '',
+		  'learned_endpoint' => '',
 		  'media' => '1',
 		  'ps_flags' => '65536',
 		  'rtcp_sibling' => '1',
@@ -349,7 +355,9 @@ $json_exp = {
   'stream-1' => {
 		  'advertised_endpoint' => '',
 		  'component' => '2',
+		  'el_flags' => '0',
 		  'endpoint' => '',
+		  'learned_endpoint' => '',
 		  'media' => '1',
 		  'ps_flags' => '131072',
 		  'rtcp_sibling' => '4294967295',
@@ -361,7 +369,9 @@ $json_exp = {
   'stream-2' => {
 		  'advertised_endpoint' => '198.51.100.1:3000',
 		  'component' => '1',
+		  'el_flags' => '3',
 		  'endpoint' => '198.51.100.1:3000',
+		  'learned_endpoint' => '198.51.100.1:3000',
 		  'media' => '0',
 		  'ps_flags' => '68222976',
 		  'rtcp_sibling' => '3',
@@ -373,7 +383,9 @@ $json_exp = {
   'stream-3' => {
 		  'advertised_endpoint' => '198.51.100.1:3001',
 		  'component' => '2',
+		  'el_flags' => '3',
 		  'endpoint' => '198.51.100.1:3001',
+		  'learned_endpoint' => '198.51.100.1:3001',
 		  'media' => '0',
 		  'ps_flags' => '1179649',
 		  'rtcp_sibling' => '4294967295',
@@ -584,6 +596,7 @@ my $dict = {
                            ],
           'rtp_sinks-3' => [],
           'sfd-0' => {
+                       'confirmed' => \'0',
                        'fd' => \'9',
                        'local_intf_uid' => \'0',
                        'localport' => \'7872',
@@ -592,6 +605,7 @@ my $dict = {
                        'stream' => \'0'
                      },
           'sfd-1' => {
+                       'confirmed' => \'0',
                        'fd' => \'15',
                        'local_intf_uid' => \'0',
                        'localport' => \'7873',
@@ -600,6 +614,7 @@ my $dict = {
                        'stream' => \'1'
                      },
           'sfd-2' => {
+                       'confirmed' => \'1',
                        'fd' => \'16',
                        'local_intf_uid' => \'0',
                        'localport' => \'8206',
@@ -608,6 +623,7 @@ my $dict = {
                        'stream' => \'2'
                      },
           'sfd-3' => {
+                       'confirmed' => \'0',
                        'fd' => \'17',
                        'local_intf_uid' => \'0',
                        'localport' => \'8207',
@@ -620,7 +636,9 @@ my $dict = {
           'stream-0' => {
                           'advertised_endpoint' => '',
                           'component' => \'1',
+                          'el_flags' => \'0',
                           'endpoint' => '',
+                          'learned_endpoint' => '',
                           'media' => \'1',
                           'ps_flags' => \'65536',
                           'rtcp_sibling' => \'1',
@@ -632,7 +650,9 @@ my $dict = {
           'stream-1' => {
                           'advertised_endpoint' => '',
                           'component' => \'2',
+                          'el_flags' => \'0',
                           'endpoint' => '',
+                          'learned_endpoint' => '',
                           'media' => \'1',
                           'ps_flags' => \'131072',
                           'rtcp_sibling' => \'4294967295',
@@ -644,7 +664,9 @@ my $dict = {
           'stream-2' => {
                           'advertised_endpoint' => '198.51.100.1:3000',
                           'component' => \'1',
+                          'el_flags' => \'3',
                           'endpoint' => '198.51.100.1:3000',
+                          'learned_endpoint' => '198.51.100.1:3000',
                           'media' => \'0',
                           'ps_flags' => \'68222976',
                           'rtcp_sibling' => \'3',
@@ -656,7 +678,9 @@ my $dict = {
           'stream-3' => {
                           'advertised_endpoint' => '198.51.100.1:3001',
                           'component' => \'2',
+                          'el_flags' => \'3',
                           'endpoint' => '198.51.100.1:3001',
+                          'learned_endpoint' => '198.51.100.1:3001',
                           'media' => \'0',
                           'ps_flags' => \'1179649',
                           'rtcp_sibling' => \'4294967295',
@@ -747,6 +771,12 @@ my @calls = @{$resp->{calls}};
 is($#calls, 1, 'calls len');
 is($calls[0], cid(), 'call ID');
 is($calls[1], 'foobar', 'call ID');
+
+# peer address confirmation survives the restore
+$resp = rtpe_req('query', 'restored call', { 'call-id' => 'foobar' });
+my $streams = $resp->{tags}{ML1}{medias}[0]{streams};
+ok((grep { $_ eq 'confirmed' } @{$streams->[0]{flags}}), 'restored stream confirmed');
+ok(!(grep { $_ eq 'confirmed' } @{$streams->[1]{flags}}), 'restored stream unconfirmed');
 
 rtpe_req('delete', 'delete', {'call-id' => 'foobar', 'delete delay' => 0});
 
