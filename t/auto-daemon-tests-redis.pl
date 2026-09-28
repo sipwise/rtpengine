@@ -241,6 +241,8 @@ $json_exp = {
 	       'pref_family' => 'IP4',
 	       'stream' => '3'
 	     },
+  'ssrc_out_table-0' => [],
+  'ssrc_out_table-1' => [],
   'ssrc_table-0' => [],
   'ssrc_table-1' => [],
   'stream-0' => {
@@ -508,6 +510,8 @@ $json_exp = {
 	       'pref_family' => 'IP4',
 	       'stream' => '3'
 	     },
+  'ssrc_out_table-0' => [],
+  'ssrc_out_table-1' => [],
   'ssrc_table-0' => [],
   'ssrc_table-1' => [],
   'stream-0' => {
@@ -780,6 +784,8 @@ $json_exp = {
 	       'pref_family' => 'IP4',
 	       'stream' => '3'
 	     },
+  'ssrc_out_table-0' => [],
+  'ssrc_out_table-1' => [],
   'ssrc_table-0' => [],
   'ssrc_table-1' => [],
   'stream-0' => {
@@ -1054,6 +1060,8 @@ $json_exp = {
 	       'pref_family' => 'IP4',
 	       'stream' => '3'
 	     },
+  'ssrc_out_table-0' => [],
+  'ssrc_out_table-1' => [],
   'ssrc_table-0' => [],
   'ssrc_table-1' => [],
   'stream-0' => {
@@ -1322,6 +1330,8 @@ $json_exp = {
 	       'pref_family' => 'IP4',
 	       'stream' => '3'
 	     },
+  'ssrc_out_table-0' => [],
+  'ssrc_out_table-1' => [],
   'ssrc_table-0' => [],
   'ssrc_table-1' => [],
   'stream-0' => {
@@ -1704,6 +1714,9 @@ $json_exp = {
                        'pref_family' => 'IP4',
                        'stream' => '7'
                      },
+          'ssrc_out_table-0' => [],
+          'ssrc_out_table-1' => [],
+          'ssrc_out_table-2' => [],
           'ssrc_table-0' => [],
           'ssrc_table-1' => [],
           'ssrc_table-2' => [],
@@ -2045,6 +2058,7 @@ $json_exp = {
 	       'pref_family' => 'IP4',
 	       'stream' => '1'
 	     },
+  'ssrc_out_table-0' => [],
   'ssrc_table-0' => [],
   'stream-0' => {
 		  'advertised_endpoint' => '198.51.100.14:6042',
@@ -2250,6 +2264,8 @@ $json_exp = {
 	       'pref_family' => 'IP4',
 	       'stream' => '3'
 	     },
+  'ssrc_out_table-0' => [],
+  'ssrc_out_table-1' => [],
   'ssrc_table-0' => [],
   'ssrc_table-1' => [],
   'stream-0' => {
@@ -2498,6 +2514,8 @@ $json_exp = {
 	       'pref_family' => 'IP4',
 	       'stream' => '3'
 	     },
+  'ssrc_out_table-0' => [],
+  'ssrc_out_table-1' => [],
   'ssrc_table-0' => [],
   'ssrc_table-1' => [],
   'stream-0' => {
@@ -2801,6 +2819,9 @@ $json_exp = {
 	       'pref_family' => 'IP4',
 	       'stream' => '5'
 	     },
+  'ssrc_out_table-0' => [],
+  'ssrc_out_table-1' => [],
+  'ssrc_out_table-2' => [],
   'ssrc_table-0' => [],
   'ssrc_table-1' => [],
   'ssrc_table-2' => [],
@@ -2994,5 +3015,83 @@ SDP
 
 
 
+
+
+
+# the output SRTP index, including the ROC, is written to the record
+
+my ($sock_a, $sock_b) = new_call([qw(198.51.100.1 7188)], [qw(198.51.100.3 7190)]);
+
+$json_exp = {};
+
+my ($port_a, undef, $srtp_key_a) = offer('SRTP output index',
+	{ 'transport-protocol' => 'RTP/SAVP', DTLS => 'off', SDES => [ 'only-AES_CM_128_HMAC_SHA1_80' ] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7188 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+SDP
+
+my ($port_b) = answer('SRTP output index', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7190 RTP/SAVP 8
+c=IN IP4 198.51.100.3
+a=sendrecv
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:DVM+BTeYX2UI1LaA9bgXrcBEDBxoItA9/39fSoRF
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+my $srtp_ctx = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => $srtp_key_a,
+};
+
+# the first packet confirms the peer address, which writes the record
+snd($sock_a, $port_b, rtp(8, 65534, 3000, 0x1234, "\x00" x 160));
+$NGCP::Rtpengine::req_cb->();
+srtp_rcv($sock_b, $port_a, rtpm(8, 65534, 3000, 0x1234, "\x00" x 160), $srtp_ctx);
+snd($sock_a, $port_b, rtp(8, 65535, 3160, 0x1234, "\x00" x 160));
+srtp_rcv($sock_b, $port_a, rtpm(8, 65535, 3160, 0x1234, "\x00" x 160), $srtp_ctx);
+snd($sock_a, $port_b, rtp(8, 0, 3320, 0x1234, "\x00" x 160));
+srtp_rcv($sock_b, $port_a, rtpm(8, 0, 3320, 0x1234, "\x00" x 160), $srtp_ctx);
+
+$json_exp = {
+  'ssrc_out_table-0' => [],
+  'ssrc_out_table-1' => [
+			  {
+			    'out_payload_type' => '8',
+			    'out_srtcp_index' => '0',
+			    'out_srtp_index' => '65536',
+			    'ssrc' => '4660'
+			  }
+			],
+};
+rtpe_req('delete', 'SRTP output index', { 'delete delay' => 10 });
 
 done_testing();
