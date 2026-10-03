@@ -53,6 +53,7 @@ struct ssrc_entry_call {
 	uint32_t ssrc_map_out;
 	uint16_t seq_out;
 	unsigned long ts_out;
+	int64_t ts_out_time; // wall clock corresponding to the next output RTP timestamp
 	bool seq_set;
 
 	// RTCP stats

@@ -4100,8 +4100,6 @@ static void __dtx_send_later(struct codec_timer *ct) {
 			mutex_unlock(&dtxb->lock);
 		}
 	}
-	if (ch && ch->encoder && mp_copy.ssrc_out)
-		mp_copy.ssrc_out->ts_out = ch->encoder->next_pts + ch->csch.first_ts;
 
 	mutex_lock(&dtxb->lock);
 
@@ -4726,6 +4724,14 @@ static void packet_encoded_tx(struct codec_ssrc_handler *ch, struct media_packet
 		if (!repeats)
 			break;
 	} while (repeats--);
+
+	// Save the clock of the actual output encoder. The DTX decoder may run at a
+	// different rate and cannot supply the timestamp for this listener.
+	if (!is_dtmf) {
+		mp->ssrc_out->ts_out = ch->csch.first_ts + fraction_divl(pts + duration, cr_fact);
+		mp->ssrc_out->ts_out_time = rtpe_now
+				+ fraction_divl(duration, cr_fact) * 1000000LL / ch->handler->dest_pt.clock_rate;
+	}
 }
 
 
@@ -4923,8 +4929,14 @@ static tc_code packet_decode(struct codec_ssrc_handler *ch, struct codec_ssrc_ha
 {
 	tc_code ret = TCC_OK;
 
-	if (!ch->csch.first_ts)
+	if (!ch->csch.first_ts) {
 		ch->csch.first_ts = mp->ssrc_out->ts_out ?: packet->ts;
+		// A stopped encoder does not produce samples while prompts or floor
+		// blocking are active. Keep that elapsed time in the listener's RTP clock.
+		if (mp->ssrc_out->ts_out_time && rtpe_now > mp->ssrc_out->ts_out_time)
+			ch->csch.first_ts += (rtpe_now - mp->ssrc_out->ts_out_time)
+					* ch->handler->dest_pt.clock_rate / 1000000;
+	}
 
 	if (ch->decoder && ch->decoder->def->dtmf) {
 		if (packet_dtmf_event(ch, input_ch, packet, mp) == -1)

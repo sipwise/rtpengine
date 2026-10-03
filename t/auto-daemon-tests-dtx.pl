@@ -22,7 +22,7 @@ autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
 my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 	$sock_ax, $sock_bx, $port_ax, $port_bx,
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev,
-	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq);
+	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq, $resume_time);
 
 
 
@@ -894,6 +894,7 @@ rcv($sock_b, $port_a, rtpm(8, $seq + 9, 5440, 0x5678, "\x54\x54\x54\x54\x54\x54\
 rcv($sock_b, $port_a, rtpm(8, $seq + 10, 5600, 0x5678, "\xd5\xd5\xd5\xd5\x55\x55\xd5\x55\x55\xd5\x55\x55\x55\x55\xd5\x55\x55\xd5\x55\xd5\x55\xd5\x55\x55\xd5\xd5\xd5\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\xd5\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\xd5\x55\x55\xd5\x55\x55\x55\x55\x55\x55\x55\xd5\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\xd5\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\xd5\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\xd5\xd5\xd5\xd5\xd5\xd5\xd5\x55\x55\x55\x55\x55\x55\x55"));
 
 # inject old PCM
+$resume_time = Time::HiRes::time();
 snd($sock_a, $port_b, rtp(0, 2006, 5760, 0x5678, "\x40" x 160));
 # packet dropped
 rcv_no($sock_b);
@@ -947,9 +948,12 @@ SDP
 
 
 snd($sock_a, $port_b, rtp(0, 2007, 5920, 0x5678, "\x40" x 160));
-rcv($sock_b, $port_a, rtpm(8, $seq + 11, 5760, $ssrc, "\x68" x 160));
+# Reconfiguration retains elapsed time in the output clock, independently of the input origin.
+($ts) = rcv($sock_b, $port_a, rtpm(8, $seq + 11, -1, $ssrc, "\x68" x 160));
+cmp_ok(abs(($ts - 5600) / 8000 - (Time::HiRes::time() - $resume_time)), '<', 0.1,
+        'output clock advances through codec reconfiguration');
 snd($sock_a, $port_b, rtp(0, 2008, 6080, 0x5678, "\x40" x 160));
-rcv($sock_b, $port_a, rtpm(8, $seq + 12, 5920, $ssrc, "\x68" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 12, $ts + 160, $ssrc, "\x68" x 160));
 
 rtpe_req('delete', 'G.711/AMR-WB codec change with timing', { 'from-tag' => ft() });
 
@@ -1081,6 +1085,7 @@ rcv($sock_b, $port_a, rtpm(8, $seq + 9, 5440, 0x5678, "\x55\x55\x55\x55\x55\x55\
 rcv($sock_b, $port_a, rtpm(8, $seq + 10, 5600, 0x5678, "\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5"));
 
 # inject old PCM
+$resume_time = Time::HiRes::time();
 snd($sock_a, $port_b, rtp(0, 2006, 5600, 0x5678, "\x40" x 160));
 # packet dropped
 rcv_no($sock_b);
@@ -1134,7 +1139,10 @@ SDP
 
 
 snd($sock_a, $port_b, rtp(0, 2007, 5760, 0x5678, "\x40" x 160));
-rcv($sock_b, $port_a, rtpm(8, $seq + 11, 5760, $ssrc, "\x68" x 160));
+# Reconfiguration retains elapsed time in the output clock, independently of the input origin.
+($ts) = rcv($sock_b, $port_a, rtpm(8, $seq + 11, -1, $ssrc, "\x68" x 160));
+cmp_ok(abs(($ts - 5600) / 8000 - (Time::HiRes::time() - $resume_time)), '<', 0.1,
+        'output clock advances through codec reconfiguration');
 
 rtpe_req('delete', 'G.711/AMR codec change with timing', { 'from-tag' => ft() });
 
@@ -2044,14 +2052,17 @@ for my $i (0 .. 497) {
 	rcv($sock_b, $port_a, rtpm(8, $seq + 9 + $i, 5440 + $i * 160, $ssrc, "\xd5" x 160));
 }
 # now shut down
+$resume_time = Time::HiRes::time();
 rcv_no($sock_b);
 # start audio again
 snd($sock_a, $port_b, rtp(0, 2005, 90000, 0x5678, "\x40" x 160));
-rcv($sock_b, $port_a, rtpm(8, $seq + 507, 90000, $ssrc, "\x68" x 160));
+($ts) = rcv($sock_b, $port_a, rtpm(8, $seq + 507, -1, $ssrc, "\x68" x 160));
+cmp_ok(abs(($ts - (5440 + 497 * 160)) / 8000 - (Time::HiRes::time() - $resume_time)), '<', 0.1,
+        'output clock survives maximum DTX shutdown');
 snd($sock_a, $port_b, rtp(0, 2006, 90160, 0x5678, "\x40" x 160));
-rcv($sock_b, $port_a, rtpm(8, $seq + 508, 90160, $ssrc, "\x68" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 508, $ts + 160, $ssrc, "\x68" x 160));
 # DTX -> silence
-rcv($sock_b, $port_a, rtpm(8, $seq + 509, 90320, $ssrc, "\xd5" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 509, $ts + 320, $ssrc, "\xd5" x 160));
 
 rtpe_req('delete', 'G.711 DTX ptime change', { 'from-tag' => ft() });
 
