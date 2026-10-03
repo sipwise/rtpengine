@@ -3431,7 +3431,8 @@ static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *dec
 
 	unsigned long ts = packet ? packet->ts : 0;
 
-	if (!mp->ssrc_out->seq_set) {
+	// Discard entries have no packet; initialize sequencing with the first real packet.
+	if (packet && !mp->ssrc_out->seq_set) {
 		mp->ssrc_out->seq_set = true;
 		mp->ssrc_out->seq_out = packet->p.seq;
 	}
