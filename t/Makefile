@@ -84,7 +84,8 @@ include ../lib/common.Makefile
 	daemon-tests-bundle daemon-tests-dtls \
 	daemon-tests-redis-srtp-index \
 	daemon-tests-recording daemon-tests-create daemon-tests-alias \
-	daemon-tests-kernel-api
+	daemon-tests-kernel-api \
+	daemon-tests-dtx-dtmf
 
 TESTS := test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
 ifeq ($(with_transcoding),yes)
@@ -136,7 +137,7 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-bundle daemon-tests-dtls \
 	daemon-tests-redis-srtp-index \
 	daemon-tests-recording daemon-tests-create \
-	daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-dtx-no-shift \
+	daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-dtx-no-shift daemon-tests-dtx-dtmf \
 	daemon-tests-alias \
 	daemon-tests-kernel-api
 
@@ -163,6 +164,9 @@ daemon-tests-asymmetric:	daemon-test-deps
 
 daemon-tests-dtx:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtx.pl
+
+daemon-tests-dtx-dtmf:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtx-dtmf.pl
 
 daemon-tests-dtx-no-shift:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtx-no-shift.pl
