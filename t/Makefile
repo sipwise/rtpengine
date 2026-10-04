@@ -93,7 +93,7 @@ include ../lib/common.Makefile
 	daemon-tests-rollback-redis daemon-tests-redis-srtp-index daemon-tests-redis-errors \
 	daemon-tests-redis-destroyed daemon-tests-redis-reconnect \
 	daemon-tests-recording daemon-tests-create daemon-tests-create-srtp daemon-tests-created-subscriptions daemon-tests-alias \
-	daemon-tests-kernel-api daemon-tests-dtmf-fanout \
+	daemon-tests-kernel-api daemon-tests-dtmf-fanout daemon-tests-mixer-drift \
 	daemon-tests-video daemon-tests-inject daemon-tests-dtx-dtmf \
 	daemon-tests-roc-pl \
 	daemon-tests-ice-force-answer
@@ -150,7 +150,7 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-redis-reconnect \
 	daemon-tests-recording daemon-tests-create daemon-tests-create-srtp daemon-tests-created-subscriptions \
 	daemon-tests-ice-force-answer \
-	daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-dtx-no-shift daemon-tests-dtx-dtmf \
+	daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-dtx-no-shift daemon-tests-dtx-dtmf daemon-tests-mixer-drift \
 	daemon-tests-alias \
 	daemon-tests-kernel-api daemon-tests-dtmf-fanout \
 	daemon-tests-video daemon-tests-inject \
@@ -194,6 +194,9 @@ daemon-tests-dtx:	daemon-test-deps
 
 daemon-tests-dtx-dtmf:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtx-dtmf.pl
+
+daemon-tests-mixer-drift:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-mixer-drift.pl
 
 daemon-tests-dtmf-fanout:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtmf-fanout.pl
