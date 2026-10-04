@@ -2376,7 +2376,9 @@ const char *call_subscribe_answer_ng(ng_command_ctx_t *ctx) {
 	if (!flags.sdp.len)
 		return "No SDP body in message";
 
-	if (!sdp_parse(&flags.sdp, &parsed, &flags))
+	// Stream parameters retain slices of this SDP after the NG request is released.
+	str sdp_in = call_str_cpy(&flags.sdp);
+	if (!sdp_parse(&sdp_in, &parsed, &flags))
 		return "Failed to parse SDP";
 
 	if (!sdp_streams(&parsed, &streams, &flags))
@@ -2666,7 +2668,9 @@ const char *call_create_answer_ng(ng_command_ctx_t *ctx) {
 	if (!call)
 		return "unknown call-ID";
 
-	if (!sdp_parse(&flags.sdp, &parsed, &flags))
+	// Stream parameters retain slices of this SDP after the NG request is released.
+	str sdp_in = call_str_cpy(&flags.sdp);
+	if (!sdp_parse(&sdp_in, &parsed, &flags))
 		return "Failed to parse SDP";
 
 	if (!sdp_streams(&parsed, &streams, &flags))
