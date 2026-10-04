@@ -6810,6 +6810,8 @@ bool monologue_call_create(struct call_monologue *ml, sdp_ng_flags *flags) {
 
 
 bool monologue_call_create_answer(struct call_monologue *ml, sdp_ng_flags *flags, sdp_streams_q *streams) {
+	__call_monologue_init_from_flags(ml, NULL, flags);
+
 	g_auto(str_ht) mid_tracker = str_ht_new();
 
 	for (__auto_type l = streams->head; l; l = l->next)
