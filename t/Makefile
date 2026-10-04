@@ -113,6 +113,7 @@ include ../lib/common.Makefile
 	daemon-tests-dtx-no-shift daemon-tests-rtcp daemon-tests-redis-subscribe daemon-tests-rtp-ext \
 	daemon-tests-bundle daemon-tests-dtls \
 	daemon-tests-recording daemon-tests-create \
+	daemon-tests-created-subscriptions \
 	daemon-tests-dtx-dtmf
 
 TESTS=		test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
@@ -163,6 +164,7 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-asymmetric daemon-tests-rtcp daemon-tests-redis-subscribe daemon-tests-rtp-ext \
 	daemon-tests-bundle daemon-tests-dtls \
 	daemon-tests-recording daemon-tests-create \
+	daemon-tests-created-subscriptions \
 	daemon-tests-dtx-dtmf
 
 daemon-test-deps:	tests-preload.so
@@ -197,6 +199,9 @@ daemon-tests-pubsub:	daemon-test-deps
 
 daemon-tests-create:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-create.pl
+
+daemon-tests-created-subscriptions:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-created-subscriptions.pl
 
 daemon-tests-transform:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-transform.pl
