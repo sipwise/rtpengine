@@ -1,3 +1,135 @@
+ngcp-rtpengine (26.3.1.0+0~mr26.3.1.0) unstable; urgency=medium
+
+  [ Alexander Bakker ]
+  * [0f9e892] MT#55283 Disable loop check when remote endpoint is no longer local
+  * [8c51cbb] MT#55283 Defuse loop detection for duplicate packets that arrive >1s apart
+
+  [ Richard Fuchs ]
+  * [c22d724] MT#55283 don't do ICE checks on closed sockets
+  * [d524f83] MT#65413 typed container for AVFrame
+  * [9071a84] MT#55283 cache kernel routing entry
+  * [e4ee1f8] MT#55283 remove obsolete version tests
+  * [fda6cbf] MT#55283 fix compiler warnings
+  * [cb2ce35] MT#55283 handle non-linear skbuffs
+  * [75abd43] MT#55283 fix compiler warning
+  * [001d8fe] MT#55283 retain TLS ID for answer role change
+  * [8e92987] MT#55283 remove unneeded null check
+  * [91d0669] MT#55283 improve setup=actpass logic
+  * [032bd39] MT#55283 combine DTLS= and DTLS-reverse=
+  * [6388d49] MT#55283 tests for I0ded946, I49dcd93, I5423928
+  * [e8b8212] MT#55283 annotate generic test names
+  * [5b499de] MT#55283 close ports that can't be used
+  * [c0246b8] MT#55283 move msghdr into req obj
+  * [a3e8d1a] MT#55283 remove unused socket abstractions
+  * [632a9cf] MT#55283 move sockaddr_storage into req obj
+  * [1efaaf0] MT#55283 remove dst endpoint from sendmsg args
+  * [ffa048b] MT#55283 give uring object knowledge of iov
+  * [df7996b] MT#55283 queue unsent packets when buffer is full
+  * [5ee259b] MT#65420 unify player start code
+  * [e25bcf8] MT#65420 pass player opts by reference
+  * [6796106] MT#65420 make private functions static
+  * [42b6652] MT#65420 combine the two media players into array
+  * [9066365] MT#65420 give MP index to start/stop functions
+  * [56bb192] MT#65420 move media player into media
+  * [fc98a5a] MT#65420 adjust for PTS/duration drift
+  * [bf60ed4] MT#65420 support passing marker bit to decoders
+  * [a43de7c] MT#65420 decoder config via format_t
+  * [91ec5af] MT#65420 remove unused function argument
+  * [2ab2773] MT#65420 simplify and move set_av_opt_intstr
+  * [bc20cb5] MT#65420 reorder enc/dec option setting
+  * [e7b9c53] MT#65420 use correctly typed function
+  * [669090c] MT#65420 check callback function before calling it
+  * [0b3d305] MT#65420 encapsulate sample stream init
+  * [bc08b05] MT#65420 stricter str_to_X family
+  * [449385d] MT#55283 fix compiler error
+  * [94140a1] MT#65420 add height/width fields to structs
+  * [fcc6b68] MT#65420 streamline codec_def_supported
+  * [c9d389c] MT#65420 add format_supported callback
+  * [909582d] MT#65420 use stream index for stream seeking
+  * [b2ce483] MT#65420 remove unneeded case distinction
+  * [2711563] MT#65420 pick correct stream when reading file
+  * [3306e84] MT#65420 pass media type to make_generic_av
+  * [a2c3a6b] MT#65420 fill and use new width/height fields
+  * [4fe4cac] MT#65420 add frame rescaler
+  * [6c37316] MT#65420 return status from set_enc_options
+  * [a46a49b] MT#65420 streamline encoder input fn
+  * [6448f37] MT#65420 support setting marker from packetizer
+  * [2ad9d9b] MT#65420 add plumbing for video
+  * [0534e3d] MT#65420 initial support for video transcoding
+  * [2a4e68b] MT#65420 support for video playback
+  * [45ae2fb] MT#65420 restrict audio player to audio
+  * [09f3c5f] MT#65420 initial support for VP8
+  * [4f7e212] MT#65420 initial support for VP9
+  * [9b71521] MT#65420 allow outgoing offers with video
+  * [ddbf1d4] MT#65420 video support for demo app
+  * [41d4c98] MT#65420 test scripts for video
+  * [29e118c] MT#65420 initial support for H.264
+  * [0986dd1] MT#55283 fix compiler error
+  * [f2ec16f] MT#55283 remove largely useless error flag
+  * [2e74b43] MT#55283 fix compiler error
+  * [9712078] MT#55283 typed rtcp_fb queue
+  * [e76a144] MT#55283 rename files
+  * [080beb3] MT#55283 fix compiler error
+  * [a4c2b66] MT#55283 separate out arena from bencode
+  * [57ee958] MT#55283 use dedicated flag for arena debugging
+  * [40b17bd] MT#55283 exponential increase of arena allocations
+  * [7f69e7f] MT#55283 use mmap for long running arenas
+  * [e4f5ba6] MT#55283 add lightweight mode
+  * [4501198] MT#55283 prevent use of global rtpe_arena
+  * [4c6ba1c] MT#55283 allow for slower test runs
+  * [d1171ac] MT#55283 allow lightweight media strings
+  * [a13abfa] MT#55283 add missing label to Redis
+  * [66e4218] MT#55283 better syntax for transparent union
+  * [c5afd60] MT#55283 iqueue for packet streams
+  * [1b2afd5] MT#55283 iqueue for endpoint maps
+  * [dcdafb5] MT#55283 streamline Redis snapshotting code
+  * [5a5342f] MT#55283 fix stop_forwarding monologue mixup
+  * [1442eb4] MT#55283 iqueue for ml and media
+  * [e740431] MT#55283 remove duplicate loop
+  * [f74d428] MT#55283 use lightweight alloc for slices
+  * [acda0b2] MT#55283 iqueue for all_local_interfaces
+  * [579097e] MT#55283 g_new for last user of uid_alloc
+  * [ad2dca0] MT#55283 allow for copy from self
+  * [61e497d] MT#55283 lightweight SDP origin
+  * [69dc715] MT#55283 lightweight sdp_session fields
+  * [0df480c] MT#55283 lightweight groups_other
+  * [62e3885] MT#55283 lightweight sdp_attrs
+  * [00683d8] MT#55283 more lightweight strings
+  * [0fd4e54] MT#55283 lightweight rec meta
+  * [272b3c3] MT#55283 fix hash table update
+  * [c66bc45] MT#55283 lightweight recording fields
+  * [866e049] MT#55283 lightweight tag
+  * [1745d34] MT#55283 lightweight call ID
+  * [b3d024d] MT#55283 lightweight call ID aliases
+  * [279c593] MT#55283 lightweight created_from
+  * [402a67c] MT#55283 lightweight sdps
+  * [fc83f6c] MT#55283 lightweight xmlrpc_cb
+  * [13df915] MT#55283 lightweight viabranch
+  * [e6c928e] MT#55283 lightweight transform strings
+  * [3ed135b] MT#65420 move marker bit to upper struct
+  * [aec09de] MT#65420 marker handling in sequencer
+  * [08602d2] MT#65420 tests for Ib1d66943c
+  * [a9650e1] MT#55283 fix nested string lookup booboo
+  * [69b74ac] MT#55283 upgrade control_ng_process args
+  * [3f6cf09] MT#55283 extend mock getsockname
+  * [8da4be3] MT#55283 add local endpoint to WS conns
+
+  [ Daniel Donoghue ]
+  * [8ca3f8f] MT#55283 add rollback NG message
+
+  [ dnygate ]
+  * [55fe3c2] MT#55283 Fix build with libavcodec older than 61.19
+  * [fdbc23c] MT#55283 Add `force strip extmap` flag
+  * [8046d0a] MT#55283 Add test for `force strip extmap`
+  * [7674d85] MT#55283 Add a fixed egress SSRC per media
+  * [23bb540] MT#55283 Add tests for `fixed egress SSRC`
+  * [25ac052] MT#55283 Report the fixed egress SSRC in `query`
+
+  [ Nikolay Feshenko ]
+  * [b3de179] MT#55283 Fix inject audio mixing and cleanup
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 05 Oct 2026 12:36:56 +0200
+
 ngcp-rtpengine (26.3.0.0+0~mr26.3.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
