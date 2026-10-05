@@ -1600,6 +1600,7 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 	reti->dtls = MEDIA_ISSET(media, DTLS);
 	reti->non_forwarding = s->non_forwarding ? 1 : 0;
 	reti->blackhole = s->blackhole ? 1 : 0;
+	reti->loop_protect = MEDIA_ISSET(media, LOOP_CHECK) ? 1 : 0;
 	reti->rtp_stats = (rtpe_config.measure_rtp
 			|| MEDIA_ISSET(media, RTCP_GEN) || (mqtt_publish_scope() != MPS_NONE)) ? 1 : 0;
 
