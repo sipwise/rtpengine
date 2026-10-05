@@ -25,6 +25,8 @@
 #include "janus.h"
 #include "bufferpool.h"
 
+#include "common.h"
+
 #ifndef PORT_RANDOM_MIN
 #define PORT_RANDOM_MIN 6
 #define PORT_RANDOM_MAX 20
@@ -2733,48 +2735,19 @@ static int media_demux_protocols(struct packet_handler_ctx *phc) {
 
 
 #if RTP_LOOP_PROTECT
-// returns: 0 = ok, proceed; -1 = duplicate detected, drop packet
-static int media_loop_detect(struct packet_handler_ctx *phc) {
+// returns: true = ok, proceed; false = duplicate detected, drop packet
+static bool media_loop_detect(struct packet_handler_ctx *phc) {
 	LOCK(&phc->mp.stream->lock);
 
-	for (int i = 0; i < RTP_LOOP_PACKETS; i++) {
-		if (phc->mp.stream->lp_buf[i].len != phc->s.len)
-			continue;
-		if (memcmp(phc->mp.stream->lp_buf[i].buf, phc->s.s, MIN(phc->s.len, RTP_LOOP_PROTECT)))
-			continue;
+	bool ret = loop_detect(&phc->mp.stream->loop_protector, phc->s.s, phc->s.len, phc->mp.tv);
 
-		dbg_int("packet dupe");
+	if (!ret)
+		ilog(LOG_WARNING, "More than %d duplicate packets detected, dropping packet from %s%s%s"
+				"to avoid potential loop",
+				RTP_LOOP_MAX_COUNT,
+				FMT_M(endpoint_print_buf(&phc->mp.fsin)));
 
-		/* not a loop if duplicates arrive more than 1s apart */
-		if (phc->mp.tv - phc->mp.stream->lp_buf[i].recv_us > 1000000LL) {
-			dbg_int("duplicate packet too old to indicate a loop, resetting count");
-			phc->mp.stream->lp_count = 0;
-			phc->mp.stream->lp_buf[i].recv_us = phc->mp.tv;
-			return 0;
-		}
-
-		phc->mp.stream->lp_buf[i].recv_us = phc->mp.tv;
-
-		if (phc->mp.stream->lp_count >= RTP_LOOP_MAX_COUNT) {
-			ilog(LOG_WARNING, "More than %d duplicate packets detected, dropping packet from %s%s%s"
-					"to avoid potential loop",
-					RTP_LOOP_MAX_COUNT,
-					FMT_M(endpoint_print_buf(&phc->mp.fsin)));
-			return -1;
-		}
-
-		phc->mp.stream->lp_count++;
-		return 0;
-	}
-
-	/* not a dupe */
-	phc->mp.stream->lp_count = 0;
-	phc->mp.stream->lp_buf[phc->mp.stream->lp_idx].len = phc->s.len;
-	memcpy(phc->mp.stream->lp_buf[phc->mp.stream->lp_idx].buf, phc->s.s, MIN(phc->s.len, RTP_LOOP_PROTECT));
-	phc->mp.stream->lp_buf[phc->mp.stream->lp_idx].recv_us = phc->mp.tv;
-	phc->mp.stream->lp_idx = (phc->mp.stream->lp_idx + 1) % RTP_LOOP_PACKETS;
-
-	return 0;
+	return ret;
 }
 #endif
 
@@ -3563,10 +3536,9 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 		goto drop;
 	}
 
-
 #if RTP_LOOP_PROTECT
 	if (MEDIA_ISSET(phc->mp.media, LOOP_CHECK)) {
-		if (media_loop_detect(phc))
+		if (!media_loop_detect(phc))
 			goto out;
 	}
 #endif
