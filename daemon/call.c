@@ -2255,10 +2255,15 @@ static void media_loop_protect(struct stream_params *sp, struct call_media *medi
 		return;
 	}
 
+#if RTP_LOOP_PROTECT
 	ilog(LOG_DEBUG, "Detected local endpoint advertised by remote client, "
 			"enabling loop checking");
 
 	MEDIA_SET(media, LOOP_CHECK);
+#else
+	ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Detected local endpoint advertised by remote client, "
+			"but loop checking is not available");
+#endif
 }
 
 static void generate_mid(struct call_media *media, unsigned int idx) {
