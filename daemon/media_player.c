@@ -747,9 +747,13 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 		= t_hash_table_lookup(media_player_cache, &lookup);
 
 	if (entry) {
-		obj_hold(entry); // ref in mp->cache_entry
-		media_player_cached_reader_start(mp, codec_set);
-		return true;
+		if (entry->coder.handler) {
+			obj_hold(entry); // ref in mp->cache_entry
+			media_player_cached_reader_start(mp, codec_set);
+			return true;
+		}
+		// cache entry exists but failed to initialised. we can try again.
+		t_hash_table_remove(media_player_cache, &lookup);
 	}
 
 	// initialise object
