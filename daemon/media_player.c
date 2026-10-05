@@ -685,7 +685,9 @@ static void media_player_kernel_player_start(struct media_player *mp) {
 	media_player_kernel_player_start_now(mp);
 }
 
-static void media_player_cached_reader_start(struct media_player *mp, str_case_value_ht codec_set) {
+static void media_player_cached_reader_start(struct media_player *mp, str_case_value_ht codec_set,
+		const struct rtp_payload_type *pt)
+{
 	struct media_player_cache_entry *entry = mp->cache_entry;
 	const rtp_payload_type *dst_pt = &entry->coder.handler->dest_pt;
 
@@ -698,7 +700,7 @@ static void media_player_cached_reader_start(struct media_player *mp, str_case_v
 
 	// create dummy codec handler and start timer
 
-	mp->coder.handler = codec_handler_make_dummy(&entry->coder.handler->dest_pt, mp->media, codec_set);
+	mp->coder.handler = codec_handler_make_dummy(pt, mp->media, codec_set);
 
 	mp->run_func = media_player_read_decoded_packet;
 	mp->next_run = rtpe_now;
@@ -749,7 +751,7 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 	if (entry) {
 		if (entry->coder.handler) {
 			obj_hold(entry); // ref in mp->cache_entry
-			media_player_cached_reader_start(mp, codec_set);
+			media_player_cached_reader_start(mp, codec_set, dst_pt);
 			return true;
 		}
 		// cache entry exists but failed to initialised. we can try again.
@@ -950,7 +952,7 @@ static bool media_player_cache_entry_init(struct media_player *mp, const rtp_pay
 	// use low priority (10 nice)
 	thread_create_detach_prio(media_player_cache_entry_decoder_thread, obj_get(entry), NULL, 10, "mp decoder");
 
-	media_player_cached_reader_start(mp, codec_set);
+	media_player_cached_reader_start(mp, codec_set, dst_pt);
 
 	return true;
 }
