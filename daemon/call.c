@@ -39,6 +39,7 @@
 #include "bufferpool.h"
 
 #include "nft_rtpengine.h"
+#include "common.h"
 
 struct iterator_helper {
 	uint64_t		count;

@@ -408,6 +408,7 @@ test-stats:	test-stats.o \
 	../daemon/cdr.o \
 	../daemon/cli.strhash.o \
 	../daemon/codec.o \
+	../daemon/common.o \
 	../daemon/control_ng_flags_parser.o \
 	../daemon/control_ng.o \
 	../daemon/cookie_cache.o \
@@ -472,6 +473,7 @@ test-transcode:	test-transcode.o \
 	../daemon/cdr.o \
 	../daemon/cli.strhash.o \
 	../daemon/codec.o \
+	../daemon/common.o \
 	../daemon/control_ng_flags_parser.o \
 	../daemon/control_ng.o \
 	../daemon/cookie_cache.o \
