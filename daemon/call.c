@@ -5179,8 +5179,10 @@ static void __call_cleanup(call_t *c) {
 		ice_shutdown(&md->ice_agent);
 		call_media_stop(md);
 		t38_gateway_put(&md->t38_gateway);
+#ifdef WITH_TRANSCODING
 		media_player_put(&md->players[MP_DEFAULT]);
 		media_player_put(&md->players[MP_REC]);
+#endif
 		audio_player_free(md);
 		mutex_destroy(&md->dtmf_lock);
 		sdp_sp_clear(&md->sp);
@@ -5797,6 +5799,20 @@ static bool call_merge(call_t *call, call_t *call2) {
 		media->unique_id = ++last_id;
 		media->call = call;
 		i_queue_push_tail(&call->medias, media);
+
+#ifdef WITH_TRANSCODING
+		for (unsigned int i = 0; i < MP_COUNT; i++) {
+			if (media->players[i] && media->players[i]->call) {
+				obj_put(media->players[i]->call);
+				media->players[i]->call = obj_get(call);
+			}
+		}
+#endif
+
+		if (media->ice_agent && media->ice_agent->call) {
+			obj_put(media->ice_agent->call);
+			media->ice_agent->call = obj_get(call);
+		}
 	}
 
 	t_hash_table_foreach_remove(call2->sdp_fragments, fragment_move, call);
@@ -5807,6 +5823,16 @@ static bool call_merge(call_t *call, call_t *call2) {
 		stream->unique_id = ++last_id;
 		stream->call = call;
 		i_queue_push_tail(&call->streams, stream);
+
+		if (stream->send_timer && stream->send_timer->call) {
+			obj_put(stream->send_timer->call);
+			stream->send_timer->call = obj_get(call);
+		}
+
+		if (stream->jb && stream->jb->call) {
+			obj_put(stream->jb->call);
+			stream->jb->call = obj_get(call);
+		}
 	}
 
 	last_id = call->stream_fds.head->data->unique_id;
@@ -5871,6 +5897,8 @@ static bool call_merge(call_t *call, call_t *call2) {
 
 	rwlock_unlock_w(&call2->master_lock);
 	obj_release(call2);
+
+	call_memory_arena_set(call);
 
 	return true;
 }
@@ -6445,8 +6473,10 @@ void call_media_stop(struct call_media *m) {
 	if (!m)
 		return;
 	t38_gateway_stop(m->t38_gateway);
+#ifdef WITH_TRANSCODING
 	media_player_stop(m->players[MP_DEFAULT]);
 	media_player_stop(m->players[MP_REC]);
+#endif
 	audio_player_stop(m);
 	codec_handlers_stop(&m->codec_handlers_store, NULL, false);
 	rtcp_timer_stop(&m->rtcp_timer);
