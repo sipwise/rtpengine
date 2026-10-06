@@ -581,7 +581,9 @@ struct call_media {
 	struct t38_gateway	*t38_gateway;
 	struct audio_player	*audio_player;
 	struct codec_handler	*t38_handler;
+#ifdef WITH_TRANSCODING
 	struct media_player	*players[MP_COUNT];
+#endif
 
 	unsigned int		buffer_delay;
 

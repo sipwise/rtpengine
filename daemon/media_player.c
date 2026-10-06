@@ -1601,6 +1601,7 @@ bool media_player_play(struct media_player *mp, media_player_opts_t *opts) {
 }
 
 
+#ifdef WITH_TRANSCODING
 /**
  * When to_ml is given, check MoH capabilities of it,
  * because then an offerer wants to use them instead of its own (from_ml).
@@ -1618,10 +1619,10 @@ static bool call_ml_wants_moh(struct call_monologue *from_ml, struct call_monolo
 	return false;
 }
 
+
 static bool call_ml_stops_moh(struct call_monologue *from_ml, struct call_monologue *to_ml,
 		enum ng_opmode opmode)
 {
-#ifdef WITH_TRANSCODING
 	if (opmode != OP_OFFER)
 		return false;
 	if (call_ml_sendonly_inactive(from_ml))
@@ -1634,9 +1635,8 @@ static bool call_ml_stops_moh(struct call_monologue *from_ml, struct call_monolo
 		return false;
 
 	return true;
-#endif
-	return false;
 }
+
 
 /**
  * MOH_ZEROCONN: check if originator wants to advertise zero address during moh.
@@ -1648,7 +1648,6 @@ static bool call_ml_stops_moh(struct call_monologue *from_ml, struct call_monolo
  *  and audio type.
  */
 static void call_ml_moh_handle_flags(struct call_monologue *from_ml, struct call_monologue *to_ml) {
-#ifdef WITH_TRANSCODING
 	/* if from_ml not given, then it's a reflected MoH, use capabilities of to_ml */
 	struct call_monologue *moh_ml = from_ml ? : to_ml;
 
@@ -1688,8 +1687,9 @@ check_next:
 				bf_set(&audio->media_flags, MEDIA_FLAG_REAL_SENDONLY);
 		}
 	}
-#endif
 }
+#endif
+
 
 const char *call_check_moh(struct call_monologue *from_ml, struct call_monologue *to_ml,
 	sdp_ng_flags *flags)
@@ -1738,13 +1738,12 @@ const char *call_check_moh(struct call_monologue *from_ml, struct call_monologue
 		call_stop_media_for_ml(to_ml, MP_DEFAULT);
 		ilog(LOG_DEBUG, "Music on hold stopped with coming SDP offer.");
 	}
-	return NULL;
-#else
-	return NULL;
 #endif
+	return NULL;
 }
 
 
+#ifdef WITH_TRANSCODING
 static void set_monologue_media(struct call_monologue *ml, bool allow_inactive) {
 	ml->audio = NULL;
 	ml->video = NULL;
@@ -1768,6 +1767,8 @@ static void set_monologue_media(struct call_monologue *ml, bool allow_inactive) 
 			return;
 	}
 }
+#endif
+
 
 const char *call_play_media_for_ml(struct call_monologue *ml, unsigned int mp_idx,
 		media_player_opts_t *opts, sdp_ng_flags *flags)

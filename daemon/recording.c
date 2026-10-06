@@ -346,11 +346,13 @@ static void rec_setup_monologue(struct call_monologue *ml) {
 	__auto_type audio = ml->audio;
 	if (!audio)
 		return;
+#ifdef WITH_TRANSCODING
 	if (audio->players[MP_REC]) {
 		bool ret = media_player_start(audio->players[MP_REC]);
 		if (!ret)
 			ilog(LOG_WARN, "Failed to start media player for recording announcement");
 	}
+#endif
 }
 
 // lock must be held
