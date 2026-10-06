@@ -1530,13 +1530,12 @@ static bool media_player_add_file(struct media_player *mp, media_player_opts_t o
 	int ret = __media_player_add_file(mp, opts, NULL);
 	return ret == 0;
 }
-#endif
 
 /**
  * When to_ml is given, check MoH capabilities of it,
  * because then an offerer wants to use them instead of its own (from_ml).
  */
-bool call_ml_wants_moh(struct call_monologue *from_ml, struct call_monologue *to_ml,
+static bool call_ml_wants_moh(struct call_monologue *from_ml, struct call_monologue *to_ml,
 		enum ng_opmode opmode)
 {
 	struct call_monologue *ml = to_ml ? : from_ml;
@@ -1549,17 +1548,16 @@ bool call_ml_wants_moh(struct call_monologue *from_ml, struct call_monologue *to
 	return false;
 }
 
-bool call_ml_stops_moh(struct call_monologue *from_ml, struct call_monologue *to_ml,
+static bool call_ml_stops_moh(struct call_monologue *from_ml, struct call_monologue *to_ml,
 		enum ng_opmode opmode)
 {
-#ifdef WITH_TRANSCODING
 	if (opmode == OP_OFFER && !call_ml_sendonly_inactive(from_ml) && (to_ml->player && to_ml->player->opts.moh))
 	{
 		return true;
 	}
-#endif
 	return false;
 }
+
 
 /**
  * MOH_ZEROCONN: check if originator wants to advertise zero address during moh.
@@ -1570,8 +1568,7 @@ bool call_ml_stops_moh(struct call_monologue *from_ml, struct call_monologue *to
  *  Sets the sendrecv state for the first found subscription media with a sendonly state
  *  and audio type.
  */
-void call_ml_moh_handle_flags(struct call_monologue *from_ml, struct call_monologue *to_ml) {
-#ifdef WITH_TRANSCODING
+static void call_ml_moh_handle_flags(struct call_monologue *from_ml, struct call_monologue *to_ml) {
 
 	/* if from_ml not given, then it's a reflected MoH, use capabilities of to_ml */
 	struct call_monologue *moh_ml = from_ml ? : to_ml;
@@ -1616,8 +1613,9 @@ check_next:
 			}
 		}
 	}
-#endif
 }
+#endif
+
 
 const char * call_check_moh(struct call_monologue *from_ml, struct call_monologue *to_ml,
 	sdp_ng_flags *flags)
@@ -1668,13 +1666,11 @@ const char * call_check_moh(struct call_monologue *from_ml, struct call_monologu
 		call_stop_media_for_ml(to_ml);
 		ilog(LOG_DEBUG, "Music on hold stopped with coming SDP offer.");
 	}
-	return NULL;
-#else
-	return NULL;
 #endif
+	return NULL;
 }
 
-const char * call_play_media_for_ml(struct call_monologue *ml,
+const char *call_play_media_for_ml(struct call_monologue *ml,
 		media_player_opts_t opts, sdp_ng_flags *flags)
 {
 #ifdef WITH_TRANSCODING
