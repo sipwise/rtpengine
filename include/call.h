@@ -622,8 +622,10 @@ struct call_monologue {
 	GHashTable		*subscribers_ht;	/* for quick lookup */
 	medias_arr		*medias;
 	media_id_ht		media_ids;
+#ifdef WITH_TRANSCODING
 	struct media_player	*player;
 	struct media_player	*rec_player;
+#endif
 	struct session_bandwidth sdp_session_bandwidth;
 	GString			*last_out_sdp;
 
