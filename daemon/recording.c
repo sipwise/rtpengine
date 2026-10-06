@@ -345,11 +345,13 @@ static void recording_update_flags(call_t *call, bool streams) {
 
 static void rec_setup_monologue(struct call_monologue *ml) {
 	recording_setup_monologue(ml);
+#ifdef WITH_TRANSCODING
 	if (ml->rec_player) {
 		bool ret = media_player_start(ml->rec_player);
 		if (!ret)
 			ilog(LOG_WARN, "Failed to start media player for recording announcement");
 	}
+#endif
 }
 
 // lock must be held

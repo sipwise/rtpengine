@@ -4079,8 +4079,10 @@ static void __call_cleanup(call_t *c) {
 	for (__auto_type l = c->monologues.head; l; l = l->next) {
 		struct call_monologue *ml = l->data;
 		__monologue_stop(ml);
+#ifdef WITH_TRANSCODING
 		media_player_put(&ml->player);
 		media_player_put(&ml->rec_player);
+#endif
 		if (ml->tone_freqs)
 			g_array_free(ml->tone_freqs, true);
 		obj_release_o(ml->janus_session);
@@ -4641,6 +4643,16 @@ bool call_merge(call_t *call, call_t **call2p) {
 			t_hash_table_insert(call->viabranches, &ml->viabranch, ml);
 		if (ml->label.len)
 			t_hash_table_insert(call->labels, &ml->label, ml);
+#ifdef WITH_TRANSCODING
+		if (ml->player && ml->player->call) {
+			obj_put(ml->player->call);
+			ml->player->call = obj_get(call);
+		}
+		if (ml->rec_player && ml->rec_player->call) {
+			obj_put(ml->rec_player->call);
+			ml->rec_player->call = obj_get(call);
+		}
+#endif
 	}
 
 	last_id = call->medias.head->data->unique_id;
@@ -4649,6 +4661,11 @@ bool call_merge(call_t *call, call_t **call2p) {
 		media->unique_id = ++last_id;
 		media->call = call;
 		t_queue_push_tail(&call->medias, media);
+
+		if (media->ice_agent && media->ice_agent->call) {
+			obj_put(media->ice_agent->call);
+			media->ice_agent->call = obj_get(call);
+		}
 	}
 
 	t_hash_table_foreach_remove(call2->sdp_fragments, fragment_move, call);
@@ -4659,6 +4676,16 @@ bool call_merge(call_t *call, call_t **call2p) {
 		stream->unique_id = ++last_id;
 		stream->call = call;
 		t_queue_push_tail(&call->streams, stream);
+
+		if (stream->send_timer && stream->send_timer->call) {
+			obj_put(stream->send_timer->call);
+			stream->send_timer->call = obj_get(call);
+		}
+
+		if (stream->jb && stream->jb->call) {
+			obj_put(stream->jb->call);
+			stream->jb->call = obj_get(call);
+		}
 	}
 
 	last_id = call->stream_fds.head->data->unique_id;
@@ -4713,6 +4740,8 @@ bool call_merge(call_t *call, call_t **call2p) {
 	rwlock_unlock_w(&call2->master_lock);
 	obj_release(call2);
 	*call2p = NULL;
+
+	call_memory_arena_set(call);
 
 	return true;
 }
@@ -5279,8 +5308,10 @@ static void media_stop(struct call_media *m) {
  * Stops media player of given monologue.
  */
 static void __monologue_stop(struct call_monologue *ml) {
+#ifdef WITH_TRANSCODING
 	media_player_stop(ml->player);
 	media_player_stop(ml->rec_player);
+#endif
 }
 /**
  * Stops media player and all medias of given monolgue.
