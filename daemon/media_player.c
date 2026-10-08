@@ -301,17 +301,17 @@ struct send_timer *send_timer_new(struct packet_stream *ps) {
 }
 
 // call is locked in R
-// ssrc_out is locked
 // st->sink is locked
+// ssrc_out is NOT locked: rtcp_send_report() locks other SSRC entries (the
+// receiver report sources and the SR bookkeeping on the far media) and the
+// transcoder locks ingress before egress (__ssrc_lock_both), so holding the
+// egress lock across this call inverts the order and deadlocks against it.
 static void send_timer_rtcp(struct send_timer *st, struct ssrc_entry_call *ssrc_out) {
 	struct call_media *media = st->sink ? st->sink->media : NULL;
 	if (!media)
 		return;
 
 	rtcp_send_report(media, ssrc_out, st->sink);
-
-	ssrc_out->next_rtcp = rtpe_now;
-	ssrc_out->next_rtcp += 5000000 + (ssl_random() % 2000000);
 }
 
 struct async_send_req {
@@ -432,10 +432,17 @@ static void __send_timer_rtcp(struct send_timer *st, struct ssrc_entry_call *ssr
 	if (!ssrc_out->next_rtcp)
 		return;
 
-	LOCK(&ssrc_out->h.lock);
-	int64_t diff = ssrc_out->next_rtcp - rtpe_now;
-	if (diff < 0)
-		send_timer_rtcp(st, ssrc_out);
+	{
+		LOCK(&ssrc_out->h.lock);
+		int64_t diff = ssrc_out->next_rtcp - rtpe_now;
+		if (diff >= 0)
+			return;
+		// claim the slot before dropping the lock so that another send
+		// timer sharing this SSRC does not send a second report
+		ssrc_out->next_rtcp = rtpe_now;
+		ssrc_out->next_rtcp += 5000000 + (ssl_random() % 2000000);
+	}
+	send_timer_rtcp(st, ssrc_out);
 }
 
 static void send_timer_send_lock(struct send_timer *st, struct codec_packet *cp) {
