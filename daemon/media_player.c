@@ -1126,6 +1126,11 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 
 	mp->coder.handler->handler_func(mp->coder.handler, &packet);
 
+	/* sent under the fixed egress SSRC: forwarded media must re-base on us */
+	if (mp->ssrc_out && mp->media->fixed_egress_ssrc
+			&& mp->ssrc_out->h.ssrc == mp->media->fixed_egress_ssrc)
+		mp->ssrc_out->fixed_rebase = true;
+
 	// as this is timing sensitive and we may have spent some time decoding,
 	// update our global "now" timestamp
 	rtpe_now = now_us();
@@ -1252,6 +1257,10 @@ void media_player_set_sink(struct media_player *mp) {
 		mp->sink.sink = media->streams.head;
 		sink_handler_set_generic(&mp->sink);
 	}
+	/* with a fixed egress SSRC the player sends under it too, so the
+	 * receiver sees a single stream whether media is forwarded or mixed */
+	if (media->fixed_egress_ssrc)
+		mp->ssrc = media->fixed_egress_ssrc;
 	if (!mp->ssrc_out || mp->ssrc_out->h.ssrc != mp->ssrc) {
 		struct ssrc_entry_call *ssrc_ctx = get_ssrc(mp->ssrc, &media->ssrc_hash_out);
 		if (ssrc_ctx)
@@ -1260,6 +1269,22 @@ void media_player_set_sink(struct media_player *mp) {
 		 * hence release previous ssrc, to no leak on media changes */
 		ssrc_entry_release(mp->ssrc_out);
 		mp->ssrc_out = ssrc_ctx;
+	}
+	/* ... and, whenever it (re)starts under it, carries on from the last
+	 * sequence number sent under that SSRC by whoever sent it. The player
+	 * numbers its packets as `mp->seq + seq_diff` (the audio player, which
+	 * advances seq_diff per packet) or as `mp->seq` alone (file playback),
+	 * so both counters are reset together. Dropping the offset that
+	 * forwarded media had accumulated is safe: the codec handlers were just
+	 * rebuilt around the player, so nothing else sends under this SSRC now,
+	 * and forwarding re-bases on ext_seq when it resumes (fixed_rebase). */
+	if (media->fixed_egress_ssrc && mp->ssrc_out
+			&& mp->ssrc_out->h.ssrc == media->fixed_egress_ssrc && !mp->next_run)
+	{
+		uint64_t last = atomic_get_na(&mp->ssrc_out->stats->ext_seq);
+		if (last)
+			mp->seq = (uint16_t) (last + 1);
+		mp->ssrc_out->seq_diff = 0;
 	}
 }
 

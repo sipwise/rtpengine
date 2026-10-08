@@ -19,6 +19,7 @@
 #include "iptables.h"
 #include "main.h"
 #include "media_player.h"
+#include "audio_player.h"
 #include "jitter_buffer.h"
 #include "dtmf.h"
 #include "mqtt.h"
@@ -3062,12 +3063,16 @@ static void media_packet_rtp_out(struct packet_handler_ctx *phc, struct sink_han
 				sh->attrs.transcoding || fixed_ssrc);
 
 		/* a fixed egress SSRC outlives the ingress SSRC, so carry the
-		 * sequence numbering across a change of source */
-		if (fixed_ssrc && phc->mp.ssrc_out) {
+		 * sequence numbering across a change of source. Not while an audio
+		 * player feeds the sink: then this packet is decoded into its mix
+		 * buffer and never reaches the wire under this SSRC, whose numbering
+		 * belongs to the player (which advances seq_diff itself) until it
+		 * stops - forwarding re-bases on ext_seq when it resumes. */
+		if (fixed_ssrc && phc->mp.ssrc_out && !audio_player_is_active(phc->mp.media_out)) {
 			struct ssrc_entry_call *so = phc->mp.ssrc_out;
 			uint32_t in_ssrc = ntohl(phc->mp.rtp->ssrc);
 			uint16_t seq = ntohs(phc->mp.rtp->seq_num);
-			if (so->fixed_in_ssrc_set && so->fixed_in_ssrc != in_ssrc) {
+			if ((so->fixed_in_ssrc_set && so->fixed_in_ssrc != in_ssrc) || so->fixed_rebase) {
 				/* the egress sequence counter lives in memory shared with
 				 * the kernel module, so it stays current even while the
 				 * stream is offloaded and userspace sees no packets */
@@ -3076,6 +3081,7 @@ static void media_packet_rtp_out(struct packet_handler_ctx *phc, struct sink_han
 			}
 			so->fixed_in_ssrc = in_ssrc;
 			so->fixed_in_ssrc_set = true;
+			so->fixed_rebase = false;
 		}
 	}
 	else if (phc->rtcp && phc->mp.rtcp) {

@@ -2429,7 +2429,9 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 
 		if (seq_ret == 1) {
 			// seq reset - update output seq. we keep our output seq clean
-			ssrc_out->seq_diff -= packet->p.seq - seq_ori;
+			// (not when decoding into an audio player: the egress numbering is the player's)
+			if (h->packet_decoded != packet_decoded_audio_player)
+				ssrc_out->seq_diff -= packet->p.seq - seq_ori;
 			seq_ret = 0;
 		}
 
@@ -4892,7 +4894,12 @@ static tc_code __rtp_decode_direct(struct codec_ssrc_handler *ch, struct codec_s
 			code = ret == 0 ? TCC_OK : TCC_ERR;
 		}
 	}
-	__buffer_delay_seq(input_ch->handler->delay_buffer, mp, -1);
+	/* an input packet disappeared, so the egress numbering (input seq +
+	 * seq_diff) moves down one - unless this handler decodes into an audio
+	 * player: it emits no RTP of its own, the player numbers its output
+	 * itself, and with a fixed egress SSRC the entry is the player's */
+	if (ch->handler->packet_decoded != packet_decoded_audio_player)
+		__buffer_delay_seq(input_ch->handler->delay_buffer, mp, -1);
 	return code;
 }
 static tc_code __rtp_decode_async(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
