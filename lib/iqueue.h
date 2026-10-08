@@ -104,6 +104,7 @@
 	} \
 	else \
 		(list)->head = __link->link.next; \
+	(list)->length--; \
 } while (0)
 
 
