@@ -45,7 +45,7 @@ static bencode_item_t __bencode_end_marker = {
 
 
 
-static bencode_item_t *__bencode_decode(bencode_buffer_t *buf, const char *s, const char *end);
+static bencode_item_t *__bencode_decode(bencode_buffer_t *buf, const char *s, const char *end, unsigned int depth);
 
 
 
@@ -447,7 +447,9 @@ static void __bencode_hash_insert(bencode_item_t *key, struct __bencode_hash *ha
 	}
 }
 
-static bencode_item_t *__bencode_decode_dictionary(bencode_buffer_t *buf, const char *s, const char *end) {
+static bencode_item_t *__bencode_decode_dictionary(bencode_buffer_t *buf, const char *s, const char *end,
+		unsigned int depth)
+{
 	bencode_item_t *ret, *key, *value;
 	struct __bencode_hash *hash;
 
@@ -464,7 +466,7 @@ static bencode_item_t *__bencode_decode_dictionary(bencode_buffer_t *buf, const 
 	memset(hash, 0, sizeof(*hash));
 
 	while (s < end) {
-		key = __bencode_decode(buf, s, end);
+		key = __bencode_decode(buf, s, end, depth);
 		if (!key)
 			return NULL;
 		s += key->str_len;
@@ -476,7 +478,7 @@ static bencode_item_t *__bencode_decode_dictionary(bencode_buffer_t *buf, const 
 
 		if (s >= end)
 			return NULL;
-		value = __bencode_decode(buf, s, end);
+		value = __bencode_decode(buf, s, end, depth);
 		if (!value)
 			return NULL;
 		s += value->str_len;
@@ -490,7 +492,9 @@ static bencode_item_t *__bencode_decode_dictionary(bencode_buffer_t *buf, const 
 	return ret;
 }
 
-static bencode_item_t *__bencode_decode_list(bencode_buffer_t *buf, const char *s, const char *end) {
+static bencode_item_t *__bencode_decode_list(bencode_buffer_t *buf, const char *s, const char *end,
+		unsigned int depth)
+{
 	bencode_item_t *ret, *item;
 
 	if (*s != 'l')
@@ -503,7 +507,7 @@ static bencode_item_t *__bencode_decode_list(bencode_buffer_t *buf, const char *
 	__bencode_list_init(ret);
 
 	while (s < end) {
-		item = __bencode_decode(buf, s, end);
+		item = __bencode_decode(buf, s, end, depth);
 		if (!item)
 			return NULL;
 		s += item->str_len;
@@ -606,15 +610,17 @@ done:
 	return ret;
 }
 
-static bencode_item_t *__bencode_decode(bencode_buffer_t *buf, const char *s, const char *end) {
+static bencode_item_t *__bencode_decode(bencode_buffer_t *buf, const char *s, const char *end, unsigned int depth) {
 	if (s >= end)
+		return NULL;
+	if (depth > 64) // max recursions
 		return NULL;
 
 	switch (*s) {
 		case 'd':
-			return __bencode_decode_dictionary(buf, s, end);
+			return __bencode_decode_dictionary(buf, s, end, depth + 1);
 		case 'l':
-			return __bencode_decode_list(buf, s, end);
+			return __bencode_decode_list(buf, s, end, depth + 1);
 		case 'i':
 			return __bencode_decode_integer(buf, s, end);
 		case 'e':
@@ -637,7 +643,7 @@ static bencode_item_t *__bencode_decode(bencode_buffer_t *buf, const char *s, co
 
 bencode_item_t *bencode_decode(bencode_buffer_t *buf, const char *s, size_t len) {
 	assert(s != NULL);
-	return __bencode_decode(buf, s, s + len);
+	return __bencode_decode(buf, s, s + len, 0);
 }
 
 
