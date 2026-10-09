@@ -9,6 +9,9 @@ use Test::More;
 use Time::HiRes qw(time sleep);
 use IO::Select;
 
+plan skip_all => 'requires AMR-WB encoding; enable RTPENGINE_EXTENDED_TESTS'
+	unless $ENV{RTPENGINE_EXTENDED_TESTS};
+
 autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1
 	-n 2223 -f -L 7 -E --dtx-delay=50)) or die;
 
