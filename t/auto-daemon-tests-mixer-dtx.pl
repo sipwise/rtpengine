@@ -19,6 +19,26 @@ autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -n 2223 -f -L 7 -E
 
 # Reuse the call and SSRC to cover decoder/DTX cleanup when clock ownership changes.
 my ($source, $listener) = new_call([qw(198.51.100.10 5000)], [qw(198.51.100.10 5002)]);
+my $idle_select = IO::Select->new($source, $listener);
+my $source_select = IO::Select->new($source);
+
+# Consume idle media so the preload harness's Unix datagram queues do not fill and block signalling.
+sub drain_media {
+	my ($select, $duration) = @_;
+	my $until = time() + $duration;
+	while (1) {
+		my $wait = $until - time();
+		$wait = 0 if $wait < 0;
+		$wait = 0.02 if $wait > 0.02;
+		my @ready = $select->can_read($wait);
+		for my $socket (@ready) {
+			my $discard;
+			$socket->recv($discard, 65535);
+		}
+		last if time() >= $until && !@ready;
+	}
+}
+
 my $phase = 0;
 for my $mode ('always', 'transcoding', 'always', 'off', 'always') {
 	my $name = "DTX clock ownership: $phase $mode";
@@ -40,10 +60,7 @@ for my $mode ('always', 'transcoding', 'always', 'off', 'always') {
 	my ($input_port) = $answer->{sdp} =~ /m=audio (\d+)/;
 	ok($input_port, 'source media address was negotiated');
 	my $select = IO::Select->new($listener);
-	while ($select->can_read(0)) {
-		my $discard;
-		$listener->recv($discard, 65535);
-	}
+	drain_media($idle_select, 0);
 	my $start = time();
 	my $seq = 100 + $phase * 100;
 	my $ts = 100000 + $phase * 16000;
@@ -58,6 +75,7 @@ for my $mode ('always', 'transcoding', 'always', 'off', 'always') {
 	my ($delay, $speech_ssrc, $last_seq, $last_ts);
 	my $clock_intervals = 0;
 	while (time() - $start < $dtx_delay + 0.8) {
+		drain_media($source_select, 0);
 		next unless $select->can_read(0.02);
 		my $packet;
 		$listener->recv($packet, 65535);
@@ -105,7 +123,7 @@ for my $mode ('always', 'transcoding', 'always', 'off', 'always') {
 		}
 	}
 	# Let both tone frames leave the mixer before measuring the next signalling update.
-	Time::HiRes::sleep(0.3);
+	drain_media($idle_select, 0.3);
 	$phase++;
 }
 
