@@ -98,6 +98,10 @@ struct ssrc_entry_call {
 	 * source can be spotted and the sequence numbering carried across it */
 	uint32_t fixed_in_ssrc;
 	bool fixed_in_ssrc_set;
+	/* for a fixed egress SSRC: a media player (audio player / mixer) has sent
+	 * under this SSRC, so forwarded media must re-base its sequence numbers on
+	 * the player's before resuming */
+	bool fixed_rebase;
 };
 
 struct ssrc_time_item {
