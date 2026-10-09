@@ -31,6 +31,15 @@ static bool audio_player_run(struct media_player *mp) {
 	if (!ap || !ap->ptime_us)
 		return false;
 
+	// Skip missed timer ticks after a stall instead of encoding a catch-up burst.
+	// A burst can exceed the encoder's send-timer window and interleave queued and new packets.
+	int64_t now = now_us();
+	int64_t late = now - mp->next_run;
+	if (late >= ap->ptime_us) {
+		mp->next_run += late / ap->ptime_us * ap->ptime_us;
+		rtpe_now = mp->next_run;
+	}
+
 	ap->last_run = rtpe_now; // equals mp->next_run
 
 	unsigned int size;
