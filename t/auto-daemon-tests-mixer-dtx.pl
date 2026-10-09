@@ -11,9 +11,11 @@ use Test::More;
 use Time::HiRes qw(time);
 use IO::Select;
 
-# A deliberately large DTX delay makes clock ownership observable without AMR fixtures or long calls.
+# Leave a wide gap between prompt mixer output and the configured DTX wait.
+# The observation includes scheduling of both the daemon and this test on shared CI runners.
+my $dtx_delay = 0.8; # seconds
 autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -n 2223 -f -L 7 -E
-	--dtx-delay=200 --max-dtx=1), @ARGV) or die;
+	--max-dtx=1), '--dtx-delay=' . ($dtx_delay * 1000), @ARGV) or die;
 
 # Reuse the call and SSRC to cover decoder/DTX cleanup when clock ownership changes.
 my ($source, $listener) = new_call([qw(198.51.100.10 5000)], [qw(198.51.100.10 5002)]);
@@ -55,7 +57,7 @@ for my $mode ('always', 'transcoding', 'always', 'off', 'always') {
 	snd($source, $input_port, rtp(0, $seq + 1, $ts + 160, 0x5678, $payload));
 	my ($delay, $speech_ssrc, $last_seq, $last_ts);
 	my $clock_intervals = 0;
-	while (time() - $start < 0.6) {
+	while (time() - $start < $dtx_delay + 0.8) {
 		next unless $select->can_read(0.02);
 		my $packet;
 		$listener->recv($packet, 65535);
@@ -92,10 +94,14 @@ for my $mode ('always', 'transcoding', 'always', 'off', 'always') {
 	}
 	if (defined $delay) {
 		if ($mode eq 'always') {
-			cmp_ok($delay, '<', 0.14, 'permanent mixer does not queue input behind the DTX timer');
+			cmp_ok($delay, '<', $dtx_delay / 2, 'permanent mixer does not queue input behind the DTX timer')
+				or diag(sprintf('%s: observed %.3f s with configured DTX delay %.3f s',
+					$name, $delay, $dtx_delay));
 		}
 		else {
-			cmp_ok($delay, '>=', 0.18, 'ordinary and implicit transcoders retain configured DTX handling');
+			cmp_ok($delay, '>=', $dtx_delay - 0.05, 'ordinary and implicit transcoders retain configured DTX handling')
+				or diag(sprintf('%s: observed %.3f s with configured DTX delay %.3f s',
+					$name, $delay, $dtx_delay));
 		}
 	}
 	# Let both tone frames leave the mixer before measuring the next signalling update.
