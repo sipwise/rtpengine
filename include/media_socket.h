@@ -313,6 +313,7 @@ struct media_packet {
 	struct sink_handler sink;
 	struct media_player_cache_entry *cache_entry;
 	bool recording_egress;
+	bool dtx; // processed by the DTX timer; retain the output encoder clock
 
 	struct rtp_header *rtp;
 	struct rtcp_packet *rtcp;
