@@ -2727,8 +2727,13 @@ static int packet_dtmf_event(struct codec_ssrc_handler *ch, struct codec_ssrc_ha
 {
 	LOCK(&mp->media->dtmf_lock);
 
-	if (mp->media->dtmf_ts == packet->ts)
+	if (mp->media->dtmf_ts == packet->ts) {
+		// The event is deduplicated per media, but suppression is tracked per
+		// input handler. Clear it for every destination that saw this event.
+		if (input_ch->dtmf_start_ts == packet->ts)
+			input_ch->dtmf_start_ts = 0;
 		return 1; // ignore already processed events
+	}
 
 	int ret = dtmf_event_packet(mp, packet->payload, ch->handler->source_pt.clock_rate, packet->ts);
 	if (G_UNLIKELY(ret == -1)) // error

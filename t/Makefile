@@ -90,7 +90,7 @@ include ../lib/common.Makefile
 	daemon-tests-bundle daemon-tests-dtls daemon-tests-rollback \
 	daemon-tests-rollback-redis daemon-tests-redis-srtp-index \
 	daemon-tests-recording daemon-tests-create daemon-tests-created-subscriptions daemon-tests-alias \
-	daemon-tests-kernel-api \
+	daemon-tests-kernel-api daemon-tests-dtmf-fanout \
 	daemon-tests-video daemon-tests-inject daemon-tests-dtx-dtmf
 
 TESTS := test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
@@ -145,7 +145,7 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-recording daemon-tests-create daemon-tests-created-subscriptions \
 	daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-dtx-no-shift daemon-tests-dtx-dtmf \
 	daemon-tests-alias \
-	daemon-tests-kernel-api \
+	daemon-tests-kernel-api daemon-tests-dtmf-fanout \
 	daemon-tests-video daemon-tests-inject
 
 daemon-test-deps:	tests-preload.so
@@ -183,6 +183,9 @@ daemon-tests-dtx:	daemon-test-deps
 
 daemon-tests-dtx-dtmf:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtx-dtmf.pl
+
+daemon-tests-dtmf-fanout:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtmf-fanout.pl
 
 daemon-tests-dtx-no-shift:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtx-no-shift.pl
