@@ -1115,12 +1115,14 @@ static void setup_media_proc(struct call_media *media) {
 }
 
 
-
 static void dump_packet_proc(struct media_packet *mp, const str *s) {
 	struct packet_stream *stream = mp->stream;
 	if (stream->recording.proc.stream_idx == UNINIT_IDX)
 		return;
-	if (!CALL_ISSET(mp->call, RECORDING_ON))
+	if (!CALL_ISSET(mp->call, RECORDING_ON)
+			&& !CALL_ISSET(mp->call, REC_FORWARDING)
+			&& !(stream->media->monologue
+				&& ML_ISSET(stream->media->monologue, REC_FORWARDING)))
 		return;
 
 	struct rtpengine_command_packet *cmd;
