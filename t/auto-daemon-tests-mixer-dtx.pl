@@ -45,29 +45,51 @@ for my $mode ('always', 'transcoding', 'always', 'off', 'always') {
 	my $start = time();
 	my $seq = 100 + $phase * 100;
 	my $ts = 100000 + $phase * 16000;
+	# Distinct PCMU levels decode to -3900, -3388, -2876, -2364 and -1884 respectively.
+	# Recognise this phase's audio instead of accepting late speech from the previous configuration.
+	my $payload = chr(0x30 + $phase * 4) x 160;
+	my $sample = (-3900, -3388, -2876, -2364, -1884)[$phase];
 	# Two paced frames also populate the recent payload tracker used by the DTX timer.
-	snd($source, $input_port, rtp(0, $seq, $ts, 0x5678, "\x40" x 160));
+	snd($source, $input_port, rtp(0, $seq, $ts, 0x5678, $payload));
 	Time::HiRes::sleep(0.02);
-	snd($source, $input_port, rtp(0, $seq + 1, $ts + 160, 0x5678, "\x40" x 160));
-	my ($delay, $last_ts);
+	snd($source, $input_port, rtp(0, $seq + 1, $ts + 160, 0x5678, $payload));
+	my ($delay, $speech_ssrc, $last_seq, $last_ts);
+	my $clock_intervals = 0;
 	while (time() - $start < 0.6) {
 		next unless $select->can_read(0.02);
 		my $packet;
 		$listener->recv($packet, 65535);
 		next unless length($packet) >= 12;
-		my ($pt, $ts) = unpack('x C x2 N', $packet);
+		my ($pt, $out_seq, $out_ts, $ssrc) = unpack('x C n N N', $packet);
 		next unless ($pt & 0x7f) == 96;
-		if (defined $last_ts && $mode ne 'off') {
-			is(($ts - $last_ts) & 0xffffffff, 320, 'mixer output clock remains continuous');
-		}
-		$last_ts = $ts;
 		my @samples = unpack('s>*', substr($packet, 12));
-		if (grep { abs($_) > 500 } @samples) {
+		if (!defined $delay && (grep { abs($_ - $sample) < 20 } @samples) >= 16) {
 			$delay = time() - $start;
-			last;
+			$speech_ssrc = $ssrc;
 		}
+		next unless defined $delay && $ssrc == $speech_ssrc;
+		last if $mode eq 'off';
+		# A replacement mixer and the old transcoder have independent SSRCs and timestamp origins.
+		# Check the stream carrying current speech, including its silence after the two input frames.
+		if (defined $last_seq) {
+			my $seq_delta = ($out_seq - $last_seq) & 0xffff;
+			my $ts_delta = ($out_ts - $last_ts) & 0xffffffff;
+			my $context = sprintf('%s SSRC=%08x seq=%u->%u timestamp=%u->%u',
+				$name, $ssrc, $last_seq, $out_seq, $last_ts, $out_ts);
+			is($seq_delta, 1, 'mixer output sequence remains continuous') or diag($context);
+			if ($seq_delta == 1) {
+				is($ts_delta, 320, 'mixer output clock remains continuous') or diag($context);
+				$clock_intervals++;
+			}
+		}
+		$last_seq = $out_seq;
+		$last_ts = $out_ts;
+		last if $clock_intervals >= 3;
 	}
 	ok(defined $delay, 'speech reaches the listener');
+	if ($mode ne 'off') {
+		cmp_ok($clock_intervals, '>=', 3, 'checked multiple mixer clock intervals after speech');
+	}
 	if (defined $delay) {
 		if ($mode eq 'always') {
 			cmp_ok($delay, '<', 0.14, 'permanent mixer does not queue input behind the DTX timer');
