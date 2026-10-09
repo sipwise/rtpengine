@@ -22,6 +22,7 @@
 #include "types.h"
 
 #include "nft_rtpengine.h"
+#include "common.h"
 
 #define UNDEFINED ((unsigned int) -1)
 
@@ -106,12 +107,6 @@ enum {
 
 #define ERROR_NO_FREE_PORTS	-100
 #define ERROR_NO_FREE_LOGS	-101
-
-#ifndef RTP_LOOP_PROTECT
-#define RTP_LOOP_PROTECT	28 /* number of bytes */
-#define RTP_LOOP_PACKETS	2  /* number of packets */
-#define RTP_LOOP_MAX_COUNT	30 /* number of consecutively detected dupes to trigger protection */
-#endif
 
 #define IS_FOREIGN_CALL(c) CALL_ISSET(c, FOREIGN)
 #define IS_OWN_CALL(c) (!IS_FOREIGN_CALL(c))
@@ -404,13 +399,6 @@ typedef IQUEUE(struct endpoint_map, media_link) endpoints_in_media_q;
 typedef IQUEUE(struct endpoint_map, call_link) endpoints_in_call_q;
 
 
-struct loop_protector {
-	unsigned int		len;
-	unsigned char		buf[RTP_LOOP_PROTECT];
-	int64_t			recv_us;
-};
-
-
 TYPED_GHASHTABLE_PROTO(rtp_stats_ht, void, struct rtp_stats)
 
 /**
@@ -462,9 +450,7 @@ struct packet_stream {
 
 #if RTP_LOOP_PROTECT
 	/* LOCK: ps->lock: */
-	unsigned int		lp_idx;
-	struct loop_protector	lp_buf[RTP_LOOP_PACKETS];
-	unsigned int		lp_count;
+	struct loop_protector	loop_protector;
 #endif
 
 	X509			*dtls_cert;				/* LOCK: ps->lock */
@@ -581,7 +567,9 @@ struct call_media {
 	struct t38_gateway	*t38_gateway;
 	struct audio_player	*audio_player;
 	struct codec_handler	*t38_handler;
+#ifdef WITH_TRANSCODING
 	struct media_player	*players[MP_COUNT];
+#endif
 
 	unsigned int		buffer_delay;
 

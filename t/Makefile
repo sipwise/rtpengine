@@ -89,7 +89,7 @@ include ../lib/common.Makefile
 	daemon-tests-dtx-no-shift daemon-tests-rtcp daemon-tests-redis-subscribe daemon-tests-rtp-ext daemon-tests-ssrc \
 	daemon-tests-bundle daemon-tests-dtls daemon-tests-rollback \
 	daemon-tests-rollback-redis daemon-tests-redis-srtp-index \
-	daemon-tests-recording daemon-tests-create daemon-tests-alias \
+	daemon-tests-recording daemon-tests-create daemon-tests-created-subscriptions daemon-tests-alias \
 	daemon-tests-kernel-api daemon-tests-dtx-clock \
 	daemon-tests-video daemon-tests-inject daemon-tests-dtx-dtmf
 
@@ -142,7 +142,7 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-asymmetric daemon-tests-rtcp daemon-tests-redis-subscribe daemon-tests-rtp-ext daemon-tests-ssrc \
 	daemon-tests-bundle daemon-tests-dtls daemon-tests-rollback daemon-tests-rollback-redis \
 	daemon-tests-redis-srtp-index \
-	daemon-tests-recording daemon-tests-create \
+	daemon-tests-recording daemon-tests-create daemon-tests-created-subscriptions \
 	daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-dtx-no-shift daemon-tests-dtx-dtmf daemon-tests-dtx-clock \
 	daemon-tests-alias \
 	daemon-tests-kernel-api \
@@ -198,6 +198,9 @@ daemon-tests-pubsub:	daemon-test-deps
 
 daemon-tests-create:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-create.pl
+
+daemon-tests-created-subscriptions:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-created-subscriptions.pl
 
 daemon-tests-alias:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-alias.pl
@@ -411,6 +414,7 @@ test-stats:	test-stats.o \
 	../daemon/cdr.o \
 	../daemon/cli.strhash.o \
 	../daemon/codec.o \
+	../daemon/common.o \
 	../daemon/control_ng_flags_parser.o \
 	../daemon/control_ng.o \
 	../daemon/cookie_cache.o \
@@ -475,6 +479,7 @@ test-transcode:	test-transcode.o \
 	../daemon/cdr.o \
 	../daemon/cli.strhash.o \
 	../daemon/codec.o \
+	../daemon/common.o \
 	../daemon/control_ng_flags_parser.o \
 	../daemon/control_ng.o \
 	../daemon/cookie_cache.o \

@@ -149,6 +149,7 @@ struct rtpengine_target_info {
 					pt_filter:1,
 					non_forwarding:1, // empty src/dst addr
 					blackhole:1,
+					loop_protect:1,
 					rtp_stats:1; // requires SSRC and clock_rates to be set
 };
 

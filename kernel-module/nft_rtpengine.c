@@ -46,6 +46,7 @@
 #endif
 
 #include "nft_rtpengine.h"
+#include "common.h"
 
 // fix for older compilers
 #ifndef RHEL_RELEASE_VERSION
@@ -355,6 +356,10 @@ struct rtpengine_target {
 
 	struct re_crypto_context	decrypt_rtp;
 	struct re_crypto_context	decrypt_rtcp;
+
+#if RTP_LOOP_PROTECT
+	struct loop_protector		loop_protector;
+#endif
 
 	rwlock_t			outputs_lock;
 	struct rtpengine_output		*outputs;
@@ -1923,6 +1928,8 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		seq_printf(f, " non-forwarding");
 	if (g->target.blackhole)
 		seq_printf(f, " blackhole");
+	if (g->target.loop_protect)
+		seq_printf(f, " loop-protect");
 	if (g->target.rtp_stats)
 		seq_printf(f, " RTP-stats");
 	if (g->target.track_ssrc)
@@ -7109,6 +7116,10 @@ static void rtpe_pull_trim(struct sk_buff *skb, unsigned int datalen) {
 }
 
 
+#define dbg_int(...) log_err(__VA_ARGS__)
+#include "common.inc"
+
+
 static int rtpengine46(struct sk_buff *oskb,
 		struct rtpengine_table *t, struct re_address *src,
 		struct re_address *dst, uint8_t in_tos)
@@ -7203,6 +7214,22 @@ static int rtpengine46(struct sk_buff *oskb,
 		}
 		goto out_target; // pass to userspace
 	}
+
+#if RTP_LOOP_PROTECT
+	if (g->target.loop_protect) {
+		spin_lock_irqsave(&g->ssrc_stats_lock, flags);
+
+		bool lp = loop_detect(&g->loop_protector, data, datalen, packet_ts);
+
+		spin_unlock_irqrestore(&g->ssrc_stats_lock, flags);
+
+		if (!lp) {
+			errstr = "duplicate packet (loop protection)";
+			nf_action = NF_DROP;
+			goto out_error;
+		}
+	}
+#endif
 
 	// RTP processing
 	rtp.ok = 0;
