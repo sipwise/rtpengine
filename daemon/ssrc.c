@@ -23,6 +23,10 @@ static mos_calc_fn *mos_calcs[__MOS_TYPES] = {
 };
 #endif
 
+// Maximum stored RTCP samples per SSRC. Lifetime MOS averages and extrema
+// are tracked separately so old history may be discarded safely.
+#define SSRC_STATS_HISTORY_MAX 512
+
 static void __free_ssrc_entry_call(struct ssrc_entry_call *e);
 
 
@@ -60,6 +64,8 @@ static void __free_ssrc_entry_call(struct ssrc_entry_call *e) {
 	g_queue_clear_full(&e->sender_reports, (GDestroyNotify) free_sender_report);
 	g_queue_clear_full(&e->rr_time_reports, (GDestroyNotify) free_rr_time);
 	g_queue_clear_full(&e->stats_blocks, (GDestroyNotify) free_stats_block);
+	free_stats_block(e->lowest_mos);
+	free_stats_block(e->highest_mos);
 	if (e->sequencers)
 		g_hash_table_destroy(e->sequencers);
 	bufferpool_unref(e->stats);
@@ -509,21 +515,31 @@ void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssr
 
 	g_queue_push_tail(&other_e->stats_blocks, ssb);
 
-	if (ssb->mos && ((G_UNLIKELY(!other_e->lowest_mos) || ssb->mos < other_e->lowest_mos->mos)))
-		other_e->lowest_mos = ssb;
-	if (G_UNLIKELY(!other_e->highest_mos) || ssb->mos > other_e->highest_mos->mos)
-		other_e->highest_mos = ssb;
+	// Extrema own their storage; trimming the history never invalidates them.
+	if (ssb->mos && (!other_e->lowest_mos || ssb->mos < other_e->lowest_mos->mos)) {
+		if (!other_e->lowest_mos)
+			other_e->lowest_mos = g_new(struct ssrc_stats_block, 1);
+		*other_e->lowest_mos = *ssb;
+	}
+	if (ssb->mos && (!other_e->highest_mos || ssb->mos > other_e->highest_mos->mos)) {
+		if (!other_e->highest_mos)
+			other_e->highest_mos = g_new(struct ssrc_stats_block, 1);
+		*other_e->highest_mos = *ssb;
+	}
 
-	// running tally
-	if (!ssb->mos) { // when we do not have the RTT for both legs, we have no MOS
-		other_e->no_mos_count++;
-	} else {
+	// Accumulate lifetime statistics; never use the trimmed queue length
+	// as the divisor for the average.
+	if (ssb->mos) {
+		other_e->mos_sample_count++;
 		other_e->average_mos.jitter += ssb->jitter;
 		other_e->average_mos.mos += ssb->mos;
 		other_e->average_mos.rtt += ssb->rtt;
 		other_e->average_mos.rtt_leg += ssb->rtt_leg;
 		other_e->average_mos.packetloss += ssb->packetloss;
 	}
+
+	while (other_e->stats_blocks.length > SSRC_STATS_HISTORY_MAX)
+		free_stats_block(g_queue_pop_head(&other_e->stats_blocks));
 
 	goto out_ul_oe;
 
