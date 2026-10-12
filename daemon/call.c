@@ -2222,12 +2222,8 @@ static void __dtls_logic(const sdp_ng_flags *flags,
 
 
 static void __ice_init(struct call_media *media) {
-	if (MEDIA_ISSET(media, PASSTHRU)) {
-		ice_shutdown(&media->ice_agent);
-		return;
-	}
-	if (!MEDIA_ISSET(media, ICE)) {
-		/* not doing ICE anymore with this peer,
+	if (!MEDIA_ISSET(media, ICE) || MEDIA_ISSET(media, PASSTHRU)) {
+		/* for the ice part: not doing ICE anymore with this peer,
 		 * discard this agent, so that ice offered again later starts afresh */
 		ice_shutdown(&media->ice_agent);
 		return;
