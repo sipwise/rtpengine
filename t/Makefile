@@ -115,7 +115,8 @@ include ../lib/common.Makefile
 	daemon-tests-recording daemon-tests-create \
 	daemon-tests-created-subscriptions \
 	daemon-tests-dtx-dtmf \
-	daemon-tests-create-srtp
+	daemon-tests-create-srtp \
+	daemon-tests-ice-force-answer
 
 TESTS=		test-bitstr test-str aes-crypt aead-aes-crypt test-const_str_hash.strhash
 ifeq ($(with_transcoding),yes)
@@ -167,7 +168,8 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-recording daemon-tests-create \
 	daemon-tests-created-subscriptions \
 	daemon-tests-dtx-dtmf \
-	daemon-tests-create-srtp
+	daemon-tests-create-srtp \
+	daemon-tests-ice-force-answer
 
 daemon-test-deps:	tests-preload.so
 	$(MAKE) -C ../daemon
@@ -316,6 +318,9 @@ daemon-tests-bundle:	daemon-test-deps
 
 daemon-tests-dtls:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtls.pl
+
+daemon-tests-ice-force-answer:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-ice-force-answer.pl
 
 daemon-tests-recording:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-recording.pl
