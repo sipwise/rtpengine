@@ -1,3 +1,13 @@
+ngcp-rtpengine (13.5.1.28+0~mr13.5.1.28) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [c5934f6] MT#55283 honour RPC callback also for final t/out
+
+  [ Donat Zenichev ]
+  * [f976142] MT#66271 discard ICE agent when peer drops ice or `ICE=remove`
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 12 Oct 2026 17:40:25 +0200
+
 ngcp-rtpengine (13.5.1.27+0~mr13.5.1.27) unstable; urgency=medium
 
   [ Richard Fuchs ]
