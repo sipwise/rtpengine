@@ -191,6 +191,9 @@ INLINE struct ssrc_entry_call *call_get_first_ssrc(struct ssrc_hash *ht) {
 	return ht->nq.head ? ht->nq.head->data : NULL;
 }
 
+// Takes ownership of the statistics block; keeps bounded history and lifetime MOS totals.
+void ssrc_stats_record(struct ssrc_entry_call *, struct ssrc_stats_block *);
+
 void ssrc_sender_report(struct call_media *, const struct ssrc_sender_report *, int64_t);
 void ssrc_receiver_report(struct call_media *, stream_fd *, const struct ssrc_receiver_report *, int64_t);
 void ssrc_receiver_rr_time(struct call_media *m, const struct ssrc_xr_rr_time *rr, int64_t);
