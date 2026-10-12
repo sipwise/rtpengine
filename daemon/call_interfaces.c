@@ -1152,7 +1152,7 @@ static void ng_stats_ssrc_1(const ng_parser_t *parser, parser_arg ent, struct ss
 
 	parser_arg progdict = parser->dict_add_dict(ent, "MOS progression");
 	// aim for about 10 entries to the list
-	GList *listent = se->stats_blocks.head;
+	__auto_type listent = se->stats_blocks.head;
 	struct ssrc_stats_block *sb = listent->data;
 	int64_t interval
 		= ((struct ssrc_stats_block *) se->stats_blocks.tail->data)->reported

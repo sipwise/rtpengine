@@ -58,9 +58,9 @@ static void free_stats_block(struct ssrc_stats_block *ssb) {
 	g_free(ssb);
 }
 static void __free_ssrc_entry_call(struct ssrc_entry_call *e) {
-	g_queue_clear_full(&e->sender_reports, (GDestroyNotify) free_sender_report);
-	g_queue_clear_full(&e->rr_time_reports, (GDestroyNotify) free_rr_time);
-	g_queue_clear_full(&e->stats_blocks, (GDestroyNotify) free_stats_block);
+	t_queue_clear_full(&e->sender_reports, free_sender_report);
+	t_queue_clear_full(&e->rr_time_reports, free_rr_time);
+	t_queue_clear_full(&e->stats_blocks, free_stats_block);
 	if (e->sequencers)
 		g_hash_table_destroy(e->sequencers);
 	bufferpool_unref(e->stats);
@@ -501,14 +501,14 @@ void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssr
 
 	// discard stats block if last has been received less than a second ago
 	if (G_LIKELY(other_e->stats_blocks.length > 0)) {
-		struct ssrc_stats_block *last_ssb = g_queue_peek_tail(&other_e->stats_blocks);
+		struct ssrc_stats_block *last_ssb = t_queue_peek_tail(&other_e->stats_blocks);
 		if (G_UNLIKELY(tv - last_ssb->reported < 1000000LL)) {
 			free_stats_block(ssb);
 			goto out_ul_oe;
 		}
 	}
 
-	g_queue_push_tail(&other_e->stats_blocks, ssb);
+	t_queue_push_tail(&other_e->stats_blocks, ssb);
 
 	if (ssb->mos && ((G_UNLIKELY(!other_e->lowest_mos) || ssb->mos < other_e->lowest_mos->mos)))
 		other_e->lowest_mos = ssb;
