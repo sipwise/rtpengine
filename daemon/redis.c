@@ -2483,24 +2483,36 @@ err1:
 					STR_FMT_M(callid),
 					err);
 		mutex_unlock(&r->lock);
-		if (c)
+		if (c) {
+			// A failed foreign restore must not delete the owner's Redis
+			// state. call_destroy() normally deletes c->redis_hosted_db,
+			// so disable its Redis deletion for this incomplete replica.
+			if (foreign)
+				c->redis_hosted_db = -1;
 			call_destroy(c);
+		}
 		release_closed_sockets();
 		if (must_release_pop) // avoid deadlock with redis_notify->lock below
 			redis_ports_release_pop(false);
 		must_release_pop = false;
 
-		mutex_lock(&rtpe_redis_write->lock);
+		// A subscriber can fail to restore a call if its interface
+		// configuration differs from the owner. Only a failed local
+		// restore is allowed to discard a persisted call record.
+		if (!foreign) {
+			mutex_lock(&rtpe_redis_write->lock);
+			redis_select_db(rtpe_redis_write, rtpe_redis_write->db);
+			redisCommandNR(rtpe_redis_write->ctx, "DEL " PB, PBSTR(callid));
+			mutex_unlock(&rtpe_redis_write->lock);
 
-		redis_select_db(rtpe_redis_write, rtpe_redis_write->db);
-
-		redisCommandNR(rtpe_redis_write->ctx, "DEL " PB, PBSTR(callid));
-		mutex_unlock(&rtpe_redis_write->lock);
-
-		if (rtpe_redis_notify) {
-			mutex_lock(&rtpe_redis_notify->lock);
-			redisCommandNR(rtpe_redis_notify->ctx, "DEL " PB, PBSTR(callid));
-			mutex_unlock(&rtpe_redis_notify->lock);
+			if (rtpe_redis_notify) {
+				mutex_lock(&rtpe_redis_notify->lock);
+				redisCommandNR(rtpe_redis_notify->ctx, "DEL " PB, PBSTR(callid));
+				mutex_unlock(&rtpe_redis_notify->lock);
+			}
+		} else {
+			rlog(LOG_WARNING, "Preserving foreign call ID '" STR_FORMAT_M
+					"' in Redis after failed local restore", STR_FMT_M(callid));
 		}
 	}
 	if (c)
