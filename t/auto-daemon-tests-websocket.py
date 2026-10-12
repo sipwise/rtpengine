@@ -106,9 +106,9 @@ class TestHTTPDisconnectStress(unittest.TestCase):
                 with socket.create_connection(("127.0.0.1", 9191), timeout=3) as sock:
                     sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER,
                                     struct.pack("ii", 1, 0))
-                    sock.sendall(b"GET /metrics HTTP/1.1\\r\\n"
-                                 b"Host: localhost\\r\\n"
-                                 b"Connection: close\\r\\n\\r\\n")
+                    sock.sendall(b"GET /metrics HTTP/1.1\r\n"
+                                 b"Host: localhost\r\n"
+                                 b"Connection: close\r\n\r\n")
             except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
                 pass
 
@@ -122,7 +122,7 @@ class TestHTTPDisconnectStress(unittest.TestCase):
                     conn.request("GET", "/ping", headers={"Connection": "close"})
                     response = conn.getresponse()
                     self.assertEqual(response.status, 200)
-                    self.assertEqual(response.read(), b"pong\\n")
+                    self.assertEqual(response.read(), b"pong\n")
                 finally:
                     conn.close()
 
