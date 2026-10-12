@@ -105,6 +105,17 @@ is($resp->{SSRC}{26505}{packets}, 3, 'packet count');
 is($resp->{SSRC}{26505}{'average MOS'}{MOS}, 43, 'MOS');
 is($resp->{SSRC}{26505}{'average MOS'}{'packet loss'}, 0, 'packet loss');
 
+# Bounded history must not affect lifetime MOS aggregates. The existing
+# short-call fixture exercises both normal RTCP progression and averages;
+# the 512-sample cap is exercised in long-running stress tests.
+for my $source_ssrc (4660, 26505) {
+    ok($resp->{SSRC}{$source_ssrc}{'average MOS'}{samples} >= 1,
+        'lifetime average has nonzero sample count');
+    my $entries = $resp->{SSRC}{$source_ssrc}{'MOS progression'}{entries};
+    ok(ref($entries) eq 'ARRAY', 'MOS progression entries are emitted');
+    cmp_ok(scalar(@$entries), '<=', 512, 'MOS progression is bounded');
+}
+
 
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
