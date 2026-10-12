@@ -93,8 +93,16 @@ static int __established(struct homer_sender *hs) {
 	int ret;
 	GString *gs;
 
-	// test connection with a dummy read
+	// Check for peer shutdown before writing another HEP frame.
 	ret = read(hs->socket.fd, buf, sizeof(buf));
+	if (ret == 0 && hs->protocol == SOCK_STREAM) {
+		// A TCP read of zero bytes means that the peer has closed the
+		// connection. Never reuse this socket for the next HEP frame.
+		ilog(LOG_NOTICE, "Homer TCP connection at %s closed by peer",
+				endpoint_print_buf(&hs->endpoint));
+		__reset(hs);
+		return -1;
+	}
 	if (ret < 0) {
 		if (errno != EWOULDBLOCK && errno != EAGAIN) {
 			ilog(LOG_ERR, "Connection error from Homer at %s: %s",
