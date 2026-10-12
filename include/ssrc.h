@@ -71,6 +71,7 @@ struct ssrc_entry_call {
 	GQueue sender_reports; // as received via RTCP
 	GQueue rr_time_reports; // as received via RTCP
 	GQueue stats_blocks; // calculated
+	GList *decimator;
 	struct ssrc_stats_block *lowest_mos,
 				*highest_mos,
 				average_mos; // contains a running tally of all stats blocks
