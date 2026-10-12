@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
+#include "ssrc.h"
 #include "graphite.h"
 #include "statistics.h"
 #include "poller.h"
@@ -67,6 +69,57 @@ static void __assert_metrics_eq(stats_metric_q *q, const char *b, unsigned int l
 }
 #define assert_metrics_eq(a, b) __assert_metrics_eq(a, b, __LINE__)
 
+static void test_bounded_rtcp_history(void) {
+	struct ssrc_hash hash = {0};
+	ssrc_hash_call_init(&hash);
+	struct ssrc_entry_call *se = get_ssrc(0x1234, &hash);
+	assert(se);
+
+	uint64_t mos_sum = 0, jitter_sum = 0, valid_samples = 0;
+	for (int i = 0; i < 700; i++) {
+		struct ssrc_stats_block *sb = g_new0(struct ssrc_stats_block, 1);
+		sb->reported = ((int64_t) i + 1) * 1000000LL;
+		sb->mos = (i % 7) ? 30 + i % 10 : 0;
+		sb->jitter = i % 3;
+		if (sb->mos) {
+			mos_sum += sb->mos;
+			jitter_sum += sb->jitter;
+			valid_samples++;
+		}
+		ssrc_stats_record(se, sb);
+
+		assert(se->stats_blocks.length == (unsigned int) MIN(i + 1, 512));
+		assert(se->mos_sample_count == valid_samples);
+		assert(se->average_mos.mos == mos_sum);
+		assert(se->average_mos.jitter == jitter_sum);
+		struct ssrc_stats_block *first = g_queue_peek_head(&se->stats_blocks);
+		assert(first);
+		assert(first->reported ==
+				((int64_t) (i >= 512 ? i - 510 : 1)) * 1000000LL);
+	}
+
+	// These extrema were reported early and evicted from the progression
+	// queue, but must remain available with their original timestamps.
+	assert(se->lowest_mos && se->lowest_mos->mos == 30);
+	assert(se->lowest_mos->reported == 11 * 1000000LL);
+	assert(se->highest_mos && se->highest_mos->mos == 39);
+	assert(se->highest_mos->reported == 10 * 1000000LL);
+
+	// Duplicate / out-of-order sample timestamps must not alter totals.
+	struct ssrc_stats_block *duplicate = g_new0(struct ssrc_stats_block, 1);
+	duplicate->reported = 700 * 1000000LL;
+	duplicate->mos = 50;
+	ssrc_stats_record(se, duplicate);
+	assert(se->mos_sample_count == valid_samples);
+	assert(se->average_mos.mos == mos_sum);
+	assert(se->stats_blocks.length == 512);
+	assert(se->highest_mos->mos == 39);
+
+	ssrc_entry_release(se);
+	ssrc_hash_destroy(&hash);
+}
+
+
 int main(void) {
 	rtpe_common_config_ptr = &rtpe_config.common;
 	bufferpool_init();
@@ -77,6 +130,7 @@ int main(void) {
 
 	rtpe_ssl_init();
 	call_init();
+	test_bounded_rtcp_history();
 	statistics_init();
 	call_interfaces_init(charp_ht_null());
 	ice_init();
