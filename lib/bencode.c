@@ -9,6 +9,7 @@
 #include <ctype.h>
 
 #include "helpers.h"
+#include "str.h"
 
 
 // enable to perform each allocation separately, to make debugging (valgrind...) easier
@@ -429,7 +430,7 @@ static bencode_item_t *__bencode_decode_list(arena_t *buf, const char *s, const 
 static bencode_item_t *__bencode_decode_integer(arena_t *buf, const char *s, const char *end) {
 	long long int i;
 	const char *orig = s;
-	char *convend;
+	const char *convend;
 	bencode_item_t *ret;
 
 	if (*s != 'i')
@@ -442,21 +443,23 @@ static bencode_item_t *__bencode_decode_integer(arena_t *buf, const char *s, con
 	if (*s == '0') {
 		i = 0;
 		s++;
+		if (s >= end)
+			return NULL;
+		if (*s != 'e')
+			return NULL;
+		s++;
 		goto done;
 	}
 
-	i = strtoll(s, &convend, 10);
-	if (convend == s)
+	convend = memchr(s, 'e', end - s);
+	if (!convend || convend == s)
 		return NULL;
-	s += (convend - s);
+	i = str_to_ll(&STR_LEN(s, convend - s), 0);
+	if (i == 0)
+		return NULL;
+	s = convend + 1;
 
 done:
-	if (s >= end)
-		return NULL;
-	if (*s != 'e')
-		return NULL;
-	s++;
-
 	ret = __bencode_item_alloc(buf, 0);
 	if (!ret)
 		return NULL;
@@ -474,28 +477,30 @@ done:
 
 static bencode_item_t *__bencode_decode_string(arena_t *buf, const char *s, const char *end) {
 	unsigned long int sl;
-	char *convend;
+	const char *convend;
 	const char *orig = s;
 	bencode_item_t *ret;
 
 	if (*s == '0') {
 		sl = 0;
 		s++;
-		goto colon;
+		if (s >= end)
+			return NULL;
+		if (*s != ':')
+			return NULL;
+		s++;
+		goto done;
 	}
 
-	sl = strtoul(s, &convend, 10);
-	if (convend == s)
+	convend = memchr(s, ':', end - s);
+	if (!convend || convend == s)
 		return NULL;
-	s += (convend - s);
+	sl = str_to_ul(&STR_LEN(s, convend - s), 0);
+	if (sl == 0)
+		return NULL;
+	s = convend + 1;
 
-colon:
-	if (s >= end)
-		return NULL;
-	if (*s != ':')
-		return NULL;
-	s++;
-
+done:
 	if (s + sl > end)
 		return NULL;
 
@@ -600,15 +605,12 @@ bencode_item_t *bencode_dictionary_get_len(bencode_item_t *dict, const char *key
 static ssize_t __bencode_string(const char *s, ssize_t offset, size_t len) {
 	size_t pos;
 	unsigned long sl;
-	char *end;
 
 	for (pos = offset; s[pos] != ':' && isdigit(s[pos]) && pos < len; ++pos);
 	if (pos == len)
 		return -1;
 
-	sl = strtoul(s + offset, &end, 10);
-	if (s + offset == end || end != s + pos)
-		return -2;
+	sl = str_to_ul(&STR_LEN(s + offset, pos - offset), 0);
 
 	if (pos + sl >= len)
 		return -1;
