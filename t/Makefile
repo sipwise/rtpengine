@@ -93,7 +93,8 @@ include ../lib/common.Makefile
 	daemon-tests-recording daemon-tests-create daemon-tests-create-srtp daemon-tests-created-subscriptions daemon-tests-alias \
 	daemon-tests-kernel-api daemon-tests-dtmf-fanout \
 	daemon-tests-video daemon-tests-inject daemon-tests-dtx-dtmf \
-	daemon-tests-roc-pl
+	daemon-tests-roc-pl \
+	daemon-tests-ice-force-answer
 
 TESTS := test-bitstr test-str aes-crypt aead-aes-crypt test-const_str_hash.strhash
 ifeq ($(with_transcoding),yes)
@@ -146,6 +147,7 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-redis-srtp-index daemon-tests-redis-errors daemon-tests-redis-destroyed \
 	daemon-tests-redis-reconnect \
 	daemon-tests-recording daemon-tests-create daemon-tests-create-srtp daemon-tests-created-subscriptions \
+	daemon-tests-ice-force-answer \
 	daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-dtx-no-shift daemon-tests-dtx-dtmf \
 	daemon-tests-alias \
 	daemon-tests-kernel-api daemon-tests-dtmf-fanout \
@@ -341,6 +343,9 @@ daemon-tests-bundle:	daemon-test-deps
 
 daemon-tests-dtls:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtls.pl
+
+daemon-tests-ice-force-answer:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-ice-force-answer.pl
 
 daemon-tests-recording:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-recording.pl
