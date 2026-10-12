@@ -1644,6 +1644,11 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     The current default is __full__ as this is the legacy format, and is
     required by some controlling agents.
 
+    The average, lowest, and highest MOS statistics cover the lifetime of
+    each SSRC. The detailed MOS progression is a bounded recent history of
+    up to 512 accepted RTCP samples per SSRC, to prevent memory usage from
+    growing indefinitely on long-running calls.
+
 - __\-\-rtcp-interval=__*INT*
 
     Delay in milliseconds between RTCP packets when generate-rtcp flag is on. The
