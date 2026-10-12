@@ -5356,7 +5356,7 @@ void call_destroy(call_t *c) {
 
 				if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
 					continue;
-				int mos_samples = (se->stats_blocks.length - se->no_mos_count);
+				int mos_samples = se->mos_samples;
 				if (mos_samples < 1) mos_samples = 1;
 
 				ilog(LOG_INFO, "--- SSRC %s%" PRIx32 "%s", FMT_M(se->h.ssrc));
