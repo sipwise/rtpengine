@@ -516,9 +516,8 @@ void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssr
 		other_e->highest_mos = ssb;
 
 	// running tally
-	if (!ssb->mos) { // when we do not have the RTT for both legs, we have no MOS
-		other_e->no_mos_count++;
-	} else {
+	if (ssb->mos) { // when we do not have the RTT for both legs, we have no MOS
+		other_e->mos_samples++;
 		other_e->average_mos.jitter += ssb->jitter;
 		other_e->average_mos.mos += ssb->mos;
 		other_e->average_mos.rtt += ssb->rtt;
