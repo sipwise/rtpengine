@@ -1144,7 +1144,7 @@ static void ng_stats_ssrc_1(const ng_parser_t *parser, parser_arg ent, struct ss
 
 	parser->dict_add_int(ent, "cumulative loss", se->packets_lost);
 
-	int mos_samples = se->stats_blocks.length - se->no_mos_count;
+	int mos_samples = se->mos_samples;
 	if (mos_samples < 1) mos_samples = 1;
 	ng_stats_ssrc_mos_entry_dict_avg(parser, ent, "average MOS", &se->average_mos, mos_samples);
 	ng_stats_ssrc_mos_entry_dict(parser, ent, "lowest MOS", se->lowest_mos);
