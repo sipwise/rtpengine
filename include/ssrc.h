@@ -75,6 +75,7 @@ struct ssrc_entry_call {
 	sender_report_q sender_reports; // as received via RTCP
 	rr_time_q rr_time_reports; // as received via RTCP
 	stats_block_q stats_blocks; // calculated
+	stats_block_list *decimator;
 	struct ssrc_stats_block *lowest_mos,
 				*highest_mos,
 				average_mos; // contains a running tally of all stats blocks
