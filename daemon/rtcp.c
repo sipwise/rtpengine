@@ -1517,9 +1517,9 @@ static GString *rtcp_sender_report(struct ssrc_sender_report *ssr,
 			uint32_t ntp_middle_bits = 0;
 			mutex_lock(&s->h.lock);
 			if (s->sender_reports.length) {
-				struct ssrc_time_item *si = s->sender_reports.tail->data;
-				tv_diff = rtpe_now - si->received;
-				ntp_middle_bits = si->ntp_middle_bits;
+				__auto_type si = s->sender_reports.tail->data;
+				tv_diff = rtpe_now - si->time_item.received;
+				ntp_middle_bits = si->time_item.ntp_middle_bits;
 			}
 			uint32_t jitter = s->jitter;
 			mutex_unlock(&s->h.lock);

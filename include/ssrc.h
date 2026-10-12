@@ -40,6 +40,10 @@ struct ssrc_stats_block {
 	uint64_t mos; // nominal range of 10 - 50 for MOS values 1.0 to 5.0
 };
 
+TYPED_GQUEUE(stats_block, struct ssrc_stats_block)
+TYPED_GQUEUE(sender_report, struct ssrc_sender_report_item)
+TYPED_GQUEUE(rr_time, struct ssrc_rr_time_item)
+
 struct ssrc_entry_call {
 	struct ssrc_entry h; // must be first
 
@@ -68,9 +72,9 @@ struct ssrc_entry_call {
 
 	int64_t next_rtcp; // for self-generated RTCP reports
 
-	GQueue sender_reports; // as received via RTCP
-	GQueue rr_time_reports; // as received via RTCP
-	GQueue stats_blocks; // calculated
+	sender_report_q sender_reports; // as received via RTCP
+	rr_time_q rr_time_reports; // as received via RTCP
+	stats_block_q stats_blocks; // calculated
 	struct ssrc_stats_block *lowest_mos,
 				*highest_mos,
 				average_mos; // contains a running tally of all stats blocks
