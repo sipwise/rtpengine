@@ -439,6 +439,11 @@ Optionally included keys are:
 	had ICE attributes listed. If the incoming SDP did not contain ICE attributes, then no
 	ICE attributes are added.
 
+	For `answer` messages, an endpoint must not negotiate ICE that was absent from
+	the corresponding offer. Prefer `ICE=default` when handling an answer from
+	a peer which might not support ICE. `ICE=force` on an answer cannot invent
+	ICE support when no ICE was offered on that leg.
+
 	With `force-relay`, existing ICE candidates are left in place except `relay`
 	type candidates, and *rtpengine* inserts itself as a `relay` candidate. It will also leave SDP
 	c= and m= lines unchanged.
