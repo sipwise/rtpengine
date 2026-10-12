@@ -3633,6 +3633,7 @@ if __name__ == "__main__":
                 "7",
                 "-E",
                 "--listen-http=127.0.0.1:9191",
+                "--http-threads=2",
                 "--janus-secret=dfgdfgdvgLyATjHPvckg",
                 "--delete-delay=0",
             ],
