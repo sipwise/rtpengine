@@ -2225,8 +2225,12 @@ static void __ice_init(struct call_media *media) {
 		ice_shutdown(&media->ice_agent);
 		return;
 	}
-	if (!MEDIA_ISSET(media, ICE)) /* don't init new ICE agent but leave it running if there is one */
+	if (!MEDIA_ISSET(media, ICE)) {
+		/* not doing ICE anymore with this peer,
+		 * discard this agent, so that ice offered again later starts afresh */
+		ice_shutdown(&media->ice_agent);
 		return;
+	}
 
 	ice_agent_init(&media->ice_agent, media);
 }
