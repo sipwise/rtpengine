@@ -2589,8 +2589,13 @@ err1:
 					STR_FMT_M(callid),
 					err);
 		mutex_unlock(&r->lock);
-		if (c)
+		if (c) {
+			// not yet flagged foreign, but redis_hosted_db may already be the
+			// owner's DB: keep call_destroy() from deleting the owner's key
+			if (foreign)
+				c->redis_hosted_db = -1;
 			call_destroy(c);
+		}
 		release_closed_sockets();
 		if (must_release_pop) // avoid deadlock with rtpe_redis_write->lock below
 			redis_ports_release_pop(false);
