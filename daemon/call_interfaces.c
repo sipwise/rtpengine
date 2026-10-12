@@ -1104,7 +1104,7 @@ stats:
 
 static void ng_stats_ssrc_mos_entry_common(const ng_parser_t *parser, parser_arg subent,
 		struct ssrc_stats_block *sb,
-		unsigned int div)
+		uint64_t div)
 {
 	parser->dict_add_int(subent, "MOS", sb->mos / div);
 	parser->dict_add_int(subent, "round-trip time", sb->rtt / div);
@@ -1126,7 +1126,7 @@ static void ng_stats_ssrc_mos_entry_dict(const ng_parser_t *parser, parser_arg e
 }
 static void ng_stats_ssrc_mos_entry_dict_avg(const ng_parser_t *parser, parser_arg ent, const char *label,
 		struct ssrc_stats_block *sb,
-		unsigned int div)
+		uint64_t div)
 {
 	parser_arg subent = parser->dict_add_dict(ent, label);
 	ng_stats_ssrc_mos_entry_common(parser, subent, sb, div);
@@ -1139,13 +1139,12 @@ static void ng_stats_ssrc_1(const ng_parser_t *parser, parser_arg ent, struct ss
 	parser->dict_add_int(ent, "last RTP timestamp", atomic_get_na(&se->stats->timestamp));
 	parser->dict_add_int(ent, "last RTP seq", atomic_get_na(&se->stats->ext_seq));
 
-	if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
+	if (!se->mos_sample_count || !se->lowest_mos || !se->highest_mos)
 		return;
 
 	parser->dict_add_int(ent, "cumulative loss", se->packets_lost);
 
-	int mos_samples = se->stats_blocks.length - se->no_mos_count;
-	if (mos_samples < 1) mos_samples = 1;
+	uint64_t mos_samples = se->mos_sample_count;
 	ng_stats_ssrc_mos_entry_dict_avg(parser, ent, "average MOS", &se->average_mos, mos_samples);
 	ng_stats_ssrc_mos_entry_dict(parser, ent, "lowest MOS", se->lowest_mos);
 	ng_stats_ssrc_mos_entry_dict(parser, ent, "highest MOS", se->highest_mos);
