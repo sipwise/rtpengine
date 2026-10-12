@@ -5354,10 +5354,9 @@ void call_destroy(call_t *c) {
 
 				// stats output only - no cleanups
 
-				if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
+				if (!se->mos_sample_count || !se->lowest_mos || !se->highest_mos)
 					continue;
-				int mos_samples = (se->stats_blocks.length - se->no_mos_count);
-				if (mos_samples < 1) mos_samples = 1;
+				uint64_t mos_samples = se->mos_sample_count;
 
 				ilog(LOG_INFO, "--- SSRC %s%" PRIx32 "%s", FMT_M(se->h.ssrc));
 				ilog(LOG_INFO, "------ Average MOS %" PRIu64 ".%" PRIu64 ", "
