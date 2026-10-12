@@ -1,3 +1,10 @@
+ngcp-rtpengine (26.0.1.24+0~mr26.0.1.24) unstable; urgency=medium
+
+  [ Donat Zenichev ]
+  * [5a52883] MT#66271 discard ICE agent when peer drops ice or `ICE=remove`
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 12 Oct 2026 17:40:32 +0200
+
 ngcp-rtpengine (26.0.1.23+0~mr26.0.1.23) unstable; urgency=medium
 
   [ Richard Fuchs ]
