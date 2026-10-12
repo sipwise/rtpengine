@@ -160,11 +160,17 @@ static void __websocket_write_done(struct websocket_conn *wc) {
 // Executed only by the LWS service thread, outside lws_service().
 // Caller holds the service lock; callback_lock only protects the queue.
 static void websocket_flush_write_notifications(void) {
-	// Only the service thread can free an LWS connection, so the popped
-	// connection remains live until we have scheduled its writable event.
-	// Do not hold the queue mutex while calling libwebsockets: its
-	// implementation is allowed to invoke callbacks synchronously.
-	while (true) {
+	// Only the service thread can free an LWS connection, so a popped
+	// connection remains live until its writable event is scheduled.
+	// Do not hold the queue lock inside libwebsockets, as callbacks can
+	// re-enter the HTTP/WS code.
+	mutex_lock(&websocket_callback_lock);
+	unsigned int pending = websocket_pending_writes.length;
+	mutex_unlock(&websocket_callback_lock);
+
+	// Process a snapshot to avoid starving lws_service() if producers
+	// continuously queue new callbacks.
+	while (pending--) {
 		mutex_lock(&websocket_callback_lock);
 		struct websocket_conn *wc = g_queue_pop_head(&websocket_pending_writes);
 		if (wc)
