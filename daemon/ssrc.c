@@ -422,6 +422,32 @@ void ssrc_sender_report(struct call_media *m, const struct ssrc_sender_report *s
 	mutex_unlock(&e->lock);
 	obj_put(e);
 }
+
+static void __cleanup_stats_blocks(struct ssrc_entry_call *s) {
+	while (s->stats_blocks.length > 50) { // arbitrary limit
+		if (!s->decimator)
+			s->decimator = s->stats_blocks.head->next;
+
+		while (s->decimator &&
+				(s->decimator->data == s->lowest_mos || s->decimator->data == s->highest_mos))
+			s->decimator = s->decimator->next;
+
+		if (s->decimator == s->stats_blocks.tail)
+			s->decimator = NULL;
+
+		if (!s->decimator)
+			continue;
+
+		__auto_type next = s->decimator->next ? s->decimator->next->next : NULL;
+		__auto_type block = s->decimator->data;
+
+		t_queue_delete_link(&s->stats_blocks, s->decimator);
+		s->decimator = next;
+
+		free_stats_block(block);
+	}
+}
+
 void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssrc_receiver_report *rr,
 		int64_t tv)
 {
@@ -523,6 +549,8 @@ void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssr
 		other_e->average_mos.rtt_leg += ssb->rtt_leg;
 		other_e->average_mos.packetloss += ssb->packetloss;
 	}
+
+	__cleanup_stats_blocks(other_e);
 
 	goto out_ul_oe;
 
