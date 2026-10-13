@@ -887,7 +887,6 @@ next:;
 static void cli_incoming_set_maxopenfiles(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	unsigned long open_files_num;
 	pid_t pid;
-	char *endptr;
 
 	// limit the minimum number of open files to avoid rtpengine freeze for low open_files_num values
 	unsigned long min_open_files_num = (1 << 16);
@@ -897,14 +896,13 @@ static void cli_incoming_set_maxopenfiles(str *instr, struct cli_writer *cw, con
 		return;
 	}
 
-	errno = 0;
-	open_files_num = strtoul(instr->s, &endptr, 10);
+	open_files_num = str_to_ul(instr, ULONG_MAX);
 
-	if ((errno == ERANGE && (open_files_num == ULONG_MAX)) || (errno != 0 && open_files_num == 0)) {
-		cw->cw_printf(cw,  "Fail setting open_files to %s; errno=%d\n", instr->s, errno);
+	if (errno == ERANGE) {
+		cw->cw_printf(cw,  "Fail setting open_files to " STR_FORMAT "; errno=%d\n", STR_FMT(instr), errno);
 		return;
-	} else if (endptr == instr->s) {
-		cw->cw_printf(cw,  "Fail setting open_files to %s; no digits found\n", instr->s);
+	} else if (open_files_num == ULONG_MAX) {
+		cw->cw_printf(cw,  "Fail setting open_files to " STR_FORMAT "; no digits found\n", STR_FMT(instr));
 		return;
 	} else if (open_files_num < min_open_files_num) {
 		cw->cw_printf(cw,  "Fail setting open_files to %lu; can't set it under %lu\n", open_files_num, min_open_files_num);
@@ -921,21 +919,19 @@ static void cli_incoming_set_maxopenfiles(str *instr, struct cli_writer *cw, con
 static void cli_incoming_set_maxsessions(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	long maxsessions_num;
 	int disabled = -1;
-	char *endptr;
 
 	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
-	errno = 0;
-	maxsessions_num = strtol(instr->s, &endptr, 10);
+	maxsessions_num = str_to_l(instr, LONG_MIN);
 
-	if ((errno == ERANGE && (maxsessions_num == LONG_MAX || maxsessions_num == LONG_MIN)) || (errno != 0 && maxsessions_num == 0)) {
-		cw->cw_printf(cw,  "Fail setting maxsessions to %s; errno=%d\n", instr->s, errno);
+	if (errno == ERANGE) {
+		cw->cw_printf(cw,  "Fail setting maxsessions to " STR_FORMAT "; errno=%d\n", STR_FMT(instr), errno);
 		return;
-	} else if (endptr == instr->s) {
-		cw->cw_printf(cw,  "Fail setting maxsessions to %s; no digits found\n", instr->s);
+	} else if (maxsessions_num == LONG_MIN) {
+		cw->cw_printf(cw,  "Fail setting maxsessions to " STR_FORMAT "; no digits found\n", STR_FMT(instr));
 		return;
 	} else if (maxsessions_num < disabled) {
 		cw->cw_printf(cw,  "Fail setting maxsessions to %ld; either positive or -1 values allowed\n", maxsessions_num);
@@ -952,21 +948,18 @@ static void cli_incoming_set_maxsessions(str *instr, struct cli_writer *cw, cons
 
 // XXX lots of code duplication, unify those set functions
 static void cli_incoming_set_maxcpu(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	char *endptr;
-
 	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
-	errno = 0;
-	double num = strtod(instr->s, &endptr);
+	double num = str_to_d(instr, NAN);
 
-	if ((errno == ERANGE && (num == HUGE_VAL || num == -HUGE_VAL)) || (errno != 0 && num == 0) || isnan(num) || !isfinite(num)) {
-		cw->cw_printf(cw,  "Fail setting maxcpu to %s; errno=%d\n", instr->s, errno);
+	if (errno == ERANGE || isinf(num)) {
+		cw->cw_printf(cw,  "Fail setting maxcpu to " STR_FORMAT "; errno=%d\n", STR_FMT(instr), errno);
 		return;
-	} else if (endptr == instr->s) {
-		cw->cw_printf(cw,  "Fail setting maxcpu to %s; no digits found\n", instr->s);
+	} else if (isnan(num)) {
+		cw->cw_printf(cw,  "Fail setting maxcpu to " STR_FORMAT "; no digits found\n", STR_FMT(instr));
 		return;
 	} else {
 		atomic_set_na(&rtpe_config.cpu_limit, (int) (num * 100));
@@ -977,21 +970,18 @@ static void cli_incoming_set_maxcpu(str *instr, struct cli_writer *cw, const cli
 }
 
 static void cli_incoming_set_maxload(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	char *endptr;
-
 	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
-	errno = 0;
-	double num = strtod(instr->s, &endptr);
+	double num = str_to_d(instr, NAN);
 
-	if ((errno == ERANGE && (num == HUGE_VAL || num == -HUGE_VAL)) || (errno != 0 && num == 0) || isnan(num) || !isfinite(num)) {
-		cw->cw_printf(cw,  "Fail setting maxload to %s; errno=%d\n", instr->s, errno);
+	if (errno == ERANGE || isinf(num)) {
+		cw->cw_printf(cw,  "Fail setting maxload to " STR_FORMAT "; errno=%d\n", STR_FMT(instr), errno);
 		return;
-	} else if (endptr == instr->s) {
-		cw->cw_printf(cw,  "Fail setting maxload to %s; no digits found\n", instr->s);
+	} else if (isnan(num)) {
+		cw->cw_printf(cw,  "Fail setting maxload to " STR_FORMAT "; no digits found\n", STR_FMT(instr));
 		return;
 	} else {
 		atomic_set_na(&rtpe_config.load_limit, (int) (num * 100));
@@ -1002,21 +992,18 @@ static void cli_incoming_set_maxload(str *instr, struct cli_writer *cw, const cl
 }
 
 static void cli_incoming_set_maxbw(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	char *endptr;
-
 	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
-	errno = 0;
-	uint64_t num = strtoull(instr->s, &endptr, 10);
+	uint64_t num = str_to_ull(instr, ULLONG_MAX);
 
-	if ((errno == ERANGE && (num == ULLONG_MAX)) || (errno != 0 && num == 0) ) {
-		cw->cw_printf(cw,  "Fail setting maxbw to %s; errno=%d\n", instr->s, errno);
+	if (errno == ERANGE) {
+		cw->cw_printf(cw,  "Fail setting maxbw to " STR_FORMAT "; errno=%d\n", STR_FMT(instr), errno);
 		return;
-	} else if (endptr == instr->s) {
-		cw->cw_printf(cw,  "Fail setting maxbw to %s; no digits found\n", instr->s);
+	} else if (num == ULLONG_MAX) {
+		cw->cw_printf(cw,  "Fail setting maxbw to " STR_FORMAT "; no digits found\n", STR_FMT(instr));
 		return;
 	} else {
 		atomic_set_na(&rtpe_config.bw_limit, num);
@@ -1028,21 +1015,19 @@ static void cli_incoming_set_maxbw(str *instr, struct cli_writer *cw, const cli_
 
 static void cli_incoming_set_gentimeout_us(str *instr, struct cli_writer *cw, int64_t *conf_timeout) {
 	long timeout_num;
-	char *endptr;
 
 	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
-	errno = 0;
-	timeout_num = strtol(instr->s, &endptr, 10);
+	timeout_num = str_to_l(instr, LONG_MIN);
 
-	if ((errno == ERANGE && (timeout_num == ULONG_MAX)) || (errno != 0 && timeout_num == 0) || timeout_num < 0 || timeout_num >= INT_MAX) {
-		cw->cw_printf(cw,  "Fail setting timeout to %s; errno=%d\n", instr->s, errno);
+	if (timeout_num == LONG_MIN && errno != ERANGE) {
+		cw->cw_printf(cw,  "Fail setting timeout to " STR_FORMAT "; no digits found\n", STR_FMT(instr));
 		return;
-	} else if (endptr == instr->s) {
-		cw->cw_printf(cw,  "Fail setting timeout to %s; no digits found\n", instr->s);
+	} else if (errno == ERANGE || timeout_num < 0 || timeout_num >= INT_MAX) {
+		cw->cw_printf(cw,  "Fail setting timeout to " STR_FORMAT "; errno=%d\n", STR_FMT(instr), errno);
 		return;
 	} else {
 		atomic_set_na(conf_timeout, timeout_num * 1000000LL);
@@ -1081,7 +1066,7 @@ static void cli_incoming_terminate(str *instr, struct cli_writer *cw, const cli_
    }
 
 	// --- terminate all calls
-	if (!str_memcmp(instr,"all")) {
+	if (!str_cmp(instr, "all")) {
 		// destroy own calls
 		destroy_all_own_calls();
 
@@ -1095,7 +1080,7 @@ static void cli_incoming_terminate(str *instr, struct cli_writer *cw, const cli_
 		return;
 
 	// --- terminate own calls
-	} else if (!str_memcmp(instr,"own")) {
+	} else if (!str_cmp(instr, "own")) {
 		// destroy own calls
 		destroy_all_own_calls();
 
@@ -1106,7 +1091,7 @@ static void cli_incoming_terminate(str *instr, struct cli_writer *cw, const cli_
 		return;
 
 	// --- terminate foreign calls
-	} else if (!str_memcmp(instr,"foreign")) {
+	} else if (!str_cmp(instr, "foreign")) {
 		// destroy foreign calls
 		destroy_all_foreign_calls();
 
@@ -1121,7 +1106,7 @@ static void cli_incoming_terminate(str *instr, struct cli_writer *cw, const cli_
    c = call_get(instr);
 
    if (!c) {
-       cw->cw_printf(cw, "\nCall Id not found (%s).\n\n",instr->s);
+       cw->cw_printf(cw, "\nCall Id not found (" STR_FORMAT ").\n\n", STR_FMT(instr));
        return;
    }
 
@@ -1132,8 +1117,8 @@ static void cli_incoming_terminate(str *instr, struct cli_writer *cw, const cli_
 	   }
    }
 
-   cw->cw_printf(cw, "\nCall Id (%s) successfully terminated by operator.\n\n",instr->s);
-   ilog(LOG_WARN, "Call Id (%s) successfully terminated by operator.",instr->s);
+   cw->cw_printf(cw, "\nCall Id (" STR_FORMAT ") successfully terminated by operator.\n\n", STR_FMT(instr));
+   ilog(LOG_WARN, "Call Id (" STR_FORMAT ") successfully terminated by operator.", STR_FMT(instr));
 
    rwlock_unlock_w(&c->master_lock);
 
@@ -1143,7 +1128,6 @@ static void cli_incoming_terminate(str *instr, struct cli_writer *cw, const cli_
 
 static void cli_incoming_ksadd(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	long int_keyspace_db;
-	char *endptr;
 
 	if (!rtpe_redis_notify) {
 		cw->cw_printf(cw, "Keyspace notification feature has not been configured.\n");
@@ -1155,15 +1139,13 @@ static void cli_incoming_ksadd(str *instr, struct cli_writer *cw, const cli_hand
 		return;
 	}
 
-	errno = 0;
-	int_keyspace_db = strtol(instr->s, &endptr, 10);
+	int_keyspace_db = str_to_l(instr, LONG_MIN);
 
-	if ((errno == ERANGE && (int_keyspace_db == ULONG_MAX)) || int_keyspace_db >= INT_MAX
-			|| int_keyspace_db < 0
-			|| (errno != 0 && int_keyspace_db == 0)) {
-		cw->cw_printf(cw, "Fail adding keyspace " STR_FORMAT " to redis notifications; errno=%d\n", STR_FMT(instr), errno);
-	} else if (endptr == instr->s) {
+	if (int_keyspace_db == LONG_MIN && errno != ERANGE) {
 		cw->cw_printf(cw, "Fail adding keyspace " STR_FORMAT " to redis notifications; no digits found\n", STR_FMT(instr));
+	} else if (errno == ERANGE || int_keyspace_db >= INT_MAX
+			|| int_keyspace_db < 0) {
+		cw->cw_printf(cw, "Fail adding keyspace " STR_FORMAT " to redis notifications; errno=%d\n", STR_FMT(instr), errno);
 	} else {
 		rwlock_lock_w(&rtpe_config.keyspaces_lock);
 		if (!g_queue_find(&rtpe_config.redis_subscribed_keyspaces, GINT_TO_POINTER(int_keyspace_db))) {
@@ -1180,7 +1162,6 @@ static void cli_incoming_ksadd(str *instr, struct cli_writer *cw, const cli_hand
 static void cli_incoming_ksrm(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	GList *l;
 	long int_keyspace_db;
-	char *endptr;
 
 	if (!rtpe_redis_notify) {
 		cw->cw_printf(cw, "Keyspace notification feature has not been configured.\n");
@@ -1192,16 +1173,15 @@ static void cli_incoming_ksrm(str *instr, struct cli_writer *cw, const cli_handl
 		return;
 	}
 
-	errno = 0;
-	int_keyspace_db = strtol(instr->s, &endptr, 10);
+	int_keyspace_db = str_to_l(instr, LONG_MIN);
+	int err = errno;
 
 	rwlock_lock_w(&rtpe_config.keyspaces_lock);
-	if ((errno == ERANGE && (int_keyspace_db == ULONG_MAX)) || int_keyspace_db >= INT_MAX
-			|| int_keyspace_db < 0
-			|| (errno != 0 && int_keyspace_db == 0)) {
-		cw->cw_printf(cw, "Fail removing keyspace " STR_FORMAT " to redis notifications; errno=%d\n", STR_FMT(instr), errno);
-        } else if (endptr == instr->s) {
-                cw->cw_printf(cw, "Fail removing keyspace " STR_FORMAT " to redis notifications; no digits found\n", STR_FMT(instr));
+	if (int_keyspace_db == LONG_MIN && err != ERANGE) {
+		cw->cw_printf(cw, "Fail removing keyspace " STR_FORMAT " to redis notifications; no digits found\n", STR_FMT(instr));
+	} else if (err == ERANGE || int_keyspace_db >= INT_MAX
+			|| int_keyspace_db < 0) {
+		cw->cw_printf(cw, "Fail removing keyspace " STR_FORMAT " to redis notifications; errno=%d\n", STR_FMT(instr), err);
 	} else if ((l = g_queue_find(&rtpe_config.redis_subscribed_keyspaces, GINT_TO_POINTER(int_keyspace_db)))) {
 		// remove this keyspace
 		redis_notify_subscribe_action(rtpe_redis_notify, UNSUBSCRIBE_KEYSPACE, int_keyspace_db);
@@ -1411,7 +1391,11 @@ static void cli_incoming_set_loglevel(str *instr, struct cli_writer *cw, const c
 		return;
 	}
 
-	nl = atoi(instr->s);
+	nl = str_to_i(instr, INT_MIN);
+	if (nl == INT_MIN) {
+		cw->cw_printf(cw, "Fail setting loglevel to " STR_FORMAT "; no digits found\n", STR_FMT(instr));
+		return;
+	}
 
 	for (unsigned int i = 0; i < num_log_levels; i++) {
 		if (subsys.len) {
@@ -1429,15 +1413,17 @@ static void cli_incoming_list_redisallowederrors(str *instr, struct cli_writer *
 
 static void cli_incoming_set_redisallowederrors(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	long allowed_errors;
-	char *endptr;
 
 	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
-	errno = 0;
-	allowed_errors = strtol(instr->s, &endptr, 10);
+	allowed_errors = str_to_l(instr, LONG_MIN);
+	if (allowed_errors == LONG_MIN) {
+		cw->cw_printf(cw, "Fail setting redis-allowed-errors to " STR_FORMAT "; no digits found\n", STR_FMT(instr));
+		return;
+	}
 
 	atomic_set_na(&rtpe_config.redis_allowed_errors, allowed_errors);
 
@@ -1450,15 +1436,17 @@ static void cli_incoming_list_redisdisabletime(str *instr, struct cli_writer *cw
 
 static void cli_incoming_set_redisdisable(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	int disable = 0;
-	char *endptr;
 
 	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
-	errno = 0;
-	disable = strtol(instr->s, &endptr, 10);
+	disable = str_to_i(instr, INT_MIN);
+	if (disable == INT_MIN) {
+		cw->cw_printf(cw, "Fail setting redis-disable to " STR_FORMAT "; no digits found\n", STR_FMT(instr));
+		return;
+	}
 	if (disable < 0) {
 		cw->cw_printf(cw,  "Invalid redis-disable value %d, must be >= 0\n", disable);
 		return;
@@ -1490,15 +1478,17 @@ static void cli_incoming_set_redisdisable(str *instr, struct cli_writer *cw, con
 
 static void cli_incoming_set_redisdisabletime(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	long seconds;
-	char *endptr;
 
 	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
-	errno = 0;
-	seconds = strtol(instr->s, &endptr, 10);
+	seconds = str_to_l(instr, LONG_MIN);
+	if (seconds == LONG_MIN) {
+		cw->cw_printf(cw, "Fail setting redis-disable-time to " STR_FORMAT "; no digits found\n", STR_FMT(instr));
+		return;
+	}
 	if (seconds < 0) {
 		cw->cw_printf(cw,  "Invalid redis-disable-time value %ld, must be >= 0\n", seconds);
 		return;
@@ -1515,15 +1505,17 @@ static void cli_incoming_list_redisconnecttimeout(str *instr, struct cli_writer 
 
 static void cli_incoming_set_redisconnecttimeout(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	long timeout;
-	char *endptr;
 
 	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return ;
 	}
 
-	errno = 0;
-	timeout = strtol(instr->s, &endptr, 10);
+	timeout = str_to_l(instr, LONG_MIN);
+	if (timeout == LONG_MIN) {
+		cw->cw_printf(cw, "Fail setting redis-connect-timeout to " STR_FORMAT "; no digits found\n", STR_FMT(instr));
+		return;
+	}
 	if (timeout <= 0) {
 		cw->cw_printf(cw,  "Invalid redis-connect-timeout value %ld, must be > 0\n", timeout);
 		return;
@@ -1693,7 +1685,6 @@ static void cli_incoming_list_rediscmdtimeout(str *instr, struct cli_writer *cw,
 
 static void cli_incoming_set_rediscmdtimeout(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	long timeout;
-	char *endptr;
 	int fail = 0;
 
 
@@ -1702,8 +1693,11 @@ static void cli_incoming_set_rediscmdtimeout(str *instr, struct cli_writer *cw, 
 		return;
 	}
 
-	errno = 0;
-	timeout = strtol(instr->s, &endptr, 10);
+	timeout = str_to_l(instr, LONG_MIN);
+	if (timeout == LONG_MIN) {
+		cw->cw_printf(cw, "Fail setting redis-cmd-timeout to " STR_FORMAT "; no digits found\n", STR_FMT(instr));
+		return;
+	}
 	if (timeout < 0) {
 		cw->cw_printf(cw, "Invalid redis-cmd-timeout value %ld, must be >= 0\n", timeout);
 		return;
@@ -1845,15 +1839,17 @@ static void cli_incoming_list_controltos(str *instr, struct cli_writer *cw, cons
 
 static void cli_incoming_set_controltos(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	long tos;
-	char *endptr;
 
 	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return ;
 	}
 
-	errno = 0;
-	tos = strtol(instr->s, &endptr, 10);
+	tos = str_to_l(instr, LONG_MIN);
+	if (tos == LONG_MIN) {
+		cw->cw_printf(cw, "Fail setting control-tos to " STR_FORMAT "; no digits found\n", STR_FMT(instr));
+		return;
+	}
 	if (tos < 0 || tos > 255) {
 		cw->cw_printf(cw,  "Invalid control-tos value %ld, must be between 0 and 255\n", tos);
 		return;
