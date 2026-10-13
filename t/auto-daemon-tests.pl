@@ -9943,6 +9943,114 @@ rcv($sock_b, $port_a, rtpm(8, 1010, 4280, 0x1234, "\x00" x 160));
 
 
 
+# inject DTMF with passthrough: a second sink of the stream receives the packets as sent
+
+($sock_a, $sock_b, $sock_c) = new_call([qw(198.51.100.50 3070)], [qw(198.51.100.50 3072)],
+	[qw(198.51.100.50 3074)]);
+
+($port_a) = offer('inject passthrough, second sink',
+       { flags => [qw(inject-DTMF)] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3070 RTP/AVP 8 101
+c=IN IP4 198.51.100.50
+a=sendrecv
+a=rtpmap:101 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('inject passthrough, second sink',
+       { flags => [qw(inject-DTMF)] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3072 RTP/AVP 8 101
+c=IN IP4 198.51.100.50
+a=sendrecv
+a=rtpmap:101 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$resp = rtpe_req('subscribe request', 'second sink of A',
+       { 'from-tag' => ft(), 'to-tag' => 'second-sink' });
+($port_c) = $resp->{sdp} =~ /m=audio (\d+) RTP\/AVP 8 101/;
+ok($port_c, 'second sink of A has a media port');
+subscribe_answer('second sink of A', { 'to-tag' => 'second-sink' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3074 RTP/AVP 8 101
+c=IN IP4 198.51.100.50
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+SDP
+
+snd($sock_a, $port_b, rtp(8, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(8, 1000, 3000, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b, rtp(8, 1001, 3160, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1001, 3160, 0x1234, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(8, 1001, 3160, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b, rtp(8, 1002, 3320, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1002, 3320, 0x1234, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(8, 1002, 3320, 0x1234, "\x00" x 160));
+
+$resp = rtpe_req('play DTMF', 'inject DTMF towards B beside a second sink',
+       { 'from-tag' => ft(), code => '0', volume => 10, duration => 100 });
+
+# B gets the event, the second sink gets the packets as A sent them
+snd($sock_a, $port_b, rtp(8, 1003, 3480, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(101 | 0x80, 1003, 3480, 0x1234, "\x00\x0a\x00\xa0"));
+rcv($sock_c, $port_c, rtpm(8, 1003, 3480, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b, rtp(8, 1004, 3640, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(101, 1004, 3480, 0x1234, "\x00\x0a\x01\x40"));
+rcv($sock_c, $port_c, rtpm(8, 1004, 3640, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b, rtp(8, 1005, 3800, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(101, 1005, 3480, 0x1234, "\x00\x0a\x01\xe0"));
+rcv($sock_c, $port_c, rtpm(8, 1005, 3800, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b, rtp(8, 1006, 3960, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(101, 1006, 3480, 0x1234, "\x00\x0a\x02\x80"));
+rcv($sock_c, $port_c, rtpm(8, 1006, 3960, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b, rtp(8, 1007, 4120, 0x1234, "\x00" x 160));
+# end event
+rcv($sock_b, $port_a, rtpm(101, 1007, 3480, 0x1234, "\x00\x8a\x03\x20"));
+rcv($sock_b, $port_a, rtpm(101, 1008, 3480, 0x1234, "\x00\x8a\x03\x20"));
+rcv($sock_b, $port_a, rtpm(101, 1009, 3480, 0x1234, "\x00\x8a\x03\x20"));
+rcv($sock_c, $port_c, rtpm(8, 1007, 4120, 0x1234, "\x00" x 160));
+
+# B continues after the event's three end packets, the second sink with A's own numbering
+snd($sock_a, $port_b, rtp(8, 1008, 4280, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1010, 4280, 0x1234, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(8, 1008, 4280, 0x1234, "\x00" x 160));
+
+
+
+
 # inject DTMF to SRTP with passthrough
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.50 3056)], [qw(198.51.100.50 3058)]);

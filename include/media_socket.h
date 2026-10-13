@@ -266,6 +266,7 @@ struct sink_attrs {
 	bool transcoding:1;
 	bool egress:1;
 	bool inject:1;
+	bool sender_numbering:1; // SRTP leaves under the sender's key and SSRC: the sender's sequence numbers stay
 };
 
 struct rtpext_printer {
