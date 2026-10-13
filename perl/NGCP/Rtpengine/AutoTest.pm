@@ -26,7 +26,7 @@ BEGIN {
 	our @EXPORT = qw(autotest_start new_call new_call_nc offer answer ft tt cid snd snd_no srtp_snd rtp rcv srtp_rcv rcv_no rcv_maybe
 		srtp_dec escape rtpm rtpmre reverse_tags new_ft new_tt crlf sdp_split rtpe_req offer_answer
 		autotest_init subscribe_request subscribe_answer publish create create_answer
-		use_json rtpe_raw_req last_resp);
+		use_json rtpe_raw_req last_resp rtpe_log);
 };
 
 
@@ -413,6 +413,15 @@ sub terminate {
 	system(qw(tail -n 40), $rtpe_stderr);
 
 	die "error: $msg\n";
+}
+
+# what the daemon has logged so far (it runs with its log on stderr)
+sub rtpe_log {
+	open(my $fh, '<', $rtpe_stderr->filename) or die;
+	local $/;
+	my $log = <$fh>;
+	close($fh);
+	return $log;
 }
 
 sub use_json {
