@@ -785,6 +785,18 @@ Optionally included keys are:
 		Flag usage example:
 		`SDES-offerer_pref:AES_256_CM_HMAC_SHA;AES_256_CM_HMAC_SHA1_32;`
 
+	- `key-`*SUITE*`:`*KEY*
+
+		Use the given master key and salt for the crypto suite *SUITE* on the side
+		facing the recipient of the message, i.e. the key in the `a=crypto` line for
+		that suite in the SDP returned by *rtpengine*, instead of a generated key or one
+		copied from the received SDP. *KEY* is the base64 encoded concatenation of the
+		master key and the master salt, as in the `inline:` key parameter of an
+		`a=crypto` attribute. Can be given once per crypto suite. Example:
+		`SDES-key-AES_CM_128_HMAC_SHA1_80:PS1uQCVeeCFCanVmcjkpPywjNWhcYD0mXXtxaVBR`
+
+		This is meant for a controller which allocates the SRTP keys itself.
+
 	- `pad`
 
 		RFC 4568 (section 6.1) is somewhat ambiguous regarding the base64 encoding format of

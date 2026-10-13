@@ -104,6 +104,9 @@ extern const unsigned int num_crypto_suites;
 void crypto_init_main(void);
 
 const struct crypto_suite *crypto_find_suite(const str *);
+size_t crypto_key_salt_b64_len(const struct crypto_suite *);
+bool crypto_decode_key_salt(const struct crypto_suite *, const str *,
+		unsigned char [SRTP_MAX_MASTER_KEY_LEN + SRTP_MAX_MASTER_SALT_LEN]);
 int crypto_gen_session_key(struct crypto_context *, str *, unsigned char, unsigned int);
 void crypto_dump_keys(struct crypto_context *in, struct crypto_context *out);
 char *crypto_params_sdes_dump(const struct crypto_params_sdes *, char **);

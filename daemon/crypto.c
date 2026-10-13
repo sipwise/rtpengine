@@ -344,6 +344,31 @@ const struct crypto_suite * crypto_find_suite(const str *s) {
 	return NULL;
 }
 
+/* the length of the unpadded base64 encoding of the suite's master key and salt */
+size_t crypto_key_salt_b64_len(const struct crypto_suite *cs) {
+	return ((cs->master_key_len + cs->master_salt_len) * 4 + 2) / 3;
+}
+
+/* Decodes the master key and salt of an a=crypto inline: key into `out`.
+ * Only the first crypto_key_salt_b64_len() characters of `b64` are read, as
+ * the key may be followed by its lifetime and MKI. False unless they decode
+ * to exactly the suite's key and salt. */
+bool crypto_decode_key_salt(const struct crypto_suite *cs, const str *b64,
+		unsigned char out[SRTP_MAX_MASTER_KEY_LEN + SRTP_MAX_MASTER_SALT_LEN])
+{
+	size_t enc_len = crypto_key_salt_b64_len(cs);
+	gint state = 0;
+	guint save = 0;
+
+	if (b64->len < enc_len)
+		return false;
+	size_t ret = g_base64_decode_step(b64->s, enc_len, out, &state, &save);
+	// flush b64_state needed for AES-192: 36+2; AES-256: 45+1;
+	if (enc_len % 4)
+		ret += g_base64_decode_step("==", 4 - (enc_len % 4), out + ret, &state, &save);
+	return ret == cs->master_key_len + cs->master_salt_len;
+}
+
 /* rfc 3711 section 4.1 and 4.1.1
  * "in" and "out" MAY point to the same buffer */
 static void aes_ctr(unsigned char *out, str *in, EVP_CIPHER_CTX *ecc, const unsigned char *iv) {

@@ -44,6 +44,7 @@ TYPED_GQUEUE(tags, struct ng_tag)
 	X(codec_accept) \
 	X(codec_consume) \
 	X(sdes_order)		/* the order, in which crypto suites are being added to the SDP */ \
+	X(sdes_keys)		/* "SUITE:base64" master key and salt to use for our side, per suite */ \
 	X(sdes_offerer_pref)	/* preferred crypto suites to be selected for the offerer */
 
 #define RTPE_NG_FLAGS_SDP_ATTR_Q_PARAMS \

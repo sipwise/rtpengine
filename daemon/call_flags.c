@@ -40,6 +40,10 @@ static const char *ng_sdes_option(str *s, unsigned int idx, helper_arg arg) {
 	if (call_ng_flags_prefix(s, "order:", call_ng_flags_str_q_multi, &out->sdes_order))
 		return NULL;
 
+	/* Our own master key and salt for a crypto suite */
+	if (call_ng_flags_prefix(s, "key-", call_ng_flags_str_q_multi, &out->sdes_keys))
+		return NULL;
+
 	/* Crypto suite preferences for the offerer */
 	if (call_ng_flags_prefix(s, "offerer_pref:", call_ng_flags_str_q_multi,
 					&out->sdes_offerer_pref))

@@ -1590,6 +1590,44 @@ static bool reorder_sdes_preferences(sdes_q *sdes_in, const str_q *offered_order
 	return ret;
 }
 
+/* "SDES-key-SUITE:KEY": use the given master key and salt (base64, as in a=crypto)
+ * instead of generated or copied ones */
+static void __sdes_keys(const sdp_ng_flags *flags, sdes_q *cpq) {
+	for (__auto_type k = flags->sdes_keys.head; k; k = k->next) {
+		str b64 = *k->data, name;
+		if (!str_token(&name, &b64, ':') || !b64.len) {
+			ilogs(crypto, LOG_WARN, "Invalid SDES key '" STR_FORMAT "'", STR_FMT(k->data));
+			continue;
+		}
+		const struct crypto_suite *cs = crypto_find_suite(&name);
+		if (!cs) {
+			ilogs(crypto, LOG_WARN, "Unknown crypto suite '" STR_FORMAT "' in SDES key",
+					STR_FMT(&name));
+			continue;
+		}
+
+		/* the whole value is the key: at most its base64 padding may follow */
+		unsigned char buf[SRTP_MAX_MASTER_KEY_LEN + SRTP_MAX_MASTER_SALT_LEN];
+		str pad = b64;
+		str_shift(&pad, crypto_key_salt_b64_len(cs));
+		while (pad.len && pad.s[0] == '=')
+			str_shift(&pad, 1);
+		if (pad.len || !crypto_decode_key_salt(cs, &b64, buf)) {
+			ilogs(crypto, LOG_WARN, "Invalid SDES key for '%s', expected %u bytes in base64",
+					cs->name, cs->master_key_len + cs->master_salt_len);
+			continue;
+		}
+
+		for (__auto_type l = cpq->head; l; l = l->next) {
+			struct crypto_params_sdes *cps = l->data;
+			if (cps->params.crypto_suite != cs)
+				continue;
+			memcpy(cps->params.master_key, buf, cs->master_key_len);
+			memcpy(cps->params.master_salt, buf + cs->master_key_len, cs->master_salt_len);
+		}
+	}
+}
+
 /**
  *  Only generates SDES parameters for outgoing SDP, which is our media "out" direction.
  * `this` is the receiver of the message.
@@ -1907,6 +1945,8 @@ cps_match:
 			__sdes_flags(cps_in, flags);
 		}
 	}
+
+	__sdes_keys(flags, cpq);
 
 skip_sdes:
 	if (is_offer) {
