@@ -4355,6 +4355,7 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		media_update_type(media, sp);
 		media_update_protocol(media, sp);
 		media_update_media_id(media, sp);
+		media_update_label(media, flags, &sp->label);
 		media_loop_protect(sp, media);
 		media_update_flags(media, sp);
 		media_update_crypto(media, sp, flags);
