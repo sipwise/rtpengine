@@ -184,6 +184,53 @@ $NGCP::Rtpengine::req_cb = sub {
 offer('write when the server is back', { }, $sdp);
 
 
+# CLI over ng: the body is read as a str, not as a C string. In the request
+# buffer it is followed by the next bencode key ("7:call-id..."), which must
+# not be read as more digits or quoted back. None of these touches Redis.
+
+undef($NGCP::Rtpengine::req_cb);
+my $resp = rtpe_req('cli', 'set maxsessions', { body => 'set maxsessions 1000' });
+is($resp->{response}, "Success setting maxsessions to 1000\n", 'maxsessions set over ng');
+$resp = rtpe_req('cli', 'set maxcpu', { body => 'set maxcpu 99.5' });
+is($resp->{response}, "Success setting maxcpu to 99.5\n", 'maxcpu set over ng');
+$resp = rtpe_req('cli', 'set maxbw', { body => 'set maxbw abc' });
+is($resp->{response}, "Fail setting maxbw to abc; no digits found\n", 'invalid maxbw refused, quoted as sent');
+$resp = rtpe_req('cli', 'terminate', { body => 'terminate no-such-call' });
+is($resp->{response}, "\nCall Id not found (no-such-call).\n\n", 'unknown call ID quoted as sent');
+$resp = rtpe_req('cli', 'terminate', { body => 'terminate a' });
+is($resp->{response}, "\nCall Id not found (a).\n\n", 'a prefix of "all" is a call ID');
+$resp = rtpe_req('cli', 'set rediscmdtimeout', { body => 'set rediscmdtimeout 100x' });
+is($resp->{response}, "Fail setting redis-cmd-timeout to 100x; no digits found\n",
+	'redis-cmd-timeout with trailing characters refused');
+$resp = rtpe_req('cli', 'set loglevel', { body => 'set loglevel 7x' });
+is($resp->{response}, "Fail setting loglevel to 7x; no digits found\n",
+	'loglevel with trailing characters refused');
+$resp = rtpe_req('cli', 'set loglevel', { body => 'set loglevel core x' });
+is($resp->{response}, "Fail setting loglevel to x; no digits found\n", 'non-number loglevel refused');
+$resp = rtpe_req('cli', 'list loglevel', { body => 'list loglevel core' });
+is($resp->{response}, "7\n", 'loglevel unchanged');
+$resp = rtpe_req('cli', 'set loglevel', { body => 'set loglevel 7' });
+is($resp->{response}, "Success setting loglevel to 7\n", 'loglevel set over ng');
+
+
+# CLI: setting the command timeout to 0 reconnects every configured
+# connection. There is no notification connection here, and none must be
+# touched; --redis is also the write connection, so it reconnects twice.
+
+$NGCP::Rtpengine::req_cb = sub {
+	for my $n ('cli redis', 'cli redis-write') {
+		ok(readable($listener, 2), "$n reconnects") or die "no $n reconnect\n";
+		$fd = redis_conn($listener, $n);
+	}
+	# no ng reply if rtpengine died: fail instead of waiting forever
+	alarm(5);
+};
+# (the value ends the body, as above)
+$resp = rtpe_req('cli', 'set rediscmdtimeout 0', { body => 'set rediscmdtimeout 0' });
+alarm(0);
+like($resp->{response}, qr/Success setting redis-cmd-timeout to 0/, 'redis-cmd-timeout set to 0');
+
+
 # Non-default pacing: with --redis-reconnect-slow=0 even a refused
 # connection is followed by the pause, and --redis-reconnect-pause=2500
 # makes it last longer than the default second.
