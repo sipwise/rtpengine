@@ -29724,6 +29724,109 @@ rcv($sock_b, $port_a, $dup_match);
 
 
 
+# local-port and from-local-port: the controller picks our ports.
+# The ports are outside of the pool, so that no earlier test can hold them.
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 7196)], [qw(198.51.100.3 7198)]);
+
+offer('local ports', {
+		ICE => 'remove',
+		'local-port' => 20040,
+		'from-local-port' => [ 20050 ],
+	}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7196 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 20040 RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:20041
+SDP
+
+answer('local ports', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7198 RTP/AVP 8
+c=IN IP4 198.51.100.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 20050 RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:20051
+SDP
+
+($port_a, $port_b) = (20040, 20050);
+
+snd($sock_a, $port_b,  rtp(8, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1000, 3000, 0x1234, "\x00" x 160));
+snd($sock_b, $port_a,  rtp(8, 2000, 4000, 0x6543, "\x11" x 160));
+rcv($sock_a, $port_b, rtpm(8, 2000, 4000, 0x6543, "\x11" x 160));
+
+# the port is taken now
+new_call;
+
+like(rtpe_raw_req({ command => 'offer', 'call-id' => cid(), 'from-tag' => ft(),
+		ICE => 'remove', 'local-port' => 20040,
+		sdp => "v=0\r\no=- 1545997027 1 IN IP4 198.51.100.1\r\ns=tester\r\nt=0 0\r\n"
+			. "m=audio 7208 RTP/AVP 8\r\nc=IN IP4 198.51.100.1\r\na=sendrecv\r\n" }),
+	qr/Ran out of ports/, 'local port in use');
+
+# other methods that open ports
+
+new_call;
+
+publish('local port, publish', { 'local-port' => 20060 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7210 RTP/AVP 0 8 9
+c=IN IP4 198.51.100.14
+a=sendonly
+----------------------------------
+v=0
+o=- SDP_VERSION IN IP4 203.0.113.1
+s=RTPE_VERSION
+t=0 0
+m=audio 20060 RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=recvonly
+a=rtcp:20061
+SDP
+
+subscribe_request('local port, subscribe request', { 'from-tag' => ft(), 'local-port' => 20070 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 20070 RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:20071
+SDP
+
+
+
 
 # SDES-key: the controller picks the keys
 

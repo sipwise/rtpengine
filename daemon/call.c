@@ -834,6 +834,18 @@ static struct endpoint_map *__hunt_endpoint_map(struct call_media *media, unsign
 	return NULL;
 }
 
+/* "local-port" and "from-local-port": the port requested for this media section, for
+ * endpoint maps that don't have their ports open yet */
+static void __endpoint_map_want_port(struct endpoint_map *em, const GArray *ports, unsigned int idx) {
+	if (!em || !ports || idx >= ports->len)
+		return;
+	for (auto_iter(l, em->intf_sfds.head); l; l = l->next) {
+		if (l->data->list.length)
+			return;
+	}
+	em->wanted_port = g_array_index(ports, unsigned int, idx);
+}
+
 static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigned int num_ports,
 		const struct endpoint *ep, const sdp_ng_flags *flags, bool always_reuse)
 {
@@ -856,6 +868,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 	if (em) {
 		if (__endpoint_map_truncate(em, want_interfaces, num_ports)) {
 			media->endpoint_map = em;
+			__endpoint_map_want_port(em, flags ? flags->local_ports : NULL, media->index - 1);
 			return em;
 		}
 	}
@@ -880,6 +893,8 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 		em_il->local_intf = intf->data;
 		t_queue_push_tail(&em->intf_sfds, em_il);
 	}
+
+	__endpoint_map_want_port(em, flags ? flags->local_ports : NULL, media->index - 1);
 
 	return em;
 }
@@ -3810,7 +3825,11 @@ static bool media_open_ports(struct call_media *media) {
 		MEDIA_CLEAR(media, PUBLIC);
 
 		socket_port_q q = IQUEUE_INIT;
-		if (!get_consecutive_ports(&q, em->num_ports, em_il->local_intf, label))
+		if (em->wanted_port) {
+			if (!get_specific_ports(&q, em->num_ports, em->wanted_port, em_il->local_intf, label))
+				return false;
+		}
+		else if (!get_consecutive_ports(&q, em->num_ports, em_il->local_intf, label))
 			return false;
 
 		struct socket_port_link *spl;
@@ -4084,6 +4103,8 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 			if (!__wildcard_endpoint_map(sender_media, num_ports_other))
 				goto error_ports;
 		}
+
+		__endpoint_map_want_port(sender_media->endpoint_map, flags->from_local_ports, sp->index - 1);
 
 		update_init_subscribers(sender_media, sp, flags, flags->opmode);
 		__update_init_medias(&old_medias, flags->opmode);
@@ -6855,6 +6876,7 @@ static bool monologue_call_create_media(struct call_monologue *ml, sdp_ng_flags 
 
 	if (!__get_endpoint_map(m, num_ports, NULL, NULL, true))
 		return false;
+	__endpoint_map_want_port(m->endpoint_map, flags->local_ports, m->index - 1);
 	__num_media_streams(m, num_ports);
 
 	if (!__init_streams(m, NULL, flags))

@@ -161,6 +161,8 @@ struct sdp_ng_flags {
 	enum block_dtmf_mode block_dtmf_mode;
 	int delay_buffer;
 	GArray *frequencies;
+	GArray *local_ports;		/* local RTP port per media section, towards the recipient */
+	GArray *from_local_ports;	/* local RTP port per media section, towards the sender */
 	int volume;
 	char digit;
 	str trigger;
