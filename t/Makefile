@@ -116,7 +116,7 @@ include ../lib/common.Makefile
 	daemon-tests-created-subscriptions \
 	daemon-tests-dtx-dtmf
 
-TESTS=		test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
+TESTS=		test-bitstr test-str aes-crypt aead-aes-crypt test-const_str_hash.strhash
 ifeq ($(with_transcoding),yes)
 TESTS+=		test-transcode test-dtmf-detect test-payload-tracker test-resample test-stats test-mix-buffer
 ifeq ($(RTPENGINE_EXTENDED_TESTS),1)
@@ -316,6 +316,8 @@ daemon-tests-recording:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-recording.pl
 
 test-bitstr:	test-bitstr.o
+
+test-str:	test-str.o
 
 test-mix-buffer:	test-mix-buffer.o $(COMMONOBJS) mix_buffer.o ssrc.o rtp.o crypto.o helpers.o \
 	mix_in_x64_avx2.o mix_in_x64_sse2.o mix_in_x64_avx512bw.o codeclib.strhash.o dtmflib.o \

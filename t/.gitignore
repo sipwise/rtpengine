@@ -11,6 +11,7 @@ const_str_hash-test.strhash
 tests-preload.so
 test-dtmf-detect
 test-bitstr
+test-str
 test-const_str_hash.strhash
 test-payload-tracker
 test-transcode

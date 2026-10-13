@@ -144,6 +144,7 @@ __attribute__((nonnull(1))) ACCESS(read_only, 1) INLINE int str_to_i(const str *
 __attribute__((nonnull(1))) ACCESS(read_only, 1) INLINE unsigned int str_to_u(const str *s, unsigned int def);
 __attribute__((nonnull(1))) ACCESS(read_only, 1) INLINE long long str_to_ll(const str *s, long long def);
 __attribute__((nonnull(1))) ACCESS(read_only, 1) INLINE unsigned long long str_to_ull(const str *s, unsigned long long def);
+__attribute__((nonnull(1))) ACCESS(read_only, 1) INLINE double str_to_d(const str *s, double def);
 
 /* extracts the first/next token into "new_token" and modifies "ori_and_remaidner" in place */
 __attribute__((nonnull(1, 2)))
@@ -412,6 +413,27 @@ str_to_x(long, str_to_l, MAX_LONG_LEN, strtol, LONG_MIN, LONG_MAX)
 str_to_x(unsigned long, str_to_ul, MAX_LONG_LEN, strtol, ULONG_MAX, ULONG_MAX)
 str_to_x(int, str_to_i, MAX_INT_LEN, strtol, INT_MIN, INT_MAX)
 str_to_x(unsigned int, str_to_u, MAX_INT_LEN, strtoul, INT_MAX, INT_MAX)
+
+#define MAX_DOUBLE_LEN 63
+
+INLINE double str_to_d(const str *s, double def) {
+	char *ep;
+	char buf[MAX_DOUBLE_LEN + 1];
+	double ret;
+	if (s->len <= 0)
+		return def;
+	if (s->len > MAX_DOUBLE_LEN)
+		return def;
+	memcpy(buf, s->s, s->len);
+	buf[s->len] = '\0';
+	errno = 0;
+	ret = strtod(buf, &ep);
+	if (*ep != '\0')
+		return def;
+	if (errno == ERANGE)
+		return def;
+	return ret;
+}
 
 
 INLINE bool str_token(str *new_token, str *ori_and_remainder, int sep) {
