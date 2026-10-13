@@ -499,6 +499,28 @@ Optionally included keys are:
 	back in logs and statistics output. For some commands (e.g. `block media`) the given label is not
 	used to set the label of the call participant, but rather to select an existing call participant.
 
+* `local-port` or `from-local-port`
+
+	The local port to use for a media section, instead of one taken from the port
+	pool: `local-port` for the side facing the recipient of the message (the port
+	that appears in the SDP returned by *rtpengine*), `from-local-port` for the side
+	facing its sender (in an `offer`, the port that will later appear in the SDP of
+	the answer). Either an integer, which applies to the first media section, or a
+	list of integers, one per media section of the received SDP in order, where `0`
+	means "any port". When RTCP is not multiplexed, RTCP uses the next port up.
+
+	This is meant for a controller that manages the media ports itself, for example
+	one that has already announced the ports to the remote side. The port can be
+	outside of the configured port range. A requested port only applies when
+	*rtpengine* opens the ports for a media section for the first time, typically in
+	the initial `offer`; for media that has its ports already, it is ignored. If the
+	port cannot be opened, the request fails.
+
+	`local-port` is supported by every message that opens ports for a media section
+	(`offer`, `answer`, `publish`, `subscribe request` and `create`).
+	`from-local-port` only applies to `offer` and `answer`, the only messages with a
+	sending side to open ports for.
+
 * `media address`
 
 	This can be used to override both the addresses present in the SDP body

@@ -390,6 +390,7 @@ struct endpoint_map {
 	unsigned int		unique_id;
 	struct endpoint		endpoint;
 	unsigned int		num_ports; // per interface
+	unsigned int		wanted_port; // first local port to open, 0 = any from the pool
 	struct logical_intf	*logical_intf;
 	sfd_intf_list_q		intf_sfds; /* list of struct sfd_intf_list - contains stream_fd list */
 	unsigned int		wildcard:1;

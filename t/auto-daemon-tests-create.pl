@@ -31,6 +31,19 @@ is length($wav_file), 1644, 'embedded binary wav file';
 
 
 
+($cid, $ft, $port_a) = create('local port', { 'local-port' => 20090 }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 203.0.113.1
+s=RTPE_VERSION
+t=0 0
+m=audio 20090 RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:20091
+SDP
+
 if ($extended_tests) {
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.10 4070)], [qw(198.51.100.10 4072)]);

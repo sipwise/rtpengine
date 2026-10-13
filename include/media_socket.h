@@ -401,6 +401,9 @@ const str *resolve_interface_from_peer_ip(const str *peer_ip);
 struct socket_port_link get_specific_port(unsigned int port,
 		struct intf_spec *spec, const str *label);
 
+__attribute__((nonnull(1, 4, 5)))
+bool get_specific_ports(socket_port_q *out, unsigned int num_ports, unsigned int port, struct local_intf *,
+		const str *label);
 __attribute__((nonnull(1, 3, 4)))
 bool get_consecutive_ports(socket_port_q *out, unsigned int num_ports, struct local_intf *,
 		const str *label);

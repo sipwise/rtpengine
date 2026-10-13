@@ -1375,6 +1375,34 @@ fail:
 	return false;
 }
 
+/**
+ * Like get_consecutive_ports(), but for the ports port ... port + num_ports - 1 exactly,
+ * all or nothing. The ports may be outside of the pool.
+ */
+bool get_specific_ports(socket_port_q *out, unsigned int num_ports, unsigned int port,
+		struct local_intf *loc, const str *label)
+{
+	if (!num_ports || !port || port + num_ports - 1 > 65535) {
+		ilog(LOG_ERR, "Invalid local port %u (%u ports) requested", port, num_ports);
+		return false;
+	}
+
+	for (unsigned int i = 0; i < num_ports; i++) {
+		__auto_type spl = get_specific_port(port + i, loc->spec, label);
+		if (!spl.socket.family) {
+			ilog(LOG_ERR, "Failed to open requested local port %u on interface %s",
+					port + i, sockaddr_print_buf(&loc->spec->local_address.addr));
+			release_reserved_ports(out);
+			return false;
+		}
+		__auto_type splp = g_new(struct socket_port_link, 1);
+		*splp = spl;
+		i_queue_push_tail(out, splp);
+	}
+
+	return true;
+}
+
 bool get_consecutive_ports(socket_port_q *out, unsigned int num_ports, struct local_intf *loc,
 		const str *label)
 {
