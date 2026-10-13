@@ -33,6 +33,7 @@
 #include "main.h"
 #include "codec.h"
 #include "sdp.h"
+#include "statistics.h"
 
 typedef union {
 	GQueue *q;
@@ -219,19 +220,52 @@ static int redis_check_type(struct redis *r, char *key, char *suffix, char *type
 
 
 /* called with r->lock held */
-static void redis_consume(struct redis *r) {
+static void redis_write_result(struct redis *r, const redisReply *rp) {
+	if (rp->type == REDIS_REPLY_ERROR) {
+		RTPE_STATS_INC(redis_write_errors);
+		r->write_errors++;
+		r->writes_refused = true;
+	}
+	else if (!r->writes_refused)
+		return;
+
+	// every write ends up here: at most one line a second
+	if (r->write_errors_log_us && rtpe_now - r->write_errors_log_us < 1000000LL)
+		return;
+	r->write_errors_log_us = rtpe_now;
+
+	if (rp->type == REDIS_REPLY_ERROR)
+		rlog(LOG_ERR, "Redis %s refused a write: %s (%u refused since the last report)",
+				endpoint_print_buf(&r->endpoint), rp->str, r->write_errors);
+	else {
+		rlog(LOG_NOTICE, "Redis %s accepts writes again (%u refused since the last report)",
+				endpoint_print_buf(&r->endpoint), r->write_errors);
+		r->writes_refused = false;
+	}
+	r->write_errors = 0;
+}
+
+/* called with r->lock held
+ * Returns -1 if the replies could not be read (the context is then unusable).
+ * An error reply keeps the connection: a reconnect would get the same answer. */
+static int redis_consume(struct redis *r) {
 	redisReply *rp;
 
 	if (!r->ctx) {
 		ilog(LOG_ERROR, "Unable to consume pipelined replies. No redis context");
 		r->pipeline = 0;
-		return;
+		return -1;
 	}
 	while (r->pipeline) {
-		if (redisGetReply(r->ctx, (void **) &rp) == REDIS_OK)
-			freeReplyObject(rp);
+		if (redisGetReply(r->ctx, (void **) &rp) != REDIS_OK) {
+			r->pipeline = 0;
+			return -1;
+		}
 		r->pipeline--;
+		redis_write_result(r, rp);
+		freeReplyObject(rp);
 	}
+	return 0;
 }
 
 int redis_set_timeout(struct redis* r, int64_t timeout) {
@@ -1044,9 +1078,9 @@ static int redis_check_conn(struct redis *r) {
 }
 
 /* called with r->lock held and c->master_lock held */
-static void redis_delete_call_json(call_t *c, struct redis *r) {
+static int redis_delete_call_json(call_t *c, struct redis *r) {
 	redis_pipe(r, "DEL "PB"", PBSTR(&c->callid));
-	redis_consume(r);
+	return redis_consume(r);
 }
 
 static void redis_delete_async_call_json(call_t *c, struct redis *r) {
@@ -3603,17 +3637,20 @@ void redis_update_onekey(call_t *c, struct redis *r) {
 
 	void *to_free = NULL;
 	str result = redis_encode_json(&ctx, c, &to_free);
-	if (!result.len)
-		goto err;
-
-	redis_pipe(r, "SET " PB " " PB " EX %i", PBSTR(&c->callid), PBSTR(&result), redis_expires_s);
-
-	redis_consume(r);
-
-	rwlock_unlock_r(&c->master_lock);
+	int consume_ret = 0;
+	// nothing to write if the encoding failed: the connection is fine
+	if (result.len) {
+		redis_pipe(r, "SET " PB " " PB " EX %i", PBSTR(&c->callid), PBSTR(&result), redis_expires_s);
+		consume_ret = redis_consume(r);
+	}
 
 	g_free(to_free);
 	arena_free(ctx.buffer);
+
+	if (consume_ret)
+		goto err;
+
+	rwlock_unlock_r(&c->master_lock);
 
 	return;
 err:
@@ -3653,7 +3690,8 @@ static void redis_do_delete(call_t *c, struct redis *r) {
 	if (redis_select_db(r, c->redis_hosted_db))
 		goto err;
 
-	redis_delete_call_json(c, r);
+	if (redis_delete_call_json(c, r))
+		goto err;
 
 	rwlock_unlock_r(&c->master_lock);
 	return;

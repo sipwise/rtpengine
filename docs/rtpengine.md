@@ -574,6 +574,12 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     When both options are given, __rtpengine__ will start and use the Redis
     database regardless of the database's role (master or slave).
 
+    Writes that the Redis server refuses (for example __READONLY__ from a
+    replica, or __NOREPLICAS__ from a master that lacks replicas) are logged,
+    at most once a second, and counted in the __rediswriteerrors__ statistic.
+    The connection is kept, as reconnecting to the same address would not
+    change the server's answer.
+
 - __\-\-redis-subscribe=__\[*PW*@\]*IP*:*PORT*\[/*INT*\]
 
     Configures a Redis database for subscribing and receiving notifications.
