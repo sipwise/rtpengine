@@ -706,20 +706,22 @@ void ssrc_collect_metrics(struct call_media *media) {
 		if (!s)
 			break; // end of list
 
+		// work on a copy, as the estimator itself must stay in RTP timestamp units
+		uint32_t jitter = s->jitter;
 		// exclude zero values - technically possible but unlikely and probably just unset
-		if (!s->jitter)
+		if (!jitter)
 			continue;
 
 		if (s->tracker.most_len > 0 && s->tracker.most[0] != 255) {
 			const rtp_payload_type *rpt = get_rtp_payload_type(s->tracker.most[0],
 					&media->codecs);
 			if (rpt && rpt->clock_rate)
-				s->jitter = s->jitter * 1000 / rpt->clock_rate;
+				jitter = jitter * 1000 / rpt->clock_rate;
 		}
 
 		if (media->streams.head) {
 			LOCK(&media->streams.head->lock);
-			RTPE_SAMPLE_SFD(jitter_measured, s->jitter, media->streams.head->selected_sfd);
+			RTPE_SAMPLE_SFD(jitter_measured, jitter, media->streams.head->selected_sfd);
 		}
 	}
 }
