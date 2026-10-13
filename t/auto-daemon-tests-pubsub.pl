@@ -4326,5 +4326,60 @@ SDP
 
 
 
+new_call;
+
+publish('publish with a=label',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6200 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=label:1
+a=sendonly
+m=audio 6202 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=label:2
+a=sendonly
+----------------------------------
+v=0
+o=- SDP_VERSION IN IP4 203.0.113.1
+s=RTPE_VERSION
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:1
+a=rtpmap:0 PCMU/8000
+a=recvonly
+a=rtcp:PORT
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:2
+a=rtpmap:0 PCMU/8000
+a=recvonly
+a=rtcp:PORT
+SDP
+
+subscribe_request('publish with a=label',
+	{ 'from-tag' => ft() }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:2
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
 done_testing();
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;

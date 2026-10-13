@@ -3629,6 +3629,7 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		struct call_media *media = __get_media(ml, sp, flags, 0, mid_tracker);
 
 		__media_init_from_flags(media, NULL, sp, flags);
+		media_update_label(media, flags, &sp->label);
 
 		codec_store_populate(&media->codecs, &sp->codecs,
 				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
