@@ -1721,11 +1721,11 @@ static void cli_incoming_set_rediscmdtimeout(str *instr, struct cli_writer *cw, 
 			cw->cw_printf(cw, "Failed reconnecting to redis\n");
 			fail = 1;
 		}
-		if (rtpe_redis && redis_reconnect(rtpe_redis_write)) {
+		if (rtpe_redis_write && redis_reconnect(rtpe_redis_write)) {
 			cw->cw_printf(cw, "Failed reconnecting to redis-write\n");
 			fail = 1;
 		}
-		if (rtpe_redis && redis_reconnect(rtpe_redis_notify)) {
+		if (rtpe_redis_notify && redis_reconnect(rtpe_redis_notify)) {
 			cw->cw_printf(cw, "Failed reconnecting to redis-notify\n");
 			fail = 1;
 		}
