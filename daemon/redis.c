@@ -346,7 +346,7 @@ static int redis_connect(struct redis *r, int wait, bool resolve) {
 			goto err3;
 		}
 
-		if (!memcmp(s, "role:master", 11) || !memcmp(s, "role:active-replica", 19)) {
+		if (!strncmp(s, "role:master", 11) || !strncmp(s, "role:active-replica", 19)) {
 			if (r->role == MASTER_REDIS_ROLE || r->role == ANY_REDIS_ROLE) {
 				ilog(LOG_INFO, "Connected to Redis %s in master mode", 
 					endpoint_print_buf(&r->endpoint));
@@ -356,7 +356,7 @@ static int redis_connect(struct redis *r, int wait, bool resolve) {
 					endpoint_print_buf(&r->endpoint));
 				goto next;
 			}
-		} else if (!memcmp(s, "role:slave", 10)) {
+		} else if (!strncmp(s, "role:slave", 10)) {
 			if (r->role == SLAVE_REDIS_ROLE || r->role == ANY_REDIS_ROLE) {
 				ilog(LOG_INFO, "Connected to Redis %s in slave mode",
 					endpoint_print_buf(&r->endpoint));
