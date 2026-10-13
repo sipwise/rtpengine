@@ -2133,7 +2133,11 @@ const char *cli_ng(ng_command_ctx_t *ctx) {
 		.cw_printf = ng_printf,
 		.ptr = response,
 	};
-	cli_handle(&body, &cw);
+	// The handlers parse numbers in place (strtol() and the like), and the
+	// body is a slice of the request buffer: end it where the body ends.
+	g_autofree char *body_s = g_strndup(body.s, body.len);
+	str body_z = STR_LEN(body_s, body.len);
+	cli_handle(&body_z, &cw);
 
 	parser->dict_add_str_dup(ctx->resp, "response", &STR_LEN(response->str, response->len));
 

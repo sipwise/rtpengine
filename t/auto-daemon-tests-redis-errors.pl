@@ -184,6 +184,25 @@ $NGCP::Rtpengine::req_cb = sub {
 offer('write when the server is back', { }, $sdp);
 
 
+# CLI: setting the command timeout to 0 reconnects every configured
+# connection. There is no notification connection here, and none must be
+# touched; --redis is also the write connection, so it reconnects twice.
+
+$NGCP::Rtpengine::req_cb = sub {
+	for my $n ('cli redis', 'cli redis-write') {
+		ok(readable($listener, 2), "$n reconnects") or die "no $n reconnect\n";
+		$fd = redis_conn($listener, $n);
+	}
+	# no ng reply if rtpengine died: fail instead of waiting forever
+	alarm(5);
+};
+# (the value ends the body: in the request buffer it is followed by the next
+# bencode key, which must not be read as more digits)
+my $resp = rtpe_req('cli', 'set rediscmdtimeout 0', { body => 'set rediscmdtimeout 0' });
+alarm(0);
+like($resp->{response}, qr/Success setting redis-cmd-timeout to 0/, 'redis-cmd-timeout set to 0');
+
+
 # Non-default pacing: with --redis-reconnect-slow=0 even a refused
 # connection is followed by the pause, and --redis-reconnect-pause=2500
 # makes it last longer than the default second.
