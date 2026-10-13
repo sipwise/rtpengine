@@ -2672,6 +2672,7 @@ command. Sample return dictionary:
 	      "relayedpacketerrors": 0,
 	      "zerowaystreams": 0,
 	      "onewaystreams": 0,
+	      "rediswriteerrors": 0,
 	      "avgcallduration": "0.000000"
 	    },
 	    "intervalstatistics": {

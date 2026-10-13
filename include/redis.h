@@ -59,6 +59,9 @@ struct redis {
 	int		no_redis_required;
 	int		consecutive_errors;
 	int64_t		restore_tick_us;
+	unsigned int	write_errors;		/* refused writes not reported in the log yet */
+	bool		writes_refused;		/* the last write was refused */
+	int64_t		write_errors_log_us;	/* time of the last report */
 	int		current_db;
 
 	struct event_base		*async_ev;
