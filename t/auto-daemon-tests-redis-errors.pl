@@ -11,6 +11,7 @@ use NGCP::Rtpengine::Test;
 use NGCP::Rtpengine::AutoTest;
 use NGCP::Rtpengine::FakeRedis;
 use Test::More;
+use Time::HiRes qw(time sleep);
 
 
 my $listener = redis_listen('203.0.113.42');
@@ -115,6 +116,142 @@ $NGCP::Rtpengine::req_cb = sub {
 	redis_expect_set($fd, cid(), "+OK\r\n", 'after no reply', no_ping => 1);
 };
 offer('write after no reply', { }, $sdp);
+
+
+# The server closes the connection (as Sentinel does when it demotes a
+# master) and the reconnect finds a replica, while the master role is
+# required (--redis without --redis-write): one INFO, and no sleep or second
+# INFO under the lock. The INFO reply has nothing after the role line, which
+# must not be read past its end (an ASan build aborts without strncmp()).
+
+redis_close($fd);
+
+new_call;
+$NGCP::Rtpengine::req_cb = sub {
+	$fd = redis_conn($listener, 'replica', role => 'slave', short => 1, refused => 1);
+	redis_closed($fd, 'replica: connection closed after one INFO');
+	# no ng reply if rtpengine died: fail instead of waiting forever
+	alarm(5);
+};
+offer('write while the node is a replica', { }, $sdp);
+alarm(0);
+
+# within the next second, no new connection is attempted; after it, the next
+# write reconnects, and the node is master again
+
+new_call;
+$NGCP::Rtpengine::req_cb = sub {
+	ok(!readable($listener, 0.3), 'no reconnect within the pacing interval')
+		or die "reconnect attempted within the pacing interval\n";
+};
+offer('write within the pacing interval', { }, $sdp);
+
+sleep(1);
+
+new_call;
+$NGCP::Rtpengine::req_cb = sub {
+	$fd = redis_conn($listener, 'master again');
+	redis_expect_set($fd, cid(), "+OK\r\n", 'master again', no_ping => 1);
+};
+offer('write after the pacing interval', { }, $sdp);
+
+
+# The server goes away (the connection is refused): that failure is quick,
+# so it is not paced, and the first write after the server is back goes
+# through: the reconnect must come before the ng reply.
+
+redis_close($fd);
+close($listener);
+
+new_call;
+undef($NGCP::Rtpengine::req_cb);
+my $log_pos = length(rtpe_log());
+offer('write while the server is down', { }, $sdp);
+# (under the test preload library, a refused connection shows as "No such
+# file or directory")
+like(substr(rtpe_log(), $log_pos), qr/Lost connection to Redis '203\.0\.113\.42'\n(?:.*\n)*?.*Failed to connect to Redis 203\.0\.113\.42:6379, error: /,
+	'connection refused');
+
+$listener = redis_listen('203.0.113.42');
+
+new_call;
+$NGCP::Rtpengine::req_cb = sub {
+	ok(readable($listener, 2), 'reconnect on the first write after a refused connection')
+		or die "no reconnect after a refused connection\n";
+	$fd = redis_conn($listener, 'server back');
+	redis_expect_set($fd, cid(), "+OK\r\n", 'server back', no_ping => 1);
+};
+offer('write when the server is back', { }, $sdp);
+
+
+# Non-default pacing: with --redis-reconnect-slow=0 even a refused
+# connection is followed by the pause, and --redis-reconnect-pause=2500
+# makes it last longer than the default second.
+
+undef($NGCP::Rtpengine::req_cb);
+NGCP::Rtpengine::AutoTest::shut_rtpe();
+redis_close($fd);
+autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1
+			-n 2223 -f -L 7 -E --redis=auth@203.0.113.42:6379/2
+			--redis-cmd-timeout=1000
+			--redis-reconnect-pause=2500 --redis-reconnect-slow=0))
+		or die;
+
+redis_close($fd);
+close($listener);
+
+new_call;
+offer('write while the server is down, paced', { }, $sdp);
+my $t0 = time();	# the pause began during that request
+$listener = redis_listen('203.0.113.42');
+
+new_call;
+$NGCP::Rtpengine::req_cb = sub {
+	ok(!readable($listener, 0.3), 'refused connection followed by the pause');
+};
+offer('write after a refused connection', { }, $sdp);
+
+sleep(1.2 - (time() - $t0));
+new_call;
+$NGCP::Rtpengine::req_cb = sub {
+	ok(!readable($listener, 0.2), 'still paused after one second');
+};
+offer('write after one second', { }, $sdp);
+
+sleep(2.7 - (time() - $t0));
+new_call;
+$NGCP::Rtpengine::req_cb = sub {
+	$fd = redis_conn($listener, 'after the pause');
+	redis_expect_set($fd, cid(), "+OK\r\n", 'after the pause', no_ping => 1);
+};
+offer('write after the pause', { }, $sdp);
+
+
+# --redis-reconnect-pause=0: no pause, even after a failure counted as slow
+
+undef($NGCP::Rtpengine::req_cb);
+NGCP::Rtpengine::AutoTest::shut_rtpe();
+redis_close($fd);
+autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1
+			-n 2223 -f -L 7 -E --redis=auth@203.0.113.42:6379/2
+			--redis-cmd-timeout=1000
+			--redis-reconnect-pause=0 --redis-reconnect-slow=0))
+		or die;
+
+redis_close($fd);
+close($listener);
+new_call;
+offer('write while the server is down, no pause', { }, $sdp);
+$listener = redis_listen('203.0.113.42');
+
+new_call;
+$NGCP::Rtpengine::req_cb = sub {
+	ok(readable($listener, 2), 'no pause: the next write reconnects')
+		or die "no reconnect with --redis-reconnect-pause=0\n";
+	$fd = redis_conn($listener, 'no pause');
+	redis_expect_set($fd, cid(), "+OK\r\n", 'no pause', no_ping => 1);
+};
+offer('write right after a failure', { }, $sdp);
 
 
 undef($NGCP::Rtpengine::req_cb);

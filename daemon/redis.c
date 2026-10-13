@@ -35,6 +35,8 @@
 #include "sdp.h"
 #include "statistics.h"
 
+#define REDIS_CONNECT_ROLE	-2	/* redis_connect(): the server has the wrong role */
+
 typedef union {
 	GQueue *q;
 	stream_fd_q *sfds_q;
@@ -284,7 +286,7 @@ int redis_reconnect(struct redis* r) {
 	int rval;
 	LOCK(&r->lock);
 
-	rval = redis_connect(r, 1, r->update_resolve);
+	rval = redis_connect(r, 0, r->update_resolve);
 	if (rval)
 		r->state = REDIS_STATE_DISCONNECTED;
 	return rval;
@@ -315,13 +317,16 @@ void redis_set_keepalive(int fd) {
 }
 
 
-/* called with r->lock held if necessary */
+/* called with r->lock held if necessary
+ * Returns 0 when connected, REDIS_CONNECT_ROLE if the server never had the
+ * wanted role, or -1 on any other failure. */
 static int redis_connect(struct redis *r, int wait, bool resolve) {
 	struct timeval tv;
 	redisReply *rp;
 	char *s;
 	int64_t cmd_timeout, connect_timeout;
 	sockaddr_t a;
+	int ret = -1;
 
 	if (r->ctx)
 		redisFree(r->ctx);
@@ -386,8 +391,8 @@ static int redis_connect(struct redis *r, int wait, bool resolve) {
 					endpoint_print_buf(&r->endpoint));
 				goto done;
 			} else if (r->role == SLAVE_REDIS_ROLE) {
-				ilog(LOG_INFO, "Connected to Redis %s in master mode, but wanted mode is slave; retrying...",
-					endpoint_print_buf(&r->endpoint));
+				ilog(LOG_INFO, "Connected to Redis %s in master mode, but wanted mode is slave%s",
+					endpoint_print_buf(&r->endpoint), wait >= 0 ? "; retrying..." : "");
 				goto next;
 			}
 		} else if (!strncmp(s, "role:slave", 10)) {
@@ -396,8 +401,8 @@ static int redis_connect(struct redis *r, int wait, bool resolve) {
 					endpoint_print_buf(&r->endpoint));
 				goto done;
 			} else if (r->role == MASTER_REDIS_ROLE) {
-				ilog(LOG_INFO, "Connected to Redis %s in slave mode, but wanted mode is master; retrying...",
-					endpoint_print_buf(&r->endpoint));
+				ilog(LOG_INFO, "Connected to Redis %s in slave mode, but wanted mode is master%s",
+					endpoint_print_buf(&r->endpoint), wait >= 0 ? "; retrying..." : "");
 				goto next;
 			}
 		} else {
@@ -406,9 +411,11 @@ static int redis_connect(struct redis *r, int wait, bool resolve) {
 
 next:
 		freeReplyObject(rp);
-		usleep(1000000);
+		if (wait >= 0)
+			usleep(1000000);
 	}
 
+	ret = REDIS_CONNECT_ROLE;
 	goto err2;
 
 done:
@@ -429,7 +436,7 @@ err2:
 err:
 	rlog(LOG_ERR, "Failed to connect to Redis %s",
 		endpoint_print_buf(&r->endpoint));
-	return -1;
+	return ret;
 }
 
 
@@ -1031,13 +1038,21 @@ static int redis_check_conn(struct redis *r) {
 	rtpe_now = now_us(); // XXX this needed here?
 
 	if ((r->state == REDIS_STATE_DISCONNECTED) && r->restore_tick_us > rtpe_now) {
-		ilog(LOG_WARNING, "Redis server '%s' is disabled. Don't try RE-Establishing for %" PRId64 " more seconds",
-				r->hostname, (r->restore_tick_us - rtpe_now) / 1000000);
+		// every Redis operation ends up here: say it once
+		r->skipped++;
+		if (!r->skipped_logged)
+			ilog(LOG_WARNING, "Redis server %s is disabled. Don't try RE-Establishing for %" PRId64 " more ms",
+					endpoint_print_buf(&r->endpoint), (r->restore_tick_us - rtpe_now) / 1000);
+		r->skipped_logged = true;
 		return REDIS_STATE_DISCONNECTED;
 	}
 
-	if (r->state == REDIS_STATE_DISCONNECTED)
-		ilog(LOG_INFO, "RE-Establishing connection for Redis server '%s'", r->hostname);
+	if (r->state == REDIS_STATE_DISCONNECTED) {
+		ilog(LOG_INFO, "RE-Establishing connection for Redis server %s (%u operations skipped)",
+				endpoint_print_buf(&r->endpoint), r->skipped);
+		r->skipped = 0;
+		r->skipped_logged = false;
+	}
 
 	// try redis connection
 	if (r->ctx && redisCommandNR(r->ctx, "PING") == 0) {
@@ -1058,9 +1073,23 @@ static int redis_check_conn(struct redis *r) {
 	}
 
 	// try redis reconnect => will free current r->ctx
-	if (redis_connect(r, 1, r->update_resolve)) {
+	// (one attempt: any wait here would hold every thread that uses Redis)
+	int64_t start = now_us();
+	int ret = redis_connect(r, 0, r->update_resolve);
+	if (ret) {
 		// redis is disconnected
 		redis_count_err_and_disable(r);
+		// After the wrong role, or a slow failure (a timeout), pause (one
+		// second by default): a failover takes longer than that, so the
+		// next attempt would fail the same way, under the lock. A quick
+		// failure (connection refused) is retried at once, as before.
+		int64_t now = now_us();
+		int64_t pause_us = rtpe_config.redis_reconnect_pause * 1000LL;
+		if (ret == REDIS_CONNECT_ROLE || now - start >= rtpe_config.redis_reconnect_slow * 1000LL) {
+			if (r->restore_tick_us < now + pause_us)
+				r->restore_tick_us = now + pause_us;
+			r->skipped_logged = false;
+		}
 		return REDIS_STATE_DISCONNECTED;
 	}
 
