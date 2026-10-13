@@ -39,6 +39,7 @@ static struct ssrc_entry *create_ssrc_entry_call(void *uptr) {
 		ent->ssrc_map_out = ssl_random();
 	atomic64_set_na(&ent->last_sample, rtpe_now);
 	ent->stats = bufferpool_alloc0(shm_bufferpool, sizeof(*ent->stats));
+	ent->stats->lost_bits = -1; // kernel tracker, so it doesn't count its first 32 packets as lost
 	ent->lost_bits = -1;
 	return &ent->h;
 }
