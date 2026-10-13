@@ -242,7 +242,7 @@ int redis_set_timeout(struct redis* r, int64_t timeout) {
 	tv_cmd = timeval_from_us(timeout);
 	if (redisSetTimeout(r->ctx, tv_cmd))
 		return -1;
-	ilog(LOG_INFO, "Setting timeout for Redis commands to %" PRId64 " milliseconds", timeout);
+	ilog(LOG_INFO, "Setting timeout for Redis commands to %" PRId64 " milliseconds", timeout / 1000);
 	return 0;
 }
 
