@@ -4,7 +4,6 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <arpa/inet.h>
-#include <math.h>
 #include <stdbool.h>
 
 #include "compat.h"
@@ -694,10 +693,7 @@ static bool parse_attribute_group(struct sdp_attribute *output) {
 static bool parse_attribute_crypto(struct sdp_attribute *output) {
 	char *endp;
 	struct attribute_crypto *c;
-	int salt_key_len, enc_salt_key_len;
-	int b64_state = 0;
-	unsigned int b64_save = 0;
-	gsize ret;
+	int enc_salt_key_len;
 	str s;
 	uint32_t u32;
 	const char *err = NULL;
@@ -720,9 +716,7 @@ static bool parse_attribute_crypto(struct sdp_attribute *output) {
 	err = "unknown crypto suite";
 	if (!c->crypto_suite)
 		goto error;
-	salt_key_len = c->crypto_suite->master_key_len
-			+ c->crypto_suite->master_salt_len;
-	enc_salt_key_len = ceil((double) salt_key_len * 4.0/3.0);
+	enc_salt_key_len = crypto_key_salt_b64_len(c->crypto_suite);
 
 	err = "invalid key parameter length";
 	if (c->key_params_str.len < 7 + enc_salt_key_len)
@@ -732,15 +726,9 @@ static bool parse_attribute_crypto(struct sdp_attribute *output) {
 		goto error;
 	c->key_base64_str = c->key_params_str;
 	str_shift(&c->key_base64_str, 7);
-	ret = g_base64_decode_step(c->key_base64_str.s, enc_salt_key_len,
-			(guchar *) c->key_salt_buf, &b64_state, &b64_save);
-        // flush b64_state needed for AES-192: 36+2; AES-256: 45+1;
-        if (enc_salt_key_len % 4) {
-                ret += g_base64_decode_step("==", 4 - (enc_salt_key_len % 4),
-                        (guchar *) c->key_salt_buf + ret, &b64_state, &b64_save);
-        }
 	err = "invalid base64 encoding";
-	if (ret != salt_key_len)
+	if (!crypto_decode_key_salt(c->crypto_suite, &c->key_base64_str,
+				(unsigned char *) c->key_salt_buf))
 		goto error;
 
 	c->master_key = STR_LEN(c->key_salt_buf, c->crypto_suite->master_key_len);

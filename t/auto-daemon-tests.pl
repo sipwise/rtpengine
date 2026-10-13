@@ -29725,5 +29725,146 @@ rcv($sock_b, $port_a, $dup_match);
 
 
 
+# SDES-key: the controller picks the keys
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 7200)], [qw(198.51.100.3 7202)]);
+
+($port_a) = offer('SDES key, RTP <> SRTP', {
+		ICE => 'remove',
+		DTLS => 'off',
+		'transport-protocol' => 'RTP/SAVP',
+		SDES => [ 'only-AES_CM_128_HMAC_SHA1_80', 'key-AES_CM_128_HMAC_SHA1_80:aw4qXB7sWmcM3LNtx6zUM8kIEhOisrLxO/XKeOUx' ],
+	}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7200 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:aw4qXB7sWmcM3LNtx6zUM8kIEhOisrLxO/XKeOUx
+SDP
+
+($port_b) = answer('SDES key, RTP <> SRTP', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7202 RTP/SAVP 8
+c=IN IP4 198.51.100.3
+a=sendrecv
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:NFXudaubTn5V0WvjJhztxASmrEP6c6/8/8bvKEAT
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$srtp_ctx_a = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'aw4qXB7sWmcM3LNtx6zUM8kIEhOisrLxO/XKeOUx',
+};
+$srtp_ctx_b = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'NFXudaubTn5V0WvjJhztxASmrEP6c6/8/8bvKEAT',
+};
+
+     snd($sock_a, $port_b,  rtp(8, 1000, 3000, 0x1234, "\x00" x 160));
+srtp_rcv($sock_b, $port_a, rtpm(8, 1000, 3000, 0x1234, "\x00" x 160), $srtp_ctx_a);
+srtp_snd($sock_b, $port_a,  rtp(8, 2000, 4000, 0x6543, "\x11" x 160), $srtp_ctx_b);
+     rcv($sock_a, $port_b, rtpm(8, 2000, 4000, 0x6543, "\x11" x 160));
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 7204)], [qw(198.51.100.3 7206)]);
+
+($port_a) = offer('SDES key, SRTP <> SRTP', {
+		ICE => 'remove',
+		DTLS => 'off',
+		SDES => [ 'only-AES_CM_128_HMAC_SHA1_80', 'key-AES_CM_128_HMAC_SHA1_80:aw4qXB7sWmcM3LNtx6zUM8kIEhOisrLxO/XKeOUx' ],
+	}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7204 RTP/SAVP 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:QjnnaukLn7iwASAs0YLzPUplJkjOhTZK2dvOwo6c
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:aw4qXB7sWmcM3LNtx6zUM8kIEhOisrLxO/XKeOUx
+SDP
+
+($port_b) = answer('SDES key, SRTP <> SRTP', {
+		SDES => [ 'key-AES_CM_128_HMAC_SHA1_80:PS1uQCVeeCFCanVmcjkpPywjNWhcYD0mXXtxaVBR' ],
+	}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7206 RTP/SAVP 8
+c=IN IP4 198.51.100.3
+a=sendrecv
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:NFXudaubTn5V0WvjJhztxASmrEP6c6/8/8bvKEAT
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:PS1uQCVeeCFCanVmcjkpPywjNWhcYD0mXXtxaVBR
+SDP
+
+$srtp_ctx_a = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'QjnnaukLn7iwASAs0YLzPUplJkjOhTZK2dvOwo6c',
+};
+$srtp_ctx_a_rev = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'PS1uQCVeeCFCanVmcjkpPywjNWhcYD0mXXtxaVBR',
+};
+$srtp_ctx_b = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'NFXudaubTn5V0WvjJhztxASmrEP6c6/8/8bvKEAT',
+};
+$srtp_ctx_b_rev = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'aw4qXB7sWmcM3LNtx6zUM8kIEhOisrLxO/XKeOUx',
+};
+
+srtp_snd($sock_a, $port_b,  rtp(8, 1000, 3000, 0x1234, "\x00" x 160), $srtp_ctx_a);
+srtp_rcv($sock_b, $port_a, rtpm(8, 1000, 3000, 0x1234, "\x00" x 160), $srtp_ctx_b_rev);
+srtp_snd($sock_b, $port_a,  rtp(8, 2000, 4000, 0x6543, "\x11" x 160), $srtp_ctx_b);
+srtp_rcv($sock_a, $port_b, rtpm(8, 2000, 4000, 0x6543, "\x11" x 160), $srtp_ctx_a_rev);
+
+
+
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
