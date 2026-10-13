@@ -643,6 +643,19 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     Default value is -1, meaning that this feature is disabled.
     This parameter can also be set or listed via __rtpengine-ctl__.
 
+    Independently of this parameter, a lost connection to any Redis server
+    (__\-\-redis__, __\-\-redis-write__, __\-\-redis-subscribe__) is
+    re-established with a single attempt, and the role is checked once. If
+    that attempt fails because the server does not have the required role,
+    or after taking __\-\-redis-reconnect-slow__ or more (100 ms by default,
+    typically a timeout), Redis operations on that connection are skipped,
+    and no new attempt is made, for __\-\-redis-reconnect-pause__ (one
+    second by default), so that signalling does not wait for Redis. An
+    attempt that fails at once (for example a refused connection) is retried
+    by the next operation. The errors counted by this parameter are failed
+    attempts, so in the first two cases they come at most once per pause:
+    with the defaults, N allowed errors then last at least N seconds.
+
 - __\-\-redis-disable-time__
 
     This parameter configures the number of seconds redis communication is
@@ -672,9 +685,41 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     is issued before attempting to connect so the __\-\-redis-cmd-timeout__ value
     will also be added to the total waiting time.
     This is useful if using __\-\-redis-allowed-errors__, when attempting to
-    estimate the total lost time in case of redis failures.
+    estimate the total lost time in case of redis failures (but note that a
+    slow failed attempt is followed by a pause, see
+    __\-\-redis-reconnect-pause__, which also says how long a reconnect
+    attempt can hold signalling).
     The default value for the connection timeout is 1000ms.
     This parameter can also be set or listed via __rtpengine-ctl__.
+
+- __\-\-redis-reconnect-pause=__*INT*
+
+    Time in milliseconds during which no new attempt is made to re-establish
+    a lost Redis connection, and Redis operations on that connection are
+    skipped, after an attempt that failed because the server does not have
+    the required role, or that was slow (see
+    __\-\-redis-reconnect-slow__). An attempt holds every thread that uses
+    that connection, so this keeps signalling from waiting for a server that
+    is changing roles. 0 disables the pause. The default value is 1000.
+
+    An attempt itself holds the connection's lock for up to
+    __\-\-redis-connect-timeout__, plus __\-\-redis-cmd-timeout__ for each
+    of __AUTH__, __SELECT__ and __INFO__, and is made at most once per pause.
+    While the server does not answer at all (for example behind a network
+    partition), signalling therefore waits up to that long once per pause:
+    with the defaults, a server that drops every packet costs up to 1 second
+    (the connect timeout) every 2 seconds. On a local network a lower __\-\-redis-connect-timeout__ (for
+    example 200) shortens each wait; a longer pause, or
+    __\-\-redis-allowed-errors__ with __\-\-redis-disable-time__, makes the
+    waits rarer, at the cost of a later recovery.
+
+- __\-\-redis-reconnect-slow=__*INT*
+
+    A failed attempt to re-establish a Redis connection that took this many
+    milliseconds or more (typically a connect or command timeout) is followed
+    by the pause of __\-\-redis-reconnect-pause__. A quicker failure, such as
+    a refused connection, is retried by the next operation. 0 pauses after
+    every failed attempt. The default value is 100.
 
 - __\-\-redis-resolve-on-reconnect__
 

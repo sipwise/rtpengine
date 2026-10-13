@@ -105,6 +105,8 @@ struct rtpengine_config rtpe_config = {
 	.redis_write_db = -1,
 	.redis_allowed_errors = -1,
 	.redis_connect_timeout = 1000,
+	.redis_reconnect_pause = 1000,
+	.redis_reconnect_slow = 100,
 	.media_num_threads = -1,
 	.dtls_rsa_key_size = 2048,
 	.dtls_mtu = 1200, // chrome default mtu
@@ -817,6 +819,8 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "redis-disable-time", 0, 0, G_OPTION_ARG_INT, &redis_disable_time,	"Number of seconds redis communication is disabled because of errors", "INT" },
 		{ "redis-cmd-timeout", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_cmd_timeout, "Sets a timeout in milliseconds for redis commands", "INT" },
 		{ "redis-connect-timeout", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_connect_timeout, "Sets a timeout in milliseconds for redis connections", "INT" },
+		{ "redis-reconnect-pause", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_reconnect_pause, "Milliseconds without Redis reconnect attempts after a slow or wrong-role failure", "INT" },
+		{ "redis-reconnect-slow", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_reconnect_slow, "A failed Redis reconnect attempt taking this many milliseconds or more is followed by the pause", "INT" },
 		{ "redis-format", 0, 0,	G_OPTION_ARG_STRING, &redis_format,		"Format for persistent storage in Redis/KeyDB", "native|bencode|JSON" },
 		{ "subscribe-keyspace", 'k', 0, G_OPTION_ARG_STRING_ARRAY,&ks_a,	"Subscription keyspace list",	"INT INT ..."},
 		{ "redis-tcp-keepalive-time",0,0,G_OPTION_ARG_INT,&rtpe_config.redis_tcp_keepalive_time,"Positive value sets tcp_keepalive_time for redis connections", "INT" },
@@ -1263,6 +1267,10 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	rtpe_config.redis_disable_time_us = redis_disable_time * 1000000LL;
 	if (rtpe_config.redis_disable_time_us < 0)
 		die("Invalid negative redis-disable-time");
+	if (rtpe_config.redis_reconnect_pause < 0)
+		die("Invalid negative redis-reconnect-pause");
+	if (rtpe_config.redis_reconnect_slow < 0)
+		die("Invalid negative redis-reconnect-slow");
 
 	rtpe_config.mqtt_publish_interval_us = mqtt_publish_interval * 1000LL;
 	if (rtpe_config.mqtt_publish_interval_us < 0)
