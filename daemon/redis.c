@@ -2486,21 +2486,19 @@ err1:
 		if (c)
 			call_destroy(c);
 		release_closed_sockets();
-		if (must_release_pop) // avoid deadlock with redis_notify->lock below
+		if (must_release_pop) // avoid deadlock with rtpe_redis_write->lock below
 			redis_ports_release_pop(false);
 		must_release_pop = false;
 
-		mutex_lock(&rtpe_redis_write->lock);
+		// a foreign call's key is its owner's; ours is deleted in our own
+		// DB (the notification connection has the last notification's DB)
+		if (!foreign) {
+			mutex_lock(&rtpe_redis_write->lock);
 
-		redis_select_db(rtpe_redis_write, rtpe_redis_write->db);
+			redis_select_db(rtpe_redis_write, rtpe_redis_write->db);
 
-		redisCommandNR(rtpe_redis_write->ctx, "DEL " PB, PBSTR(callid));
-		mutex_unlock(&rtpe_redis_write->lock);
-
-		if (rtpe_redis_notify) {
-			mutex_lock(&rtpe_redis_notify->lock);
-			redisCommandNR(rtpe_redis_notify->ctx, "DEL " PB, PBSTR(callid));
-			mutex_unlock(&rtpe_redis_notify->lock);
+			redisCommandNR(rtpe_redis_write->ctx, "DEL " PB, PBSTR(callid));
+			mutex_unlock(&rtpe_redis_write->lock);
 		}
 	}
 	if (c)

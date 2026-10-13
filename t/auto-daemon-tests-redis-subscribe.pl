@@ -141,8 +141,46 @@ $NGCP::Rtpengine::AutoTest::launch_cb = sub {
 		"+PONG\r\n",
 		"PING 5");
 	redis_io($redis_fd, "*2\r\n\$4\r\nKEYS\r\n\$1\r\n*\r\n",
-		"*0\r\n",
+		"*1\r\n\$6\r\nbadown\r\n",
 		"KEYS 5");
+
+	# one own record, which cannot be restored: the restore thread's own
+	# connection reads it ...
+
+	my $restore_fd;
+	accept($restore_fd, $redis_listener) or die;
+	redis_io($restore_fd, "*1\r\n\$4\r\nPING\r\n",
+		"+PONG\r\n",
+		"PING 6");
+	redis_io($restore_fd, "*2\r\n\$6\r\nSELECT\r\n\$1\r\n2\r\n",
+		"+OK\r\n",
+		"SELECT 6");
+	redis_io($restore_fd, "*1\r\n\$4\r\nINFO\r\n",
+		"\$13\r\nrole:master\r\n\r\n",
+		"INFO 6");
+	redis_io($restore_fd, "*2\r\n\$4\r\nTYPE\r\n\$5\r\ncalls\r\n",
+		"+none\r\n",
+		"TYPE 6");
+	redis_io($restore_fd, "*2\r\n\$3\r\nGET\r\n\$6\r\nbadown\r\n",
+		"\$9\r\nnot-a-rec\r\n",
+		"GET 6");
+
+	# ... and the record is deleted from our own DB on the write connection,
+	# and on no other connection
+
+	redis_io($redis_fd, "*2\r\n\$3\r\nDEL\r\n\$6\r\nbadown\r\n",
+		":1\r\n",
+		"DEL of an unrestorable own record");
+	my $rin = '';
+	vec($rin, fileno($redis_notify), 1) = 1;
+	my $buf = '';
+	if (select(my $rout = $rin, undef, undef, 0.5) > 0) {
+		alarm(1);
+		recv($redis_notify, $buf, 1000, 0);
+		alarm(0);
+		send($redis_notify, ":1\r\n", 0);
+	}
+	is($buf, '', 'no DEL of an own record on the notification connection');
 };
 
 
@@ -150,6 +188,7 @@ autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1
 			-n 2223 -f -L 7 -E
 			--redis=203.0.113.42:6379/2
 			--subscribe-keyspace=3
+			--redis-num-threads=1
 		))
 		or die;
 
@@ -781,6 +820,40 @@ ok((grep { $_ eq 'confirmed' } @{$streams->[0]{flags}}), 'restored stream confir
 ok(!(grep { $_ eq 'confirmed' } @{$streams->[1]{flags}}), 'restored stream unconfirmed');
 
 rtpe_req('delete', 'delete', {'call-id' => 'foobar', 'delete delay' => 0});
+
+$resp = rtpe_req('list', 'list', {});
+is($#{$resp->{calls}}, 0, 'calls len');
+is($resp->{calls}[0], cid(), 'call ID');
+
+
+
+# foreign call whose record cannot be restored: the key belongs to its owner,
+# so a failed restore must not delete it, on either connection
+
+send($redis_subscribe, "*4\r\n\$8\r\npmessage\r\n\$16\r\n__keyspace\@3__:*\r\n\$22\r\n__keyspace\@3__:badcall\r\n\$3\r\nset\r\n", 0);
+
+redis_io($redis_notify, "*1\r\n\$4\r\nPING\r\n",
+	"+PONG\r\n",
+	"PING");
+redis_io($redis_notify, "*2\r\n\$3\r\nGET\r\n\$7\r\nbadcall\r\n",
+	"\$9\r\nnot-a-rec\r\n",
+	"GET unrestorable");
+
+# nothing may follow on the write or the notification connection
+for my $fd ([$redis_fd, 'write connection'], [$redis_notify, 'notification connection']) {
+	my $rin = '';
+	vec($rin, fileno($fd->[0]), 1) = 1;
+	my $n = select(my $rout = $rin, undef, undef, 0.5);
+	my $buf = '';
+	if ($n > 0) {
+		alarm(1);
+		recv($fd->[0], $buf, 1000, 0);
+		alarm(0);
+		# unblock the daemon, which waits for a reply
+		send($fd->[0], ":1\r\n", 0);
+	}
+	is($buf, '', "no DEL of a foreign key on the $fd->[1]");
+}
 
 $resp = rtpe_req('list', 'list', {});
 is($#{$resp->{calls}}, 0, 'calls len');
