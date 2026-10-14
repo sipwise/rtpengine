@@ -488,6 +488,15 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 	METRIC("redisrepairedwrites", "Total Redis writes repaired", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats->redis_repaired_writes));
 	PROM("redis_repaired_writes_total", "counter");
+	METRIC("redisresyncs", "Total Redis resyncs after a master change", "%" PRIu64, "%" PRIu64,
+			atomic64_get_na(&rtpe_stats->redis_resyncs));
+	PROM("redis_resyncs_total", "counter");
+	METRIC("redisresynccalls", "Total calls queued by Redis resyncs", "%" PRIu64, "%" PRIu64,
+			atomic64_get_na(&rtpe_stats->redis_resync_calls));
+	PROM("redis_resync_calls_total", "counter");
+	METRIC("redisresyncdeletes", "Total deletions queued by Redis resyncs", "%" PRIu64, "%" PRIu64,
+			atomic64_get_na(&rtpe_stats->redis_resync_deletes));
+	PROM("redis_resync_deletes_total", "counter");
 	METRICva("avgcallduration", "Average call duration", "%.6f", "%.6f seconds", (double) avg_us / 1000000.0);
 	PROM("call_duration_avg", "gauge");
 
