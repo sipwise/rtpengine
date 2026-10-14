@@ -580,6 +580,24 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     The connection is kept, as reconnecting to the same address would not
     change the server's answer.
 
+- __\-\-redis-require-master__
+
+    Requires the master role on every connection that writes call data: the
+    __\-\-redis-write__ connection, which otherwise accepts any role, and the
+    __\-\-redis__ connection when it is also used for writing.
+
+    On these connections, a write that the server refuses with __READONLY__
+    or __MASTERDOWN__ (the server is not, or no longer, a usable master, for
+    example after a failover) also drops the connection. The next operation
+    reconnects and checks the role; if the server is still a replica, the
+    attempt fails and Redis operations on that connection are skipped for
+    __\-\-redis-reconnect-pause__ (one second by default). Other refusals,
+    such as __NOREPLICAS__ or __LOADING__, keep the connection.
+
+    Without this option, a __\-\-redis-write__ connection accepts a replica,
+    and writes to it fail for as long as it stays one. It is a boolean value
+    (either __true__ or __false__), and it is off by default.
+
 - __\-\-redis-subscribe=__\[*PW*@\]*IP*:*PORT*\[/*INT*\]
 
     Configures a Redis database for subscribing and receiving notifications.

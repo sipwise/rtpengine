@@ -812,6 +812,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "redis-write",'w', 0, G_OPTION_ARG_STRING,    &redisps_write, "Connect to Redis write database",      "[PW@]IP:PORT/INT"       },
 		{ "redis-subscribe", 0, 0, G_OPTION_ARG_STRING, &redisps_subscribe, "Connect to Redis subscribe database",      "[PW@]IP:PORT[/INT]"       },
 		{ "redis-resolve-on-reconnect", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.redis_resolve_on_reconnect,	"Re-resolve given FQDN on each re-connect to the redis server.",	NULL },
+		{ "redis-require-master", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.redis_require_master,	"Write only to a Redis master, and drop the connection when the server stops being one",	NULL },
 		{ "redis-num-threads", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_num_threads, "Number of Redis restore threads",      "INT"       },
 		{ "redis-expires", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_expires_secs, "Expire time in seconds for redis keys",      "INT"       },
 		{ "no-redis-required", 'q', 0, G_OPTION_ARG_NONE, &rtpe_config.no_redis_required, "Start no matter of redis connection state", NULL },
@@ -1915,9 +1916,10 @@ static void create_everything(void) {
 				rtpe_config.redis_write_db,
 				rtpe_config.redis_write_hostname,
 				rtpe_config.redis_write_auth,
-				ANY_REDIS_ROLE,
+				(rtpe_config.redis_require_master ? MASTER_REDIS_ROLE : ANY_REDIS_ROLE),
 				rtpe_config.no_redis_required,
-				rtpe_config.redis_resolve_on_reconnect);
+				rtpe_config.redis_resolve_on_reconnect,
+				rtpe_config.redis_require_master);
 
 		if (!rtpe_redis_write)
 			die("Cannot start up without running Redis %s write database! See also NO_REDIS_REQUIRED parameter.",
@@ -1931,7 +1933,8 @@ static void create_everything(void) {
 				rtpe_config.redis_subscribe_auth,
 				ANY_REDIS_ROLE,
 				rtpe_config.no_redis_required,
-				rtpe_config.redis_resolve_on_reconnect);
+				rtpe_config.redis_resolve_on_reconnect,
+				false);
 
 		if (!rtpe_redis_notify)
 			die("Cannot start up without running Redis %s subscribe database! See also NO_REDIS_REQUIRED parameter.",
@@ -1949,7 +1952,8 @@ static void create_everything(void) {
 				rtpe_config.redis_auth,
 				(rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE),
 				rtpe_config.no_redis_required,
-				rtpe_config.redis_resolve_on_reconnect);
+				rtpe_config.redis_resolve_on_reconnect,
+				!rtpe_redis_write && rtpe_config.redis_require_master);
 
 		if (!rtpe_redis)
 			die("Cannot start up without running Redis %s database! "
@@ -1963,7 +1967,8 @@ static void create_everything(void) {
 					rtpe_config.redis_auth,
 					(rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE),
 					rtpe_config.no_redis_required,
-					rtpe_config.redis_resolve_on_reconnect);
+					rtpe_config.redis_resolve_on_reconnect,
+					false);
 
 			if (!rtpe_redis_notify)
 				die("Cannot start up without running notification Redis %s database! "
