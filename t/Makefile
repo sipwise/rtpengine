@@ -92,6 +92,7 @@ include ../lib/common.Makefile
 	daemon-tests-redis-destroyed daemon-tests-redis-reconnect \
 	daemon-tests-redis-require-master \
 	daemon-tests-redis-sentinel daemon-tests-redis-sentinel-start \
+	daemon-tests-redis-sentinel-subscribe \
 	daemon-tests-recording daemon-tests-create daemon-tests-created-subscriptions daemon-tests-alias \
 	daemon-tests-kernel-api daemon-tests-dtmf-fanout \
 	daemon-tests-video daemon-tests-inject daemon-tests-dtx-dtmf
@@ -148,6 +149,7 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-redis-reconnect \
 	daemon-tests-redis-require-master \
 	daemon-tests-redis-sentinel daemon-tests-redis-sentinel-start \
+	daemon-tests-redis-sentinel-subscribe \
 	daemon-tests-recording daemon-tests-create daemon-tests-created-subscriptions \
 	daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-dtx-no-shift daemon-tests-dtx-dtmf \
 	daemon-tests-alias \
@@ -264,6 +266,9 @@ daemon-tests-redis-sentinel:	daemon-test-deps
 
 daemon-tests-redis-sentinel-start:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-redis-sentinel-start.pl
+
+daemon-tests-redis-sentinel-subscribe:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-redis-sentinel-subscribe.pl
 
 daemon-tests-audio-player:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-audio-player.pl

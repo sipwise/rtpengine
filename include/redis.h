@@ -16,6 +16,7 @@
 #include "dtls.h"
 
 struct redis_sentinel;
+struct event;
 
 #define REDIS_RESTORE_NUM_THREADS 4
 
@@ -85,6 +86,8 @@ struct redis {
 
 	struct redis_sentinel	*sentinel;	/* address from Redis Sentinel, or NULL */
 	uint64_t		gen;		/* generation of the master in endpoint */
+	struct event		*notify_timer;	/* subscriber: checks the generation */
+	uint64_t		notify_gen;	/* generation the subscription was made at */
 };
 
 struct redis_hash {

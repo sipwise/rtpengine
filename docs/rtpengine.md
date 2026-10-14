@@ -747,11 +747,11 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     never an older one than the master in use: if all are older (Sentinels
     redeployed without their state), an error is logged and __rtpengine__
     must be restarted. The master is checked with __ROLE__, then every
-    connection through Sentinel moves to it at its next operation. These
-    connections require the master role, as with
-    __\-\-redis-require-master__. Set __\-\-redis-cmd-timeout__ (for example
-    to 1000): without it, a master that stops answering holds Redis
-    operations until it answers again.
+    connection through Sentinel moves to it at its next operation, a
+    keyspace subscription within a second. These connections require the
+    master role, as with __\-\-redis-require-master__. Set
+    __\-\-redis-cmd-timeout__ (for example to 1000): without it, a master
+    that stops answering holds Redis operations until it answers again.
 
     If no Sentinel answers at startup, __rtpengine__ does not start unless
     __\-\-no-redis-required__ is given; if none answers later, the last
