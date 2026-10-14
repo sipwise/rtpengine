@@ -62,6 +62,7 @@ enum endpoint_learning {
 	X(redis_tcp_keepalive_time) \
 	X(redis_tcp_keepalive_intvl) \
 	X(redis_tcp_keepalive_probes) \
+	X(redis_sentinel_interval) \
 	X(num_threads) \
 	X(media_num_threads) \
 	X(codec_num_threads) \
@@ -140,6 +141,9 @@ enum endpoint_learning {
 	X(poller_per_thread) \
 	X(redis_resolve_on_reconnect) \
 	X(redis_require_master) \
+	X(redis_via_sentinel) \
+	X(redis_write_via_sentinel) \
+	X(redis_subscribe_via_sentinel) \
 	X(measure_rtp) \
 	X(amr_cn_dtx) \
 	X(evs_cn_dtx) \
