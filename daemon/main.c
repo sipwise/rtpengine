@@ -827,6 +827,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "redis-subscribe", 0, 0, G_OPTION_ARG_STRING, &redisps_subscribe, "Connect to Redis subscribe database",      "[PW@]IP:PORT[/INT]"       },
 		{ "redis-resolve-on-reconnect", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.redis_resolve_on_reconnect,	"Re-resolve given FQDN on each re-connect to the redis server.",	NULL },
 		{ "redis-require-master", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.redis_require_master,	"Write only to a Redis master, and drop the connection when the server stops being one",	NULL },
+		{ "redis-repair-writes", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.redis_repair_writes,	"Write again the calls whose Redis writes were refused or skipped",	NULL },
 		{ "redis-sentinel", 0, 0, G_OPTION_ARG_STRING,	&redis_sentinels,	"Redis Sentinels to ask for the master, for the roles given as 'sentinel'",	"[PW@]IP:PORT[,IP:PORT...]" },
 		{ "redis-sentinel-master", 0, 0, G_OPTION_ARG_STRING,	&redis_sentinel_master,	"Name of the master monitored by Redis Sentinel",	"STRING" },
 		{ "redis-sentinel-interval", 0, 0, G_OPTION_ARG_INT,	&redis_sentinel_interval,	"How often to ask Redis Sentinel for the master, in milliseconds",	"INT" },
@@ -2212,6 +2213,10 @@ int main(int argc, char **argv) {
 	if (rtpe_redis_sentinel)
 		thread_create_detach(redis_sentinel_loop, rtpe_redis_sentinel, "redis sentinel");
 
+	if (rtpe_redis_write && rtpe_config.redis_repair_writes)
+		// not idle scheduling: it holds r->lock, which signalling waits for
+		thread_create_detach(redis_repair_loop, NULL, "redis repair");
+
 	do_redis_restore();
 
 	if (graphite_is_enabled())
@@ -2308,6 +2313,7 @@ int main(int argc, char **argv) {
 	redis_close(rtpe_redis_notify);
 	redis_sentinel_free(rtpe_redis_sentinel);
 	rtpe_redis_sentinel = NULL;
+	redis_repair_free();
 
 	free_prefix();
 	log_free();

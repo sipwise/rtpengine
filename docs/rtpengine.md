@@ -757,6 +757,33 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     remote redis server try to re-resolve if the redis hostname was an FQDN
     and not IP address. It is a boolean value (either __true__ or __false__).
 
+- __\-\-redis-repair-writes__
+
+    Write again, in the background, the calls whose last Redis write was
+    not stored: refused by the server (for example __NOREPLICAS__ from a
+    master that has no replica yet after a failover, or __READONLY__), lost
+    with the connection before the reply, or skipped while the connection
+    was down or paused. A thread ("redis repair", normal scheduling) writes
+    them one at a time, taking the Redis connection's lock for each write
+    alone, and lets a signalling write that waits for that lock go first;
+    while signalling keeps the lock busy, it still makes about ten writes a
+    second. A call that still exists (and is still this instance's own) is
+    written whole, with its current state; for a call that no longer
+    exists, its key is deleted, unless a new call with the same ID exists
+    by then. After a write that fails again, it waits one second. A later
+    write of the call that is stored clears it. At most 100000 calls are
+    kept; the pass logs how many it repaired, at most once a second, and
+    the number left unrepaired at shutdown, and counts each stored write
+    in the __redisrepairedwrites__ statistic. Only this instance's own
+    calls are concerned.
+
+    The deletions assume that this instance is the only one that writes
+    its database, or that call-ids are never reused: a repaired deletion
+    removes the key of the call-id, whoever wrote it last.
+
+    It is a boolean value (either __true__ or __false__), and it is off by
+    default.
+
 - __\-\-redis-sentinel=__\[*PW*@\]*IP*:*PORT*\[,*IP*:*PORT*...\]
 
     The Redis Sentinels to ask for the address of the master, for every

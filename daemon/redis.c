@@ -122,6 +122,10 @@ static int redis_connect(struct redis *r, int wait, bool resolve);
 static int json_build_ssrc(struct call_media *, parser_arg arg);
 
 static void redis_do_delete(call_t *c, struct redis *r);
+static void redis_repair_mark(const str *callid, int db);
+static bool redis_repair_enabled(void);
+static void redis_repair_done(const str *callid);
+static void redis_lock_waiters_add(struct redis *r, int n);
 
 
 // mutually exclusive multi-A multi-B lock
@@ -256,11 +260,12 @@ static bool redis_is_role_error(const redisReply *rp) {
 /* called with r->lock held
  * Returns -1 if the replies could not be read (the context is then unusable),
  * or after a role error on a connection that requires a master, so that the
- * caller drops it. Other error replies keep the connection: a reconnect would
+ * caller drops it; 1 if a reply was an error (the write was refused); 0 if
+ * all succeeded. Other error replies keep the connection: a reconnect would
  * get the same answer. */
 static int redis_consume(struct redis *r) {
 	redisReply *rp;
-	bool role_error = false;
+	bool role_error = false, refused = false;
 
 	if (!r->ctx) {
 		ilog(LOG_ERROR, "Unable to consume pipelined replies. No redis context");
@@ -274,6 +279,8 @@ static int redis_consume(struct redis *r) {
 		}
 		r->pipeline--;
 		redis_write_result(r, rp);
+		if (rp->type == REDIS_REPLY_ERROR)
+			refused = true;
 		if (redis_is_role_error(rp))
 			role_error = true;
 		else if (r->sentinel && rp->type == REDIS_REPLY_ERROR && !strncmp(rp->str, "NOREPLICAS", 10))
@@ -287,7 +294,7 @@ static int redis_consume(struct redis *r) {
 				endpoint_print_buf(&r->endpoint));
 		return -1;
 	}
-	return 0;
+	return refused ? 1 : 0;
 }
 
 int redis_set_timeout(struct redis* r, int64_t timeout) {
@@ -3849,29 +3856,31 @@ static bool redis_call_taken(const str *callid, call_t *not_this) {
 	return o && o != not_this;
 }
 
-void redis_update_onekey(call_t *c, struct redis *r) {
+/* called with r->lock held: 1 if written, 0 if there was nothing to write,
+ * -1 if the call is to be written again (it is then marked for
+ * --redis-repair-writes) */
+static int redis_write_call(call_t *c, struct redis *r) {
 	unsigned int redis_expires_s;
-
-	if (!r)
-		return;
-	if (IS_FOREIGN_CALL(c))
-		return;
-
-	LOCK(&r->lock);
-	// not a call destroyed while this waited (a timer can hold one)
-	if (!redis_call_live(c))
-		return;
 	unsigned int released = r->released;
+
 	// coverity[sleep : FALSE]
-	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED)
-		return;
-	// nor while redis_check_conn() let go of the lock (a reconnect)
+	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED) {
+		redis_repair_mark(&c->callid, r->db);
+		return -1;
+	}
+	// not destroyed while redis_check_conn() let go of the lock (a reconnect)
 	if (r->released != released && !redis_call_live(c))
-		return;
+		return 0;
 
 	atomic64_set_na(&c->last_redis_update_us, rtpe_now);
 
 	rwlock_lock_r(&c->master_lock);
+
+	// (made foreign while the repair pass waited for the lock)
+	if (IS_FOREIGN_CALL(c)) {
+		rwlock_unlock_r(&c->master_lock);
+		return 0;
+	}
 
 	redis_expires_s = rtpe_config.redis_expires_secs;
 
@@ -3897,19 +3906,42 @@ void redis_update_onekey(call_t *c, struct redis *r) {
 	g_free(to_free);
 	arena_free(ctx.buffer);
 
-	if (consume_ret)
+	if (consume_ret < 0)
 		goto err;
+	if (consume_ret > 0)
+		redis_repair_mark(&c->callid, r->db);
+	else if (result.len)
+		redis_repair_done(&c->callid);
 
 	rwlock_unlock_r(&c->master_lock);
 
-	return;
+	if (consume_ret)
+		return -1;
+	return result.len ? 1 : 0;
 err:
+	redis_repair_mark(&c->callid, r->db);
 	if (r->ctx && r->ctx->err)
 		rlog(LOG_ERR, "Redis error: %s", r->ctx->errstr);
 	redisFree(r->ctx);
 	r->ctx = NULL;
 
 	rwlock_unlock_r(&c->master_lock);
+	return -1;
+}
+
+void redis_update_onekey(call_t *c, struct redis *r) {
+	if (!r)
+		return;
+	if (IS_FOREIGN_CALL(c))
+		return;
+
+	redis_lock_waiters_add(r, 1);	// the repair pass lets this go first
+	LOCK(&r->lock);
+	redis_lock_waiters_add(r, -1);
+	// not a call destroyed while this waited (a timer can hold one)
+	if (!redis_call_live(c))
+		return;
+	redis_write_call(c, r);
 }
 
 /* must be called lock-free */
@@ -3930,15 +3962,22 @@ static void redis_do_delete(call_t *c, struct redis *r) {
 		return;
 	}
 
+	redis_lock_waiters_add(r, 1);	// the repair pass lets this go first
 	LOCK(&r->lock);
+	redis_lock_waiters_add(r, -1);
 	// never written: nothing to delete. Decided under the lock, so that a
 	// write of the call already under way comes first and is deleted.
-	if (c->redis_hosted_db < 0)
+	if (c->redis_hosted_db < 0) {
+		redis_repair_done(&c->callid);	// a skipped write: no DEL either
 		return;
+	}
 	unsigned int released = r->released;
 	// coverity[sleep : FALSE]
-	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED)
+	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED) {
+		if (IS_OWN_CALL(c))
+			redis_repair_mark(&c->callid, c->redis_hosted_db);
 		return;
+	}
 	// a new call that took the ID while redis_check_conn() let go of the
 	// lock owns the key now
 	if (r->released != released && redis_call_taken(&c->callid, c))
@@ -3948,13 +3987,22 @@ static void redis_do_delete(call_t *c, struct redis *r) {
 	if (redis_select_db(r, c->redis_hosted_db))
 		goto err;
 
-	if (redis_delete_call_json(c, r))
+	int del_ret = redis_delete_call_json(c, r);
+	if (del_ret < 0)
 		goto err;
+	if (IS_OWN_CALL(c)) {
+		if (del_ret > 0)
+			redis_repair_mark(&c->callid, c->redis_hosted_db);
+		else
+			redis_repair_done(&c->callid);
+	}
 
 	rwlock_unlock_r(&c->master_lock);
 	return;
 
 err:
+	if (IS_OWN_CALL(c))
+		redis_repair_mark(&c->callid, c->redis_hosted_db);
 	if (r->ctx && r->ctx->err)
 		rlog(LOG_ERR, "Redis error: %s", r->ctx->errstr);
 	redisFree(r->ctx);
@@ -3984,4 +4032,192 @@ void redis_wipe(struct redis *r) {
 	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED)
 		return;
 	redisCommandNR(r->ctx, "DEL calls");
+}
+
+
+
+/* --redis-repair-writes: own calls whose last write (SET or DEL) was not
+ * stored, call-id -> DB + 1 */
+static mutex_t redis_repair_lock = MUTEX_STATIC_INIT;
+static cond_t redis_repair_cond = COND_STATIC_INIT;
+static GHashTable *redis_repair_pending;
+static atomic64 redis_repair_count;		/* entries, for a lock-free test */
+static unsigned int redis_repair_overflow;
+
+static bool redis_repair_enabled(void) {
+	return rtpe_config.redis_repair_writes;
+}
+
+static void redis_repair_mark(const str *callid, int db) {
+	if (!redis_repair_enabled() || db < 0)
+		return;
+	LOCK(&redis_repair_lock);
+	if (!redis_repair_pending)
+		redis_repair_pending = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+	if (g_hash_table_size(redis_repair_pending) >= 100000) {
+		g_autofree char *key = g_strndup(callid->s, callid->len);
+		if (!g_hash_table_contains(redis_repair_pending, key)) {
+			redis_repair_overflow++;
+			return;
+		}
+	}
+	g_hash_table_replace(redis_repair_pending, g_strndup(callid->s, callid->len),
+			GINT_TO_POINTER(db + 1));
+	atomic64_set_na(&redis_repair_count, g_hash_table_size(redis_repair_pending));
+	cond_signal(&redis_repair_cond);
+}
+
+/* counts the signalling threads waiting for r->lock (see redis_repair_loop()) */
+static void redis_lock_waiters_add(struct redis *r, int n) {
+	if (redis_repair_enabled())
+		atomic64_add(&r->lock_waiters, n);
+}
+
+static void redis_repair_done(const str *callid) {
+	if (!atomic64_get_na(&redis_repair_count))
+		return;
+	LOCK(&redis_repair_lock);
+	if (!redis_repair_pending)	// (shutdown)
+		return;
+	g_autofree char *key = g_strndup(callid->s, callid->len);
+	g_hash_table_remove(redis_repair_pending, key);
+	atomic64_set_na(&redis_repair_count, g_hash_table_size(redis_repair_pending));
+}
+
+static call_t *redis_repair_call(const str *callid) {
+	rwlock_lock_r(&rtpe_callhash_lock);
+	call_t *c = t_hash_table_lookup(rtpe_callhash, callid);
+	if (c)
+		obj_hold(c);
+	rwlock_unlock_r(&rtpe_callhash_lock);
+	return c;
+}
+
+/* unless a new call has the ID, which is in the call table before its first
+ * write; as redis_repair_one() */
+static int redis_repair_del(struct redis *r, const str *callid, int db) {
+	LOCK(&r->lock);
+	if (redis_call_taken(callid, NULL))
+		return 0;
+	unsigned int released = r->released;
+	// coverity[sleep : FALSE]
+	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED)
+		goto fail;
+	// or since, while redis_check_conn() let go of the lock
+	if (r->released != released && redis_call_taken(callid, NULL))
+		return 0;
+	if (redis_select_db(r, db))
+		goto drop;
+	redis_pipe(r, "DEL " PB, PBSTR(callid));
+	int ret = redis_consume(r);
+	if (ret < 0)
+		goto drop;
+	if (ret > 0)
+		goto fail;
+	return 1;
+
+drop:
+	if (r->ctx && r->ctx->err)
+		rlog(LOG_ERR, "Redis error: %s", r->ctx->errstr);
+	redisFree(r->ctx);
+	r->ctx = NULL;
+fail:
+	redis_repair_mark(callid, db);
+	return -1;
+}
+
+/* 1 if written, 0 if there was nothing to write, -1 if to be tried again */
+static int redis_repair_one(struct redis *r, char *id, int db) {
+	str callid = STR(id);
+	call_t *c = redis_repair_call(&callid);
+	int ret = 0;
+	bool gone = !c;
+	if (c) {
+		{
+			LOCK(&r->lock);
+			gone = !redis_call_live(c);
+			if (!gone && IS_OWN_CALL(c))
+				ret = redis_write_call(c, r);
+		}
+		obj_put(c);
+	}
+	if (gone)
+		return redis_repair_del(r, &callid, db);
+	return ret;
+}
+
+void redis_repair_loop(void *d) {
+	struct redis *r = rtpe_redis_write;
+	struct thread_waker waker = { .lock = &redis_repair_lock, .cond = &redis_repair_cond };
+	int64_t next_us = 0, report_us = 0;
+	unsigned int repaired = 0;
+
+	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+	thread_waker_add(&waker);
+
+	while (!rtpe_shutdown) {
+		rtpe_now = now_us();
+
+		unsigned int overflow = 0;
+		char *id = NULL;
+		int db = -1;
+		{
+			LOCK(&redis_repair_lock);
+			if ((repaired || redis_repair_overflow) && rtpe_now - report_us >= 1000000) {
+				overflow = redis_repair_overflow;
+				redis_repair_overflow = 0;
+				rlog(LOG_NOTICE, "Redis: %u writes repaired, %u still pending%s",
+						repaired, g_hash_table_size(redis_repair_pending),
+						overflow ? " (some calls could not be queued: queue full)" : "");
+				repaired = 0;
+				report_us = rtpe_now;
+			}
+			GHashTableIter it;
+			gpointer k, v;
+			if (rtpe_now >= next_us && redis_repair_pending) {
+				g_hash_table_iter_init(&it, redis_repair_pending);
+				if (g_hash_table_iter_next(&it, &k, &v)) {
+					g_hash_table_iter_steal(&it);
+					id = k;
+					db = GPOINTER_TO_INT(v) - 1;
+				}
+				atomic64_set_na(&redis_repair_count, g_hash_table_size(redis_repair_pending));
+			}
+			if (!id) {
+				int64_t until = rtpe_now + 1000000;
+				if (next_us > rtpe_now)
+					until = MIN(until, next_us);
+				cond_timedwait(&redis_repair_cond, &redis_repair_lock, until);
+				continue;
+			}
+		}
+
+		int ret = redis_repair_one(r, id, db);
+		if (ret > 0) {
+			repaired++;
+			RTPE_STATS_INC(redis_repaired_writes);
+		}
+		else if (ret < 0)
+			next_us = now_us() + 1000000;	// marked again
+		g_free(id);
+		// One write per lock acquisition: a signalling write that waits
+		// for the lock gets it first, but the repair goes on after 100 ms
+		// even if the lock stays busy (at least ten writes a second).
+		for (int i = 0; i < 100 && atomic64_get(&r->lock_waiters) && !rtpe_shutdown; i++)
+			usleep(1000);
+	}
+
+	thread_waker_del(&waker);
+}
+
+/* at shutdown, after the threads are gone */
+void redis_repair_free(void) {
+	if (!redis_repair_pending)
+		return;
+	unsigned int n = g_hash_table_size(redis_repair_pending);
+	if (n)
+		ilog(LOG_WARN, "Redis: %u writes not repaired at shutdown", n);
+	g_hash_table_destroy(redis_repair_pending);
+	redis_repair_pending = NULL;
+	atomic64_set_na(&redis_repair_count, 0);
 }
