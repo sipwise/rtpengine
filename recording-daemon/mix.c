@@ -90,11 +90,12 @@ void mix_set_channel_slots(mix_t *mix, unsigned int channel_slots) {
 }
 
 
-static void mix_input_reset(mix_t *mix, unsigned int idx) {
+static void mix_input_reset(mix_t *mix, unsigned int idx, void *ref) {
 	mix->pts_offs[idx] = (uint64_t) -1LL;
 	ZERO(mix->last_use[idx]);
 	mix->input_ref[idx] = NULL;
-	mix->in_pts[idx] = 0;
+	mix->in_pts[idx] = mix->out_pts;
+	mix->input_ref[idx] = ref;
 }
 
 
@@ -133,8 +134,7 @@ unsigned int mix_get_index(mix_t *mix, void *ptr, unsigned int media_sdp_id, uns
 	}
 
 	ilog(LOG_DEBUG, "requested slot is %u, Re-using mix input index #%u", stream_channel_slot, next);
-	mix_input_reset(mix, next);
-	mix->input_ref[next] = ptr;
+	mix_input_reset(mix, next, ptr);
 	mix->next_idx[stream_channel_slot] = next;
 	return next;
 }
