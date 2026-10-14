@@ -139,6 +139,7 @@ enum endpoint_learning {
 	X(player_cache) \
 	X(poller_per_thread) \
 	X(redis_resolve_on_reconnect) \
+	X(redis_require_master) \
 	X(measure_rtp) \
 	X(amr_cn_dtx) \
 	X(evs_cn_dtx) \

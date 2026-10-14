@@ -76,6 +76,7 @@ struct redis {
 	int64_t				async_last;
 
 	bool		update_resolve;
+	bool		require_master;	/* a role error drops the connection */
 };
 
 struct redis_hash {
@@ -113,7 +114,8 @@ void redis_notify_loop(void *d);
 void redis_delete_async_loop(void *d);
 
 
-struct redis *redis_new(const endpoint_t *, int, const char *, const char *, enum redis_role, int, bool);
+struct redis *redis_new(const endpoint_t *, int, const char *, const char *, enum redis_role, int, bool,
+		bool);
 struct redis *redis_dup(const struct redis *r, int db);
 void redis_close(struct redis *r);
 int redis_restore(struct redis *, bool foreign, int db);
