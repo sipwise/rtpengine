@@ -911,6 +911,15 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     are not supported. TLS 1.2 is the minimum version. A file that cannot be
     read stops the startup.
 
+    With __\-\-redis-sentinel__, the connections to the Sentinels and the
+    role checks of the masters they name use TLS too, with the same files: a
+    Sentinel's certificate must match its host or address as given in
+    __\-\-redis-sentinel__ (__\-\-redis-tls-server-name__ does not apply to
+    the Sentinels), and a master's certificate must match the address that
+    the Sentinels give, or __\-\-redis-tls-server-name__ if set (Redis
+    Sentinel with __tls-port__ and __tls-replication yes__ gives the TLS
+    port).
+
     The handshake is part of each connection attempt: a certificate that is
     refused, or a handshake that times out, is a failed connection, logged
     with the reason. With no __\-\-redis-cmd-timeout__, the handshake is
