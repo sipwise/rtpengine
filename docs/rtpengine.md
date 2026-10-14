@@ -787,7 +787,8 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     the first of __\-\-redis-write__, __\-\-redis__, __\-\-redis-subscribe__
     that uses __sentinel__) before using it. When it finds a new master,
     every connection resolved through Sentinel reconnects to it at its next
-    operation. The thread does all the Sentinel queries, name resolution and
+    operation, and a keyspace subscription is made again on it within a
+    second. The thread does all the Sentinel queries, name resolution and
     role checks; Redis operations only compare a number.
 
     The connections resolved through Sentinel (__\-\-redis-subscribe__

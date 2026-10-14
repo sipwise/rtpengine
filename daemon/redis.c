@@ -656,6 +656,13 @@ void redis_delete_async_context_disconnect(const redisAsyncContext *redis_delete
 }
 
 void redis_notify_async_context_disconnect(const redisAsyncContext *redis_notify_async_context, int status) {
+	// forget the context, and let event_base_dispatch() return (the timer
+	// must not keep it running), so that redis_notify_loop() subscribes again
+	struct redis *r = rtpe_redis_notify;
+	if (r && r->notify_timer)
+		event_del(r->notify_timer);
+	if (r && r->async_ctx == redis_notify_async_context)
+		r->async_ctx = NULL;
 	if (status == REDIS_ERR) {
 		if (redis_notify_async_context->errstr) {
 			rlog(LOG_ERROR, "redis_notify_async_context_disconnect error %d on context free: %s",
@@ -669,6 +676,12 @@ void redis_notify_async_context_disconnect(const redisAsyncContext *redis_notify
 	} else {
 		rlog(LOG_ERROR, "redis_notify_async_context_disconnect invalid status code %d", status);
 	}
+}
+
+// hiredis frees a context that fails to connect without the disconnect callback
+static void redis_notify_async_context_connect(const redisAsyncContext *ac, int status) {
+	if (status != REDIS_OK)
+		redis_notify_async_context_disconnect(ac, status);
 }
 
 // connect_cb = connect callback, disconnect_cb = disconnect callback
@@ -868,8 +881,35 @@ static int redis_delete_async(struct redis *r) {
 	return 0;
 }
 
+/* With Sentinel, once a second: on a new master, close the subscription, so
+ * that event_base_dispatch() returns and redis_notify_loop() subscribes again.
+ * The timer is one-shot, re-armed only while nothing has changed: it never
+ * keeps the event loop running by itself. */
+static void redis_notify_follow(evutil_socket_t fd, short what, void *p) {
+	struct redis *r = p;
+	struct timeval tv = timeval_from_us(1000000);
+
+	if (redis_sentinel_gen(r->sentinel) == r->notify_gen) {
+		evtimer_add(r->notify_timer, &tv);
+		return;
+	}
+
+	rlog(LOG_NOTICE, "Redis: the master of '%s' has changed: subscribing again; keyspace "
+			"notifications between the change and the new subscription are missed",
+			redis_sentinel_master_name(r->sentinel));
+	// forget the context first: one still connecting may be freed at once,
+	// with no callback; without a context, leave the loop
+	redisAsyncContext *ac = r->async_ctx;
+	r->async_ctx = NULL;
+	if (ac)
+		redisAsyncDisconnect(ac);
+	else
+		event_base_loopbreak(r->async_ev);
+}
+
 static int redis_notify(struct redis *r) {
 	GList *l;
+	int ret = 0;
 
 	if (!r) {
 		rlog(LOG_ERROR, "redis_notify database is NULL on redis_notify()");
@@ -917,13 +957,34 @@ static int redis_notify(struct redis *r) {
 	}
 	rwlock_unlock_r(&rtpe_config.keyspaces_lock);
 
+	if (r->sentinel) {
+		struct timeval tv = timeval_from_us(1000000);
+		r->notify_timer = evtimer_new(r->async_ev, redis_notify_follow, r);
+		if (r->notify_timer)
+			evtimer_add(r->notify_timer, &tv);
+	}
+
 	// dispatch event base => thread blocks here
 	if (event_base_dispatch(r->async_ev) < 0) {
 		rlog(LOG_ERROR, "Fail event_base_dispatch()");
-		return -1;
+		ret = -1;
 	}
 
-	return 0;
+	if (r->notify_timer) {
+		event_free(r->notify_timer);
+		r->notify_timer = NULL;
+	}
+
+	return ret;
+}
+
+/* the subscription's context, with the generation of the master it is for */
+static int redis_notify_context_alloc(struct redis *r) {
+	LOCK(&r->lock);
+	redis_sentinel_follow(r);
+	r->notify_gen = r->gen;
+	return redis_async_context_alloc(r, redis_notify_async_context_connect,
+			redis_notify_async_context_disconnect);
 }
 
 /* redis_check_conn() needs the lock: the CLI uses the same connection, and
@@ -982,8 +1043,12 @@ void redis_notify_loop(void *d) {
 		return ;
 	}
 
+	// with Sentinel and no master known yet, the loop below subscribes once
+	// there is one
+	bool now = !r->sentinel || r->gen;
+
 	// alloc redis async context 
-	if (redis_async_context_alloc(r, NULL, redis_notify_async_context_disconnect) < 0) {
+	if (now && redis_notify_context_alloc(r) < 0) {
 		return ;
 	}
 
@@ -993,7 +1058,7 @@ void redis_notify_loop(void *d) {
 	}
 
 	// initial redis_notify
-	if (redis_check_conn_locked(r) == REDIS_STATE_CONNECTED) {
+	if (now && redis_check_conn_locked(r) == REDIS_STATE_CONNECTED) {
 		redis_notify_return = redis_notify(r);
 	}
 
@@ -1010,7 +1075,7 @@ void redis_notify_loop(void *d) {
 		if (redis_check_conn_locked(r) == REDIS_STATE_CONNECTED || redis_notify_return < 0) {
 			r->async_ctx = NULL;
 			// alloc new redis async context upon redis breakdown
-			if (redis_async_context_alloc(r, NULL, redis_notify_async_context_disconnect) < 0) {
+			if (redis_notify_context_alloc(r) < 0) {
 				continue;
 			}
 
@@ -1024,7 +1089,8 @@ void redis_notify_loop(void *d) {
 		redis_notify_subscribe_action(r, UNSUBSCRIBE_ALL, 0);
 
 		// free async context
-		redisAsyncDisconnect(r->async_ctx);
+		if (r->async_ctx)
+			redisAsyncDisconnect(r->async_ctx);
 		r->async_ctx = NULL;
 	}
 }
