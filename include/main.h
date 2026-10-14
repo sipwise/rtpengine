@@ -140,6 +140,7 @@ enum endpoint_learning {
 	X(player_cache) \
 	X(poller_per_thread) \
 	X(redis_resolve_on_reconnect) \
+	X(redis_repair_writes) \
 	X(redis_via_sentinel) \
 	X(redis_write_via_sentinel) \
 	X(redis_subscribe_via_sentinel) \
