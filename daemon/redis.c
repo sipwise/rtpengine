@@ -34,6 +34,7 @@
 #include "codec.h"
 #include "sdp.h"
 #include "statistics.h"
+#include "redis_sentinel.h"
 
 #define REDIS_CONNECT_ROLE	-2	/* redis_connect(): the server has the wrong role */
 
@@ -96,8 +97,6 @@ static int redisCommandNR(redisContext *r, const char *fmt, ...)
 #endif
 
 #define REDIS_FMT(x) (int) (x)->len, (x)->str
-
-#define rlog(l, x...) ilog(l | LOG_FLAG_RESTORE, x)
 
 
 
@@ -277,8 +276,12 @@ static int redis_consume(struct redis *r) {
 		redis_write_result(r, rp);
 		if (redis_is_role_error(rp))
 			role_error = true;
+		else if (r->sentinel && rp->type == REDIS_REPLY_ERROR && !strncmp(rp->str, "NOREPLICAS", 10))
+			redis_sentinel_wake(r->sentinel, true);	// the master may have been replaced
 		freeReplyObject(rp);
 	}
+	if (role_error && r->sentinel)
+		redis_sentinel_wake(r->sentinel, false);
 	if (role_error && r->require_master) {
 		rlog(LOG_WARN, "Redis %s is not a master: dropping the connection",
 				endpoint_print_buf(&r->endpoint));
@@ -308,6 +311,36 @@ int redis_set_cmd_timeout(struct redis *r, int64_t timeout) {
 	return redis_set_timeout(r, timeout);
 }
 
+/* called with r->lock held
+ * With Sentinel, takes the master that the Sentinel thread published, if it
+ * is a new one, and drops the connection to the old one: true if so. Not
+ * while a reconnect is under way: the next check follows. */
+static bool redis_sentinel_follow(struct redis *r) {
+	if (!r->sentinel || r->reconnecting || redis_sentinel_gen(r->sentinel) == r->gen)
+		return false;
+
+	endpoint_t ep;
+	uint64_t gen = redis_sentinel_get(r->sentinel, &ep);
+	bool moved = !r->gen || !endpoint_eq(&ep, &r->endpoint);
+	r->gen = gen;
+	if (!moved)
+		return false;
+
+	rlog(LOG_NOTICE, "Redis: following the master of '%s' from %s to %s",
+			redis_sentinel_master_name(r->sentinel),
+			r->ctx ? endpoint_print_buf(&r->endpoint) : "none", endpoint_print_buf(&ep));
+	r->endpoint = ep;
+	sockaddr_print(&ep.address, r->host, sizeof(r->host));
+	// try the new master at once, whatever happened with the old one
+	r->restore_tick_us = 0;
+	r->consecutive_errors = 0;
+	if (r->ctx)
+		redisFree(r->ctx);
+	r->ctx = NULL;
+	r->state = REDIS_STATE_DISCONNECTED;
+	return true;
+}
+
 int redis_reconnect(struct redis* r) {
 	int rval;
 	LOCK(&r->lock);
@@ -317,6 +350,10 @@ int redis_reconnect(struct redis* r) {
 		rlog(LOG_WARN, "Redis %s: a reconnect is already in progress", endpoint_print_buf(&r->endpoint));
 		return -1;
 	}
+	redis_sentinel_follow(r);
+	if (r->sentinel && !r->gen)
+		return -1;
+
 	rval = redis_connect(r, 0, r->update_resolve);
 	if (rval)
 		r->state = REDIS_STATE_DISCONNECTED;
@@ -680,6 +717,7 @@ int redis_async_event_base_action(struct redis *r, enum event_base_action action
 		rlog(LOG_ERR, "redis_async_event_base_action: NULL r");
 		return -1;
 	} else {
+		LOCK(&r->lock);	// (Sentinel moves the endpoint)
 		rlog(LOG_DEBUG, "redis_async_event_base_action: Use Redis %s", endpoint_print_buf(&r->endpoint));
 	}
 
@@ -992,7 +1030,8 @@ void redis_notify_loop(void *d) {
 }
 
 struct redis *redis_new(const endpoint_t *ep, int db, const char *hostname, const char *auth,
-		enum redis_role role, int no_redis_required, bool update_resolve, bool require_master) {
+		enum redis_role role, int no_redis_required, bool update_resolve, bool require_master,
+		struct redis_sentinel *sentinel) {
 	struct redis *r;
 	r = g_new0(struct redis, 1);
 
@@ -1008,8 +1047,22 @@ struct redis *redis_new(const endpoint_t *ep, int db, const char *hostname, cons
 	r->consecutive_errors = 0;
 	r->update_resolve = update_resolve;
 	r->require_master = require_master;
+	r->sentinel = sentinel;
 	mutex_init(&r->lock);
 	cond_init(&r->reconnect_cond);
+
+	if (sentinel) {
+		r->gen = redis_sentinel_get(sentinel, &r->endpoint);
+		sockaddr_print(&r->endpoint.address, r->host, sizeof(r->host));
+		if (!r->gen) {
+			if (r->no_redis_required) {
+				rlog(LOG_WARN, "Starting with no master of '%s' known from Redis Sentinel !",
+						redis_sentinel_master_name(sentinel));
+				return r;
+			}
+			goto err;
+		}
+	}
 
 	if (redis_connect(r, 10, false)) {
 		if (r->no_redis_required) {
@@ -1040,7 +1093,8 @@ struct redis *redis_dup(const struct redis *r, int db) {
 				r->role,
 				r->no_redis_required,
 				r->update_resolve,
-				r->require_master);
+				r->require_master,
+				r->sentinel);
 }
 
 void redis_close(struct redis *r) {
@@ -1092,6 +1146,18 @@ static int redis_check_conn(struct redis *r) {
 		rtpe_now = now_us();
 	}
 
+	bool moved = redis_sentinel_follow(r);
+	if (r->sentinel && !r->gen) {
+		// no master known yet
+		r->skipped++;
+		if (!r->skipped_logged)
+			rlog(LOG_WARNING, "No master of '%s' known from Redis Sentinel yet",
+					redis_sentinel_master_name(r->sentinel));
+		r->skipped_logged = true;
+		redis_sentinel_wake(r->sentinel, false);
+		return REDIS_STATE_DISCONNECTED;
+	}
+
 	if ((r->state == REDIS_STATE_DISCONNECTED) && r->restore_tick_us > rtpe_now) {
 		// every Redis operation ends up here: say it once
 		r->skipped++;
@@ -1103,8 +1169,9 @@ static int redis_check_conn(struct redis *r) {
 	}
 
 	if (r->state == REDIS_STATE_DISCONNECTED) {
-		ilog(LOG_INFO, "RE-Establishing connection for Redis server %s (%u operations skipped)",
-				endpoint_print_buf(&r->endpoint), r->skipped);
+		if (!moved)
+			ilog(LOG_INFO, "RE-Establishing connection for Redis server %s (%u operations skipped)",
+					endpoint_print_buf(&r->endpoint), r->skipped);
 		r->skipped = 0;
 		r->skipped_logged = false;
 	}
@@ -1123,7 +1190,7 @@ static int redis_check_conn(struct redis *r) {
 	// redis is disconnected
 	if (r->state == REDIS_STATE_CONNECTED) {
 		rlog(LOG_ERR, "Lost connection to Redis '%s'",
-			r->hostname);
+			r->hostname ? : r->host);
 		r->state = REDIS_STATE_DISCONNECTED;
 	}
 
@@ -1141,6 +1208,8 @@ static int redis_check_conn(struct redis *r) {
 	if (ret) {
 		// redis is disconnected
 		redis_count_err_and_disable(r);
+		if (r->sentinel && ret == REDIS_CONNECT_ROLE)
+			redis_sentinel_wake(r->sentinel, false);
 		// After the wrong role, or a slow failure (a timeout), pause (one
 		// second by default): a failover takes longer than that, so the
 		// next attempt would fail the same way. A quick failure

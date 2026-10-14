@@ -560,6 +560,11 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     When this option is given, __rtpengine__ will delay startup until the
     Redis database adopts the master role (but see below).
 
+    Instead of *IP*:*PORT*, the keyword __sentinel__ can be given, for
+    example *foobar@sentinel/12*: the address is then the current master of
+    a Redis Sentinel group, see __\-\-redis-sentinel__. This is also
+    possible for __\-\-redis-write__ and __\-\-redis-subscribe__.
+
 - __-w__, __\-\-redis-write=__\[*PW*@\]*IP*:*PORT*/*INT*
 
     Configures a second Redis database for write operations.
@@ -597,7 +602,10 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     This option takes precedence over __\-\-redis__, if configured.
     When __\-\-subscribe-keyspace__ is also configured, the keyspace part of
     __\-\-redis-subscribe=__ is not used, the former takes precedence.
-    The keyspace number can also be omitted altogether.
+    The keyspace number can also be omitted altogether. With __sentinel__
+    instead of *IP*:*PORT* (see __\-\-redis-sentinel__), the subscription is
+    made on the current master: a replica is not used, even though
+    notifications could be read from one.
 
     For password protected Redis servers, the environment variable for the
     password is __RTPENGINE\_REDIS\_SUBSCRIBE\_AUTH\_PW__.
@@ -724,6 +732,41 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     Enable 'redis resolve on reconnect' functionality: when re-connecting to the
     remote redis server try to re-resolve if the redis hostname was an FQDN
     and not IP address. It is a boolean value (either __true__ or __false__).
+
+- __\-\-redis-sentinel=__\[*PW*@\]*IP*:*PORT*\[,*IP*:*PORT*...\]
+
+    The Redis Sentinels to ask for the master, for every Redis option given
+    with __sentinel__ instead of *IP*:*PORT*; requires
+    __\-\-redis-sentinel-master__. Their password, usually not the one of
+    the data nodes, is given before the `@` symbol or in
+    __RTPENGINE\_REDIS\_SENTINEL\_AUTH\_PW__. Host names are resolved at
+    startup, and before each query with __\-\-redis-resolve-on-reconnect__.
+
+    The Sentinels are asked every __\-\-redis-sentinel-interval__ and when a
+    connection finds a replica. The highest configuration epoch wins, and
+    never an older one than the master in use: if all are older (Sentinels
+    redeployed without their state), an error is logged and __rtpengine__
+    must be restarted. The master is checked with __ROLE__, then every
+    connection through Sentinel moves to it at its next operation. These
+    connections require the master role, as with
+    __\-\-redis-require-master__. Set __\-\-redis-cmd-timeout__ (for example
+    to 1000): without it, a master that stops answering holds Redis
+    operations until it answers again.
+
+    If no Sentinel answers at startup, __rtpengine__ does not start unless
+    __\-\-no-redis-required__ is given; if none answers later, the last
+    master is kept.
+
+- __\-\-redis-sentinel-master=__*STRING*
+
+    The name of the master that the Redis Sentinels monitor.
+
+- __\-\-redis-sentinel-interval=__*INT*
+
+    How often, in milliseconds, the Redis Sentinels are asked for the master
+    when nothing prompted a query. The default value is 1000.
+    __\-\-redis-sentinel-master__ and __\-\-redis-sentinel-interval__ are
+    refused without a Redis option that uses __sentinel__.
 
 - __\-\-redis-format=bencode__\|__JSON__
 
@@ -2156,6 +2199,10 @@ IPv6.
     Redis server password for write operations, if __\-\-redis__ has been
     specified, in which case the one specified in __\-\-redis__ will be used for
     read operations only.
+
+- __RTPENGINE\_REDIS\_SENTINEL\_AUTH\_PW__
+
+    Redis Sentinel password, for __\-\-redis-sentinel__.
 
 ## FILES
 
