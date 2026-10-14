@@ -733,6 +733,8 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	g_autoptr(char) redis_sentinels = NULL;
 	g_autoptr(char) redis_sentinel_master = NULL;
 	int redis_sentinel_interval = -1;
+	int redis_resync_delete_window = -1;
+	int redis_resync_delete_max = -1;
 	g_autoptr(char) log_facility_cdr_s = NULL;
 	g_autoptr(char) log_facility_rtcp_s = NULL;
 	g_autoptr(char) log_facility_dtmf_s = NULL;
@@ -828,6 +830,9 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "redis-resolve-on-reconnect", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.redis_resolve_on_reconnect,	"Re-resolve given FQDN on each re-connect to the redis server.",	NULL },
 		{ "redis-require-master", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.redis_require_master,	"Write only to a Redis master, and drop the connection when the server stops being one",	NULL },
 		{ "redis-repair-writes", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.redis_repair_writes,	"Write again the calls whose Redis writes were refused or skipped",	NULL },
+		{ "redis-resync-on-master-change", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.redis_resync_on_master_change,	"After a Redis master change, write own calls and recent deletions again",	NULL },
+		{ "redis-resync-delete-window", 0, 0, G_OPTION_ARG_INT,	&redis_resync_delete_window,	"How long, in milliseconds, own deletions are remembered for a Redis resync",	"INT" },
+		{ "redis-resync-delete-max", 0, 0, G_OPTION_ARG_INT,	&redis_resync_delete_max,	"How many own deletions are remembered for a Redis resync, at most",	"INT" },
 		{ "redis-sentinel", 0, 0, G_OPTION_ARG_STRING,	&redis_sentinels,	"Redis Sentinels to ask for the master, for the roles given as 'sentinel'",	"[PW@]IP:PORT[,IP:PORT...]" },
 		{ "redis-sentinel-master", 0, 0, G_OPTION_ARG_STRING,	&redis_sentinel_master,	"Name of the master monitored by Redis Sentinel",	"STRING" },
 		{ "redis-sentinel-interval", 0, 0, G_OPTION_ARG_INT,	&redis_sentinel_interval,	"How often to ask Redis Sentinel for the master, in milliseconds",	"INT" },
@@ -1361,6 +1366,28 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	else if (redis_sentinels || redis_sentinel_master || redis_sentinel_interval != -1)
 		die("--redis-sentinel, --redis-sentinel-master or --redis-sentinel-interval is set, "
 				"but no Redis endpoint is 'sentinel'");
+
+	// the trigger is the write connection's INFO, which gives the master's ID
+	// on a replica too: that connection must require the master role
+	if (rtpe_config.redis_resync_on_master_change && redisps_write
+			&& !rtpe_config.redis_require_master && !rtpe_config.redis_write_via_sentinel)
+		die("--redis-resync-on-master-change needs a write connection that requires the master "
+				"role: add --redis-require-master, or use 'sentinel' in --redis-write");
+	if (rtpe_config.redis_resync_on_master_change) {
+		if (redis_resync_delete_window == -1)
+			redis_resync_delete_window = 30000;
+		if (redis_resync_delete_max == -1)
+			redis_resync_delete_max = 4096;
+		if (redis_resync_delete_window <= 0)
+			die("Invalid --redis-resync-delete-window (must be a positive number of milliseconds)");
+		if (redis_resync_delete_max <= 0)
+			die("Invalid --redis-resync-delete-max (must be positive)");
+		rtpe_config.redis_resync_delete_window = redis_resync_delete_window;
+		rtpe_config.redis_resync_delete_max = redis_resync_delete_max;
+	}
+	else if (redis_resync_delete_window != -1 || redis_resync_delete_max != -1)
+		die("--redis-resync-delete-window or --redis-resync-delete-max is set, "
+				"but not --redis-resync-on-master-change");
 
 	if (rtpe_config.fmt < 0 || rtpe_config.fmt > 2)
 		die("Invalid XMLRPC format");
@@ -2213,7 +2240,7 @@ int main(int argc, char **argv) {
 	if (rtpe_redis_sentinel)
 		thread_create_detach(redis_sentinel_loop, rtpe_redis_sentinel, "redis sentinel");
 
-	if (rtpe_redis_write && rtpe_config.redis_repair_writes)
+	if (rtpe_redis_write && (rtpe_config.redis_repair_writes || rtpe_config.redis_resync_on_master_change))
 		// not idle scheduling: it holds r->lock, which signalling waits for
 		thread_create_detach(redis_repair_loop, NULL, "redis repair");
 

@@ -84,6 +84,7 @@ struct redis {
 	bool		update_resolve;
 	bool		require_master;	/* a role error drops the connection */
 	atomic64	lock_waiters;	/* signalling writes waiting for lock */
+	char		master_replid[48];	/* of the master last connected to */
 
 	struct redis_sentinel	*sentinel;	/* address from Redis Sentinel, or NULL */
 	uint64_t		gen;		/* generation of the master in endpoint */

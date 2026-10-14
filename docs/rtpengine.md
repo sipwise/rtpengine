@@ -784,6 +784,52 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     It is a boolean value (either __true__ or __false__), and it is off by
     default.
 
+- __\-\-redis-resync-on-master-change__
+
+    After a change of Redis master, write again every own call, and make
+    again the recent deletions of own calls (see
+    __\-\-redis-resync-delete-window__ and __\-\-redis-resync-delete-max__).
+    A new master may lack the writes that the old one
+    acknowledged but had not yet replicated. The change is seen at a
+    reconnect of the write connection, when the replication ID
+    (__master\_replid__ in __INFO__) differs from the one of the master
+    last connected to: after a Sentinel switch (see
+    __\-\-redis-sentinel__), a floating address that moved, or a fixed
+    address that now leads elsewhere. A restarted master also gets a new
+    ID (Redis 7.2, with or without its data restored from disk), so a
+    restart causes a resync too, which puts back what the restart lost. The
+    write connection must require the master role (__\-\-redis__ alone,
+    __\-\-redis-require-master__, or __sentinel__ in __\-\-redis-write__);
+    otherwise this option is refused at startup. Only own calls that were
+    stored at least once are written again (not those that asked for
+    __no-redis-update__). The writes go through the queue of
+    __\-\-redis-repair-writes__ (this option enables it), and are retried
+    while the new master refuses them. No key is scanned, and only keys
+    that this instance wrote or deleted itself are touched (as for
+    __\-\-redis-repair-writes__, this assumes one writer per database, or
+    call-ids that are not reused). Each resync is counted in the
+    __redisresyncs__ statistic, and the calls and deletions it queues in
+    __redisresynccalls__ and __redisresyncdeletes__. It is a boolean value
+    (either __true__ or __false__), and it is off by default.
+
+- __\-\-redis-resync-delete-window=__*INT*
+
+    How long, in milliseconds, the deletions of own calls are remembered
+    for __\-\-redis-resync-on-master-change__, which makes them again after
+    a change of master. It should be longer than a failover plus the
+    replication lag: a deletion older than that has reached the new master.
+    The default value is 30000 (30 seconds). Only valid with
+    __\-\-redis-resync-on-master-change__.
+
+- __\-\-redis-resync-delete-max=__*INT*
+
+    How many deletions of own calls are remembered at most for
+    __\-\-redis-resync-on-master-change__. Beyond that, the oldest are
+    dropped before the end of __\-\-redis-resync-delete-window__, and their
+    number is logged at the next resync. The default value is 4096, about
+    135 deletions a second over the default 30 seconds. Only valid with
+    __\-\-redis-resync-on-master-change__.
+
 - __\-\-redis-sentinel=__\[*PW*@\]*IP*:*PORT*\[,*IP*:*PORT*...\]
 
     The Redis Sentinels to ask for the address of the master, for every
