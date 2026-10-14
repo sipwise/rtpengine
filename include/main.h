@@ -162,6 +162,11 @@ enum endpoint_learning {
 	X(redis_hostname) \
 	X(redis_write_hostname) \
 	X(redis_subscribe_hostname) \
+	X(redis_cafile) \
+	X(redis_capath) \
+	X(redis_certfile) \
+	X(redis_keyfile) \
+	X(redis_tls_server_name) \
 	X(moh_attr_name) \
 	X(spooldir) \
 	X(rec_method) \

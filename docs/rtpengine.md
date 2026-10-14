@@ -813,6 +813,31 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     __\-\-redis-sentinel-master__ and __\-\-redis-sentinel-interval__ are
     refused without a Redis option that uses __sentinel__.
 
+- __\-\-redis-cafile=__*FILE*
+- __\-\-redis-capath=__*PATH*
+- __\-\-redis-certfile=__*FILE*
+- __\-\-redis-keyfile=__*FILE*
+
+    Use TLS for every Redis connection, including the keyspace subscription
+    and the asynchronous deletions. As for the __mqtt__ options, at least
+    __cafile__ or __capath__ must be given to enable TLS, and both
+    __certfile__ and __keyfile__ for a client certificate; files are in PEM
+    format, without password protection, and TLS 1.2 is the minimum. The
+    server's certificate must come from one of these CAs and match, in its
+    subjectAltName, the host name as given (a wildcard only as a whole first
+    label) or the IP address (no SNI is sent then), or
+    __\-\-redis-tls-server-name__. A refused certificate or a handshake that
+    times out is a failed connection; with no __\-\-redis-cmd-timeout__,
+    __\-\-redis-connect-timeout__ bounds the handshake. These options are
+    only available in a build with __hiredis\_ssl__ (hiredis 1.0 or newer).
+
+- __\-\-redis-tls-server-name=__*NAME*
+
+    The name to send (as SNI) and to expect in the certificate of every
+    Redis data node, instead of the host or address of each (for example
+    the name of a managed service). Requires __\-\-redis-cafile__ or
+    __\-\-redis-capath__.
+
 - __\-\-redis-format=bencode__\|__JSON__
 
     Selects the format for serialised call data written to Redis or KeyDB. The

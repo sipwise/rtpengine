@@ -82,6 +82,9 @@ endif
 CFLAGS += $(CFLAGS_MQTT)
 LDLIBS += $(LDLIBS_MQTT)
 
+CFLAGS += $(CFLAGS_LIBHIREDIS_SSL)
+LDLIBS += $(LDLIBS_LIBHIREDIS_SSL)
+
 SRCS := main.c kernel.c helpers.c control_tcp.c call.c control_udp.c redis.c redis_sentinel.c \
 		cookie_cache.c udp_listener.c control_ng_flags_parser.c control_ng.c sdp.strhash.c stun.c rtcp.c \
 		crypto.c rtp.c call_interfaces.c dtls.c log.c cli.strhash.c graphite.c ice.c \

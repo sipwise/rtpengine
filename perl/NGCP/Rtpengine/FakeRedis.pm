@@ -4,11 +4,13 @@ package NGCP::Rtpengine::FakeRedis;
 # local by tests-preload.so), and helpers that read the commands that
 # rtpengine sends (RESP arrays of bulk strings) and answer them. Fake Redis
 # Sentinels run in a child process (sentinels_start()), so that they answer
-# while the test script handles the data nodes.
+# while the test script handles the data nodes. With redis_tls(), the fake
+# servers speak TLS (IO::Socket::SSL, loaded only then).
 
 use strict;
 use warnings;
 use Socket qw(AF_INET SOCK_STREAM sockaddr_in inet_aton);
+use Scalar::Util qw(blessed);
 use File::Temp;
 use IO::Handle;
 use Test::More;
@@ -20,13 +22,14 @@ use Exporter 'import';
 
 our @EXPORT = qw(redis_listen redis_accept redis_conn redis_read redis_send redis_expect
 	redis_expect_set redis_expect_del redis_close redis_closed readable info_reply
-	redis_write_errors redis_stat wait_log
+	redis_write_errors redis_stat wait_log redis_tls redis_tls_refused redis_handshake tls_ca tls_cert
 	redis_serve redis_sets_seen redis_record_after redis_serve_next_get
 	%role @probes wait_probe serve_probes
 	sentinels_start sentinels_set sentinel_log sentinel_queries);
 
 my %rbuf;	# what was read from each socket and not parsed yet
 my %node;	# IP of each listener, by fileno
+my $tls;	# IO::Socket::SSL server options, if TLS
 
 # Role probes of the Sentinel thread (AUTH, then ROLE) on the data nodes are
 # answered from %role (by IP, "master" by default), and recorded in @probes
@@ -49,6 +52,7 @@ sub redis_listen {
 sub readable {
 	my ($fh, $timeout) = @_;
 	return 1 if length($rbuf{fileno($fh)} // '');
+	return 1 if blessed($fh) && $fh->isa('IO::Socket::SSL') && $fh->pending;
 	my $rin = '';
 	vec($rin, fileno($fh), 1) = 1;
 	return select(my $rout = $rin, undef, undef, $timeout) > 0;
@@ -95,7 +99,7 @@ sub redis_read {
 
 sub redis_send {
 	my ($fd, $s) = @_;
-	send($fd, $s, 0) // die "send to fake Redis: $!";
+	syswrite($fd, $s) // die "send to fake Redis: $!";
 }
 
 # the next command must be @$exp; it is answered with $reply, unless undef
@@ -136,13 +140,60 @@ sub info_reply {
 	return bulk($i . "master_repl_offset:0\r\n");
 }
 
+# with "later", the TLS handshake is left to redis_handshake()
 sub redis_accept {
-	my ($l, $timeout) = @_;
+	my ($l, $timeout, $later) = @_;
 	readable($l, $timeout // 5) or die "no connection to the fake Redis\n";
 	my $fd;
 	accept($fd, $l) or die;
+	redis_handshake($fd) unless $later;
 	$rbuf{fileno($fd)} = '';
 	return $fd;
+}
+
+sub redis_handshake {
+	my $fd = shift;
+	return unless $tls;
+	IO::Socket::SSL->start_SSL($fd, %$tls)
+		or die "TLS handshake with rtpengine failed: $IO::Socket::SSL::SSL_ERROR\n";
+}
+
+# The servers speak TLS with these IO::Socket::SSL options (certificate,
+# key, client verification...), or plain TCP if none.
+sub redis_tls {
+	my %opt = @_;
+	require IO::Socket::SSL;
+	$tls = %opt ? { SSL_server => 1, Timeout => 3, %opt } : undef;
+}
+
+# rtpengine connects and gives up during the handshake
+sub redis_tls_refused {
+	my ($l, $n) = @_;
+	readable($l, 5) or die "no connection to the fake Redis\n";
+	accept(my $fd, $l) or die;
+	ok(!IO::Socket::SSL->start_SSL($fd, %$tls), $n);
+	close($fd);
+}
+
+# Test certificates (EC P-256, valid for a day), made with the openssl tool
+# in $dir: a CA, and a certificate signed by it for subjectAltName $san.
+sub tls_ca {
+	my ($dir, $name) = @_;
+	system(qw(openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 1
+		-subj), "/CN=$name", '-keyout', "$dir/$name.key", '-out', "$dir/$name.pem") == 0 or die;
+}
+
+my $cert_serial = 0;
+sub tls_cert {
+	my ($dir, $ca, $name, $san) = @_;
+	system(qw(openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes
+		-subj), "/CN=$name", '-keyout', "$dir/$name.key", '-out', "$dir/$name.csr") == 0 or die;
+	open(my $fh, '>', "$dir/$name.ext") or die;
+	print $fh "subjectAltName=$san\n" if $san;
+	close($fh);
+	system(qw(openssl x509 -req -days 1 -set_serial), ++$cert_serial, '-in', "$dir/$name.csr",
+		'-CA', "$dir/$ca.pem", '-CAkey', "$dir/$ca.key", '-extfile', "$dir/$name.ext",
+		'-out', "$dir/$name.pem") == 0 or die;
 }
 
 sub role_reply {

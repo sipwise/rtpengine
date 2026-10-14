@@ -17,6 +17,7 @@
 
 struct redis_sentinel;
 struct event;
+struct ssl_st;
 
 #define REDIS_RESTORE_NUM_THREADS 4
 
@@ -77,6 +78,7 @@ struct redis {
 
 	struct event_base		*async_ev;
 	struct redisAsyncContext	*async_ctx;
+	struct ssl_st			*async_ssl;	/* its TLS, freed with it */
 	mutex_t				async_lock;
 	GQueue				async_queue;
 	int64_t				async_last;
@@ -144,6 +146,9 @@ int redis_reconnect(struct redis* r);
 void redis_repair_init(void);
 void redis_repair_loop(void *);
 void redis_repair_free(void);
+int redis_tls_init(void);
+void redis_tls_free(void);
+int redis_tls_start(redisContext *, const char *name, int64_t timeout_us, struct ssl_st **);
 
 
 #endif
