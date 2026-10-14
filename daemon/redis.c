@@ -3635,6 +3635,14 @@ out:
 }
 
 
+/* still in the call table, so not destroyed: its deletion has not started */
+static bool redis_call_live(call_t *c) {
+	rwlock_lock_r(&rtpe_callhash_lock);
+	bool live = t_hash_table_lookup(rtpe_callhash, &c->callid) == c;
+	rwlock_unlock_r(&rtpe_callhash_lock);
+	return live;
+}
+
 void redis_update_onekey(call_t *c, struct redis *r) {
 	unsigned int redis_expires_s;
 
@@ -3644,6 +3652,9 @@ void redis_update_onekey(call_t *c, struct redis *r) {
 		return;
 
 	LOCK(&r->lock);
+	// not a call destroyed while this waited (a timer can hold one)
+	if (!redis_call_live(c))
+		return;
 	// coverity[sleep : FALSE]
 	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED)
 		return;
@@ -3699,10 +3710,9 @@ static void redis_do_delete(call_t *c, struct redis *r) {
 	if (!r)
 		return;
 
-	if (c->redis_hosted_db < 0)
-		return;
-
 	if (delete_async) {
+		if (c->redis_hosted_db < 0)
+			return;
 		LOCK(&r->async_lock);
 		rwlock_lock_r(&c->master_lock);
 		redis_delete_async_call_json(c, r);
@@ -3711,6 +3721,10 @@ static void redis_do_delete(call_t *c, struct redis *r) {
 	}
 
 	LOCK(&r->lock);
+	// never written: nothing to delete. Decided under the lock, so that a
+	// write of the call already under way comes first and is deleted.
+	if (c->redis_hosted_db < 0)
+		return;
 	// coverity[sleep : FALSE]
 	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED)
 		return;
