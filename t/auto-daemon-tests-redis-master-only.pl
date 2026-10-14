@@ -136,8 +136,10 @@ $NGCP::Rtpengine::req_cb = sub {
 offer('write after MASTERDOWN', { }, $sdp);
 
 
-# the read connection was never touched
+# the read connection was never touched, and without Sentinel options
+# nothing of Sentinel is set up
 ok(!readable($read_fd, 0), 'nothing on the read connection');
+unlike(rtpe_log(), qr/Sentinel/, 'no Sentinel');
 
 
 undef($NGCP::Rtpengine::req_cb);

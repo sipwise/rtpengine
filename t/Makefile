@@ -138,6 +138,8 @@ include ../lib/common.Makefile
 	daemon-tests-dtx-dtmf \
 	daemon-tests-ice-force-answer \
 	daemon-tests-redis-master-only \
+	daemon-tests-redis-sentinel \
+	daemon-tests-redis-sentinel-start \
 	#
 
 TESTS := test-bitstr test-str aes-crypt aead-aes-crypt test-const_str_hash.strhash
@@ -238,6 +240,8 @@ daemon-tests: \
 	daemon-tests-video \
 	daemon-tests-inject \
 	daemon-tests-redis-master-only \
+	daemon-tests-redis-sentinel \
+	daemon-tests-redis-sentinel-start \
 	#
 
 daemon-test-deps:	tests-preload.so
@@ -359,6 +363,12 @@ daemon-tests-redis-reconnect:	daemon-test-deps
 
 daemon-tests-redis-master-only:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-redis-master-only.pl
+
+daemon-tests-redis-sentinel:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-redis-sentinel.pl
+
+daemon-tests-redis-sentinel-start:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-redis-sentinel-start.pl
 
 daemon-tests-audio-player:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-audio-player.pl
@@ -562,6 +572,7 @@ test-stats:	test-stats.o \
 	../daemon/ng_client.o \
 	../daemon/recording.o \
 	../daemon/redis.o \
+	../daemon/redis_sentinel.o \
 	../daemon/rtcp.o \
 	../daemon/rtp.o \
 	../daemon/sdp.strhash.o \
@@ -626,6 +637,7 @@ test-transcode:	test-transcode.o \
 	../daemon/ng_client.o \
 	../daemon/recording.o \
 	../daemon/redis.o \
+	../daemon/redis_sentinel.o \
 	../daemon/rtcp.o \
 	../daemon/rtp.o \
 	../daemon/sdp.strhash.o \
