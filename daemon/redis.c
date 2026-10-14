@@ -36,6 +36,13 @@
 #include "statistics.h"
 #include "redis_sentinel.h"
 
+#ifdef HAVE_HIREDIS_SSL
+#include <hiredis/hiredis_ssl.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/x509v3.h>
+#endif
+
 #define REDIS_CONNECT_ROLE	-2	/* redis_connect(): the server has the wrong role */
 
 typedef union {
@@ -393,6 +400,125 @@ void redis_set_keepalive(int fd) {
 	}
 }
 
+#ifdef HAVE_HIREDIS_SSL
+static SSL_CTX *redis_ssl_ctx;
+#endif
+
+/* with --redis-cafile or --redis-capath */
+int redis_tls_init(void) {
+#ifdef HAVE_HIREDIS_SSL
+	if (!rtpe_config.redis_cafile && !rtpe_config.redis_capath)
+		return 0;
+
+	const char *err = "cannot create the TLS context";
+	redis_ssl_ctx = SSL_CTX_new(TLS_client_method());
+	if (!redis_ssl_ctx)
+		goto err;
+	SSL_CTX_set_min_proto_version(redis_ssl_ctx, TLS1_2_VERSION);
+	SSL_CTX_set_verify(redis_ssl_ctx, SSL_VERIFY_PEER, NULL);
+	err = "cannot load the CA file or path";
+	if (!SSL_CTX_load_verify_locations(redis_ssl_ctx, rtpe_config.redis_cafile,
+				rtpe_config.redis_capath))
+		goto err;
+	if (rtpe_config.redis_certfile) {
+		err = "cannot load the client certificate or key";
+		if (!SSL_CTX_use_certificate_chain_file(redis_ssl_ctx, rtpe_config.redis_certfile)
+				|| !SSL_CTX_use_PrivateKey_file(redis_ssl_ctx, rtpe_config.redis_keyfile,
+					SSL_FILETYPE_PEM)
+				|| !SSL_CTX_check_private_key(redis_ssl_ctx))
+			goto err;
+	}
+	ilog(LOG_INFO, "Using TLS for Redis");
+	return 0;
+
+err:
+	ilog(LOG_ERR, "Redis TLS: %s: %s", err, ERR_reason_error_string(ERR_peek_last_error()) ? : "?");
+	redis_tls_free();
+	return -1;
+#else
+	return 0;
+#endif
+}
+
+void redis_tls_free(void) {
+#ifdef HAVE_HIREDIS_SSL
+	if (redis_ssl_ctx)
+		SSL_CTX_free(redis_ssl_ctx);
+	redis_ssl_ctx = NULL;
+#endif
+}
+
+/* TLS on a new connection, if configured. The certificate must match "name",
+ * as an IP address or a host name (subjectAltName only): released hiredis
+ * (1.2.0) only checks the chain. "timeout_us" bounds the handshake on a
+ * blocking connection that has no command timeout. "sslp", if given, gets the
+ * SSL of an async connection, whose handshake ends later. */
+int redis_tls_start(redisContext *c, const char *name, int64_t timeout_us, struct ssl_st **sslp) {
+#ifdef HAVE_HIREDIS_SSL
+	if (!redis_ssl_ctx)
+		return 0;
+	SSL *ssl = SSL_new(redis_ssl_ctx);
+	if (!ssl)
+		return -1;
+	X509_VERIFY_PARAM *param = SSL_get0_param(ssl);
+	// no SNI for an IP address (RFC 6066)
+	if (!X509_VERIFY_PARAM_set1_ip_asc(param, name)) {
+		X509_VERIFY_PARAM_set_hostflags(param, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS
+				| X509_CHECK_FLAG_NEVER_CHECK_SUBJECT);
+		if (!X509_VERIFY_PARAM_set1_host(param, name, 0) || !SSL_set_tlsext_host_name(ssl, name)) {
+			SSL_free(ssl);
+			return -1;
+		}
+	}
+
+	if (timeout_us)
+		redisSetTimeout(c, timeval_from_us(timeout_us));
+	int ret = redisInitiateSSL(c, ssl);
+	if (timeout_us)
+		redisSetTimeout(c, (struct timeval) {0});
+	if (ret == REDIS_OK) {
+		// hiredis frees ssl with the context
+		if (sslp)
+			*sslp = ssl;
+		return 0;
+	}
+
+	// hiredis has no setter for errstr, which the callers log; its own text
+	// has no reason for a refused certificate or a timeout
+	long v = SSL_get_verify_result(ssl);
+	if (v != X509_V_OK)
+		snprintf(c->errstr, sizeof(c->errstr), "TLS: certificate of %s not accepted: %s",
+				name, X509_verify_cert_error_string(v));
+	else if (SSL_want_read(ssl) || SSL_want_write(ssl))
+		snprintf(c->errstr, sizeof(c->errstr), "TLS: handshake with %s timed out", name);
+	SSL_free(ssl);
+	return -1;
+#else
+	return 0;
+#endif
+}
+
+/* the name that the server's certificate must match: --redis-tls-server-name,
+ * the host as configured, or the address that Sentinel gave */
+static const char *redis_tls_name(const struct redis *r) {
+	if (rtpe_config.redis_tls_server_name)
+		return rtpe_config.redis_tls_server_name;
+	return (!r->sentinel && r->hostname) ? r->hostname : r->host;
+}
+
+/* the reason why the certificate of an async connection was refused, if it
+ * was: hiredis only reports an I/O error then */
+static const char *redis_async_tls_error(const struct redis *r, const redisAsyncContext *ac) {
+#ifdef HAVE_HIREDIS_SSL
+	if (r && r->async_ctx == ac && r->async_ssl) {
+		long v = SSL_get_verify_result(r->async_ssl);
+		if (v != X509_V_OK)
+			return X509_verify_cert_error_string(v);
+	}
+#endif
+	return NULL;
+}
+
 
 /* called with r->lock held, or with r->reconnecting set, or single thread
  * Returns 0 when connected, REDIS_CONNECT_ROLE if the server never had the
@@ -436,6 +562,10 @@ static int redis_connect(struct redis *r, int wait, bool resolve) {
 	redis_set_keepalive(r->ctx->fd);
 
 	if (redis_set_timeout(r, cmd_timeout))
+		goto err2;
+
+	// with no command timeout, the connect timeout bounds the handshake
+	if (redis_tls_start(r->ctx, redis_tls_name(r), cmd_timeout ? 0 : connect_timeout, NULL))
 		goto err2;
 
 	if (r->auth) {
@@ -669,12 +799,16 @@ void redis_notify_async_context_disconnect(const redisAsyncContext *redis_notify
 	// forget the context, and let event_base_dispatch() return (the timer
 	// must not keep it running), so that redis_notify_loop() subscribes again
 	struct redis *r = rtpe_redis_notify;
+	const char *tls_err = redis_async_tls_error(r, redis_notify_async_context);
 	if (r && r->notify_timer)
 		event_del(r->notify_timer);
 	if (r && r->async_ctx == redis_notify_async_context)
 		r->async_ctx = NULL;
 	if (status == REDIS_ERR) {
-		if (redis_notify_async_context->errstr) {
+		if (tls_err) {
+			rlog(LOG_ERROR, "redis_notify_async_context_disconnect: TLS: certificate of %s not "
+					"accepted: %s", redis_tls_name(r), tls_err);
+		} else if (redis_notify_async_context->errstr) {
 			rlog(LOG_ERROR, "redis_notify_async_context_disconnect error %d on context free: %s",
 				redis_notify_async_context->err, redis_notify_async_context->errstr);
 		} else {
@@ -717,6 +851,13 @@ int redis_async_context_alloc(struct redis *r, void *connect_cb, void *disconnec
 	}
 
 	redis_set_keepalive(r->async_ctx->c.fd);
+
+	if (redis_tls_start(&r->async_ctx->c, redis_tls_name(r), 0, &r->async_ssl)) {
+		rlog(LOG_ERROR, "redis_async_context_alloc: %s", r->async_ctx->errstr);
+		redisAsyncFree(r->async_ctx);
+		r->async_ctx = NULL;
+		return -1;
+	}
 
 	// callbacks async context
 	if (redisAsyncSetConnectCallback(r->async_ctx, connect_cb) != REDIS_OK) {

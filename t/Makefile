@@ -75,6 +75,9 @@ LDLIBS += $(LDLIBS_CODEC_CHAIN)
 CFLAGS += $(CFLAGS_MQTT)
 LDLIBS += $(LDLIBS_MQTT)
 
+CFLAGS += $(CFLAGS_LIBHIREDIS_SSL)
+LDLIBS += $(LDLIBS_LIBHIREDIS_SSL)
+
 COMMONOBJS := ../lib/str.o ../lib/auxlib.o ../lib/rtplib.o ../lib/loglib.o ../lib/ssllib.o
 
 include ../lib/common.Makefile
@@ -95,6 +98,7 @@ include ../lib/common.Makefile
 	daemon-tests-redis-sentinel-subscribe \
 	daemon-tests-redis-repair \
 	daemon-tests-redis-resync \
+	daemon-tests-redis-tls \
 	daemon-tests-recording daemon-tests-create daemon-tests-created-subscriptions daemon-tests-alias \
 	daemon-tests-kernel-api \
 	daemon-tests-video daemon-tests-inject daemon-tests-dtx-dtmf
@@ -154,6 +158,7 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-redis-sentinel-subscribe \
 	daemon-tests-redis-repair \
 	daemon-tests-redis-resync \
+	daemon-tests-redis-tls \
 	daemon-tests-recording daemon-tests-create daemon-tests-created-subscriptions \
 	daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-dtx-no-shift daemon-tests-dtx-dtmf \
 	daemon-tests-alias \
@@ -276,6 +281,9 @@ daemon-tests-redis-repair:	daemon-test-deps
 
 daemon-tests-redis-resync:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-redis-resync.pl
+
+daemon-tests-redis-tls:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-redis-tls.pl
 
 daemon-tests-audio-player:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-audio-player.pl

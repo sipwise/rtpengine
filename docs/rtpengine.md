@@ -891,6 +891,42 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     __\-\-redis-sentinel-master__ and __\-\-redis-sentinel-interval__ are
     refused without a Redis option that uses __sentinel__.
 
+- __\-\-redis-cafile=__*FILE*
+- __\-\-redis-capath=__*PATH*
+- __\-\-redis-certfile=__*FILE*
+- __\-\-redis-keyfile=__*FILE*
+
+    Use TLS for every connection to Redis (those of __\-\-redis__,
+    __\-\-redis-write__ and __\-\-redis-subscribe__, including the keyspace
+    subscription and the asynchronous deletions). As for the __mqtt__
+    options, at least __cafile__ or __capath__ must be given to enable TLS,
+    and the servers' certificates must be signed by one of these CAs. A
+    certificate must also match the server, in its subjectAltName (the
+    subject's CN is not used): the host name as given in the option, as a
+    DNS entry (a wildcard only as a whole first label, as in `*.example.com`),
+    or the IP address, as an IP address entry (no SNI is sent for an IP
+    address). See also __\-\-redis-tls-server-name__. For client certificate authentication
+    (__tls-auth-clients__ on the server), both __certfile__ and __keyfile__
+    must be set. All files must be in PEM format, and password-protected keys
+    are not supported. TLS 1.2 is the minimum version. A file that cannot be
+    read stops the startup.
+
+    The handshake is part of each connection attempt: a certificate that is
+    refused, or a handshake that times out, is a failed connection, logged
+    with the reason. With no __\-\-redis-cmd-timeout__, the handshake is
+    bounded by __\-\-redis-connect-timeout__.
+
+    These options need a build with the TLS library of hiredis
+    (__hiredis\_ssl__, hiredis 1.0 or newer). A build without it refuses
+    them at startup.
+
+- __\-\-redis-tls-server-name=__*NAME*
+
+    The name to send (as SNI) and to expect in the certificate of every
+    Redis data node, instead of the host or address of each (for example
+    the name of a managed service). Requires __\-\-redis-cafile__ or
+    __\-\-redis-capath__.
+
 - __\-\-redis-format=bencode__\|__JSON__
 
     Selects the format for serialised call data written to Redis or KeyDB. The

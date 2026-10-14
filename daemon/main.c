@@ -836,6 +836,11 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "redis-sentinel", 0, 0, G_OPTION_ARG_STRING,	&redis_sentinels,	"Redis Sentinels to ask for the master, for the roles given as 'sentinel'",	"[PW@]IP:PORT[,IP:PORT...]" },
 		{ "redis-sentinel-master", 0, 0, G_OPTION_ARG_STRING,	&redis_sentinel_master,	"Name of the master monitored by Redis Sentinel",	"STRING" },
 		{ "redis-sentinel-interval", 0, 0, G_OPTION_ARG_INT,	&redis_sentinel_interval,	"How often to ask Redis Sentinel for the master, in milliseconds",	"INT" },
+		{ "redis-cafile", 0, 0, G_OPTION_ARG_FILENAME,	&rtpe_config.redis_cafile,	"CA file for TLS to Redis and Redis Sentinel",	"FILE" },
+		{ "redis-capath", 0, 0, G_OPTION_ARG_FILENAME,	&rtpe_config.redis_capath,	"CA path for TLS to Redis and Redis Sentinel",	"PATH" },
+		{ "redis-certfile", 0, 0, G_OPTION_ARG_FILENAME,	&rtpe_config.redis_certfile,	"Client certificate file for TLS to Redis",	"FILE" },
+		{ "redis-keyfile", 0, 0, G_OPTION_ARG_FILENAME,	&rtpe_config.redis_keyfile,	"Client key file for TLS to Redis",	"FILE" },
+		{ "redis-tls-server-name", 0, 0, G_OPTION_ARG_STRING,	&rtpe_config.redis_tls_server_name,	"Name to expect in the certificates of the Redis servers, instead of their address",	"NAME" },
 		{ "redis-num-threads", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_num_threads, "Number of Redis restore threads",      "INT"       },
 		{ "redis-expires", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_expires_secs, "Expire time in seconds for redis keys",      "INT"       },
 		{ "no-redis-required", 'q', 0, G_OPTION_ARG_NONE, &rtpe_config.no_redis_required, "Start no matter of redis connection state", NULL },
@@ -1366,6 +1371,19 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	else if (redis_sentinels || redis_sentinel_master || redis_sentinel_interval != -1)
 		die("--redis-sentinel, --redis-sentinel-master or --redis-sentinel-interval is set, "
 				"but no Redis endpoint is 'sentinel'");
+
+	if (rtpe_config.redis_cafile || rtpe_config.redis_capath || rtpe_config.redis_certfile
+			|| rtpe_config.redis_keyfile || rtpe_config.redis_tls_server_name)
+	{
+#ifndef HAVE_HIREDIS_SSL
+		die("Redis TLS options are set, but rtpengine was built without Redis TLS support "
+				"(hiredis_ssl)");
+#endif
+		if (!rtpe_config.redis_cafile && !rtpe_config.redis_capath)
+			die("Redis TLS needs --redis-cafile or --redis-capath");
+		if (!rtpe_config.redis_certfile != !rtpe_config.redis_keyfile)
+			die("--redis-certfile and --redis-keyfile must be given together");
+	}
 
 	// the trigger is the write connection's INFO, which gives the master's ID
 	// on a replica too: that connection must require the master role
@@ -1985,6 +2003,9 @@ static void create_everything(void) {
 	bool sent_r = rtpe_config.redis_via_sentinel, sent_w = rtpe_config.redis_write_via_sentinel,
 		sent_s = rtpe_config.redis_subscribe_via_sentinel;
 
+	if (redis_tls_init())
+		die("Cannot set up TLS for Redis");
+
 	if (rtpe_redis_sentinel) {
 		// the master's password, for the role check on the Sentinels' answer
 		redis_sentinel_set_probe_auth(rtpe_redis_sentinel,
@@ -2341,6 +2362,7 @@ int main(int argc, char **argv) {
 	redis_sentinel_free(rtpe_redis_sentinel);
 	rtpe_redis_sentinel = NULL;
 	redis_repair_free();
+	redis_tls_free();
 
 	free_prefix();
 	log_free();
