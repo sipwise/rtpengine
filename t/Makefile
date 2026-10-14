@@ -140,6 +140,7 @@ include ../lib/common.Makefile
 	daemon-tests-redis-master-only \
 	daemon-tests-redis-sentinel \
 	daemon-tests-redis-sentinel-start \
+	daemon-tests-redis-sentinel-subscribe \
 	#
 
 TESTS := test-bitstr test-str aes-crypt aead-aes-crypt test-const_str_hash.strhash
@@ -242,6 +243,7 @@ daemon-tests: \
 	daemon-tests-redis-master-only \
 	daemon-tests-redis-sentinel \
 	daemon-tests-redis-sentinel-start \
+	daemon-tests-redis-sentinel-subscribe \
 	#
 
 daemon-test-deps:	tests-preload.so
@@ -369,6 +371,9 @@ daemon-tests-redis-sentinel:	daemon-test-deps
 
 daemon-tests-redis-sentinel-start:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-redis-sentinel-start.pl
+
+daemon-tests-redis-sentinel-subscribe:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-redis-sentinel-subscribe.pl
 
 daemon-tests-audio-player:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-audio-player.pl
