@@ -127,6 +127,8 @@ static void redis_repair_mark_del(const str *callid, int db, call_t *c);
 static bool redis_repair_enabled(void);
 static void redis_repair_done(call_t *c);
 static void redis_lock_waiters_add(struct redis *r, int n);
+static void redis_resync_note_replid(struct redis *r, const char *info);
+static void redis_resync_note_del(const str *callid, int db);
 
 
 // mutually exclusive multi-A multi-B lock
@@ -495,6 +497,7 @@ next:
 	goto err2;
 
 done:
+	redis_resync_note_replid(r, rp->str);
 	freeReplyObject(rp);
 	redis_check_type(r, "calls", NULL, "set");
 	return 0;
@@ -3980,6 +3983,8 @@ static void redis_do_delete(call_t *c, struct redis *r) {
 		redis_repair_done(c);	// a skipped write: no DEL either
 		return;
 	}
+	if (IS_OWN_CALL(c))
+		redis_resync_note_del(&c->callid, c->redis_hosted_db);
 	// a reconnect made by another thread is waited for until it ends, as
 	// when it held the lock: skipped, the DEL would leave the key behind
 	while (r->reconnecting)
@@ -4057,7 +4062,10 @@ void redis_wipe(struct redis *r) {
  * last reference is dropped).
  *
  * Lock order: r->lock, then c->master_lock or rtpe_callhash_lock, then
- * redis_repair_lock, under which no other lock is taken. */
+ * redis_repair_lock, under which no other lock is taken. redis_resync_lock
+ * is taken alone or under r->lock, with nothing under it. The resync's walk
+ * over the calls takes, for one call at a time, the call iterator's lock,
+ * then rtpe_callhash_lock, then redis_repair_lock, never r->lock. */
 struct redis_repair_entry {
 	str		*id;	/* the key: &call->callid, or a copy */
 	call_t		*call;	/* held, or NULL once the call is gone */
@@ -4087,7 +4095,7 @@ static redis_repair_ht redis_repair_pending;
 static unsigned int redis_repair_overflow;
 
 static bool redis_repair_enabled(void) {
-	return rtpe_config.redis_repair_writes;
+	return rtpe_config.redis_repair_writes || rtpe_config.redis_resync_on_master_change;
 }
 
 /* called with redis_repair_lock held: the entry for a new key, unless the
@@ -4099,9 +4107,10 @@ static bool redis_repair_room(void) {
 	return false;
 }
 
-/* called with r->lock held: a call in the call table, whose SET is to be
- * repaired. It supersedes an older DEL of its ID: if it was never written,
- * it takes that key over, as in redis_key_taken(). */
+/* a call in the call table, whose SET is to be repaired. It supersedes an
+ * older DEL of its ID: if it was never written, it takes that key over, as
+ * in redis_key_taken() (with r->lock held: the resync marks only calls
+ * written before). */
 static void redis_repair_mark(call_t *c) {
 	if (!redis_repair_enabled())
 		return;
@@ -4230,6 +4239,124 @@ static int redis_repair_one(struct redis *r, struct redis_repair_entry *e) {
 	return redis_repair_del(r, e->id, e->db);
 }
 
+/* --redis-resync-on-master-change: own calls and recent own DELs are queued
+ * for the repair pass when the master's replication ID changes */
+struct redis_resync_del {
+	char		*callid;
+	int		db;
+	int64_t		when;
+};
+
+static mutex_t redis_resync_lock = MUTEX_STATIC_INIT;
+static GQueue redis_resync_dels = G_QUEUE_INIT;
+static unsigned int redis_resync_del_dropped;
+static bool redis_resync_requested;	/* under redis_repair_lock */
+static int64_t redis_resync_started_us;
+
+static void redis_resync_del_free(struct redis_resync_del *d) {
+	g_free(d->callid);
+	g_free(d);
+}
+
+static void redis_resync_note_del(const str *callid, int db) {
+	if (!rtpe_config.redis_resync_on_master_change || db < 0)
+		return;
+	int64_t now = now_us();
+	struct redis_resync_del *d = g_new(__typeof(*d), 1);
+	*d = (__typeof(*d)) { .callid = g_strndup(callid->s, callid->len), .db = db, .when = now };
+	LOCK(&redis_resync_lock);
+	g_queue_push_tail(&redis_resync_dels, d);
+	// the last --redis-resync-delete-window, at most --redis-resync-delete-max:
+	// count what is dropped
+	int64_t since = now - rtpe_config.redis_resync_delete_window * 1000LL;
+	while ((d = g_queue_peek_head(&redis_resync_dels))) {
+		if (d->when >= since && redis_resync_dels.length <= rtpe_config.redis_resync_delete_max)
+			break;
+		if (d->when >= since)
+			redis_resync_del_dropped++;
+		redis_resync_del_free(g_queue_pop_head(&redis_resync_dels));
+	}
+}
+
+/* from redis_connect() with the INFO reply, by the thread that connects r */
+static void redis_resync_note_replid(struct redis *r, const char *info) {
+	char id[sizeof(r->master_replid)] = "";
+	const char *p = info ? strstr(info, "master_replid:") : NULL;
+	if (p) {
+		p += strlen("master_replid:");
+		g_strlcpy(id, p, MIN(sizeof(id), strcspn(p, "\r\n") + 1));
+	}
+	if (!id[0])
+		return;
+	if (r->master_replid[0] && strcmp(id, r->master_replid)
+			&& rtpe_config.redis_resync_on_master_change
+			&& r->role == MASTER_REDIS_ROLE && r == rtpe_redis_write)
+	{
+		rlog(LOG_NOTICE, "Redis %s has a new replication ID (%s, was %s): a new master; "
+				"writing own calls and recent deletions again",
+				endpoint_print_buf(&r->endpoint), id, r->master_replid);
+		LOCK(&redis_repair_lock);
+		redis_resync_requested = true;
+		cond_signal(&redis_repair_cond);
+	}
+	g_strlcpy(r->master_replid, id, sizeof(r->master_replid));
+}
+
+static void redis_resync_queue(struct redis *r) {
+	unsigned int dels = 0, calls = 0, dropped;
+	int64_t now = now_us();
+	int64_t since = now - rtpe_config.redis_resync_delete_window * 1000LL;
+	GQueue recent = G_QUEUE_INIT;
+	struct redis_resync_del *d;
+
+	// copied, so that r->lock is taken for one DEL at a time, and not
+	// together with redis_resync_lock
+	{
+		LOCK(&redis_resync_lock);
+		for (GList *l = redis_resync_dels.head; l; l = l->next) {
+			d = l->data;
+			if (d->when < since)
+				continue;
+			struct redis_resync_del *copy = g_new(__typeof(*copy), 1);
+			*copy = (__typeof(*copy)) { .callid = g_strdup(d->callid), .db = d->db };
+			g_queue_push_tail(&recent, copy);
+		}
+		dropped = redis_resync_del_dropped;
+		redis_resync_del_dropped = 0;
+	}
+	while ((d = g_queue_pop_head(&recent))) {
+		{
+			LOCK(&r->lock);	// for the hand-over in redis_repair_mark_del()
+			str id = STR(d->callid);
+			redis_repair_mark_del(&id, d->db, NULL);
+		}
+		redis_resync_del_free(d);
+		dels++;
+	}
+
+	// own calls stored at least once (not those with no-redis-update), one
+	// call at a time. A call created meanwhile is written to the new master
+	// anyway. One deleted meanwhile is skipped once out of the call table:
+	// its deletion has dealt with its key, and the table lock orders the
+	// mark before a deletion that has not removed it yet.
+	ITERATE_CALL_LIST_START(CALL_ITERATOR_MAIN, c);
+		if (IS_OWN_CALL(c) && c->redis_hosted_db >= 0) {
+			RWLOCK_R(&rtpe_callhash_lock);
+			if (t_hash_table_lookup(rtpe_callhash, &c->callid) == c) {
+				redis_repair_mark(c);
+				calls++;
+			}
+		}
+	ITERATE_CALL_LIST_NEXT_END(c);
+
+	rlog(LOG_NOTICE, "Redis: resync after a master change: %u own calls and %u deletions queued%s",
+			calls, dels, dropped ? " (some older deletions were dropped: too many)" : "");
+	RTPE_STATS_INC(redis_resyncs);
+	RTPE_STATS_ADD(redis_resync_calls, calls);
+	RTPE_STATS_ADD(redis_resync_deletes, dels);
+	redis_resync_started_us = now;
+}
+
 static void redis_repair_loop(void *d) {
 	struct thread_waker waker = { .lock = &redis_repair_lock, .cond = &redis_repair_cond };
 	int64_t next_us = 0, report_us = 0;
@@ -4242,13 +4369,21 @@ static void redis_repair_loop(void *d) {
 		// read each time: the CLI's redisdisable moves writes to --redis
 		struct redis *r = rtpe_redis_write;
 
-		unsigned int overflow = 0;
+		bool resync = false;
 		struct redis_repair_entry *e = NULL;
 		{
 			LOCK(&redis_repair_lock);
+			// set under this lock, and checked before every wait
+			resync = redis_resync_requested;
+			redis_resync_requested = false;
 			unsigned int pending = t_hash_table_size(redis_repair_pending);
+			if (redis_resync_started_us && !pending) {
+				rlog(LOG_NOTICE, "Redis: resync after a master change done in %" PRId64 " ms",
+						(now_us() - redis_resync_started_us) / 1000);
+				redis_resync_started_us = 0;
+			}
 			if ((repaired || redis_repair_overflow) && rtpe_now - report_us >= 1000000) {
-				overflow = redis_repair_overflow;
+				unsigned int overflow = redis_repair_overflow;
 				redis_repair_overflow = 0;
 				rlog(LOG_NOTICE, "Redis: %u writes repaired, %u still pending%s",
 						repaired, pending,
@@ -4256,19 +4391,25 @@ static void redis_repair_loop(void *d) {
 				repaired = 0;
 				report_us = rtpe_now;
 			}
-			if (rtpe_now >= next_us && pending) {
+			if (!resync && rtpe_now >= next_us && pending) {
 				__auto_type it = t_hash_table_iter(redis_repair_pending);
 				str *id;
 				if (t_hash_table_iter_next(&it, &id, &e))
 					t_hash_table_steal_extended(redis_repair_pending, id, NULL, NULL);
 			}
-			if (!e) {
+			if (!e && !resync) {
 				int64_t until = rtpe_now + 1000000;
 				if (next_us > rtpe_now)
 					until = MIN(until, next_us);
 				cond_timedwait(&redis_repair_cond, &redis_repair_lock, until);
 				continue;
 			}
+		}
+
+		if (resync) {
+			redis_resync_queue(r);	// takes r->lock: not under redis_repair_lock
+			next_us = 0;
+			continue;
 		}
 
 		int ret = redis_repair_one(r, e);
@@ -4296,6 +4437,7 @@ void redis_repair_start(void) {
 
 /* at shutdown, after the threads are gone and before the calls are freed */
 void redis_repair_free(void) {
+	g_queue_clear_full(&redis_resync_dels, (GDestroyNotify) redis_resync_del_free);
 	if (!t_hash_table_is_set(redis_repair_pending))
 		return;
 	unsigned int n = t_hash_table_size(redis_repair_pending);

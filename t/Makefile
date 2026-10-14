@@ -143,6 +143,7 @@ include ../lib/common.Makefile
 	daemon-tests-redis-sentinel-subscribe \
 	daemon-tests-redis-repair \
 	daemon-tests-redis-repair-ids \
+	daemon-tests-redis-resync \
 	#
 
 TESTS := test-bitstr test-str aes-crypt aead-aes-crypt test-const_str_hash.strhash
@@ -248,6 +249,7 @@ daemon-tests: \
 	daemon-tests-redis-sentinel-subscribe \
 	daemon-tests-redis-repair \
 	daemon-tests-redis-repair-ids \
+	daemon-tests-redis-resync \
 	#
 
 daemon-test-deps:	tests-preload.so
@@ -384,6 +386,9 @@ daemon-tests-redis-repair:	daemon-test-deps
 
 daemon-tests-redis-repair-ids:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-redis-repair-ids.pl
+
+daemon-tests-redis-resync:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-redis-resync.pl
 
 daemon-tests-audio-player:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-audio-player.pl
