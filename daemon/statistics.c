@@ -485,6 +485,9 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 	METRIC("rediswriteerrors", "Total Redis writes refused by the server", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats->redis_write_errors));
 	PROM("redis_write_errors_total", "counter");
+	METRIC("redisrepairedwrites", "Total Redis writes repaired", "%" PRIu64, "%" PRIu64,
+			atomic64_get_na(&rtpe_stats->redis_repaired_writes));
+	PROM("redis_repaired_writes_total", "counter");
 	METRICva("avgcallduration", "Average call duration", "%.6f", "%.6f seconds", (double) avg_us / 1000000.0);
 	PROM("call_duration_avg", "gauge");
 

@@ -826,6 +826,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "redis-write",'w', 0, G_OPTION_ARG_STRING,    &redisps_write, "Connect to Redis write database",      "[PW@]IP:PORT/INT"       },
 		{ "redis-subscribe", 0, 0, G_OPTION_ARG_STRING, &redisps_subscribe, "Connect to Redis subscribe database",      "[PW@]IP:PORT[/INT]"       },
 		{ "redis-resolve-on-reconnect", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.redis_resolve_on_reconnect,	"Re-resolve given FQDN on each re-connect to the redis server.",	NULL },
+		{ "redis-repair-writes", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.redis_repair_writes,	"Write again the calls whose Redis writes were refused or skipped",	NULL },
 		{ "redis-sentinel", 0, 0, G_OPTION_ARG_STRING,	&redis_sentinels,	"Redis Sentinels to ask for the master, for the roles given as 'sentinel'",	"[PW@]IP:PORT[,IP:PORT...]" },
 		{ "redis-sentinel-master", 0, 0, G_OPTION_ARG_STRING,	&redis_sentinel_master,	"Name of the master monitored by Redis Sentinel",	"STRING" },
 		{ "redis-sentinel-interval", 0, 0, G_OPTION_ARG_INT,	&redis_sentinel_interval,	"How often to ask Redis Sentinel for the master, in milliseconds",	"INT" },
@@ -2197,6 +2198,8 @@ int main(int argc, char **argv) {
 		thread_create_looper(media_player_expire, rtpe_config.idle_scheduling,
 				rtpe_config.idle_priority, "cache expiry", rtpe_config.expiry_timer * 1000000LL);
 
+	redis_repair_start();
+
 	if (rtpe_redis && initial_rtpe_config.redis_delete_async)
 		thread_create_detach(redis_delete_async_loop, NULL, "redis async");
 
@@ -2281,6 +2284,7 @@ int main(int argc, char **argv) {
 
 	unfill_initial_rtpe_cfg(&initial_rtpe_config);
 
+	redis_repair_free();	// it holds calls
 	call_free();
 
 	recording_fs_free();
