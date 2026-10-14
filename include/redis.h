@@ -15,7 +15,12 @@
 #include "crypto.h"
 #include "dtls.h"
 
+struct redis_sentinel;
+
 #define REDIS_RESTORE_NUM_THREADS 4
+
+// also logged while calls are being restored
+#define rlog(l, x...) ilog(l | LOG_FLAG_RESTORE, x)
 
 enum redis_role {
 	MASTER_REDIS_ROLE = 0,
@@ -76,6 +81,9 @@ struct redis {
 	int64_t				async_last;
 
 	bool		update_resolve;
+
+	struct redis_sentinel	*sentinel;	/* address from Redis Sentinel, or NULL */
+	uint64_t		gen;		/* generation of the master in endpoint */
 };
 
 struct redis_hash {
@@ -113,7 +121,8 @@ void redis_notify_loop(void *d);
 void redis_delete_async_loop(void *d);
 
 
-struct redis *redis_new(const endpoint_t *, int, const char *, const char *, enum redis_role, int, bool);
+struct redis *redis_new(const endpoint_t *, int, const char *, const char *, enum redis_role, int, bool,
+		struct redis_sentinel *);
 struct redis *redis_dup(const struct redis *r, int db);
 void redis_close(struct redis *r);
 int redis_restore(struct redis *, bool foreign, int db);
