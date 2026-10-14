@@ -137,6 +137,7 @@ include ../lib/common.Makefile
 	daemon-tests-inject \
 	daemon-tests-dtx-dtmf \
 	daemon-tests-ice-force-answer \
+	daemon-tests-redis-master-only \
 	#
 
 TESTS := test-bitstr test-str aes-crypt aead-aes-crypt test-const_str_hash.strhash
@@ -236,6 +237,7 @@ daemon-tests: \
 	daemon-tests-dtmf-fanout \
 	daemon-tests-video \
 	daemon-tests-inject \
+	daemon-tests-redis-master-only \
 	#
 
 daemon-test-deps:	tests-preload.so
@@ -354,6 +356,9 @@ daemon-tests-redis-destroyed:	daemon-test-deps
 
 daemon-tests-redis-reconnect:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-redis-reconnect.pl
+
+daemon-tests-redis-master-only:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-redis-master-only.pl
 
 daemon-tests-audio-player:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-audio-player.pl
