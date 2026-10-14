@@ -99,6 +99,12 @@ if pkg-config --exists libmosquitto; then
   echo "CFLAGS_MQTT += -DHAVE_MQTT"
 fi
 
+# hiredis 1.0 or newer: TLS to Redis
+if pkg-config --exists hiredis_ssl; then
+  gen-pkgconf-flags LIBHIREDIS_SSL    hiredis_ssl
+  echo "CFLAGS_LIBHIREDIS_SSL += -DHAVE_HIREDIS_SSL"
+fi
+
 # look for libsystemd
 if pkg-config --exists libsystemd; then
   gen-pkgconf-flags LIBSYSTEMD        libsystemd
