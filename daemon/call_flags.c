@@ -1853,7 +1853,6 @@ const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg v
 			break;
 		case CSH_LOOKUP("recording-media-slot-offer"):
 			// This needs to be > 0
-			//out->media_rec_slot_offer = bencode_get_integer_str(value, out->media_rec_slot_offer);
 			out->media_rec_slot_offer = parser->get_int_str(value, out->media_rec_slot_offer);
 		break;
 		case CSH_LOOKUP("recording-media-slot-answer"):
