@@ -1915,7 +1915,7 @@ static void create_everything(void) {
 				rtpe_config.redis_write_db,
 				rtpe_config.redis_write_hostname,
 				rtpe_config.redis_write_auth,
-				ANY_REDIS_ROLE,
+				MASTER_REDIS_ROLE,
 				rtpe_config.no_redis_required,
 				rtpe_config.redis_resolve_on_reconnect);
 

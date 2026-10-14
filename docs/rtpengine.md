@@ -571,14 +571,18 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     For password protected Redis servers, the environment variable for the
     password is __RTPENGINE\_REDIS\_WRITE\_AUTH\_PW__.
 
-    When both options are given, __rtpengine__ will start and use the Redis
-    database regardless of the database's role (master or slave).
+    When both options are given, __rtpengine__ will start and use the first
+    database regardless of its role (master or slave). The write database
+    must be the master, as the first one must be when it is used alone.
 
     Writes that the Redis server refuses (for example __READONLY__ from a
     replica, or __NOREPLICAS__ from a master that lacks replicas) are logged,
     at most once a second, and counted in the __rediswriteerrors__ statistic.
-    The connection is kept, as reconnecting to the same address would not
-    change the server's answer.
+    A write refused with __READONLY__ or __MASTERDOWN__ drops the connection:
+    the server is no longer a master, and the next operation reconnects and
+    checks the role (a replica is then a failed attempt, see
+    __\-\-redis-reconnect-pause__). Other refusals keep the connection, as
+    reconnecting to the same address would not change the server's answer.
 
 - __\-\-redis-subscribe=__\[*PW*@\]*IP*:*PORT*\[/*INT*\]
 

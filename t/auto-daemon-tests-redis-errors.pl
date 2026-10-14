@@ -62,11 +62,11 @@ is(redis_write_errors(), 0, 'no write error');
 
 
 # writes refused by the server are counted, and the connection is kept:
-# reconnecting to the same address cannot help
+# reconnecting to the same address cannot help (a role error, which drops
+# it, is in auto-daemon-tests-redis-master-only.pl)
 
 my $count = 0;
-for my $err ("READONLY You can't write against a read only replica.",
-		"NOREPLICAS Not enough good replicas to write.",
+for my $err ("NOREPLICAS Not enough good replicas to write.",
 		"LOADING Redis is loading the dataset in memory")
 {
 	my ($code) = $err =~ /^(\w+)/;
@@ -77,7 +77,7 @@ for my $err ("READONLY You can't write against a read only replica.",
 	$count++;
 	is(redis_write_errors(), $count, "$code counted");
 	like(rtpe_log(), qr/ERR: .*Redis 203\.0\.113\.42:6379 refused a write: \Q$err\E \(1 refused since the last report\)/,
-		'first refused write logged at once') if $code eq 'READONLY';
+		'first refused write logged at once') if $code eq 'NOREPLICAS';
 
 	# the next write goes through the same connection
 	new_call;
@@ -93,7 +93,7 @@ for my $err ("READONLY You can't write against a read only replica.",
 # a refused DEL is counted too
 
 $NGCP::Rtpengine::req_cb = sub {
-	redis_expect_del($fd, cid(), "-READONLY You can't write against a read only replica.\r\n", 'refused');
+	redis_expect_del($fd, cid(), "-NOREPLICAS Not enough good replicas to write.\r\n", 'refused');
 };
 rtpe_req('delete', 'refused delete', { 'delete delay' => 0 });
 $count++;

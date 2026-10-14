@@ -92,6 +92,7 @@ include ../lib/common.Makefile
 	daemon-tests-bundle daemon-tests-dtls daemon-tests-rollback \
 	daemon-tests-rollback-redis daemon-tests-redis-srtp-index daemon-tests-redis-errors \
 	daemon-tests-redis-destroyed daemon-tests-redis-reconnect \
+	daemon-tests-redis-master-only \
 	daemon-tests-recording daemon-tests-create daemon-tests-create-srtp daemon-tests-created-subscriptions daemon-tests-alias \
 	daemon-tests-kernel-api daemon-tests-dtmf-fanout daemon-tests-dtx-rtcp daemon-tests-mixer-drift \
 	daemon-tests-video daemon-tests-inject daemon-tests-dtx-dtmf \
@@ -148,6 +149,7 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-bundle daemon-tests-dtls daemon-tests-rollback daemon-tests-rollback-redis \
 	daemon-tests-redis-srtp-index daemon-tests-redis-errors daemon-tests-redis-destroyed \
 	daemon-tests-redis-reconnect \
+	daemon-tests-redis-master-only \
 	daemon-tests-recording daemon-tests-create daemon-tests-create-srtp daemon-tests-created-subscriptions \
 	daemon-tests-ice-force-answer \
 	daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-dtx-no-shift daemon-tests-dtx-dtmf daemon-tests-dtx-rtcp daemon-tests-mixer-drift \
@@ -269,6 +271,9 @@ daemon-tests-redis-destroyed:	daemon-test-deps
 
 daemon-tests-redis-reconnect:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-redis-reconnect.pl
+
+daemon-tests-redis-master-only:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-redis-master-only.pl
 
 daemon-tests-audio-player:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-audio-player.pl

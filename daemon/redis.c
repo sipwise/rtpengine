@@ -247,11 +247,21 @@ static void redis_write_result(struct redis *r, const redisReply *rp) {
 	r->write_errors = 0;
 }
 
+/* an error reply that says the server is not, or no longer, a usable master */
+static bool redis_is_role_error(const redisReply *rp) {
+	if (rp->type != REDIS_REPLY_ERROR)
+		return false;
+	return !strncmp(rp->str, "READONLY", 8) || !strncmp(rp->str, "MASTERDOWN", 10);
+}
+
 /* called with r->lock held
- * Returns -1 if the replies could not be read (the context is then unusable).
- * An error reply keeps the connection: a reconnect would get the same answer. */
+ * Returns -1 if the replies could not be read (the context is then unusable),
+ * or after a role error on a connection that requires a master, so that the
+ * caller drops it and the reconnect checks the role. Other error replies keep
+ * the connection: a reconnect would get the same answer. */
 static int redis_consume(struct redis *r) {
 	redisReply *rp;
+	bool role_error = false;
 
 	if (!r->ctx) {
 		ilog(LOG_ERROR, "Unable to consume pipelined replies. No redis context");
@@ -265,7 +275,14 @@ static int redis_consume(struct redis *r) {
 		}
 		r->pipeline--;
 		redis_write_result(r, rp);
+		if (redis_is_role_error(rp))
+			role_error = true;
 		freeReplyObject(rp);
+	}
+	if (role_error && r->role == MASTER_REDIS_ROLE) {
+		rlog(LOG_WARN, "Redis %s is not a master: dropping the connection",
+				endpoint_print_buf(&r->endpoint));
+		return -1;
 	}
 	return 0;
 }
