@@ -831,6 +831,12 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     __\-\-redis-connect-timeout__ bounds the handshake. These options are
     only available in a build with __hiredis\_ssl__ (hiredis 1.0 or newer).
 
+    With __\-\-redis-sentinel__, the Sentinels and the role checks of the
+    masters they name use TLS too, with the same files: a Sentinel's
+    certificate must match its host as given in __\-\-redis-sentinel__, a
+    master's the address that the Sentinels give, or
+    __\-\-redis-tls-server-name__.
+
 - __\-\-redis-tls-server-name=__*NAME*
 
     The name to send (as SNI) and to expect in the certificate of every

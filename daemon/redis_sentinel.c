@@ -144,7 +144,8 @@ void redis_sentinel_wake(struct redis_sentinel *s, bool limited) {
 }
 
 
-static redisContext *sentinel_connect(const endpoint_t *ep, const char *auth) {
+/* "name": what the TLS certificate must match, if not the address */
+static redisContext *sentinel_connect(const endpoint_t *ep, const char *name, const char *auth) {
 	char host[64];
 	sockaddr_print(&ep->address, host, sizeof(host));
 	int64_t connect_timeout = atomic_get_na(&rtpe_config.redis_connect_timeout) * 1000LL;
@@ -157,7 +158,8 @@ static redisContext *sentinel_connect(const endpoint_t *ep, const char *auth) {
 		return NULL;
 	const char *err = NULL;
 	redisReply *rp = NULL;
-	if (ctx->err || redisSetTimeout(ctx, timeval_from_us(cmd_timeout)))
+	if (ctx->err || redisSetTimeout(ctx, timeval_from_us(cmd_timeout))
+			|| redis_tls_start(ctx, name ? : host, 0, NULL))
 		err = ctx->errstr;
 	else if (auth && !(rp = redisCommand(ctx, "AUTH %s", auth)))
 		err = ctx->errstr;
@@ -220,7 +222,7 @@ static bool sentinel_query(struct redis_sentinel *s, struct sentinel_node *n,
 			n->ep.address = a;
 	}
 
-	redisContext *ctx = sentinel_connect(&n->ep, s->auth);
+	redisContext *ctx = sentinel_connect(&n->ep, n->host, s->auth);
 	if (!ctx) {
 		n->failing = true;
 		return false;
@@ -251,7 +253,8 @@ static bool sentinel_query(struct redis_sentinel *s, struct sentinel_node *n,
 }
 
 static bool sentinel_is_master(struct redis_sentinel *s, const endpoint_t *ep, uint64_t epoch) {
-	redisContext *ctx = sentinel_connect(ep, s->probe_auth);
+	// a data node: --redis-tls-server-name applies, as for the data connections
+	redisContext *ctx = sentinel_connect(ep, rtpe_config.redis_tls_server_name, s->probe_auth);
 	if (!ctx)
 		return false;
 

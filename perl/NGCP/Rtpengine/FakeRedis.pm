@@ -451,6 +451,8 @@ sub serve_probes {
 # (GET-MASTER-ADDR-BY-NAME) at this config epoch (SENTINEL MASTER), whose
 # "ip" is MONITORED_IP if given: a Sentinel running a failover reports the
 # promoted replica in the former and still the old master in the latter.
+# The key "tls" gives "CERT_FILE KEY_FILE": the Sentinels speak TLS with
+# them, and log "IP:PORT TLS refused" for a handshake that fails.
 
 my ($sentinel_pid, $sentinel_state, $sentinel_log, $sentinel_password);
 my $serial = 0;
@@ -474,7 +476,8 @@ sub sentinels_set {
 	$serial++;
 	open(my $fh, '>', "$sentinel_state.new") or die;
 	print $fh "serial $serial\npassword $sentinel_password\n";
-	print $fh "$_:26379 $st{$_}\n" for sort(keys(%st));
+	print $fh "tls $st{tls}\n" if $st{tls};
+	print $fh "$_:26379 $st{$_}\n" for sort(grep { $_ ne 'tls' } keys(%st));
 	close($fh);
 	rename("$sentinel_state.new", "$sentinel_state") or die;
 	return unless $sentinel_pid;
@@ -514,16 +517,23 @@ sub sentinel_main {
 	my $done = 0;
 	$SIG{TERM} = sub { $done = 1 };
 	$SIG{PIPE} = 'IGNORE';
-	my (%sentinels, %clients, $password);
+	my (%sentinels, %clients, $password, $tls_files);
 	my $applied = -1;
 
 	my $read_state = sub {
 		open(my $fh, '<', $statefile) or return;
 		my ($ser, %want);
+		$tls_files = undef;
 		while (my $l = <$fh>) {
 			my @f = split(' ', $l);
 			if ($f[0] eq 'serial') { $ser = $f[1] }
 			elsif ($f[0] eq 'password') { $password = $f[1] }
+			elsif ($f[0] eq 'tls') {
+				# loaded now, not at the first connection: loading takes long
+				# enough on a busy host for the client's handshake to time out
+				require IO::Socket::SSL;
+				$tls_files = [ @f[1, 2] ];
+			}
 			else { $want{$f[0]} = [ @f[1 .. $#f] ] }
 		}
 		close($fh);
@@ -579,6 +589,16 @@ sub sentinel_main {
 			for my $fn (grep { vec($rout, $_, 1) } keys(%l)) {
 				my ($s) = grep { $sentinels{$_} == $l{$fn} } keys(%sentinels);
 				accept(my $fh, $l{$fn}{listener}) or next;
+				if ($tls_files) {
+					if (!IO::Socket::SSL->start_SSL($fh, SSL_server => 1, Timeout => 3,
+							SSL_cert_file => $tls_files->[0],
+							SSL_key_file => $tls_files->[1]))
+					{
+						print $log "$s TLS refused\n";
+						close($fh);
+						next;
+					}
+				}
 				$clients{fileno($fh)} = { fh => $fh, buf => '', sentinel => $s };
 			}
 			for my $fn (grep { vec($rout, $_, 1) } keys(%clients)) {

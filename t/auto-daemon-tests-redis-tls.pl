@@ -2,8 +2,9 @@
 
 # TLS to Redis: the certificate must come from the CA and match the address
 # (or --redis-tls-server-name), a client certificate is sent, a handshake
-# that gets no answer is given up, and the keyspace subscription speaks TLS
-# too. Certificates are made here with the openssl tool.
+# that gets no answer is given up, and the keyspace subscription and the
+# Redis Sentinel connections speak TLS too. Certificates are made here with
+# the openssl tool.
 
 use strict;
 use warnings;
@@ -49,6 +50,7 @@ tls_cert($d, 'ca', 'name-other', 'DNS:other.sub.test');
 tls_cert($d, 'ca', 'name-wild', 'DNS:*.sub.test');
 tls_cert($d, 'ca', 'name-partial', 'DNS:re*.sub.test');
 tls_cert($d, 'ca', 'redis.sub.test');	# the name in the CN only
+tls_cert($d, 'ca', 'sentinel', 'IP:203.0.113.43');
 
 sub cert {
 	my ($name, %opt) = @_;
@@ -268,6 +270,54 @@ wait_log(qr/redis_notify_async_context_disconnect: TLS: certificate of redis\.su
 cert('name');
 redis_expect($notify_fd, ['PING'], "+PONG\r\n", 'name: subscription refused: connection checked');
 $sub_fd = subscription('name: subscription again');
+
+
+NGCP::Rtpengine::AutoTest::shut_rtpe();
+undef($NGCP::Rtpengine::req_cb);
+
+
+# Redis Sentinel: the queries and the role probes speak TLS. The Sentinels
+# are checked against their addresses, the data nodes (the role probe
+# included) against --redis-tls-server-name.
+
+my $l44 = redis_listen('203.0.113.44');
+cert('name');
+my $sentinel_tls = "$d/sentinel.pem $d/sentinel.key";
+sentinels_start('spw', tls => $sentinel_tls, '203.0.113.43' => '203.0.113.42 6379 1');
+
+$NGCP::Rtpengine::AutoTest::launch_cb = sub {
+	$fd = redis_conn($l, 'sentinel: startup');
+	redis_expect($fd, ['PING'], "+PONG\r\n", 'sentinel: startup PING');
+	redis_expect($fd, ['KEYS', '*'], "*0\r\n", 'sentinel: startup KEYS');
+};
+
+autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1
+			-n 2223 -f -L 7 -E
+			--redis=auth@sentinel/2
+			--redis-sentinel-master=mymaster --redis-sentinel-interval=200
+			--redis-cmd-timeout=1000 --redis-tls-server-name=redis.sub.test),
+		'--redis-sentinel=spw@203.0.113.43:26379', "--redis-cafile=$d/ca.pem")
+		or die;
+
+like(sentinel_log(), qr/^203\.0\.113\.43:26379 AUTH spw$/m, 'sentinel: queried over TLS');
+is_deeply(\@probes, [['203.0.113.42', 'auth', 'master']], 'sentinel: role probe over TLS');
+
+# a Sentinel whose certificate is for another address is not asked
+sentinels_set(tls => "$d/srv-ip.pem $d/srv-ip.key", '203.0.113.43' => '203.0.113.42 6379 1');
+wait_log(qr/Redis Sentinel: cannot connect to 203\.0\.113\.43:26379: TLS: certificate of 203\.0\.113\.43 not accepted: IP address mismatch/,
+	'sentinel: certificate for another address refused');
+like(sentinel_log(), qr/^203\.0\.113\.43:26379 TLS refused$/m, 'sentinel: handshake not completed');
+
+# a master whose certificate is for another name is not followed
+cert('name-other');
+sentinels_set(tls => $sentinel_tls, '203.0.113.43' => '203.0.113.44 6379 2');
+redis_tls_refused($l44, 'sentinel: role probe of a master with the wrong certificate');
+wait_log(qr/Redis Sentinel: cannot connect to 203\.0\.113\.44:6379: TLS: certificate of redis\.sub\.test not accepted: hostname mismatch/,
+	'sentinel: role probe refused the certificate');
+new_call;
+$NGCP::Rtpengine::req_cb = sub { redis_expect_set($fd, cid(), "+OK\r\n", 'sentinel: write') };
+offer('sentinel: still on the master in use', { }, $sdp);
+unlike(rtpe_log(), qr/master of 'mymaster' is now 203\.0\.113\.44/, 'sentinel: not followed');
 
 
 done_testing();
