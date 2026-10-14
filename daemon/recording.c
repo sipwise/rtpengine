@@ -1074,15 +1074,15 @@ static void setup_stream_proc(struct packet_stream *stream) {
 
 	/* If no slots have been specified or someone has tried to use slott 0 then we set the variables up so that the mix
 	 * channels will be used in sequence as each SSRC is seen. (see mix.c for the algorithm) */
-	if(call->media_rec_slots < 1 || media->media_rec_slot < 1) {
+	if (call->media_rec_slots < 1) {
 		media_rec_slot = 1;
 		media_rec_slots = 1;
 	} else {
-		media_rec_slot = media->media_rec_slot;
+		media_rec_slot = media->media_rec_slot < 1 ? 1 : media->media_rec_slot;
 		media_rec_slots = call->media_rec_slots;
 	}
 
-	if(media_rec_slot > media_rec_slots) {
+	if (media_rec_slot > media_rec_slots) {
 		ilog(LOG_ERR, "slot %i is greater than the total number of slots available %i, setting to slot %i",
 				media->media_rec_slot, call->media_rec_slots, media_rec_slots);
 		media_rec_slot = media_rec_slots;
