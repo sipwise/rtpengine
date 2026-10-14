@@ -894,8 +894,12 @@ static void __make_transcoder(struct codec_handler *handler, rtp_payload_type *d
 			cn_payload_type, packet_decoded_encode, __ssrc_handler_transcode_new);
 }
 static bool __make_audio_player_decoder(struct codec_handler *handler, rtp_payload_type *dest,
-		bool pcm_dtmf_detect)
+		bool pcm_dtmf_detect, bool mixer_clock)
 {
+	// Changing clock ownership must discard an existing input DTX queue as well as its decoder.
+	if (handler->mixer_clock != mixer_clock && handler->transcoder)
+		__handler_shutdown(handler);
+	handler->mixer_clock = mixer_clock;
 	return __make_transcoder_full(handler, dest, NULL, -1, pcm_dtmf_detect, -1, packet_decoded_audio_player,
 			__ssrc_handler_decode_new);
 }
@@ -1426,7 +1430,11 @@ static GTree *codec_make_prefs_tree(rtp_payload_type *pt, struct codec_store *cs
 }
 
 static bool codec_update_audio_player_flags(struct call_media *sink, const sdp_ng_flags *flags) {
-	bool explicit_player = MEDIA_ISSET(sink, AUDIO_PLAYER) && !MEDIA_ISSET(sink, AUDIO_PLAYER_IMPLICIT);
+	// Permanent selection overrides an earlier implicit player and implicit global defaults.
+	bool explicit_player = rtpe_config.use_audio_player == UAP_ALWAYS
+		|| (flags && flags->audio_player == AP_FORCE)
+		|| ((!flags || flags->audio_player == AP_DEFAULT)
+			&& MEDIA_ISSET(sink, AUDIO_PLAYER) && !MEDIA_ISSET(sink, AUDIO_PLAYER_IMPLICIT));
 	MEDIA_CLEAR(sink, AUDIO_PLAYER_IMPLICIT);
 	if (explicit_player)
 		return true;
@@ -1459,6 +1467,7 @@ void __codec_handlers_update(struct call_media *source, struct call_media *sink,
 		return;
 
 	bool use_audio_player = codec_update_audio_player_flags(sink, a.flags);
+	bool permanent_audio_player = use_audio_player && !MEDIA_ISSET(sink, AUDIO_PLAYER_IMPLICIT);
 
 	/* required for updating the transcoding attrs of subscriber */
 	struct media_subscription *ms = call_get_media_subscription(source->media_subscribers_ht, sink);
@@ -1855,7 +1864,7 @@ transcode:
 					sink_dtmf_pt ? sink_dtmf_pt->payload_type : -1,
 					pcm_dtmf_detect, sink_cn_pt ? sink_cn_pt->payload_type : -1);
 		else
-			__make_audio_player_decoder(handler, sink_pt, pcm_dtmf_detect);
+			__make_audio_player_decoder(handler, sink_pt, pcm_dtmf_detect, permanent_audio_player);
 		// for DTMF delay: we pretend that there is no output DTMF payload type (sink_dtmf_pt == NULL)
 		// so that DTMF is converted to audio (so it can be replaced with silence). we still want
 		// to output DTMF event packets when we can though, so we need to remember the DTMF payload
@@ -1897,7 +1906,7 @@ next:
 			// change all passthrough handlers also to transcoders
 			while (passthrough_handlers) {
 				struct codec_handler *handler = passthrough_handlers->data;
-				if (!__make_audio_player_decoder(handler, pref_dest_codec, false))
+				if (!__make_audio_player_decoder(handler, pref_dest_codec, false, permanent_audio_player))
 					__convert_passthrough_ssrc(handler);
 				passthrough_handlers = g_slist_delete_link(passthrough_handlers,
 						passthrough_handlers);
@@ -3401,6 +3410,11 @@ static void __buffer_delay_seq(struct delay_buffer *dbuf, struct media_packet *m
 
 static bool __dtx_should_do(struct codec_ssrc_handler *ch) {
 	if (!ch)
+		return false;
+	// Permanent mixers already generate continuous output and fill silent intervals. Scheduling
+	// their inputs through a second DTX clock can accumulate source-specific delay during AMR SID gaps.
+	// Keep the existing DTX path for ordinary transcoding and implicitly enabled audio players.
+	if (ch->handler->mixer_clock && ch->handler->packet_decoded == packet_decoded_audio_player)
 		return false;
 	if (!ch->decoder)
 		return false;

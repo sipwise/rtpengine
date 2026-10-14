@@ -60,6 +60,7 @@ struct codec_handler {
 	bool transcoder:1;
 	bool pcm_dtmf_detect:1;
 	bool blackhole:1;
+	bool mixer_clock:1; // permanent mixer supplies output timing and silence independently
 
 	size_t payload_len; // for short-packet blocking
 
