@@ -733,6 +733,20 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     remote redis server try to re-resolve if the redis hostname was an FQDN
     and not IP address. It is a boolean value (either __true__ or __false__).
 
+- __\-\-redis-repair-writes__
+
+    Write again, in the background, the own calls whose last Redis write
+    was not stored: refused by the server (for example __NOREPLICAS__ after
+    a failover), lost with the connection, or skipped while the connection
+    was down or paused. A call that still exists is written with its
+    current state; for a call that is gone, its key is deleted, unless a new
+    call uses the same ID. Signalling writes go first. A write that fails
+    again is retried after one second, and at most 100000 calls are kept.
+    Each stored write is counted in the __redisrepairedwrites__ statistic.
+    The deletions assume that this instance is the only writer of its
+    database, or that call-ids are not reused. It is a boolean value
+    (either __true__ or __false__), and it is off by default.
+
 - __\-\-redis-sentinel=__\[*PW*@\]*IP*:*PORT*\[,*IP*:*PORT*...\]
 
     The Redis Sentinels to ask for the master, for every Redis option given

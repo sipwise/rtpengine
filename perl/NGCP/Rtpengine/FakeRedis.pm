@@ -20,7 +20,7 @@ use Exporter 'import';
 
 our @EXPORT = qw(redis_listen redis_accept redis_conn redis_read redis_send redis_expect
 	redis_expect_set redis_expect_del redis_close redis_closed readable info_reply
-	redis_write_errors wait_log
+	redis_write_errors redis_stat wait_log
 	redis_serve redis_sets_seen redis_record_after redis_serve_next_get
 	%role @probes wait_probe serve_probes
 	sentinels_start sentinels_set sentinel_log sentinel_queries);
@@ -341,9 +341,15 @@ sub redis_serve_next_get {
 }
 
 sub redis_write_errors {
+	return redis_stat('rediswriteerrors');
+}
+
+# a counter of the "statistics" command's totals
+sub redis_stat {
+	my ($name) = @_;
 	local $NGCP::Rtpengine::req_cb;
 	my $resp = rtpe_req('statistics', 'statistics', { });
-	return $resp->{statistics}{totalstatistics}{rediswriteerrors};
+	return $resp->{statistics}{totalstatistics}{$name};
 }
 
 sub wait_log {

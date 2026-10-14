@@ -83,6 +83,8 @@ struct redis {
 
 	bool		update_resolve;
 	bool		require_master;	/* a role error drops the connection */
+	atomic64	lock_waiters;	/* signalling writes waiting for lock */
+	cond_t		lock_waiters_cond;	/* signalled when the last one has it */
 
 	struct redis_sentinel	*sentinel;	/* address from Redis Sentinel, or NULL */
 	uint64_t		gen;		/* generation of the master in endpoint */
@@ -138,6 +140,9 @@ int redis_notify_subscribe_action(struct redis *r, enum subscribe_action action,
 int redis_set_timeout(struct redis* r, int64_t timeout);
 int redis_set_cmd_timeout(struct redis *r, int64_t timeout);
 int redis_reconnect(struct redis* r);
+void redis_repair_init(void);
+void redis_repair_loop(void *);
+void redis_repair_free(void);
 
 
 #endif
