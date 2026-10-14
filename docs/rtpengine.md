@@ -747,6 +747,37 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     database, or that call-ids are not reused. It is a boolean value
     (either __true__ or __false__), and it is off by default.
 
+- __\-\-redis-resync-on-master-change__
+
+    After a change of Redis master, write again every own call stored at
+    least once, and make again the recent deletions of own calls (see
+    __\-\-redis-resync-delete-window__): a new master may lack writes that
+    the old one acknowledged but had not replicated. A change is seen when
+    the write connection reconnects to a server with another replication ID
+    (__master\_replid__), as after a failover or a restart of the master.
+    The write connection must require the master role (__\-\-redis__ alone,
+    __\-\-redis-require-master__, or __sentinel__ in __\-\-redis-write__),
+    otherwise this option is refused at startup. The writes go through
+    __\-\-redis-repair-writes__, which this option enables, with the same
+    assumption about deletions. Resyncs, and the calls and deletions they
+    queue, are counted in the __redisresyncs__, __redisresynccalls__ and
+    __redisresyncdeletes__ statistics. It is a boolean value (either
+    __true__ or __false__), and it is off by default.
+
+- __\-\-redis-resync-delete-window=__*INT*
+
+    How long, in milliseconds, the deletions of own calls are remembered for
+    __\-\-redis-resync-on-master-change__. It should be longer than a
+    failover plus the replication lag. The default value is 30000. Only
+    valid with __\-\-redis-resync-on-master-change__.
+
+- __\-\-redis-resync-delete-max=__*INT*
+
+    How many deletions of own calls are remembered at most for
+    __\-\-redis-resync-on-master-change__; beyond that, the oldest are
+    dropped, and their number is logged at the next resync. The default
+    value is 4096. Only valid with __\-\-redis-resync-on-master-change__.
+
 - __\-\-redis-sentinel=__\[*PW*@\]*IP*:*PORT*\[,*IP*:*PORT*...\]
 
     The Redis Sentinels to ask for the master, for every Redis option given
