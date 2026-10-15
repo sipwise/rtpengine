@@ -282,10 +282,24 @@ int redis_set_timeout(struct redis* r, int64_t timeout) {
 	return 0;
 }
 
+/* from the CLI; a connection that is being made, or none, is left alone:
+ * the next attempt reads the new value */
+int redis_set_cmd_timeout(struct redis *r, int64_t timeout) {
+	LOCK(&r->lock);
+	if (r->reconnecting || !r->ctx)
+		return 0;
+	return redis_set_timeout(r, timeout);
+}
+
 int redis_reconnect(struct redis* r) {
 	int rval;
 	LOCK(&r->lock);
 
+	// the context belongs to the thread that is reconnecting
+	if (r->reconnecting) {
+		rlog(LOG_WARN, "Redis %s: a reconnect is already in progress", endpoint_print_buf(&r->endpoint));
+		return -1;
+	}
 	rval = redis_connect(r, 0, r->update_resolve);
 	if (rval)
 		r->state = REDIS_STATE_DISCONNECTED;
@@ -317,7 +331,7 @@ void redis_set_keepalive(int fd) {
 }
 
 
-/* called with r->lock held if necessary
+/* called with r->lock held, or with r->reconnecting set, or single thread
  * Returns 0 when connected, REDIS_CONNECT_ROLE if the server never had the
  * wanted role, or -1 on any other failure. */
 static int redis_connect(struct redis *r, int wait, bool resolve) {
@@ -857,6 +871,13 @@ static int redis_notify(struct redis *r) {
 	return 0;
 }
 
+/* redis_check_conn() needs the lock: the CLI uses the same connection, and
+ * a reconnect releases the lock while it is made */
+static int redis_check_conn_locked(struct redis *r) {
+	LOCK(&r->lock);
+	return redis_check_conn(r);
+}
+
 void redis_delete_async_loop(void *d) {
 	struct redis *r = NULL;
 
@@ -917,7 +938,7 @@ void redis_notify_loop(void *d) {
 	}
 
 	// initial redis_notify
-	if (redis_check_conn(r) == REDIS_STATE_CONNECTED) {
+	if (redis_check_conn_locked(r) == REDIS_STATE_CONNECTED) {
 		redis_notify_return = redis_notify(r);
 	}
 
@@ -931,7 +952,7 @@ void redis_notify_loop(void *d) {
 
 		next_run = rtpe_now + microseconds;
 
-		if (redis_check_conn(r) == REDIS_STATE_CONNECTED || redis_notify_return < 0) {
+		if (redis_check_conn_locked(r) == REDIS_STATE_CONNECTED || redis_notify_return < 0) {
 			r->async_ctx = NULL;
 			// alloc new redis async context upon redis breakdown
 			if (redis_async_context_alloc(r, NULL, redis_notify_async_context_disconnect) < 0) {
@@ -970,6 +991,7 @@ struct redis *redis_new(const endpoint_t *ep, int db, const char *hostname, cons
 	r->consecutive_errors = 0;
 	r->update_resolve = update_resolve;
 	mutex_init(&r->lock);
+	cond_init(&r->reconnect_cond);
 
 	if (redis_connect(r, 10, false)) {
 		if (r->no_redis_required) {
@@ -1033,9 +1055,23 @@ static void redis_count_err_and_disable(struct redis *r)
 	}
 }
 
-/* must be called with r->lock held */
+/* must be called with r->lock held, which it releases while it reconnects */
 static int redis_check_conn(struct redis *r) {
 	rtpe_now = now_us(); // XXX this needed here?
+
+	// another thread is reconnecting: wait for it as long as a quick
+	// attempt takes (--redis-reconnect-slow), then skip this operation
+	if (r->reconnecting) {
+		int64_t until = rtpe_now + rtpe_config.redis_reconnect_slow * 1000LL;
+		r->released++;
+		while (r->reconnecting && now_us() < until)
+			cond_timedwait(&r->reconnect_cond, &r->lock, until);
+		if (r->reconnecting) {
+			r->skipped++;
+			return REDIS_STATE_DISCONNECTED;
+		}
+		rtpe_now = now_us();
+	}
 
 	if ((r->state == REDIS_STATE_DISCONNECTED) && r->restore_tick_us > rtpe_now) {
 		// every Redis operation ends up here: say it once
@@ -1072,17 +1108,24 @@ static int redis_check_conn(struct redis *r) {
 		r->state = REDIS_STATE_DISCONNECTED;
 	}
 
-	// try redis reconnect => will free current r->ctx
-	// (one attempt: any wait here would hold every thread that uses Redis)
+	// try redis reconnect => will free current r->ctx. One attempt, made
+	// without the lock: the others wait for it briefly, then skip (above);
+	// until the flag is cleared, only this thread uses r->ctx.
 	int64_t start = now_us();
+	r->reconnecting = true;
+	r->released++;
+	mutex_unlock(&r->lock);
 	int ret = redis_connect(r, 0, r->update_resolve);
+	mutex_lock(&r->lock);
+	r->reconnecting = false;
+	cond_broadcast(&r->reconnect_cond);
 	if (ret) {
 		// redis is disconnected
 		redis_count_err_and_disable(r);
 		// After the wrong role, or a slow failure (a timeout), pause (one
 		// second by default): a failover takes longer than that, so the
-		// next attempt would fail the same way, under the lock. A quick
-		// failure (connection refused) is retried at once, as before.
+		// next attempt would fail the same way. A quick failure
+		// (connection refused) is retried at once, as before.
 		int64_t now = now_us();
 		int64_t pause_us = rtpe_config.redis_reconnect_pause * 1000LL;
 		if (ret == REDIS_CONNECT_ROLE || now - start >= rtpe_config.redis_reconnect_slow * 1000LL) {
@@ -2537,7 +2580,7 @@ err1:
 		freeReplyObject(rr_jsonStr);
 	if (err) {
 		mutex_lock(&r->lock);
-		if (r->ctx && r->ctx->err)
+		if (!r->reconnecting && r->ctx && r->ctx->err)
 			rlog(LOG_WARNING, "Failed to restore call ID '" STR_FORMAT_M "' from Redis: %s (%s)",
 					STR_FMT_M(callid),
 					err, r->ctx->errstr);
@@ -2558,6 +2601,9 @@ err1:
 		if (!foreign) {
 			mutex_lock(&rtpe_redis_write->lock);
 
+			// as in redis_do_delete(): a reconnect is waited for
+			while (rtpe_redis_write->reconnecting)
+				cond_wait(&rtpe_redis_write->reconnect_cond, &rtpe_redis_write->lock);
 			redis_select_db(rtpe_redis_write, rtpe_redis_write->db);
 
 			redisCommandNR(rtpe_redis_write->ctx, "DEL " PB, PBSTR(callid));
@@ -3643,6 +3689,19 @@ static bool redis_call_live(call_t *c) {
 	return live;
 }
 
+/* called with r->lock held: a call created with this ID, other than c, is in
+ * the call table, so the key is its own. If it was never written, it takes
+ * the key's DB, so that its own deletion deletes the key. */
+static bool redis_key_taken(const str *callid, call_t *c, int db) {
+	rwlock_lock_r(&rtpe_callhash_lock);
+	call_t *o = t_hash_table_lookup(rtpe_callhash, callid);
+	bool taken = o && o != c && !str_cmp_str(&o->callid, callid);
+	if (taken && o->redis_hosted_db < 0)
+		o->redis_hosted_db = db;
+	rwlock_unlock_r(&rtpe_callhash_lock);
+	return taken;
+}
+
 void redis_update_onekey(call_t *c, struct redis *r) {
 	unsigned int redis_expires_s;
 
@@ -3655,8 +3714,12 @@ void redis_update_onekey(call_t *c, struct redis *r) {
 	// not a call destroyed while this waited (a timer can hold one)
 	if (!redis_call_live(c))
 		return;
+	unsigned int released = r->released;
 	// coverity[sleep : FALSE]
 	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED)
+		return;
+	// nor while redis_check_conn() let go of the lock (a reconnect)
+	if (r->released != released && !redis_call_live(c))
 		return;
 
 	atomic64_set_na(&c->last_redis_update_us, rtpe_now);
@@ -3725,8 +3788,15 @@ static void redis_do_delete(call_t *c, struct redis *r) {
 	// write of the call already under way comes first and is deleted.
 	if (c->redis_hosted_db < 0)
 		return;
+	// a reconnect made by another thread is waited for until it ends, as
+	// when it held the lock: skipped, the DEL would leave the key behind
+	while (r->reconnecting)
+		cond_wait(&r->reconnect_cond, &r->lock);
 	// coverity[sleep : FALSE]
 	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED)
+		return;
+	// a new call with the same ID owns the key now
+	if (redis_key_taken(&c->callid, c, c->redis_hosted_db))
 		return;
 	rwlock_lock_r(&c->master_lock);
 
