@@ -689,11 +689,15 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     Time in milliseconds during which Redis operations on a connection are
     skipped (not written), and no new attempt is made to re-establish it,
     after an attempt that failed because the server does not have the
-    required role, or that took __\-\-redis-reconnect-slow__ or more. An
-    attempt holds every thread that uses the connection, for up to
-    __\-\-redis-connect-timeout__ plus __\-\-redis-cmd-timeout__ for each of
-    __AUTH__, __SELECT__ and __INFO__. 0 disables the pause. The default
-    value is 1000.
+    required role, or that took __\-\-redis-reconnect-slow__ or more. 0
+    disables the pause. The default value is 1000.
+
+    An attempt is made by one thread, without holding the connection's
+    lock. The other operations on that connection wait for it for up to
+    __\-\-redis-reconnect-slow__, then are skipped too, except the deletion
+    of a call, which waits for the attempt to end. A command on an
+    established connection still holds the lock until it is answered or
+    __\-\-redis-cmd-timeout__ expires.
 
 - __\-\-redis-reconnect-slow=__*INT*
 
@@ -701,7 +705,8 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     milliseconds or more (typically a timeout) is followed by the pause of
     __\-\-redis-reconnect-pause__; a quicker failure, such as a refused
     connection, is retried by the next operation. 0 pauses after every
-    failed attempt. The default value is 100.
+    failed attempt. This is also how long the other operations, except
+    deletions, wait for an attempt in progress. The default value is 100.
 
 - __\-\-redis-resolve-on-reconnect__
 

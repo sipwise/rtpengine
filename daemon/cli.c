@@ -1724,15 +1724,15 @@ static void cli_incoming_set_rediscmdtimeout(str *instr, struct cli_writer *cw, 
 			fail = 1;
 		}
 	} else {
-		if (rtpe_redis && redis_set_timeout(rtpe_redis, timeout * 1000LL)) {
+		if (rtpe_redis && redis_set_cmd_timeout(rtpe_redis, timeout * 1000LL)) {
 			cw->cw_printf(cw, "Failed setting redis-cmd-timeout for redis %ld\n", timeout);
 			fail = 1;
 		}
-		if (rtpe_redis_write && redis_set_timeout(rtpe_redis_write, timeout * 1000LL)) {
+		if (rtpe_redis_write && redis_set_cmd_timeout(rtpe_redis_write, timeout * 1000LL)) {
 			cw->cw_printf(cw, "Failed setting redis-cmd-timeout for redis-write %ld\n", timeout);
 			fail = 1;
 		}
-		if (rtpe_redis_notify && redis_set_timeout(rtpe_redis_notify, timeout * 1000LL)) {
+		if (rtpe_redis_notify && redis_set_cmd_timeout(rtpe_redis_notify, timeout * 1000LL)) {
 			cw->cw_printf(cw, "Failed setting redis-cmd-timeout for redis-notify %ld\n", timeout);
 			fail = 1;
 		}
