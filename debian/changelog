@@ -1,3 +1,34 @@
+ngcp-rtpengine (26.0.1.25+0~mr26.0.1.25) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [d5806e9] MT#55283 check validity of cached entry
+  * [bc9cce7] MT#55283 honour actual output PT for cache players
+  * [a814005] MT#55283 move setting of RECEIVED flag
+  * [1067b4d] MT#55283 redirect additional call pointers
+  * [33c589b] MT#55283 decrease length in iqueue_delete
+  * [3e1d899] MT#55283 write proc packet also when forwarding
+  * [41cdf9d] MT#65420 stricter str_to_X family
+  * [b33f68c] MT#55283 switch to bounded str_to_*
+  * [c16a75c] MT#55283 set PTS after input reset
+  * [78bb2ae] MT#55283 keep number of slots if media slots is unset
+  * [cf67ddc] MT#55283 guard against runaway recursion
+
+  [ baseballyama ]
+  * [9b91532] MT#55283 Keep the takeover grace period until media is accepted
+
+  [ Dragos Vingarzan ]
+  * [617d11d] MT#55283 fix: null-packet dereference in DTX sequence initialization
+  * [2d82030] MT#55283 fix: retain SDP state for created and subscribed endpoints
+
+  [ darwvin-dev ]
+  * [bfbe094] MT#55283 don't clobber jitter estimator in metrics collection
+  * [c513de8] MT#55283 initialise kernel SSRC loss tracker
+
+  [ Orgad Shaneh ]
+  * [93a46d4] MT#55283 keep a=label in publish answer
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 16 Oct 2026 14:28:32 +0200
+
 ngcp-rtpengine (26.0.1.24+0~mr26.0.1.24) unstable; urgency=medium
 
   [ Donat Zenichev ]
