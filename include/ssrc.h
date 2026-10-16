@@ -196,6 +196,9 @@ INLINE struct ssrc_entry_call *call_get_first_ssrc(struct ssrc_hash *ht) {
 	return ht->nq.head ? ht->nq.head->data : NULL;
 }
 
+uint32_t ssrc_packets_lost(struct ssrc_entry_call *se);
+uint32_t ssrc_jitter(struct ssrc_entry_call *se);
+
 void ssrc_sender_report(struct call_media *, const struct ssrc_sender_report *, int64_t);
 void ssrc_receiver_report(struct call_media *, stream_fd *, const struct ssrc_receiver_report *, int64_t);
 void ssrc_receiver_rr_time(struct call_media *m, const struct ssrc_xr_rr_time *rr, int64_t);

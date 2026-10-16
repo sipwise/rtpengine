@@ -2113,6 +2113,33 @@ The response dictionary contains the following keys:
 			A list of strings containing various status flags. Contains zero of more
 			of: `initialized`, `rtcp-mux`, `DTLS-SRTP`, `SDES`, `passthrough`, `ICE`.
 
+		+ `ingress SSRCs` and `egress SSRCs`
+
+			Lists of dictionaries, one for each SSRC received from (ingress) or
+			sent to (egress) this media. Each contains the keys `SSRC`,
+			`bytes`, `packets`, `last RTP timestamp` and `last RTP seq`.
+			Ingress entries of SSRCs which sent RTCP receiver reports
+			additionally contain MOS statistics (`average MOS`, `lowest MOS`,
+			`highest MOS`, `MOS progression`).
+
+			Ingress entries also contain values measured locally from the
+			received RTP itself, which are therefore available per call leg
+			even if no RTCP is present:
+
+			- `cumulative loss`: number of packets lost, based on gaps in the
+			  RTP sequence numbers. A packet is counted as lost once it falls
+			  out of a 32-packet reordering window. Bursts of loss of about
+			  32 packets or more are only approximated, and a jump of more
+			  than 256 is treated as a sequence reset and not counted.
+
+			- `jitter`: RFC 3550 interarrival jitter in milliseconds. Missing
+			  if the clock rate of the payload type is not known.
+
+			Packets forwarded by the kernel module are included only if it
+			measures RTP statistics, which is the case with `measure-rtp`
+			enabled (or with RTCP generation or MQTT publishing active).
+			Otherwise only packets handled in userspace are accounted for.
+
 		+ `streams`
 
 			Contains a list of dictionary representing the packet streams associated

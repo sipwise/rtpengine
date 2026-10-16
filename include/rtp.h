@@ -15,7 +15,7 @@ struct packet_stream;
 
 typedef GString crypto_debug_string;
 
-const rtp_payload_type *get_rtp_payload_type(unsigned int, struct codec_store *);
+const rtp_payload_type *get_rtp_payload_type(unsigned int, const struct codec_store *);
 
 int rtp_avp2savp(const struct rtp_header *, str *packet, str *payload, struct crypto_context *,
 		struct ssrc_entry_call *);
