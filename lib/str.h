@@ -7,6 +7,7 @@
 #include <stdarg.h>
 #include <assert.h>
 #include <stdio.h>
+#include <errno.h>
 #include "compat.h"
 #include "containers.h"
 
