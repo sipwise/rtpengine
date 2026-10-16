@@ -187,14 +187,25 @@ INLINE void crypto_init(struct crypto_context *c, const struct crypto_params *p)
 	if (p)
 		crypto_params_copy(&c->params, p, 1);
 }
+// the same master key and salt derive the same session keys, whatever the MKI, tag length or session parameters
+INLINE int crypto_params_key_cmp(const struct crypto_params *a, const struct crypto_params *b) {
+	if (!a->crypto_suite || !b->crypto_suite)
+		return 1;
+	if (a->crypto_suite->master_key_len != b->crypto_suite->master_key_len
+			|| a->crypto_suite->master_salt_len != b->crypto_suite->master_salt_len)
+		return 1;
+	if (memcmp(a->master_key, b->master_key, a->crypto_suite->master_key_len))
+		return 1;
+	if (memcmp(a->master_salt, b->master_salt, a->crypto_suite->master_salt_len))
+		return 1;
+	return 0;
+}
 INLINE int crypto_params_cmp(const struct crypto_params *a, const struct crypto_params *b) {
        if (a->crypto_suite != b->crypto_suite)
                return 1;
        if (!a->crypto_suite)
                return 0;
-       if (memcmp(a->master_key, b->master_key, a->crypto_suite->master_key_len))
-               return 1;
-       if (memcmp(a->master_salt, b->master_salt, a->crypto_suite->master_salt_len))
+       if (crypto_params_key_cmp(a, b))
                return 1;
        if (a->mki_len != b->mki_len)
                return 1;

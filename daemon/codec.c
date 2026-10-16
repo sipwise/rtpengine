@@ -2219,8 +2219,12 @@ static int handler_func_passthrough(struct codec_handler *h, struct media_packet
 
 	// substitute a fixed egress SSRC. done here rather than in the SSRC
 	// passthrough handler as that one is only built with transcoding support.
-	if (mp->rtp && mp->media_out->fixed_egress_ssrc && mp->ssrc_out) {
-		mp->rtp->ssrc = htonl(mp->ssrc_out->h.ssrc);
+	// the sequence offset is applied as the kernel module does it.
+	if (mp->rtp && mp->ssrc_out) {
+		if (mp->media_out->fixed_egress_ssrc)
+			mp->rtp->ssrc = htonl(mp->ssrc_out->h.ssrc);
+		if (mp->sink.attrs.sender_numbering) // dropped, not skipped: other paths would apply it later
+			mp->ssrc_out->seq_diff = 0;
 		mp->rtp->seq_num = htons(ntohs(mp->rtp->seq_num) + mp->ssrc_out->seq_diff);
 	}
 
