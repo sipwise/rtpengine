@@ -33,6 +33,17 @@
 #include "main.h"
 #include "codec.h"
 #include "sdp.h"
+#include "statistics.h"
+#include "redis_sentinel.h"
+
+#ifdef HAVE_HIREDIS_SSL
+#include <hiredis/hiredis_ssl.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/x509v3.h>
+#endif
+
+#define REDIS_CONNECT_ROLE	-2	/* redis_connect(): the server has the wrong role */
 
 typedef union {
 	GQueue *q;
@@ -94,8 +105,6 @@ static int redisCommandNR(redisContext *r, const char *fmt, ...)
 
 #define REDIS_FMT(x) (int) (x)->len, (x)->str
 
-#define rlog(l, x...) ilog(l | LOG_FLAG_RESTORE, x)
-
 
 
 // To protect against a restore race condition: Keyspace notifications are set up
@@ -120,6 +129,12 @@ static int redis_connect(struct redis *r, int wait, bool resolve);
 static int json_build_ssrc(struct call_media *, parser_arg arg);
 
 static void redis_do_delete(call_t *c, struct redis *r);
+static void redis_repair_mark(const str *callid, int db);
+static bool redis_repair_enabled(void);
+static void redis_repair_done(const str *callid);
+static void redis_lock_waiters_add(struct redis *r, int n);
+static void redis_resync_note_replid(struct redis *r, const char *info);
+static void redis_resync_note_del(const str *callid, int db);
 
 
 // mutually exclusive multi-A multi-B lock
@@ -219,19 +234,76 @@ static int redis_check_type(struct redis *r, char *key, char *suffix, char *type
 
 
 /* called with r->lock held */
-static void redis_consume(struct redis *r) {
+static void redis_write_result(struct redis *r, const redisReply *rp) {
+	if (rp->type == REDIS_REPLY_ERROR) {
+		RTPE_STATS_INC(redis_write_errors);
+		r->write_errors++;
+		r->writes_refused = true;
+	}
+	else if (!r->writes_refused)
+		return;
+
+	// every write ends up here: at most one line a second
+	if (r->write_errors_log_us && rtpe_now - r->write_errors_log_us < 1000000LL)
+		return;
+	r->write_errors_log_us = rtpe_now;
+
+	if (rp->type == REDIS_REPLY_ERROR)
+		rlog(LOG_ERR, "Redis %s refused a write: %s (%u refused since the last report)",
+				endpoint_print_buf(&r->endpoint), rp->str, r->write_errors);
+	else {
+		rlog(LOG_NOTICE, "Redis %s accepts writes again (%u refused since the last report)",
+				endpoint_print_buf(&r->endpoint), r->write_errors);
+		r->writes_refused = false;
+	}
+	r->write_errors = 0;
+}
+
+/* an error reply that says the server is not, or no longer, a usable master */
+static bool redis_is_role_error(const redisReply *rp) {
+	if (rp->type != REDIS_REPLY_ERROR)
+		return false;
+	return !strncmp(rp->str, "READONLY", 8) || !strncmp(rp->str, "MASTERDOWN", 10);
+}
+
+/* called with r->lock held
+ * Returns -1 if the replies could not be read (the context is then unusable),
+ * or after a role error on a connection that requires a master, so that the
+ * caller drops it; 1 if a reply was an error (the write was refused); 0 if
+ * all succeeded. Other error replies keep the connection: a reconnect would
+ * get the same answer. */
+static int redis_consume(struct redis *r) {
 	redisReply *rp;
+	bool role_error = false, refused = false;
 
 	if (!r->ctx) {
 		ilog(LOG_ERROR, "Unable to consume pipelined replies. No redis context");
 		r->pipeline = 0;
-		return;
+		return -1;
 	}
 	while (r->pipeline) {
-		if (redisGetReply(r->ctx, (void **) &rp) == REDIS_OK)
-			freeReplyObject(rp);
+		if (redisGetReply(r->ctx, (void **) &rp) != REDIS_OK) {
+			r->pipeline = 0;
+			return -1;
+		}
 		r->pipeline--;
+		redis_write_result(r, rp);
+		if (rp->type == REDIS_REPLY_ERROR)
+			refused = true;
+		if (redis_is_role_error(rp))
+			role_error = true;
+		else if (r->sentinel && rp->type == REDIS_REPLY_ERROR && !strncmp(rp->str, "NOREPLICAS", 10))
+			redis_sentinel_wake(r->sentinel, true);	// the master may have been replaced
+		freeReplyObject(rp);
 	}
+	if (role_error && r->sentinel)
+		redis_sentinel_wake(r->sentinel, false);
+	if (role_error && r->require_master) {
+		rlog(LOG_WARN, "Redis %s is not a master: dropping the connection",
+				endpoint_print_buf(&r->endpoint));
+		return -1;
+	}
+	return refused ? 1 : 0;
 }
 
 int redis_set_timeout(struct redis* r, int64_t timeout) {
@@ -242,15 +314,63 @@ int redis_set_timeout(struct redis* r, int64_t timeout) {
 	tv_cmd = timeval_from_us(timeout);
 	if (redisSetTimeout(r->ctx, tv_cmd))
 		return -1;
-	ilog(LOG_INFO, "Setting timeout for Redis commands to %" PRId64 " milliseconds", timeout);
+	ilog(LOG_INFO, "Setting timeout for Redis commands to %" PRId64 " milliseconds", timeout / 1000);
 	return 0;
+}
+
+/* from the CLI; a connection that is being made, or none, is left alone:
+ * the next attempt reads the new value */
+int redis_set_cmd_timeout(struct redis *r, int64_t timeout) {
+	LOCK(&r->lock);
+	if (r->reconnecting || !r->ctx)
+		return 0;
+	return redis_set_timeout(r, timeout);
+}
+
+/* called with r->lock held
+ * With Sentinel, takes the master that the Sentinel thread published, if it
+ * is a new one, and drops the connection to the old one: true if so. Not
+ * while a reconnect is under way: the next check follows. */
+static bool redis_sentinel_follow(struct redis *r) {
+	if (!r->sentinel || r->reconnecting || redis_sentinel_gen(r->sentinel) == r->gen)
+		return false;
+
+	endpoint_t ep;
+	uint64_t gen = redis_sentinel_get(r->sentinel, &ep);
+	bool moved = !r->gen || !endpoint_eq(&ep, &r->endpoint);
+	r->gen = gen;
+	if (!moved)
+		return false;
+
+	rlog(LOG_NOTICE, "Redis: following the master of '%s' from %s to %s",
+			redis_sentinel_master_name(r->sentinel),
+			r->ctx ? endpoint_print_buf(&r->endpoint) : "none", endpoint_print_buf(&ep));
+	r->endpoint = ep;
+	sockaddr_print(&ep.address, r->host, sizeof(r->host));
+	// try the new master at once, whatever happened with the old one
+	r->restore_tick_us = 0;
+	r->consecutive_errors = 0;
+	if (r->ctx)
+		redisFree(r->ctx);
+	r->ctx = NULL;
+	r->state = REDIS_STATE_DISCONNECTED;
+	return true;
 }
 
 int redis_reconnect(struct redis* r) {
 	int rval;
 	LOCK(&r->lock);
 
-	rval = redis_connect(r, 1, r->update_resolve);
+	// the context belongs to the thread that is reconnecting
+	if (r->reconnecting) {
+		rlog(LOG_WARN, "Redis %s: a reconnect is already in progress", endpoint_print_buf(&r->endpoint));
+		return -1;
+	}
+	redis_sentinel_follow(r);
+	if (r->sentinel && !r->gen)
+		return -1;
+
+	rval = redis_connect(r, 0, r->update_resolve);
 	if (rval)
 		r->state = REDIS_STATE_DISCONNECTED;
 	return rval;
@@ -280,14 +400,136 @@ void redis_set_keepalive(int fd) {
 	}
 }
 
+#ifdef HAVE_HIREDIS_SSL
+static SSL_CTX *redis_ssl_ctx;
+#endif
 
-/* called with r->lock held if necessary */
+/* with --redis-cafile or --redis-capath */
+int redis_tls_init(void) {
+#ifdef HAVE_HIREDIS_SSL
+	if (!rtpe_config.redis_cafile && !rtpe_config.redis_capath)
+		return 0;
+
+	const char *err = "cannot create the TLS context";
+	redis_ssl_ctx = SSL_CTX_new(TLS_client_method());
+	if (!redis_ssl_ctx)
+		goto err;
+	SSL_CTX_set_min_proto_version(redis_ssl_ctx, TLS1_2_VERSION);
+	SSL_CTX_set_verify(redis_ssl_ctx, SSL_VERIFY_PEER, NULL);
+	err = "cannot load the CA file or path";
+	if (!SSL_CTX_load_verify_locations(redis_ssl_ctx, rtpe_config.redis_cafile,
+				rtpe_config.redis_capath))
+		goto err;
+	if (rtpe_config.redis_certfile) {
+		err = "cannot load the client certificate or key";
+		if (!SSL_CTX_use_certificate_chain_file(redis_ssl_ctx, rtpe_config.redis_certfile)
+				|| !SSL_CTX_use_PrivateKey_file(redis_ssl_ctx, rtpe_config.redis_keyfile,
+					SSL_FILETYPE_PEM)
+				|| !SSL_CTX_check_private_key(redis_ssl_ctx))
+			goto err;
+	}
+	ilog(LOG_INFO, "Using TLS for Redis");
+	return 0;
+
+err:
+	ilog(LOG_ERR, "Redis TLS: %s: %s", err, ERR_reason_error_string(ERR_peek_last_error()) ? : "?");
+	redis_tls_free();
+	return -1;
+#else
+	return 0;
+#endif
+}
+
+void redis_tls_free(void) {
+#ifdef HAVE_HIREDIS_SSL
+	if (redis_ssl_ctx)
+		SSL_CTX_free(redis_ssl_ctx);
+	redis_ssl_ctx = NULL;
+#endif
+}
+
+/* TLS on a new connection, if configured. The certificate must match "name",
+ * as an IP address or a host name (subjectAltName only): released hiredis
+ * (1.2.0) only checks the chain. "timeout_us" bounds the handshake on a
+ * blocking connection that has no command timeout. "sslp", if given, gets the
+ * SSL of an async connection, whose handshake ends later. */
+int redis_tls_start(redisContext *c, const char *name, int64_t timeout_us, struct ssl_st **sslp) {
+#ifdef HAVE_HIREDIS_SSL
+	if (!redis_ssl_ctx)
+		return 0;
+	SSL *ssl = SSL_new(redis_ssl_ctx);
+	if (!ssl)
+		return -1;
+	X509_VERIFY_PARAM *param = SSL_get0_param(ssl);
+	// no SNI for an IP address (RFC 6066)
+	if (!X509_VERIFY_PARAM_set1_ip_asc(param, name)) {
+		X509_VERIFY_PARAM_set_hostflags(param, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS
+				| X509_CHECK_FLAG_NEVER_CHECK_SUBJECT);
+		if (!X509_VERIFY_PARAM_set1_host(param, name, 0) || !SSL_set_tlsext_host_name(ssl, name)) {
+			SSL_free(ssl);
+			return -1;
+		}
+	}
+
+	if (timeout_us)
+		redisSetTimeout(c, timeval_from_us(timeout_us));
+	int ret = redisInitiateSSL(c, ssl);
+	if (timeout_us)
+		redisSetTimeout(c, (struct timeval) {0});
+	if (ret == REDIS_OK) {
+		// hiredis frees ssl with the context
+		if (sslp)
+			*sslp = ssl;
+		return 0;
+	}
+
+	// hiredis has no setter for errstr, which the callers log; its own text
+	// has no reason for a refused certificate or a timeout
+	long v = SSL_get_verify_result(ssl);
+	if (v != X509_V_OK)
+		snprintf(c->errstr, sizeof(c->errstr), "TLS: certificate of %s not accepted: %s",
+				name, X509_verify_cert_error_string(v));
+	else if (SSL_want_read(ssl) || SSL_want_write(ssl))
+		snprintf(c->errstr, sizeof(c->errstr), "TLS: handshake with %s timed out", name);
+	SSL_free(ssl);
+	return -1;
+#else
+	return 0;
+#endif
+}
+
+/* the name that the server's certificate must match: --redis-tls-server-name,
+ * the host as configured, or the address that Sentinel gave */
+static const char *redis_tls_name(const struct redis *r) {
+	if (rtpe_config.redis_tls_server_name)
+		return rtpe_config.redis_tls_server_name;
+	return (!r->sentinel && r->hostname) ? r->hostname : r->host;
+}
+
+/* the reason why the certificate of an async connection was refused, if it
+ * was: hiredis only reports an I/O error then */
+static const char *redis_async_tls_error(const struct redis *r, const redisAsyncContext *ac) {
+#ifdef HAVE_HIREDIS_SSL
+	if (r && r->async_ctx == ac && r->async_ssl) {
+		long v = SSL_get_verify_result(r->async_ssl);
+		if (v != X509_V_OK)
+			return X509_verify_cert_error_string(v);
+	}
+#endif
+	return NULL;
+}
+
+
+/* called with r->lock held, or with r->reconnecting set, or single thread
+ * Returns 0 when connected, REDIS_CONNECT_ROLE if the server never had the
+ * wanted role, or -1 on any other failure. */
 static int redis_connect(struct redis *r, int wait, bool resolve) {
 	struct timeval tv;
 	redisReply *rp;
 	char *s;
 	int64_t cmd_timeout, connect_timeout;
 	sockaddr_t a;
+	int ret = -1;
 
 	if (r->ctx)
 		redisFree(r->ctx);
@@ -322,6 +564,10 @@ static int redis_connect(struct redis *r, int wait, bool resolve) {
 	if (redis_set_timeout(r, cmd_timeout))
 		goto err2;
 
+	// with no command timeout, the connect timeout bounds the handshake
+	if (redis_tls_start(r->ctx, redis_tls_name(r), cmd_timeout ? 0 : connect_timeout, NULL))
+		goto err2;
+
 	if (r->auth) {
 		if (redisCommandNR(r->ctx, "AUTH %s", r->auth))
 			goto err2;
@@ -346,24 +592,24 @@ static int redis_connect(struct redis *r, int wait, bool resolve) {
 			goto err3;
 		}
 
-		if (!memcmp(s, "role:master", 11) || !memcmp(s, "role:active-replica", 19)) {
+		if (!strncmp(s, "role:master", 11) || !strncmp(s, "role:active-replica", 19)) {
 			if (r->role == MASTER_REDIS_ROLE || r->role == ANY_REDIS_ROLE) {
 				ilog(LOG_INFO, "Connected to Redis %s in master mode", 
 					endpoint_print_buf(&r->endpoint));
 				goto done;
 			} else if (r->role == SLAVE_REDIS_ROLE) {
-				ilog(LOG_INFO, "Connected to Redis %s in master mode, but wanted mode is slave; retrying...",
-					endpoint_print_buf(&r->endpoint));
+				ilog(LOG_INFO, "Connected to Redis %s in master mode, but wanted mode is slave%s",
+					endpoint_print_buf(&r->endpoint), wait >= 0 ? "; retrying..." : "");
 				goto next;
 			}
-		} else if (!memcmp(s, "role:slave", 10)) {
+		} else if (!strncmp(s, "role:slave", 10)) {
 			if (r->role == SLAVE_REDIS_ROLE || r->role == ANY_REDIS_ROLE) {
 				ilog(LOG_INFO, "Connected to Redis %s in slave mode",
 					endpoint_print_buf(&r->endpoint));
 				goto done;
 			} else if (r->role == MASTER_REDIS_ROLE) {
-				ilog(LOG_INFO, "Connected to Redis %s in slave mode, but wanted mode is master; retrying...",
-					endpoint_print_buf(&r->endpoint));
+				ilog(LOG_INFO, "Connected to Redis %s in slave mode, but wanted mode is master%s",
+					endpoint_print_buf(&r->endpoint), wait >= 0 ? "; retrying..." : "");
 				goto next;
 			}
 		} else {
@@ -372,12 +618,15 @@ static int redis_connect(struct redis *r, int wait, bool resolve) {
 
 next:
 		freeReplyObject(rp);
-		usleep(1000000);
+		if (wait >= 0)
+			usleep(1000000);
 	}
 
+	ret = REDIS_CONNECT_ROLE;
 	goto err2;
 
 done:
+	redis_resync_note_replid(r, rp->str);
 	freeReplyObject(rp);
 	redis_check_type(r, "calls", NULL, "set");
 	return 0;
@@ -395,7 +644,7 @@ err2:
 err:
 	rlog(LOG_ERR, "Failed to connect to Redis %s",
 		endpoint_print_buf(&r->endpoint));
-	return -1;
+	return ret;
 }
 
 
@@ -547,8 +796,19 @@ void redis_delete_async_context_disconnect(const redisAsyncContext *redis_delete
 }
 
 void redis_notify_async_context_disconnect(const redisAsyncContext *redis_notify_async_context, int status) {
+	// forget the context, and let event_base_dispatch() return (the timer
+	// must not keep it running), so that redis_notify_loop() subscribes again
+	struct redis *r = rtpe_redis_notify;
+	const char *tls_err = redis_async_tls_error(r, redis_notify_async_context);
+	if (r && r->notify_timer)
+		event_del(r->notify_timer);
+	if (r && r->async_ctx == redis_notify_async_context)
+		r->async_ctx = NULL;
 	if (status == REDIS_ERR) {
-		if (redis_notify_async_context->errstr) {
+		if (tls_err) {
+			rlog(LOG_ERROR, "redis_notify_async_context_disconnect: TLS: certificate of %s not "
+					"accepted: %s", redis_tls_name(r), tls_err);
+		} else if (redis_notify_async_context->errstr) {
 			rlog(LOG_ERROR, "redis_notify_async_context_disconnect error %d on context free: %s",
 				redis_notify_async_context->err, redis_notify_async_context->errstr);
 		} else {
@@ -560,6 +820,12 @@ void redis_notify_async_context_disconnect(const redisAsyncContext *redis_notify
 	} else {
 		rlog(LOG_ERROR, "redis_notify_async_context_disconnect invalid status code %d", status);
 	}
+}
+
+// hiredis frees a context that fails to connect without the disconnect callback
+static void redis_notify_async_context_connect(const redisAsyncContext *ac, int status) {
+	if (status != REDIS_OK)
+		redis_notify_async_context_disconnect(ac, status);
 }
 
 // connect_cb = connect callback, disconnect_cb = disconnect callback
@@ -586,6 +852,13 @@ int redis_async_context_alloc(struct redis *r, void *connect_cb, void *disconnec
 
 	redis_set_keepalive(r->async_ctx->c.fd);
 
+	if (redis_tls_start(&r->async_ctx->c, redis_tls_name(r), 0, &r->async_ssl)) {
+		rlog(LOG_ERROR, "redis_async_context_alloc: %s", r->async_ctx->errstr);
+		redisAsyncFree(r->async_ctx);
+		r->async_ctx = NULL;
+		return -1;
+	}
+
 	// callbacks async context
 	if (redisAsyncSetConnectCallback(r->async_ctx, connect_cb) != REDIS_OK) {
 		rlog(LOG_ERROR, "redis_async_context_alloc: can't set connect callback");
@@ -608,6 +881,7 @@ int redis_async_event_base_action(struct redis *r, enum event_base_action action
 		rlog(LOG_ERR, "redis_async_event_base_action: NULL r");
 		return -1;
 	} else {
+		LOCK(&r->lock);	// (Sentinel moves the endpoint)
 		rlog(LOG_DEBUG, "redis_async_event_base_action: Use Redis %s", endpoint_print_buf(&r->endpoint));
 	}
 
@@ -758,8 +1032,35 @@ static int redis_delete_async(struct redis *r) {
 	return 0;
 }
 
+/* With Sentinel, once a second: on a new master, close the subscription, so
+ * that event_base_dispatch() returns and redis_notify_loop() subscribes again.
+ * The timer is one-shot, re-armed only while nothing has changed: it never
+ * keeps the event loop running by itself. */
+static void redis_notify_follow(evutil_socket_t fd, short what, void *p) {
+	struct redis *r = p;
+	struct timeval tv = timeval_from_us(1000000);
+
+	if (redis_sentinel_gen(r->sentinel) == r->notify_gen) {
+		evtimer_add(r->notify_timer, &tv);
+		return;
+	}
+
+	rlog(LOG_NOTICE, "Redis: the master of '%s' has changed: subscribing again; keyspace "
+			"notifications between the change and the new subscription are missed",
+			redis_sentinel_master_name(r->sentinel));
+	// forget the context first: one still connecting may be freed at once,
+	// with no callback; without a context, leave the loop
+	redisAsyncContext *ac = r->async_ctx;
+	r->async_ctx = NULL;
+	if (ac)
+		redisAsyncDisconnect(ac);
+	else
+		event_base_loopbreak(r->async_ev);
+}
+
 static int redis_notify(struct redis *r) {
 	GList *l;
+	int ret = 0;
 
 	if (!r) {
 		rlog(LOG_ERROR, "redis_notify database is NULL on redis_notify()");
@@ -807,13 +1108,41 @@ static int redis_notify(struct redis *r) {
 	}
 	rwlock_unlock_r(&rtpe_config.keyspaces_lock);
 
+	if (r->sentinel) {
+		struct timeval tv = timeval_from_us(1000000);
+		r->notify_timer = evtimer_new(r->async_ev, redis_notify_follow, r);
+		if (r->notify_timer)
+			evtimer_add(r->notify_timer, &tv);
+	}
+
 	// dispatch event base => thread blocks here
 	if (event_base_dispatch(r->async_ev) < 0) {
 		rlog(LOG_ERROR, "Fail event_base_dispatch()");
-		return -1;
+		ret = -1;
 	}
 
-	return 0;
+	if (r->notify_timer) {
+		event_free(r->notify_timer);
+		r->notify_timer = NULL;
+	}
+
+	return ret;
+}
+
+/* the subscription's context, with the generation of the master it is for */
+static int redis_notify_context_alloc(struct redis *r) {
+	LOCK(&r->lock);
+	redis_sentinel_follow(r);
+	r->notify_gen = r->gen;
+	return redis_async_context_alloc(r, redis_notify_async_context_connect,
+			redis_notify_async_context_disconnect);
+}
+
+/* redis_check_conn() needs the lock: the CLI uses the same connection, and
+ * a reconnect releases the lock while it is made */
+static int redis_check_conn_locked(struct redis *r) {
+	LOCK(&r->lock);
+	return redis_check_conn(r);
 }
 
 void redis_delete_async_loop(void *d) {
@@ -865,8 +1194,12 @@ void redis_notify_loop(void *d) {
 		return ;
 	}
 
+	// with Sentinel and no master known yet, the loop below subscribes once
+	// there is one
+	bool now = !r->sentinel || r->gen;
+
 	// alloc redis async context 
-	if (redis_async_context_alloc(r, NULL, redis_notify_async_context_disconnect) < 0) {
+	if (now && redis_notify_context_alloc(r) < 0) {
 		return ;
 	}
 
@@ -876,7 +1209,7 @@ void redis_notify_loop(void *d) {
 	}
 
 	// initial redis_notify
-	if (redis_check_conn(r) == REDIS_STATE_CONNECTED) {
+	if (now && redis_check_conn_locked(r) == REDIS_STATE_CONNECTED) {
 		redis_notify_return = redis_notify(r);
 	}
 
@@ -890,10 +1223,10 @@ void redis_notify_loop(void *d) {
 
 		next_run = rtpe_now + microseconds;
 
-		if (redis_check_conn(r) == REDIS_STATE_CONNECTED || redis_notify_return < 0) {
+		if (redis_check_conn_locked(r) == REDIS_STATE_CONNECTED || redis_notify_return < 0) {
 			r->async_ctx = NULL;
 			// alloc new redis async context upon redis breakdown
-			if (redis_async_context_alloc(r, NULL, redis_notify_async_context_disconnect) < 0) {
+			if (redis_notify_context_alloc(r) < 0) {
 				continue;
 			}
 
@@ -907,13 +1240,15 @@ void redis_notify_loop(void *d) {
 		redis_notify_subscribe_action(r, UNSUBSCRIBE_ALL, 0);
 
 		// free async context
-		redisAsyncDisconnect(r->async_ctx);
+		if (r->async_ctx)
+			redisAsyncDisconnect(r->async_ctx);
 		r->async_ctx = NULL;
 	}
 }
 
 struct redis *redis_new(const endpoint_t *ep, int db, const char *hostname, const char *auth,
-		enum redis_role role, int no_redis_required, bool update_resolve) {
+		enum redis_role role, int no_redis_required, bool update_resolve, bool require_master,
+		struct redis_sentinel *sentinel) {
 	struct redis *r;
 	r = g_new0(struct redis, 1);
 
@@ -928,7 +1263,23 @@ struct redis *redis_new(const endpoint_t *ep, int db, const char *hostname, cons
 	r->restore_tick_us = 0;
 	r->consecutive_errors = 0;
 	r->update_resolve = update_resolve;
+	r->require_master = require_master;
+	r->sentinel = sentinel;
 	mutex_init(&r->lock);
+	cond_init(&r->reconnect_cond);
+
+	if (sentinel) {
+		r->gen = redis_sentinel_get(sentinel, &r->endpoint);
+		sockaddr_print(&r->endpoint.address, r->host, sizeof(r->host));
+		if (!r->gen) {
+			if (r->no_redis_required) {
+				rlog(LOG_WARN, "Starting with no master of '%s' known from Redis Sentinel !",
+						redis_sentinel_master_name(sentinel));
+				return r;
+			}
+			goto err;
+		}
+	}
 
 	if (redis_connect(r, 10, false)) {
 		if (r->no_redis_required) {
@@ -958,7 +1309,9 @@ struct redis *redis_dup(const struct redis *r, int db) {
 				r->auth,
 				r->role,
 				r->no_redis_required,
-				r->update_resolve);
+				r->update_resolve,
+				r->require_master,
+				r->sentinel);
 }
 
 void redis_close(struct redis *r) {
@@ -992,18 +1345,53 @@ static void redis_count_err_and_disable(struct redis *r)
 	}
 }
 
-/* must be called with r->lock held */
+/* must be called with r->lock held, which it releases while it reconnects */
 static int redis_check_conn(struct redis *r) {
 	rtpe_now = now_us(); // XXX this needed here?
 
-	if ((r->state == REDIS_STATE_DISCONNECTED) && r->restore_tick_us > rtpe_now) {
-		ilog(LOG_WARNING, "Redis server '%s' is disabled. Don't try RE-Establishing for %" PRId64 " more seconds",
-				r->hostname, (r->restore_tick_us - rtpe_now) / 1000000);
+	// another thread is reconnecting: wait for it as long as a quick
+	// attempt takes (--redis-reconnect-slow), then skip this operation
+	if (r->reconnecting) {
+		int64_t until = rtpe_now + rtpe_config.redis_reconnect_slow * 1000LL;
+		r->released++;
+		while (r->reconnecting && now_us() < until)
+			cond_timedwait(&r->reconnect_cond, &r->lock, until);
+		if (r->reconnecting) {
+			r->skipped++;
+			return REDIS_STATE_DISCONNECTED;
+		}
+		rtpe_now = now_us();
+	}
+
+	bool moved = redis_sentinel_follow(r);
+	if (r->sentinel && !r->gen) {
+		// no master known yet
+		r->skipped++;
+		if (!r->skipped_logged)
+			rlog(LOG_WARNING, "No master of '%s' known from Redis Sentinel yet",
+					redis_sentinel_master_name(r->sentinel));
+		r->skipped_logged = true;
+		redis_sentinel_wake(r->sentinel, false);
 		return REDIS_STATE_DISCONNECTED;
 	}
 
-	if (r->state == REDIS_STATE_DISCONNECTED)
-		ilog(LOG_INFO, "RE-Establishing connection for Redis server '%s'", r->hostname);
+	if ((r->state == REDIS_STATE_DISCONNECTED) && r->restore_tick_us > rtpe_now) {
+		// every Redis operation ends up here: say it once
+		r->skipped++;
+		if (!r->skipped_logged)
+			ilog(LOG_WARNING, "Redis server %s is disabled. Don't try RE-Establishing for %" PRId64 " more ms",
+					endpoint_print_buf(&r->endpoint), (r->restore_tick_us - rtpe_now) / 1000);
+		r->skipped_logged = true;
+		return REDIS_STATE_DISCONNECTED;
+	}
+
+	if (r->state == REDIS_STATE_DISCONNECTED) {
+		if (!moved)	// (the move was logged)
+			ilog(LOG_INFO, "RE-Establishing connection for Redis server %s (%u operations skipped)",
+					endpoint_print_buf(&r->endpoint), r->skipped);
+		r->skipped = 0;
+		r->skipped_logged = false;
+	}
 
 	// try redis connection
 	if (r->ctx && redisCommandNR(r->ctx, "PING") == 0) {
@@ -1019,14 +1407,37 @@ static int redis_check_conn(struct redis *r) {
 	// redis is disconnected
 	if (r->state == REDIS_STATE_CONNECTED) {
 		rlog(LOG_ERR, "Lost connection to Redis '%s'",
-			r->hostname);
+			r->hostname ? : r->host);
 		r->state = REDIS_STATE_DISCONNECTED;
 	}
 
-	// try redis reconnect => will free current r->ctx
-	if (redis_connect(r, 1, r->update_resolve)) {
+	// try redis reconnect => will free current r->ctx. One attempt, made
+	// without the lock: the others wait for it briefly, then skip (above);
+	// until the flag is cleared, only this thread uses r->ctx.
+	int64_t start = now_us();
+	r->reconnecting = true;
+	r->released++;
+	mutex_unlock(&r->lock);
+	int ret = redis_connect(r, 0, r->update_resolve);
+	mutex_lock(&r->lock);
+	r->reconnecting = false;
+	cond_broadcast(&r->reconnect_cond);
+	if (ret) {
 		// redis is disconnected
 		redis_count_err_and_disable(r);
+		if (r->sentinel && ret == REDIS_CONNECT_ROLE)
+			redis_sentinel_wake(r->sentinel, false);
+		// After the wrong role, or a slow failure (a timeout), pause (one
+		// second by default): a failover takes longer than that, so the
+		// next attempt would fail the same way. A quick failure
+		// (connection refused) is retried at once, as before.
+		int64_t now = now_us();
+		int64_t pause_us = rtpe_config.redis_reconnect_pause * 1000LL;
+		if (ret == REDIS_CONNECT_ROLE || now - start >= rtpe_config.redis_reconnect_slow * 1000LL) {
+			if (r->restore_tick_us < now + pause_us)
+				r->restore_tick_us = now + pause_us;
+			r->skipped_logged = false;
+		}
 		return REDIS_STATE_DISCONNECTED;
 	}
 
@@ -1044,9 +1455,9 @@ static int redis_check_conn(struct redis *r) {
 }
 
 /* called with r->lock held and c->master_lock held */
-static void redis_delete_call_json(call_t *c, struct redis *r) {
+static int redis_delete_call_json(call_t *c, struct redis *r) {
 	redis_pipe(r, "DEL "PB"", PBSTR(&c->callid));
-	redis_consume(r);
+	return redis_consume(r);
 }
 
 static void redis_delete_async_call_json(call_t *c, struct redis *r) {
@@ -2474,7 +2885,7 @@ err1:
 		freeReplyObject(rr_jsonStr);
 	if (err) {
 		mutex_lock(&r->lock);
-		if (r->ctx && r->ctx->err)
+		if (!r->reconnecting && r->ctx && r->ctx->err)
 			rlog(LOG_WARNING, "Failed to restore call ID '" STR_FORMAT_M "' from Redis: %s (%s)",
 					STR_FMT_M(callid),
 					err, r->ctx->errstr);
@@ -2486,21 +2897,20 @@ err1:
 		if (c)
 			call_destroy(c);
 		release_closed_sockets();
-		if (must_release_pop) // avoid deadlock with redis_notify->lock below
+		if (must_release_pop) // avoid deadlock with rtpe_redis_write->lock below
 			redis_ports_release_pop(false);
 		must_release_pop = false;
 
-		mutex_lock(&rtpe_redis_write->lock);
+		// a foreign call's key is its owner's; ours is deleted in our own
+		// DB (the notification connection has the last notification's DB)
+		if (!foreign) {
+			mutex_lock(&rtpe_redis_write->lock);
 
-		redis_select_db(rtpe_redis_write, rtpe_redis_write->db);
-
-		redisCommandNR(rtpe_redis_write->ctx, "DEL " PB, PBSTR(callid));
-		mutex_unlock(&rtpe_redis_write->lock);
-
-		if (rtpe_redis_notify) {
-			mutex_lock(&rtpe_redis_notify->lock);
-			redisCommandNR(rtpe_redis_notify->ctx, "DEL " PB, PBSTR(callid));
-			mutex_unlock(&rtpe_redis_notify->lock);
+			if (!rtpe_redis_write->reconnecting) {
+				redis_select_db(rtpe_redis_write, rtpe_redis_write->db);
+				redisCommandNR(rtpe_redis_write->ctx, "DEL " PB, PBSTR(callid));
+			}
+			mutex_unlock(&rtpe_redis_write->lock);
 		}
 	}
 	if (c)
@@ -3574,22 +3984,47 @@ out:
 }
 
 
-void redis_update_onekey(call_t *c, struct redis *r) {
+/* still in the call table, so not destroyed: its deletion has not started */
+static bool redis_call_live(call_t *c) {
+	rwlock_lock_r(&rtpe_callhash_lock);
+	bool live = t_hash_table_lookup(rtpe_callhash, &c->callid) == c;
+	rwlock_unlock_r(&rtpe_callhash_lock);
+	return live;
+}
+
+/* a call other than not_this has the ID in the call table */
+static bool redis_call_taken(const str *callid, call_t *not_this) {
+	rwlock_lock_r(&rtpe_callhash_lock);
+	call_t *o = t_hash_table_lookup(rtpe_callhash, callid);
+	rwlock_unlock_r(&rtpe_callhash_lock);
+	return o && o != not_this;
+}
+
+/* called with r->lock held: 1 if written, 0 if there was nothing to write,
+ * -1 if the call is to be written again (it is then marked for
+ * --redis-repair-writes) */
+static int redis_write_call(call_t *c, struct redis *r) {
 	unsigned int redis_expires_s;
+	unsigned int released = r->released;
 
-	if (!r)
-		return;
-	if (IS_FOREIGN_CALL(c))
-		return;
-
-	LOCK(&r->lock);
 	// coverity[sleep : FALSE]
-	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED)
-		return;
+	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED) {
+		redis_repair_mark(&c->callid, r->db);
+		return -1;
+	}
+	// not destroyed while redis_check_conn() let go of the lock (a reconnect)
+	if (r->released != released && !redis_call_live(c))
+		return 0;
 
 	atomic64_set_na(&c->last_redis_update_us, rtpe_now);
 
 	rwlock_lock_r(&c->master_lock);
+
+	// (made foreign while the repair pass waited for the lock)
+	if (IS_FOREIGN_CALL(c)) {
+		rwlock_unlock_r(&c->master_lock);
+		return 0;
+	}
 
 	redis_expires_s = rtpe_config.redis_expires_secs;
 
@@ -3605,26 +4040,52 @@ void redis_update_onekey(call_t *c, struct redis *r) {
 
 	void *to_free = NULL;
 	str result = redis_encode_json(&ctx, c, &to_free);
-	if (!result.len)
-		goto err;
-
-	redis_pipe(r, "SET " PB " " PB " EX %i", PBSTR(&c->callid), PBSTR(&result), redis_expires_s);
-
-	redis_consume(r);
-
-	rwlock_unlock_r(&c->master_lock);
+	int consume_ret = 0;
+	// nothing to write if the encoding failed: the connection is fine
+	if (result.len) {
+		redis_pipe(r, "SET " PB " " PB " EX %i", PBSTR(&c->callid), PBSTR(&result), redis_expires_s);
+		consume_ret = redis_consume(r);
+	}
 
 	g_free(to_free);
 	arena_free(ctx.buffer);
 
-	return;
+	if (consume_ret < 0)
+		goto err;
+	if (consume_ret > 0)
+		redis_repair_mark(&c->callid, r->db);
+	else if (result.len)
+		redis_repair_done(&c->callid);
+
+	rwlock_unlock_r(&c->master_lock);
+
+	if (consume_ret)
+		return -1;
+	return result.len ? 1 : 0;
 err:
+	redis_repair_mark(&c->callid, r->db);
 	if (r->ctx && r->ctx->err)
 		rlog(LOG_ERR, "Redis error: %s", r->ctx->errstr);
 	redisFree(r->ctx);
 	r->ctx = NULL;
 
 	rwlock_unlock_r(&c->master_lock);
+	return -1;
+}
+
+void redis_update_onekey(call_t *c, struct redis *r) {
+	if (!r)
+		return;
+	if (IS_FOREIGN_CALL(c))
+		return;
+
+	redis_lock_waiters_add(r, 1);	// the repair pass lets this go first
+	LOCK(&r->lock);
+	redis_lock_waiters_add(r, -1);
+	// not a call destroyed while this waited (a timer can hold one)
+	if (!redis_call_live(c))
+		return;
+	redis_write_call(c, r);
 }
 
 /* must be called lock-free */
@@ -3635,10 +4096,9 @@ static void redis_do_delete(call_t *c, struct redis *r) {
 	if (!r)
 		return;
 
-	if (c->redis_hosted_db < 0)
-		return;
-
 	if (delete_async) {
+		if (c->redis_hosted_db < 0)
+			return;
 		LOCK(&r->async_lock);
 		rwlock_lock_r(&c->master_lock);
 		redis_delete_async_call_json(c, r);
@@ -3646,21 +4106,50 @@ static void redis_do_delete(call_t *c, struct redis *r) {
 		return;
 	}
 
+	redis_lock_waiters_add(r, 1);	// the repair pass lets this go first
 	LOCK(&r->lock);
+	redis_lock_waiters_add(r, -1);
+	// never written: nothing to delete. Decided under the lock, so that a
+	// write of the call already under way comes first and is deleted.
+	if (c->redis_hosted_db < 0) {
+		redis_repair_done(&c->callid);	// a skipped write: no DEL either
+		return;
+	}
+	// (also when the DEL below is skipped: the repair of it may be lost too)
+	if (IS_OWN_CALL(c))
+		redis_resync_note_del(&c->callid, c->redis_hosted_db);
+	unsigned int released = r->released;
 	// coverity[sleep : FALSE]
-	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED)
+	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED) {
+		if (IS_OWN_CALL(c))
+			redis_repair_mark(&c->callid, c->redis_hosted_db);
+		return;
+	}
+	// a new call that took the ID while redis_check_conn() let go of the
+	// lock owns the key now
+	if (r->released != released && redis_call_taken(&c->callid, c))
 		return;
 	rwlock_lock_r(&c->master_lock);
 
 	if (redis_select_db(r, c->redis_hosted_db))
 		goto err;
 
-	redis_delete_call_json(c, r);
+	int del_ret = redis_delete_call_json(c, r);
+	if (del_ret < 0)
+		goto err;
+	if (IS_OWN_CALL(c)) {
+		if (del_ret > 0)
+			redis_repair_mark(&c->callid, c->redis_hosted_db);
+		else
+			redis_repair_done(&c->callid);
+	}
 
 	rwlock_unlock_r(&c->master_lock);
 	return;
 
 err:
+	if (IS_OWN_CALL(c))
+		redis_repair_mark(&c->callid, c->redis_hosted_db);
 	if (r->ctx && r->ctx->err)
 		rlog(LOG_ERR, "Redis error: %s", r->ctx->errstr);
 	redisFree(r->ctx);
@@ -3690,4 +4179,313 @@ void redis_wipe(struct redis *r) {
 	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED)
 		return;
 	redisCommandNR(r->ctx, "DEL calls");
+}
+
+
+
+/* --redis-repair-writes: own calls whose last write (SET or DEL) was not
+ * stored, call-id -> DB + 1 */
+static mutex_t redis_repair_lock = MUTEX_STATIC_INIT;
+static cond_t redis_repair_cond = COND_STATIC_INIT;
+static GHashTable *redis_repair_pending;
+static atomic64 redis_repair_count;		/* entries, for a lock-free test */
+static unsigned int redis_repair_overflow;
+
+static bool redis_repair_enabled(void) {
+	return rtpe_config.redis_repair_writes || rtpe_config.redis_resync_on_master_change;
+}
+
+static void redis_repair_mark(const str *callid, int db) {
+	if (!redis_repair_enabled() || db < 0)
+		return;
+	LOCK(&redis_repair_lock);
+	if (!redis_repair_pending)
+		redis_repair_pending = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+	if (g_hash_table_size(redis_repair_pending) >= 100000) {
+		g_autofree char *key = g_strndup(callid->s, callid->len);
+		if (!g_hash_table_contains(redis_repair_pending, key)) {
+			redis_repair_overflow++;
+			return;
+		}
+	}
+	g_hash_table_replace(redis_repair_pending, g_strndup(callid->s, callid->len),
+			GINT_TO_POINTER(db + 1));
+	atomic64_set_na(&redis_repair_count, g_hash_table_size(redis_repair_pending));
+	cond_signal(&redis_repair_cond);
+}
+
+/* counts the signalling threads waiting for r->lock (see redis_repair_loop()) */
+static void redis_lock_waiters_add(struct redis *r, int n) {
+	if (redis_repair_enabled())
+		atomic64_add(&r->lock_waiters, n);
+}
+
+static void redis_repair_done(const str *callid) {
+	if (!atomic64_get_na(&redis_repair_count))
+		return;
+	LOCK(&redis_repair_lock);
+	if (!redis_repair_pending)	// (shutdown)
+		return;
+	g_autofree char *key = g_strndup(callid->s, callid->len);
+	g_hash_table_remove(redis_repair_pending, key);
+	atomic64_set_na(&redis_repair_count, g_hash_table_size(redis_repair_pending));
+}
+
+static call_t *redis_repair_call(const str *callid) {
+	rwlock_lock_r(&rtpe_callhash_lock);
+	call_t *c = t_hash_table_lookup(rtpe_callhash, callid);
+	if (c)
+		obj_hold(c);
+	rwlock_unlock_r(&rtpe_callhash_lock);
+	return c;
+}
+
+/* unless a new call has the ID, which is in the call table before its first
+ * write; as redis_repair_one() */
+static int redis_repair_del(struct redis *r, const str *callid, int db) {
+	LOCK(&r->lock);
+	if (redis_call_taken(callid, NULL))
+		return 0;
+	unsigned int released = r->released;
+	// coverity[sleep : FALSE]
+	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED)
+		goto fail;
+	// or since, while redis_check_conn() let go of the lock
+	if (r->released != released && redis_call_taken(callid, NULL))
+		return 0;
+	if (redis_select_db(r, db))
+		goto drop;
+	redis_pipe(r, "DEL " PB, PBSTR(callid));
+	int ret = redis_consume(r);
+	if (ret < 0)
+		goto drop;
+	if (ret > 0)
+		goto fail;
+	return 1;
+
+drop:
+	if (r->ctx && r->ctx->err)
+		rlog(LOG_ERR, "Redis error: %s", r->ctx->errstr);
+	redisFree(r->ctx);
+	r->ctx = NULL;
+fail:
+	redis_repair_mark(callid, db);
+	return -1;
+}
+
+/* 1 if written, 0 if there was nothing to write, -1 if to be tried again */
+static int redis_repair_one(struct redis *r, char *id, int db) {
+	str callid = STR(id);
+	call_t *c = redis_repair_call(&callid);
+	int ret = 0;
+	bool gone = !c;
+	if (c) {
+		{
+			LOCK(&r->lock);
+			gone = !redis_call_live(c);
+			if (!gone && IS_OWN_CALL(c))
+				ret = redis_write_call(c, r);
+		}
+		obj_put(c);
+	}
+	if (gone)
+		return redis_repair_del(r, &callid, db);
+	return ret;
+}
+
+/* --redis-resync-on-master-change: own calls and recent own DELs are queued
+ * for the repair pass when the master's replication ID changes */
+struct redis_resync_del {
+	char		*callid;
+	int		db;
+	int64_t		when;
+};
+
+static mutex_t redis_resync_lock = MUTEX_STATIC_INIT;
+static GQueue redis_resync_dels = G_QUEUE_INIT;
+static unsigned int redis_resync_del_dropped;
+static atomic64 redis_resync_requested;
+static int64_t redis_resync_started_us;
+
+static void redis_resync_del_free(struct redis_resync_del *d) {
+	g_free(d->callid);
+	g_free(d);
+}
+
+static void redis_resync_note_del(const str *callid, int db) {
+	if (!rtpe_config.redis_resync_on_master_change || db < 0)
+		return;
+	int64_t now = now_us();
+	struct redis_resync_del *d = g_new(__typeof(*d), 1);
+	*d = (__typeof(*d)) { .callid = g_strndup(callid->s, callid->len), .db = db, .when = now };
+	LOCK(&redis_resync_lock);
+	g_queue_push_tail(&redis_resync_dels, d);
+	// the last --redis-resync-delete-window, at most --redis-resync-delete-max:
+	// count what is dropped
+	int64_t since = now - rtpe_config.redis_resync_delete_window * 1000LL;
+	while ((d = g_queue_peek_head(&redis_resync_dels))) {
+		if (d->when >= since && redis_resync_dels.length <= rtpe_config.redis_resync_delete_max)
+			break;
+		if (d->when >= since)
+			redis_resync_del_dropped++;
+		redis_resync_del_free(g_queue_pop_head(&redis_resync_dels));
+	}
+}
+
+/* from redis_connect() with the INFO reply, by the thread that connects r */
+static void redis_resync_note_replid(struct redis *r, const char *info) {
+	char id[sizeof(r->master_replid)] = "";
+	const char *p = info ? strstr(info, "master_replid:") : NULL;
+	if (p) {
+		p += strlen("master_replid:");
+		g_strlcpy(id, p, MIN(sizeof(id), strcspn(p, "\r\n") + 1));
+	}
+	if (!id[0])
+		return;
+	if (r->master_replid[0] && strcmp(id, r->master_replid)
+			&& rtpe_config.redis_resync_on_master_change
+			&& r->role == MASTER_REDIS_ROLE && r == rtpe_redis_write)
+	{
+		rlog(LOG_NOTICE, "Redis %s has a new replication ID (%s, was %s): a new master; "
+				"writing own calls and recent deletions again",
+				endpoint_print_buf(&r->endpoint), id, r->master_replid);
+		atomic64_set(&redis_resync_requested, 1);
+		LOCK(&redis_repair_lock);
+		cond_signal(&redis_repair_cond);
+	}
+	g_strlcpy(r->master_replid, id, sizeof(r->master_replid));
+}
+
+static void redis_resync_queue(struct redis *r) {
+	unsigned int dels = 0, calls = 0, dropped;
+	int64_t now = now_us();
+	int64_t since = now - rtpe_config.redis_resync_delete_window * 1000LL;
+
+	{
+		LOCK(&redis_resync_lock);
+		for (GList *l = redis_resync_dels.head; l; l = l->next) {
+			struct redis_resync_del *d = l->data;
+			if (d->when < since)
+				continue;
+			str id = STR(d->callid);
+			redis_repair_mark(&id, d->db);
+			dels++;
+		}
+		dropped = redis_resync_del_dropped;
+		redis_resync_del_dropped = 0;
+	}
+
+	// call-ids copied under the call table's lock, marked after it
+	GQueue ids = G_QUEUE_INIT;
+	rwlock_lock_r(&rtpe_callhash_lock);
+	__auto_type iter = t_hash_table_iter(rtpe_callhash);
+	call_t *c;
+	while (t_hash_table_iter_next(&iter, NULL, &c)) {
+		// own calls stored at least once (not those with no-redis-update)
+		if (IS_OWN_CALL(c) && c->redis_hosted_db >= 0)
+			g_queue_push_tail(&ids, g_strndup(c->callid.s, c->callid.len));
+	}
+	rwlock_unlock_r(&rtpe_callhash_lock);
+	char *id_s;
+	while ((id_s = g_queue_pop_head(&ids))) {
+		str id = STR(id_s);
+		redis_repair_mark(&id, r->db);
+		g_free(id_s);
+		calls++;
+	}
+
+	rlog(LOG_NOTICE, "Redis: resync after a master change: %u own calls and %u deletions queued%s",
+			calls, dels, dropped ? " (some older deletions were dropped: too many)" : "");
+	RTPE_STATS_INC(redis_resyncs);
+	RTPE_STATS_ADD(redis_resync_calls, calls);
+	RTPE_STATS_ADD(redis_resync_deletes, dels);
+	redis_resync_started_us = now;
+}
+
+void redis_repair_loop(void *d) {
+	struct redis *r = rtpe_redis_write;
+	struct thread_waker waker = { .lock = &redis_repair_lock, .cond = &redis_repair_cond };
+	int64_t next_us = 0, report_us = 0;
+	unsigned int repaired = 0;
+
+	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+	thread_waker_add(&waker);
+
+	while (!rtpe_shutdown) {
+		rtpe_now = now_us();
+
+		if (atomic64_get(&redis_resync_requested)) {
+			atomic64_set(&redis_resync_requested, 0);
+			redis_resync_queue(r);
+			next_us = 0;
+		}
+		if (redis_resync_started_us && !atomic64_get_na(&redis_repair_count)) {
+			rlog(LOG_NOTICE, "Redis: resync after a master change done in %" PRId64 " ms",
+					(now_us() - redis_resync_started_us) / 1000);
+			redis_resync_started_us = 0;
+		}
+
+		unsigned int overflow = 0;
+		char *id = NULL;
+		int db = -1;
+		{
+			LOCK(&redis_repair_lock);
+			if ((repaired || redis_repair_overflow) && rtpe_now - report_us >= 1000000) {
+				overflow = redis_repair_overflow;
+				redis_repair_overflow = 0;
+				rlog(LOG_NOTICE, "Redis: %u writes repaired, %u still pending%s",
+						repaired, g_hash_table_size(redis_repair_pending),
+						overflow ? " (some calls could not be queued: queue full)" : "");
+				repaired = 0;
+				report_us = rtpe_now;
+			}
+			GHashTableIter it;
+			gpointer k, v;
+			if (rtpe_now >= next_us && redis_repair_pending) {
+				g_hash_table_iter_init(&it, redis_repair_pending);
+				if (g_hash_table_iter_next(&it, &k, &v)) {
+					g_hash_table_iter_steal(&it);
+					id = k;
+					db = GPOINTER_TO_INT(v) - 1;
+				}
+				atomic64_set_na(&redis_repair_count, g_hash_table_size(redis_repair_pending));
+			}
+			if (!id) {
+				int64_t until = rtpe_now + 1000000;
+				if (next_us > rtpe_now)
+					until = MIN(until, next_us);
+				cond_timedwait(&redis_repair_cond, &redis_repair_lock, until);
+				continue;
+			}
+		}
+
+		int ret = redis_repair_one(r, id, db);
+		if (ret > 0) {
+			repaired++;
+			RTPE_STATS_INC(redis_repaired_writes);
+		}
+		else if (ret < 0)
+			next_us = now_us() + 1000000;	// marked again
+		g_free(id);
+		// One write per lock acquisition: a signalling write that waits
+		// for the lock gets it first, but the repair goes on after 100 ms
+		// even if the lock stays busy (at least ten writes a second).
+		for (int i = 0; i < 100 && atomic64_get(&r->lock_waiters) && !rtpe_shutdown; i++)
+			usleep(1000);
+	}
+
+	thread_waker_del(&waker);
+}
+
+/* at shutdown, after the threads are gone */
+void redis_repair_free(void) {
+	g_queue_clear_full(&redis_resync_dels, (GDestroyNotify) redis_resync_del_free);
+	if (!redis_repair_pending)
+		return;
+	unsigned int n = g_hash_table_size(redis_repair_pending);
+	if (n)
+		ilog(LOG_WARN, "Redis: %u writes not repaired at shutdown", n);
+	g_hash_table_destroy(redis_repair_pending);
+	redis_repair_pending = NULL;
+	atomic64_set_na(&redis_repair_count, 0);
 }

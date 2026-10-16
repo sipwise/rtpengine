@@ -11,6 +11,8 @@ use Time::HiRes;
 use POSIX ":sys_wait_h";
 use IO::Socket;
 use Exporter;
+use Bencode;
+use NGCP::Rtpengine;
 use Socket qw,inet_ntop,;
 
 
@@ -26,7 +28,7 @@ BEGIN {
 	our @EXPORT = qw(autotest_start new_call new_call_nc offer answer ft tt cid snd snd_no srtp_snd rtp rcv srtp_rcv rcv_no rcv_maybe
 		srtp_dec escape rtpm rtpmre reverse_tags new_ft new_tt crlf sdp_split rtpe_req offer_answer
 		autotest_init subscribe_request subscribe_answer publish create create_answer
-		use_json rtpe_raw_req last_resp);
+		use_json rtpe_raw_req last_resp rtpe_log rtpe_req_async);
 };
 
 
@@ -413,6 +415,35 @@ sub terminate {
 	system(qw(tail -n 40), $rtpe_stderr);
 
 	die "error: $msg\n";
+}
+
+# what the daemon has logged so far (it runs with its log on stderr)
+sub rtpe_log {
+	open(my $fh, '<', $rtpe_stderr->filename) or die;
+	local $/;
+	my $log = <$fh>;
+	close($fh);
+	return $log;
+}
+
+# Sends a request on a second ng socket, without waiting for the reply (while
+# another request waits for its own); returns a function that waits for it.
+my $c_async;
+sub rtpe_req_async {
+	my ($req) = @_;
+	$c_async //= NGCP::Rtpengine->new($host // $ENV{RTPENGINE_HOST} // '127.0.0.1',
+		$port // $ENV{RTPENGINE_PORT} // 2223);
+	my $cookie = rand() . ' ';
+	$c_async->{socket}->send($cookie . Bencode::bencode($req), 0) or die $!;
+	return sub {
+		my $ret;
+		local $SIG{ALRM} = sub { die "no reply to the '$req->{command}' request\n" };
+		alarm(5);
+		$c_async->{socket}->recv($ret, 65535) or die $!;
+		alarm(0);
+		$ret =~ s/^\Q$cookie\E//s or die $ret;
+		return Bencode::bdecode($ret, 1);
+	};
 }
 
 sub use_json {

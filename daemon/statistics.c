@@ -482,6 +482,21 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 	PROM("zero_packet_streams_total", "counter");
 	METRIC("onewaystreams", "Total number of 1-way streams", "%" PRIu64, "%" PRIu64,atomic64_get_na(&rtpe_stats->oneway_stream_sess));
 	PROM("one_way_sessions_total", "counter");
+	METRIC("rediswriteerrors", "Total Redis writes refused by the server", "%" PRIu64, "%" PRIu64,
+			atomic64_get_na(&rtpe_stats->redis_write_errors));
+	PROM("redis_write_errors_total", "counter");
+	METRIC("redisrepairedwrites", "Total Redis writes repaired", "%" PRIu64, "%" PRIu64,
+			atomic64_get_na(&rtpe_stats->redis_repaired_writes));
+	PROM("redis_repaired_writes_total", "counter");
+	METRIC("redisresyncs", "Total Redis resyncs after a master change", "%" PRIu64, "%" PRIu64,
+			atomic64_get_na(&rtpe_stats->redis_resyncs));
+	PROM("redis_resyncs_total", "counter");
+	METRIC("redisresynccalls", "Total calls queued by Redis resyncs", "%" PRIu64, "%" PRIu64,
+			atomic64_get_na(&rtpe_stats->redis_resync_calls));
+	PROM("redis_resync_calls_total", "counter");
+	METRIC("redisresyncdeletes", "Total deletions queued by Redis resyncs", "%" PRIu64, "%" PRIu64,
+			atomic64_get_na(&rtpe_stats->redis_resync_deletes));
+	PROM("redis_resync_deletes_total", "counter");
 	METRICva("avgcallduration", "Average call duration", "%.6f", "%.6f seconds", (double) avg_us / 1000000.0);
 	PROM("call_duration_avg", "gauge");
 
