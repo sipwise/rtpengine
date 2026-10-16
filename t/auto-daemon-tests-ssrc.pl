@@ -103,5 +103,76 @@ snd($sock_a, $port_b, rtp(8, 5000, 90000, 0x4321, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(8, 1002, 90000, $egress, "\x00" x 160));
 
 
+# loss and jitter of received RTP are measured locally and reported without any RTCP
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 7010)], [qw(198.51.100.3 7012)]);
+
+($port_a) = offer('local loss and jitter without RTCP', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7010 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('local loss and jitter without RTCP', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7012 RTP/AVP 8
+c=IN IP4 198.51.100.3
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# seq 2003 goes missing. Loss is counted once it falls out of the 32 packet
+# reordering window, so send enough packets after it.
+for my $i (0 .. 40) {
+	next if $i == 3;
+	snd($sock_a, $port_b, rtp(8, 2000 + $i, 4000 + $i * 160, 0x5678, "\x00" x 160));
+	rcv($sock_b, $port_a, rtpm(8, 2000 + $i, 4000 + $i * 160, 0x5678, "\x00" x 160));
+}
+
+$resp = rtpe_req('query', 'local loss and jitter without RTCP', { 'call-id' => cid() });
+
+my $ingress = $resp->{tags}{ft()}{medias}[0]{'ingress SSRCs'};
+is scalar(@{$ingress // []}), 1, 'one ingress SSRC';
+is $ingress->[0]{SSRC}, 0x5678, 'ingress SSRC';
+is $ingress->[0]{packets}, 40, 'ingress packets';
+is $ingress->[0]{'cumulative loss'}, 1, 'loss reported without RTCP';
+# packets are sent back to back, much faster than their 20 ms of timestamp spacing
+ok(($ingress->[0]{jitter} // 0) > 0, 'jitter reported without RTCP');
+ok(!exists($ingress->[0]{'highest MOS'}), 'no MOS without RTCP');
+is $resp->{SSRC}{0x5678}{'cumulative loss'}, 1, 'loss in top level SSRC dictionary';
+
+my $egress_ssrcs = $resp->{tags}{tt()}{medias}[0]{'egress SSRCs'};
+is scalar(@{$egress_ssrcs // []}), 1, 'one egress SSRC';
+ok(!exists($egress_ssrcs->[0]{'cumulative loss'}), 'no local loss for egress SSRC');
+ok(!exists($egress_ssrcs->[0]{jitter}), 'no local jitter for egress SSRC');
+
+
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();

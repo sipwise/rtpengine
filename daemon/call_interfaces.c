@@ -54,7 +54,7 @@ static const char* const _ng_basic_errors[] = {
 };
 
 static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, parser_arg list,
-		const struct ssrc_hash *ht);
+		const struct ssrc_hash *ht, const struct call_media *rx_media);
 static void call_set_dtmf_block(call_t *call, struct call_monologue *monologue, sdp_ng_flags *flags);
 
 
@@ -1000,8 +1000,8 @@ static void ng_stats_media(ng_command_ctx_t *ctx, parser_arg list, const struct 
 	BF_M("transcoding", TRANSCODING);
 	BF_M("block egress", BLOCK_EGRESS);
 
-	ng_stats_ssrc(parser, ssrc, parser->dict_add_list(dict, "ingress SSRCs"), &m->ssrc_hash_in);
-	ng_stats_ssrc(parser, NULL, parser->dict_add_list(dict,  "egress SSRCs"), &m->ssrc_hash_out);
+	ng_stats_ssrc(parser, ssrc, parser->dict_add_list(dict, "ingress SSRCs"), &m->ssrc_hash_in, m);
+	ng_stats_ssrc(parser, NULL, parser->dict_add_list(dict,  "egress SSRCs"), &m->ssrc_hash_out, NULL);
 
 stats:
 	IQUEUE_FOREACH(&m->streams, ps)
@@ -1133,16 +1133,35 @@ static void ng_stats_ssrc_mos_entry_dict_avg(const ng_parser_t *parser, parser_a
 	parser->dict_add_int(subent, "samples", div);
 }
 
-static void ng_stats_ssrc_1(const ng_parser_t *parser, parser_arg ent, struct ssrc_entry_call *se) {
+// locally measured jitter in ms, or -1 if the clock rate is unknown
+static int64_t ng_stats_ssrc_jitter(struct ssrc_entry_call *se, const struct call_media *rx_media) {
+	if (!se->tracker.most_len || se->tracker.most[0] == 255)
+		return -1;
+	const rtp_payload_type *rpt = get_rtp_payload_type(se->tracker.most[0], &rx_media->codecs);
+	if (!rpt || !rpt->clock_rate)
+		return -1;
+	return (int64_t) (ssrc_jitter(se) >> 4) * 1000 / rpt->clock_rate;
+}
+
+// `rx_media` is set for received (ingress) SSRCs, for which loss and jitter are measured
+// locally from the RTP stream itself and so are available without any RTCP
+static void ng_stats_ssrc_1(const ng_parser_t *parser, parser_arg ent, struct ssrc_entry_call *se,
+		const struct call_media *rx_media)
+{
 	parser->dict_add_int(ent, "bytes", atomic64_get_na(&se->stats->bytes));
 	parser->dict_add_int(ent, "packets", atomic64_get_na(&se->stats->packets));
 	parser->dict_add_int(ent, "last RTP timestamp", atomic_get_na(&se->stats->timestamp));
 	parser->dict_add_int(ent, "last RTP seq", atomic_get_na(&se->stats->ext_seq));
 
+	if (rx_media) {
+		parser->dict_add_int(ent, "cumulative loss", ssrc_packets_lost(se));
+		int64_t jitter = ng_stats_ssrc_jitter(se, rx_media);
+		if (jitter >= 0)
+			parser->dict_add_int(ent, "jitter", jitter);
+	}
+
 	if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
 		return;
-
-	parser->dict_add_int(ent, "cumulative loss", se->packets_lost);
 
 	int mos_samples = se->mos_samples;
 	if (mos_samples < 1) mos_samples = 1;
@@ -1173,7 +1192,7 @@ static void ng_stats_ssrc_1(const ng_parser_t *parser, parser_arg ent, struct ss
 }
 
 static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, parser_arg list,
-		const struct ssrc_hash *ht)
+		const struct ssrc_hash *ht, const struct call_media *rx_media)
 {
 	if (rtpe_config.ssrc_reporting == SRP_NONE)
 		return;
@@ -1188,11 +1207,11 @@ static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, parser_arg
 		parser->dict_add_int(ent, "SSRC", se->h.ssrc);
 
 		if ((rtpe_config.ssrc_reporting & 0x2) == 0)
-			ng_stats_ssrc_1(parser, ent, se);
+			ng_stats_ssrc_1(parser, ent, se, rx_media);
 
 		if (dict.gen && !parser->dict_contains(dict, tmp)) {
 			ent = parser->dict_add_dict_dup(dict, tmp);
-			ng_stats_ssrc_1(parser, ent, se);
+			ng_stats_ssrc_1(parser, ent, se, rx_media);
 		}
 	}
 }
