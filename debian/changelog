@@ -1,3 +1,11 @@
+ngcp-rtpengine (12.5.1.56+0~mr12.5.1.56) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [bbc383d] MT#55283 fix compiler warnings
+  * [2e6d177] MT#55283 guard against runaway recursion
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 16 Oct 2026 14:28:48 +0200
+
 ngcp-rtpengine (12.5.1.55+0~mr12.5.1.55) unstable; urgency=medium
 
   [ Richard Fuchs ]
