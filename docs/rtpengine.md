@@ -560,6 +560,11 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     When this option is given, __rtpengine__ will delay startup until the
     Redis database adopts the master role (but see below).
 
+    Instead of *IP*:*PORT*, the keyword __sentinel__ can be given, for
+    example *foobar@sentinel/12*: the address is then the current master of
+    a Redis Sentinel group, see __\-\-redis-sentinel__. This is also
+    possible for __\-\-redis-write__ and __\-\-redis-subscribe__.
+
 - __-w__, __\-\-redis-write=__\[*PW*@\]*IP*:*PORT*/*INT*
 
     Configures a second Redis database for write operations.
@@ -574,13 +579,40 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     When both options are given, __rtpengine__ will start and use the Redis
     database regardless of the database's role (master or slave).
 
+    Writes that the Redis server refuses (for example __READONLY__ from a
+    replica, or __NOREPLICAS__ from a master that lacks replicas) are logged,
+    at most once a second, and counted in the __rediswriteerrors__ statistic.
+    The connection is kept, as reconnecting to the same address would not
+    change the server's answer.
+
+- __\-\-redis-require-master__
+
+    Requires the master role on every connection that writes call data: the
+    __\-\-redis-write__ connection, which otherwise accepts any role, and the
+    __\-\-redis__ connection when it is also used for writing.
+
+    On these connections, a write that the server refuses with __READONLY__
+    or __MASTERDOWN__ (the server is not, or no longer, a usable master, for
+    example after a failover) also drops the connection. The next operation
+    reconnects and checks the role; if the server is still a replica, the
+    attempt fails and Redis operations on that connection are skipped for
+    __\-\-redis-reconnect-pause__ (one second by default). Other refusals,
+    such as __NOREPLICAS__ or __LOADING__, keep the connection.
+
+    Without this option, a __\-\-redis-write__ connection accepts a replica,
+    and writes to it fail for as long as it stays one. It is a boolean value
+    (either __true__ or __false__), and it is off by default.
+
 - __\-\-redis-subscribe=__\[*PW*@\]*IP*:*PORT*\[/*INT*\]
 
     Configures a Redis database for subscribing and receiving notifications.
     This option takes precedence over __\-\-redis__, if configured.
     When __\-\-subscribe-keyspace__ is also configured, the keyspace part of
     __\-\-redis-subscribe=__ is not used, the former takes precedence.
-    The keyspace number can also be omitted altogether.
+    The keyspace number can also be omitted altogether. With __sentinel__
+    instead of *IP*:*PORT* (see __\-\-redis-sentinel__), the subscription is
+    made on the current master: a replica is not used, even though
+    notifications could be read from one.
 
     For password protected Redis servers, the environment variable for the
     password is __RTPENGINE\_REDIS\_SUBSCRIBE\_AUTH\_PW__.
@@ -637,6 +669,19 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     Default value is -1, meaning that this feature is disabled.
     This parameter can also be set or listed via __rtpengine-ctl__.
 
+    Independently of this parameter, a lost connection to any Redis server
+    (__\-\-redis__, __\-\-redis-write__, __\-\-redis-subscribe__) is
+    re-established with a single attempt, and the role is checked once. If
+    that attempt fails because the server does not have the required role,
+    or after taking __\-\-redis-reconnect-slow__ or more (100 ms by default,
+    typically a timeout), Redis operations on that connection are skipped,
+    and no new attempt is made, for __\-\-redis-reconnect-pause__ (one
+    second by default), so that signalling does not wait for Redis. An
+    attempt that fails at once (for example a refused connection) is retried
+    by the next operation. The errors counted by this parameter are failed
+    attempts, so in the first two cases they come at most once per pause:
+    with the defaults, N allowed errors then last at least N seconds.
+
 - __\-\-redis-disable-time__
 
     This parameter configures the number of seconds redis communication is
@@ -666,15 +711,185 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     is issued before attempting to connect so the __\-\-redis-cmd-timeout__ value
     will also be added to the total waiting time.
     This is useful if using __\-\-redis-allowed-errors__, when attempting to
-    estimate the total lost time in case of redis failures.
+    estimate the total lost time in case of redis failures (but note that a
+    slow failed attempt is followed by a pause, see
+    __\-\-redis-reconnect-pause__, which also says how a reconnect attempt
+    affects signalling).
     The default value for the connection timeout is 1000ms.
     This parameter can also be set or listed via __rtpengine-ctl__.
+
+- __\-\-redis-reconnect-pause=__*INT*
+
+    Time in milliseconds during which no new attempt is made to re-establish
+    a lost Redis connection, and Redis operations on that connection are
+    skipped, after an attempt that failed because the server does not have
+    the required role, or that was slow (see
+    __\-\-redis-reconnect-slow__). A failover takes longer than that, so an
+    earlier attempt would fail the same way. 0 disables the pause. The
+    default value is 1000.
+
+    An attempt is made by one thread, without holding the connection's
+    lock. Meanwhile, the other threads that use the connection wait for it
+    for up to __\-\-redis-reconnect-slow__, then skip their Redis operation,
+    as during the pause: signalling is not held by a reconnect for longer
+    than that, however long the attempt takes (up to
+    __\-\-redis-connect-timeout__, plus __\-\-redis-cmd-timeout__ for each
+    of __AUTH__, __SELECT__ and __INFO__). A command on an established
+    connection still holds the lock until it is answered or
+    __\-\-redis-cmd-timeout__ expires. While the server does not answer at
+    all (for example behind a network partition), the pause, or
+    __\-\-redis-allowed-errors__ with __\-\-redis-disable-time__, sets how
+    often it is tried again; the operations skipped meanwhile are not
+    written.
+
+- __\-\-redis-reconnect-slow=__*INT*
+
+    A failed attempt to re-establish a Redis connection that took this many
+    milliseconds or more (typically a connect or command timeout) is followed
+    by the pause of __\-\-redis-reconnect-pause__. A quicker failure, such as
+    a refused connection, is retried by the next operation. 0 pauses after
+    every failed attempt. This is also how long the other threads wait for an
+    attempt that one of them is making. The default value is 100.
 
 - __\-\-redis-resolve-on-reconnect__
 
     Enable 'redis resolve on reconnect' functionality: when re-connecting to the
     remote redis server try to re-resolve if the redis hostname was an FQDN
     and not IP address. It is a boolean value (either __true__ or __false__).
+
+- __\-\-redis-repair-writes__
+
+    Write again, in the background, the calls whose last Redis write was
+    not stored: refused by the server (for example __NOREPLICAS__ from a
+    master that has no replica yet after a failover, or __READONLY__), lost
+    with the connection before the reply, or skipped while the connection
+    was down or paused. A thread ("redis repair", normal scheduling) writes
+    them one at a time, taking the Redis connection's lock for each write
+    alone, and lets a signalling write that waits for that lock go first;
+    while signalling keeps the lock busy, it still makes about ten writes a
+    second. A call that still exists (and is still this instance's own) is
+    written whole, with its current state; for a call that no longer
+    exists, its key is deleted, unless a new call with the same ID exists
+    by then. After a write that fails again, it waits one second. A later
+    write of the call that is stored clears it. At most 100000 calls are
+    kept; the pass logs how many it repaired, at most once a second, and
+    the number left unrepaired at shutdown, and counts each stored write
+    in the __redisrepairedwrites__ statistic. Only this instance's own
+    calls are concerned.
+
+    The deletions assume that this instance is the only one that writes
+    its database, or that call-ids are never reused: a repaired deletion
+    removes the key of the call-id, whoever wrote it last.
+
+    It is a boolean value (either __true__ or __false__), and it is off by
+    default.
+
+- __\-\-redis-resync-on-master-change__
+
+    After a change of Redis master, write again every own call, and make
+    again the recent deletions of own calls (see
+    __\-\-redis-resync-delete-window__ and __\-\-redis-resync-delete-max__).
+    A new master may lack the writes that the old one
+    acknowledged but had not yet replicated. The change is seen at a
+    reconnect of the write connection, when the replication ID
+    (__master\_replid__ in __INFO__) differs from the one of the master
+    last connected to: after a Sentinel switch (see
+    __\-\-redis-sentinel__), a floating address that moved, or a fixed
+    address that now leads elsewhere. A restarted master also gets a new
+    ID (Redis 7.2, with or without its data restored from disk), so a
+    restart causes a resync too, which puts back what the restart lost. The
+    write connection must require the master role (__\-\-redis__ alone,
+    __\-\-redis-require-master__, or __sentinel__ in __\-\-redis-write__);
+    otherwise this option is refused at startup. Only own calls that were
+    stored at least once are written again (not those that asked for
+    __no-redis-update__). The writes go through the queue of
+    __\-\-redis-repair-writes__ (this option enables it), and are retried
+    while the new master refuses them. No key is scanned, and only keys
+    that this instance wrote or deleted itself are touched (as for
+    __\-\-redis-repair-writes__, this assumes one writer per database, or
+    call-ids that are not reused). Each resync is counted in the
+    __redisresyncs__ statistic, and the calls and deletions it queues in
+    __redisresynccalls__ and __redisresyncdeletes__. It is a boolean value
+    (either __true__ or __false__), and it is off by default.
+
+- __\-\-redis-resync-delete-window=__*INT*
+
+    How long, in milliseconds, the deletions of own calls are remembered
+    for __\-\-redis-resync-on-master-change__, which makes them again after
+    a change of master. It should be longer than a failover plus the
+    replication lag: a deletion older than that has reached the new master.
+    The default value is 30000 (30 seconds). Only valid with
+    __\-\-redis-resync-on-master-change__.
+
+- __\-\-redis-resync-delete-max=__*INT*
+
+    How many deletions of own calls are remembered at most for
+    __\-\-redis-resync-on-master-change__. Beyond that, the oldest are
+    dropped before the end of __\-\-redis-resync-delete-window__, and their
+    number is logged at the next resync. The default value is 4096, about
+    135 deletions a second over the default 30 seconds. Only valid with
+    __\-\-redis-resync-on-master-change__.
+
+- __\-\-redis-sentinel=__\[*PW*@\]*IP*:*PORT*\[,*IP*:*PORT*...\]
+
+    The Redis Sentinels to ask for the address of the master, for every
+    Redis option given with the keyword __sentinel__ instead of *IP*:*PORT*
+    (__\-\-redis__, __\-\-redis-write__, __\-\-redis-subscribe__). Requires
+    __\-\-redis-sentinel-master__. The password, if the Sentinels require
+    one, is the one given before the `@` symbol, or the one in the
+    environment variable __RTPENGINE\_REDIS\_SENTINEL\_AUTH\_PW__; it is
+    usually not the password of the data nodes (an empty password before
+    the `@` is refused). A host name is resolved at
+    startup, and again before each query with
+    __\-\-redis-resolve-on-reconnect__.
+
+    A background thread asks every Sentinel for the master (the
+    configuration epoch with __SENTINEL MASTER__, then the address with
+    __SENTINEL GET-MASTER-ADDR-BY-NAME__) at startup, every
+    __\-\-redis-sentinel-interval__, and at once when a Redis connection
+    finds that the server is not a master (a write refused with
+    __READONLY__ or __MASTERDOWN__, or a replica on reconnect; a write
+    refused with __NOREPLICAS__ does so at most once per interval). Of the
+    answers, it takes the one with the highest configuration epoch, and
+    never one older than the master already in use, so that a Sentinel that
+    missed a failover is not followed. If every Sentinel that answers names
+    an older epoch, an error is logged and the master in use is kept for as
+    long as it is a master: Sentinels redeployed without their state start
+    their epochs again, and __rtpengine__ must then be restarted. It
+    checks with __ROLE__ that the node is a master (with the password of
+    the first of __\-\-redis-write__, __\-\-redis__, __\-\-redis-subscribe__
+    that uses __sentinel__) before using it. When it finds a new master,
+    every connection resolved through Sentinel reconnects to it at its next
+    operation, and a keyspace subscription is made again on it within a
+    second. The thread does all the Sentinel queries, name resolution and
+    role checks; Redis operations only compare a number.
+
+    The connections resolved through Sentinel (__\-\-redis-subscribe__
+    included) require the master role and drop the connection on a role
+    error, as with __\-\-redis-require-master__. Set
+    __\-\-redis-cmd-timeout__ (for example to 1000) with Sentinel: without
+    it, a master that stops answering holds Redis operations until it
+    answers again, instead of until the switch; a warning is logged at
+    startup.
+
+    At startup, if no Sentinel answers, __rtpengine__ does not start, unless
+    __\-\-no-redis-required__ is given: it then starts with no connection to
+    the master, does not restore calls, and connects at the first operation
+    after a Sentinel has named a master. If no Sentinel answers later on, the
+    last master is kept.
+
+- __\-\-redis-sentinel-master=__*STRING*
+
+    The name of the master that the Redis Sentinels monitor.
+
+- __\-\-redis-sentinel-interval=__*INT*
+
+    How often, in milliseconds, the Redis Sentinels are asked for the master
+    when nothing has prompted a query. The default is 1000; the value must
+    be positive.
+
+    __\-\-redis-sentinel-master__ and __\-\-redis-sentinel-interval__ are
+    refused without a Redis option that uses __sentinel__.
 
 - __\-\-redis-format=bencode__\|__JSON__
 
@@ -2107,6 +2322,10 @@ IPv6.
     Redis server password for write operations, if __\-\-redis__ has been
     specified, in which case the one specified in __\-\-redis__ will be used for
     read operations only.
+
+- __RTPENGINE\_REDIS\_SENTINEL\_AUTH\_PW__
+
+    Redis Sentinel password, for __\-\-redis-sentinel__.
 
 ## FILES
 

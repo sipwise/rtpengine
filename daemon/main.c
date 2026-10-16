@@ -33,6 +33,7 @@
 #include "call.h"
 #include "kernel.h"
 #include "redis.h"
+#include "redis_sentinel.h"
 #include "sdp.h"
 #include "dtls.h"
 #include "call_interfaces.h"
@@ -105,6 +106,8 @@ struct rtpengine_config rtpe_config = {
 	.redis_write_db = -1,
 	.redis_allowed_errors = -1,
 	.redis_connect_timeout = 1000,
+	.redis_reconnect_pause = 1000,
+	.redis_reconnect_slow = 100,
 	.media_num_threads = -1,
 	.dtls_rsa_key_size = 2048,
 	.dtls_mtu = 1200, // chrome default mtu
@@ -568,14 +571,19 @@ static bool if_addr_parse(intf_config_q *q, char *s, struct ifaddrs *ifas) {
 
 /**
  * Sets hostname and auth.
+ * With the keyword "sentinel" instead of IP:PORT, sets *sentinel and leaves
+ * the endpoint and hostname unset.
  */
-static int redis_ep_parse(endpoint_t *ep, int *db, char **hostname, char **auth, const char *auth_env, char *s) {
+static int redis_ep_parse(endpoint_t *ep, int *db, char **hostname, char **auth, const char *auth_env,
+		gboolean *sentinel, char *s)
+{
 	char *sl, *sp;
 	long l;
 
 	/* ensure to have pointers nulled */
 	*auth = NULL;
 	*hostname = NULL;
+	*sentinel = false;
 
 	sl = strrchr(s, '@');
 	if (sl) {
@@ -598,6 +606,11 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **hostname, char **auth,
 		if (*sl != 0 || l < 0)
 			goto error;
 		*db = l;
+	}
+
+	if (!strcmp(s, "sentinel")) {
+		*sentinel = true;
+		return 0;
 	}
 
 	/* copy for the case with re-resolve during re-connections */
@@ -717,6 +730,11 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	g_autoptr(char) redisps = NULL;
 	g_autoptr(char) redisps_write = NULL;
 	g_autoptr(char) redisps_subscribe = NULL;
+	g_autoptr(char) redis_sentinels = NULL;
+	g_autoptr(char) redis_sentinel_master = NULL;
+	int redis_sentinel_interval = -1;
+	int redis_resync_delete_window = -1;
+	int redis_resync_delete_max = -1;
 	g_autoptr(char) log_facility_cdr_s = NULL;
 	g_autoptr(char) log_facility_rtcp_s = NULL;
 	g_autoptr(char) log_facility_dtmf_s = NULL;
@@ -810,6 +828,14 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "redis-write",'w', 0, G_OPTION_ARG_STRING,    &redisps_write, "Connect to Redis write database",      "[PW@]IP:PORT/INT"       },
 		{ "redis-subscribe", 0, 0, G_OPTION_ARG_STRING, &redisps_subscribe, "Connect to Redis subscribe database",      "[PW@]IP:PORT[/INT]"       },
 		{ "redis-resolve-on-reconnect", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.redis_resolve_on_reconnect,	"Re-resolve given FQDN on each re-connect to the redis server.",	NULL },
+		{ "redis-require-master", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.redis_require_master,	"Write only to a Redis master, and drop the connection when the server stops being one",	NULL },
+		{ "redis-repair-writes", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.redis_repair_writes,	"Write again the calls whose Redis writes were refused or skipped",	NULL },
+		{ "redis-resync-on-master-change", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.redis_resync_on_master_change,	"After a Redis master change, write own calls and recent deletions again",	NULL },
+		{ "redis-resync-delete-window", 0, 0, G_OPTION_ARG_INT,	&redis_resync_delete_window,	"How long, in milliseconds, own deletions are remembered for a Redis resync",	"INT" },
+		{ "redis-resync-delete-max", 0, 0, G_OPTION_ARG_INT,	&redis_resync_delete_max,	"How many own deletions are remembered for a Redis resync, at most",	"INT" },
+		{ "redis-sentinel", 0, 0, G_OPTION_ARG_STRING,	&redis_sentinels,	"Redis Sentinels to ask for the master, for the roles given as 'sentinel'",	"[PW@]IP:PORT[,IP:PORT...]" },
+		{ "redis-sentinel-master", 0, 0, G_OPTION_ARG_STRING,	&redis_sentinel_master,	"Name of the master monitored by Redis Sentinel",	"STRING" },
+		{ "redis-sentinel-interval", 0, 0, G_OPTION_ARG_INT,	&redis_sentinel_interval,	"How often to ask Redis Sentinel for the master, in milliseconds",	"INT" },
 		{ "redis-num-threads", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_num_threads, "Number of Redis restore threads",      "INT"       },
 		{ "redis-expires", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_expires_secs, "Expire time in seconds for redis keys",      "INT"       },
 		{ "no-redis-required", 'q', 0, G_OPTION_ARG_NONE, &rtpe_config.no_redis_required, "Start no matter of redis connection state", NULL },
@@ -817,6 +843,8 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "redis-disable-time", 0, 0, G_OPTION_ARG_INT, &redis_disable_time,	"Number of seconds redis communication is disabled because of errors", "INT" },
 		{ "redis-cmd-timeout", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_cmd_timeout, "Sets a timeout in milliseconds for redis commands", "INT" },
 		{ "redis-connect-timeout", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_connect_timeout, "Sets a timeout in milliseconds for redis connections", "INT" },
+		{ "redis-reconnect-pause", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_reconnect_pause, "Milliseconds without Redis reconnect attempts after a slow or wrong-role failure", "INT" },
+		{ "redis-reconnect-slow", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_reconnect_slow, "A failed Redis reconnect attempt taking this many milliseconds or more is followed by the pause", "INT" },
 		{ "redis-format", 0, 0,	G_OPTION_ARG_STRING, &redis_format,		"Format for persistent storage in Redis/KeyDB", "native|bencode|JSON" },
 		{ "subscribe-keyspace", 'k', 0, G_OPTION_ARG_STRING_ARRAY,&ks_a,	"Subscription keyspace list",	"INT INT ..."},
 		{ "redis-tcp-keepalive-time",0,0,G_OPTION_ARG_INT,&rtpe_config.redis_tcp_keepalive_time,"Positive value sets tcp_keepalive_time for redis connections", "INT" },
@@ -1263,6 +1291,10 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	rtpe_config.redis_disable_time_us = redis_disable_time * 1000000LL;
 	if (rtpe_config.redis_disable_time_us < 0)
 		die("Invalid negative redis-disable-time");
+	if (rtpe_config.redis_reconnect_pause < 0)
+		die("Invalid negative redis-reconnect-pause");
+	if (rtpe_config.redis_reconnect_slow < 0)
+		die("Invalid negative redis-reconnect-slow");
 
 	rtpe_config.mqtt_publish_interval_us = mqtt_publish_interval * 1000LL;
 	if (rtpe_config.mqtt_publish_interval_us < 0)
@@ -1286,7 +1318,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 
 	if (redisps) {
 		if (redis_ep_parse(&rtpe_config.redis_ep, &rtpe_config.redis_db, &rtpe_config.redis_hostname,
-				&rtpe_config.redis_auth, "RTPENGINE_REDIS_AUTH_PW", redisps))
+				&rtpe_config.redis_auth, "RTPENGINE_REDIS_AUTH_PW", &rtpe_config.redis_via_sentinel, redisps))
 		{
 			die("Invalid Redis endpoint [IP:PORT/INT] '%s' (--redis)", redisps);
 		}
@@ -1294,7 +1326,8 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 
 	if (redisps_write) {
 		if (redis_ep_parse(&rtpe_config.redis_write_ep, &rtpe_config.redis_write_db, &rtpe_config.redis_write_hostname,
-					&rtpe_config.redis_write_auth, "RTPENGINE_REDIS_WRITE_AUTH_PW", redisps_write))
+					&rtpe_config.redis_write_auth, "RTPENGINE_REDIS_WRITE_AUTH_PW", &rtpe_config.redis_write_via_sentinel,
+					redisps_write))
 		{
 			die("Invalid Redis endpoint [IP:PORT/INT] '%s' (--redis-write)", redisps_write);
 		}
@@ -1302,13 +1335,59 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 
 	if (redisps_subscribe)
 		if (redis_ep_parse(&rtpe_config.redis_subscribe_ep, &rtpe_config.redis_subscribe_db, &rtpe_config.redis_subscribe_hostname,
-					&rtpe_config.redis_subscribe_auth,"RTPENGINE_REDIS_SUBSCRIBE_AUTH_PW", redisps_subscribe))
+					&rtpe_config.redis_subscribe_auth,"RTPENGINE_REDIS_SUBSCRIBE_AUTH_PW", &rtpe_config.redis_subscribe_via_sentinel,
+					redisps_subscribe))
 		{
 			rtpe_config.redis_subscribe_db = -1;
 			if (redis_ep_parse(&rtpe_config.redis_subscribe_ep, NULL, &rtpe_config.redis_subscribe_hostname,
-						&rtpe_config.redis_subscribe_auth,"RTPENGINE_REDIS_SUBSCRIBE_AUTH_PW", redisps_subscribe))
+						&rtpe_config.redis_subscribe_auth,"RTPENGINE_REDIS_SUBSCRIBE_AUTH_PW", &rtpe_config.redis_subscribe_via_sentinel,
+						redisps_subscribe))
 				die("Invalid Redis endpoint [IP:PORT/INT] '%s' (--redis-subscribe)", redisps_subscribe);
 		}
+
+	if (rtpe_config.redis_via_sentinel || rtpe_config.redis_write_via_sentinel
+			|| rtpe_config.redis_subscribe_via_sentinel)
+	{
+		if (!redis_sentinels)
+			die("A Redis endpoint is 'sentinel', but --redis-sentinel is not set");
+		if (!redis_sentinel_master)
+			die("--redis-sentinel-master must be set with --redis-sentinel");
+		if (redis_sentinel_interval == -1)
+			redis_sentinel_interval = 1000;
+		if (redis_sentinel_interval <= 0)
+			die("Invalid --redis-sentinel-interval (must be a positive number of milliseconds)");
+		rtpe_config.redis_sentinel_interval = redis_sentinel_interval;
+		rtpe_redis_sentinel = redis_sentinel_new(redis_sentinels, redis_sentinel_master,
+				"RTPENGINE_REDIS_SENTINEL_AUTH_PW");
+		if (!rtpe_redis_sentinel)
+			die("Invalid Redis Sentinel list [PW@]IP:PORT[,IP:PORT...] '%s' (--redis-sentinel)",
+					redis_sentinels);
+	}
+	else if (redis_sentinels || redis_sentinel_master || redis_sentinel_interval != -1)
+		die("--redis-sentinel, --redis-sentinel-master or --redis-sentinel-interval is set, "
+				"but no Redis endpoint is 'sentinel'");
+
+	// the trigger is the write connection's INFO, which gives the master's ID
+	// on a replica too: that connection must require the master role
+	if (rtpe_config.redis_resync_on_master_change && redisps_write
+			&& !rtpe_config.redis_require_master && !rtpe_config.redis_write_via_sentinel)
+		die("--redis-resync-on-master-change needs a write connection that requires the master "
+				"role: add --redis-require-master, or use 'sentinel' in --redis-write");
+	if (rtpe_config.redis_resync_on_master_change) {
+		if (redis_resync_delete_window == -1)
+			redis_resync_delete_window = 30000;
+		if (redis_resync_delete_max == -1)
+			redis_resync_delete_max = 4096;
+		if (redis_resync_delete_window <= 0)
+			die("Invalid --redis-resync-delete-window (must be a positive number of milliseconds)");
+		if (redis_resync_delete_max <= 0)
+			die("Invalid --redis-resync-delete-max (must be positive)");
+		rtpe_config.redis_resync_delete_window = redis_resync_delete_window;
+		rtpe_config.redis_resync_delete_max = redis_resync_delete_max;
+	}
+	else if (redis_resync_delete_window != -1 || redis_resync_delete_max != -1)
+		die("--redis-resync-delete-window or --redis-resync-delete-max is set, "
+				"but not --redis-resync-on-master-change");
 
 	if (rtpe_config.fmt < 0 || rtpe_config.fmt > 2)
 		die("Invalid XMLRPC format");
@@ -1902,28 +1981,54 @@ static void create_everything(void) {
 	create_listeners(&rtpe_config.ng_tcp_listen_ep,  &rtpe_control_ng_tcp, (void *(*)(const endpoint_t *)) control_ng_tcp_new, false, "TCP NG control");
 	create_listeners(&rtpe_config.cli_listen_ep,     &rtpe_cli,            (void *(*)(const endpoint_t *)) cli_new,            false, "CLI");
 
-	if (!is_addr_unspecified(&rtpe_config.redis_write_ep.address)) {
+	// the roles that use Sentinel require a master, and never re-resolve
+	bool sent_r = rtpe_config.redis_via_sentinel, sent_w = rtpe_config.redis_write_via_sentinel,
+		sent_s = rtpe_config.redis_subscribe_via_sentinel;
+
+	if (rtpe_redis_sentinel) {
+		// the master's password, for the role check on the Sentinels' answer
+		redis_sentinel_set_probe_auth(rtpe_redis_sentinel,
+				sent_w ? rtpe_config.redis_write_auth
+				: sent_r ? rtpe_config.redis_auth
+				: rtpe_config.redis_subscribe_auth);
+		ilog(LOG_INFO, "Using Redis Sentinel for the master of '%s'",
+				redis_sentinel_master_name(rtpe_redis_sentinel));
+		if (!rtpe_config.redis_cmd_timeout)
+			ilog(LOG_WARN, "Redis Sentinel is used without --redis-cmd-timeout: a master that "
+					"stops answering holds Redis operations until it answers again");
+		if (!redis_sentinel_discover(rtpe_redis_sentinel) && !rtpe_config.no_redis_required)
+			die("Cannot start up without a master of '%s' from Redis Sentinel! "
+					"See also NO_REDIS_REQUIRED parameter.",
+					redis_sentinel_master_name(rtpe_redis_sentinel));
+	}
+
+	if (!is_addr_unspecified(&rtpe_config.redis_write_ep.address) || sent_w) {
 		rtpe_redis_write = redis_new(&rtpe_config.redis_write_ep,
 				rtpe_config.redis_write_db,
 				rtpe_config.redis_write_hostname,
 				rtpe_config.redis_write_auth,
-				ANY_REDIS_ROLE,
+				((rtpe_config.redis_require_master || sent_w)
+					? MASTER_REDIS_ROLE : ANY_REDIS_ROLE),
 				rtpe_config.no_redis_required,
-				rtpe_config.redis_resolve_on_reconnect);
+				rtpe_config.redis_resolve_on_reconnect && !sent_w,
+				rtpe_config.redis_require_master || sent_w,
+				sent_w ? rtpe_redis_sentinel : NULL);
 
 		if (!rtpe_redis_write)
 			die("Cannot start up without running Redis %s write database! See also NO_REDIS_REQUIRED parameter.",
 				endpoint_print_buf(&rtpe_config.redis_write_ep));
 	}
 
-	if (!is_addr_unspecified(&rtpe_config.redis_subscribe_ep.address)) {
+	if (!is_addr_unspecified(&rtpe_config.redis_subscribe_ep.address) || sent_s) {
 		rtpe_redis_notify = redis_new(&rtpe_config.redis_subscribe_ep,
 				rtpe_config.redis_subscribe_db,
 				rtpe_config.redis_subscribe_hostname,
 				rtpe_config.redis_subscribe_auth,
-				ANY_REDIS_ROLE,
+				(sent_s ? MASTER_REDIS_ROLE : ANY_REDIS_ROLE),
 				rtpe_config.no_redis_required,
-				rtpe_config.redis_resolve_on_reconnect);
+				rtpe_config.redis_resolve_on_reconnect && !sent_s,
+				sent_s,
+				sent_s ? rtpe_redis_sentinel : NULL);
 
 		if (!rtpe_redis_notify)
 			die("Cannot start up without running Redis %s subscribe database! See also NO_REDIS_REQUIRED parameter.",
@@ -1934,14 +2039,16 @@ static void create_everything(void) {
 		}
 	}
 
-	if (!is_addr_unspecified(&rtpe_config.redis_ep.address)) {
+	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) || sent_r) {
 		rtpe_redis = redis_new(&rtpe_config.redis_ep,
 				rtpe_config.redis_db,
 				rtpe_config.redis_hostname,
 				rtpe_config.redis_auth,
-				(rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE),
+				((rtpe_redis_write && !sent_r) ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE),
 				rtpe_config.no_redis_required,
-				rtpe_config.redis_resolve_on_reconnect);
+				rtpe_config.redis_resolve_on_reconnect && !sent_r,
+				(!rtpe_redis_write && rtpe_config.redis_require_master) || sent_r,
+				sent_r ? rtpe_redis_sentinel : NULL);
 
 		if (!rtpe_redis)
 			die("Cannot start up without running Redis %s database! "
@@ -1953,9 +2060,11 @@ static void create_everything(void) {
 					rtpe_config.redis_db,
 					rtpe_config.redis_hostname,
 					rtpe_config.redis_auth,
-					(rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE),
+					((rtpe_redis_write && !sent_r) ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE),
 					rtpe_config.no_redis_required,
-					rtpe_config.redis_resolve_on_reconnect);
+					rtpe_config.redis_resolve_on_reconnect && !sent_r,
+					sent_r,
+					sent_r ? rtpe_redis_sentinel : NULL);
 
 			if (!rtpe_redis_notify)
 				die("Cannot start up without running notification Redis %s database! "
@@ -2122,11 +2231,18 @@ int main(int argc, char **argv) {
 		thread_create_looper(media_player_expire, rtpe_config.idle_scheduling,
 				rtpe_config.idle_priority, "cache expiry", rtpe_config.expiry_timer * 1000000LL);
 
-	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && initial_rtpe_config.redis_delete_async)
+	if (rtpe_redis && initial_rtpe_config.redis_delete_async)
 		thread_create_detach(redis_delete_async_loop, NULL, "redis async");
 
 	if (rtpe_redis_notify)
 		thread_create_detach(redis_notify_loop, NULL, "redis notify");
+
+	if (rtpe_redis_sentinel)
+		thread_create_detach(redis_sentinel_loop, rtpe_redis_sentinel, "redis sentinel");
+
+	if (rtpe_redis_write && (rtpe_config.redis_repair_writes || rtpe_config.redis_resync_on_master_change))
+		// not idle scheduling: it holds r->lock, which signalling waits for
+		thread_create_detach(redis_repair_loop, NULL, "redis repair");
 
 	do_redis_restore();
 
@@ -2185,7 +2301,7 @@ int main(int argc, char **argv) {
 
 	websocket_stop();
 
-	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && initial_rtpe_config.redis_delete_async)
+	if (rtpe_redis && initial_rtpe_config.redis_delete_async)
 		redis_async_event_base_action(rtpe_redis_write, EVENT_BASE_LOOPBREAK);
 
 	if (rtpe_redis_notify)
@@ -2193,10 +2309,10 @@ int main(int argc, char **argv) {
 
 	threads_join_all(true);
 
-	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && initial_rtpe_config.redis_delete_async)
+	if (rtpe_redis && initial_rtpe_config.redis_delete_async)
 		redis_async_event_base_action(rtpe_redis_write, EVENT_BASE_FREE);
 
-	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && rtpe_redis_notify)
+	if (rtpe_redis && rtpe_redis_notify)
 		redis_async_event_base_action(rtpe_redis_notify, EVENT_BASE_FREE);
 
 	ilog(LOG_INFO, "Version %s shutting down", RTPENGINE_VERSION);
@@ -2222,6 +2338,9 @@ int main(int argc, char **argv) {
 	if (rtpe_redis_write != rtpe_redis)
 		redis_close(rtpe_redis_write);
 	redis_close(rtpe_redis_notify);
+	redis_sentinel_free(rtpe_redis_sentinel);
+	rtpe_redis_sentinel = NULL;
+	redis_repair_free();
 
 	free_prefix();
 	log_free();

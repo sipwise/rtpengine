@@ -15,7 +15,13 @@
 #include "crypto.h"
 #include "dtls.h"
 
+struct redis_sentinel;
+struct event;
+
 #define REDIS_RESTORE_NUM_THREADS 4
+
+// also logged while calls are being restored
+#define rlog(l, x...) ilog(l | LOG_FLAG_RESTORE, x)
 
 enum redis_role {
 	MASTER_REDIS_ROLE = 0,
@@ -59,7 +65,15 @@ struct redis {
 	int		no_redis_required;
 	int		consecutive_errors;
 	int64_t		restore_tick_us;
+	unsigned int	skipped;		/* operations skipped until restore_tick_us */
+	bool		skipped_logged;
+	unsigned int	write_errors;		/* refused writes not reported in the log yet */
+	bool		writes_refused;		/* the last write was refused */
+	int64_t		write_errors_log_us;	/* time of the last report */
 	int		current_db;
+	bool		reconnecting;		/* a thread is connecting ctx without lock */
+	cond_t		reconnect_cond;		/* signalled when it is done */
+	unsigned int	released;		/* times redis_check_conn() let go of lock */
 
 	struct event_base		*async_ev;
 	struct redisAsyncContext	*async_ctx;
@@ -68,6 +82,14 @@ struct redis {
 	int64_t				async_last;
 
 	bool		update_resolve;
+	bool		require_master;	/* a role error drops the connection */
+	atomic64	lock_waiters;	/* signalling writes waiting for lock */
+	char		master_replid[48];	/* of the master last connected to */
+
+	struct redis_sentinel	*sentinel;	/* address from Redis Sentinel, or NULL */
+	uint64_t		gen;		/* generation of the master in endpoint */
+	struct event		*notify_timer;	/* subscriber: checks the generation */
+	uint64_t		notify_gen;	/* generation the subscription was made at */
 };
 
 struct redis_hash {
@@ -105,7 +127,8 @@ void redis_notify_loop(void *d);
 void redis_delete_async_loop(void *d);
 
 
-struct redis *redis_new(const endpoint_t *, int, const char *, const char *, enum redis_role, int, bool);
+struct redis *redis_new(const endpoint_t *, int, const char *, const char *, enum redis_role, int, bool,
+		bool, struct redis_sentinel *);
 struct redis *redis_dup(const struct redis *r, int db);
 void redis_close(struct redis *r);
 int redis_restore(struct redis *, bool foreign, int db);
@@ -115,7 +138,10 @@ void redis_wipe(struct redis *);
 int redis_async_event_base_action(struct redis *r, enum event_base_action);
 int redis_notify_subscribe_action(struct redis *r, enum subscribe_action action, int keyspace);
 int redis_set_timeout(struct redis* r, int64_t timeout);
+int redis_set_cmd_timeout(struct redis *r, int64_t timeout);
 int redis_reconnect(struct redis* r);
+void redis_repair_loop(void *);
+void redis_repair_free(void);
 
 
 #endif
