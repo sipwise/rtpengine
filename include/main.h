@@ -55,6 +55,8 @@ enum endpoint_learning {
 	X(redis_allowed_errors) \
 	X(redis_cmd_timeout) \
 	X(redis_connect_timeout) \
+	X(redis_reconnect_pause) \
+	X(redis_reconnect_slow) \
 	X(redis_delete_async) \
 	X(redis_delete_async_interval) \
 	X(redis_tcp_keepalive_time) \

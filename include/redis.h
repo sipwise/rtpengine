@@ -59,7 +59,15 @@ struct redis {
 	int		no_redis_required;
 	int		consecutive_errors;
 	int64_t		restore_tick_us;
+	unsigned int	skipped;		/* operations skipped until restore_tick_us */
+	bool		skipped_logged;
+	unsigned int	write_errors;		/* refused writes not reported in the log yet */
+	bool		writes_refused;		/* the last write was refused */
+	int64_t		write_errors_log_us;	/* time of the last report */
 	int		current_db;
+	bool		reconnecting;		/* a thread is connecting ctx without lock */
+	cond_t		reconnect_cond;		/* signalled when it is done */
+	unsigned int	released;		/* times redis_check_conn() let go of lock */
 
 	struct event_base		*async_ev;
 	struct redisAsyncContext	*async_ctx;
@@ -115,6 +123,7 @@ void redis_wipe(struct redis *);
 int redis_async_event_base_action(struct redis *r, enum event_base_action);
 int redis_notify_subscribe_action(struct redis *r, enum subscribe_action action, int keyspace);
 int redis_set_timeout(struct redis* r, int64_t timeout);
+int redis_set_cmd_timeout(struct redis *r, int64_t timeout);
 int redis_reconnect(struct redis* r);
 
 

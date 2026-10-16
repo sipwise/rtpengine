@@ -1721,24 +1721,24 @@ static void cli_incoming_set_rediscmdtimeout(str *instr, struct cli_writer *cw, 
 			cw->cw_printf(cw, "Failed reconnecting to redis\n");
 			fail = 1;
 		}
-		if (rtpe_redis && redis_reconnect(rtpe_redis_write)) {
+		if (rtpe_redis_write && redis_reconnect(rtpe_redis_write)) {
 			cw->cw_printf(cw, "Failed reconnecting to redis-write\n");
 			fail = 1;
 		}
-		if (rtpe_redis && redis_reconnect(rtpe_redis_notify)) {
+		if (rtpe_redis_notify && redis_reconnect(rtpe_redis_notify)) {
 			cw->cw_printf(cw, "Failed reconnecting to redis-notify\n");
 			fail = 1;
 		}
 	} else {
-		if (rtpe_redis && redis_set_timeout(rtpe_redis, timeout * 1000LL)) {
+		if (rtpe_redis && redis_set_cmd_timeout(rtpe_redis, timeout * 1000LL)) {
 			cw->cw_printf(cw, "Failed setting redis-cmd-timeout for redis %ld\n", timeout);
 			fail = 1;
 		}
-		if (rtpe_redis_write && redis_set_timeout(rtpe_redis_write, timeout * 1000LL)) {
+		if (rtpe_redis_write && redis_set_cmd_timeout(rtpe_redis_write, timeout * 1000LL)) {
 			cw->cw_printf(cw, "Failed setting redis-cmd-timeout for redis-write %ld\n", timeout);
 			fail = 1;
 		}
-		if (rtpe_redis_notify && redis_set_timeout(rtpe_redis_notify, timeout * 1000LL)) {
+		if (rtpe_redis_notify && redis_set_cmd_timeout(rtpe_redis_notify, timeout * 1000LL)) {
 			cw->cw_printf(cw, "Failed setting redis-cmd-timeout for redis-notify %ld\n", timeout);
 			fail = 1;
 		}
@@ -2133,7 +2133,11 @@ const char *cli_ng(ng_command_ctx_t *ctx) {
 		.cw_printf = ng_printf,
 		.ptr = response,
 	};
-	cli_handle(&body, &cw);
+	// The handlers parse numbers in place (strtol() and the like), and the
+	// body is a slice of the request buffer: end it where the body ends.
+	g_autofree char *body_s = g_strndup(body.s, body.len);
+	str body_z = STR_LEN(body_s, body.len);
+	cli_handle(&body_z, &cw);
 
 	parser->dict_add_str_dup(ctx->resp, "response", &STR_LEN(response->str, response->len));
 
