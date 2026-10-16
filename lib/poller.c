@@ -29,10 +29,19 @@ struct poller_item_int {
 	unsigned int			error:1;
 };
 
+
+static void poller_free_item(struct poller_item_int *ele) {
+	if (ele)
+		obj_put(ele);
+}
+
+
+TYPED_GPTRARRAY_FULL(items_arr, struct poller_item_int, poller_free_item)
+
 struct poller {
 	int				fd;
 	mutex_t				lock;
-	GPtrArray			*items;
+	items_arr			*items;
 };
 
 bool (*rtpe_poller_add_item)(struct poller *, struct poller_item *) = poller_add_item;
@@ -43,11 +52,6 @@ bool (*rtpe_poller_isblocked)(struct poller *, void *) = poller_isblocked;
 void (*rtpe_poller_error)(struct poller *, void *) = poller_error;
 
 
-static void poller_free_item(struct poller_item_int *ele) {
-	if (ele)
-		obj_put(ele);
-}
-
 struct poller *poller_new(void) {
 	struct poller *p;
 
@@ -56,7 +60,7 @@ struct poller *poller_new(void) {
 	p->fd = epoll_create1(0);
 	if (p->fd == -1)
 		goto err;
-	p->items = g_ptr_array_new_full(1024, (GDestroyNotify) poller_free_item);
+	p->items = items_arr_new_sized(1024);
 
 	return p;
 
@@ -69,9 +73,9 @@ void poller_free(struct poller **pp) {
 	struct poller *p = *pp;
 
 	// prevent recursion into poller_del_item from item's free functions
-	GPtrArray *arr = p->items;
+	items_arr *arr = p->items;
 	p->items = NULL;
-	g_ptr_array_free(arr, TRUE); // calls the clear function to release references
+	t_ptr_array_free(arr, true); // calls the clear function to release references
 
 	if (p->fd != -1)
 		close(p->fd);
@@ -124,7 +128,7 @@ bool poller_add_item(struct poller *p, struct poller_item *i) {
 		return false;
 
 	if (i->fd >= p->items->len)
-		g_ptr_array_set_size(p->items, i->fd + 1);
+		t_ptr_array_set_size(p->items, i->fd + 1);
 
 	ip = obj_alloc0(struct poller_item_int, poller_item_free);
 	memcpy(&ip->item, i, sizeof(*i));
