@@ -301,17 +301,17 @@ struct send_timer *send_timer_new(struct packet_stream *ps) {
 }
 
 // call is locked in R
-// ssrc_out is locked
 // st->sink is locked
+// ssrc_out is NOT locked: rtcp_send_report() locks other SSRC entries (the
+// receiver report sources and the SR bookkeeping on the far media) and the
+// transcoder locks ingress before egress (__ssrc_lock_both), so holding the
+// egress lock across this call inverts the order and deadlocks against it.
 static void send_timer_rtcp(struct send_timer *st, struct ssrc_entry_call *ssrc_out) {
 	struct call_media *media = st->sink ? st->sink->media : NULL;
 	if (!media)
 		return;
 
 	rtcp_send_report(media, ssrc_out, st->sink);
-
-	ssrc_out->next_rtcp = rtpe_now;
-	ssrc_out->next_rtcp += 5000000 + (ssl_random() % 2000000);
 }
 
 struct async_send_req {
@@ -432,10 +432,17 @@ static void __send_timer_rtcp(struct send_timer *st, struct ssrc_entry_call *ssr
 	if (!ssrc_out->next_rtcp)
 		return;
 
-	LOCK(&ssrc_out->h.lock);
-	int64_t diff = ssrc_out->next_rtcp - rtpe_now;
-	if (diff < 0)
-		send_timer_rtcp(st, ssrc_out);
+	{
+		LOCK(&ssrc_out->h.lock);
+		int64_t diff = ssrc_out->next_rtcp - rtpe_now;
+		if (diff >= 0)
+			return;
+		// claim the slot before dropping the lock so that another send
+		// timer sharing this SSRC does not send a second report
+		ssrc_out->next_rtcp = rtpe_now;
+		ssrc_out->next_rtcp += 5000000 + (ssl_random() % 2000000);
+	}
+	send_timer_rtcp(st, ssrc_out);
 }
 
 static void send_timer_send_lock(struct send_timer *st, struct codec_packet *cp) {
@@ -1126,6 +1133,11 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 
 	mp->coder.handler->handler_func(mp->coder.handler, &packet);
 
+	/* sent under the fixed egress SSRC: forwarded media must re-base on us */
+	if (mp->ssrc_out && mp->media->fixed_egress_ssrc
+			&& mp->ssrc_out->h.ssrc == mp->media->fixed_egress_ssrc)
+		mp->ssrc_out->fixed_rebase = true;
+
 	// as this is timing sensitive and we may have spent some time decoding,
 	// update our global "now" timestamp
 	rtpe_now = now_us();
@@ -1252,6 +1264,10 @@ void media_player_set_sink(struct media_player *mp) {
 		mp->sink.sink = media->streams.head;
 		sink_handler_set_generic(&mp->sink);
 	}
+	/* with a fixed egress SSRC the player sends under it too, so the
+	 * receiver sees a single stream whether media is forwarded or mixed */
+	if (media->fixed_egress_ssrc)
+		mp->ssrc = media->fixed_egress_ssrc;
 	if (!mp->ssrc_out || mp->ssrc_out->h.ssrc != mp->ssrc) {
 		struct ssrc_entry_call *ssrc_ctx = get_ssrc(mp->ssrc, &media->ssrc_hash_out);
 		if (ssrc_ctx)
@@ -1260,6 +1276,22 @@ void media_player_set_sink(struct media_player *mp) {
 		 * hence release previous ssrc, to no leak on media changes */
 		ssrc_entry_release(mp->ssrc_out);
 		mp->ssrc_out = ssrc_ctx;
+	}
+	/* ... and, whenever it (re)starts under it, carries on from the last
+	 * sequence number sent under that SSRC by whoever sent it. The player
+	 * numbers its packets as `mp->seq + seq_diff` (the audio player, which
+	 * advances seq_diff per packet) or as `mp->seq` alone (file playback),
+	 * so both counters are reset together. Dropping the offset that
+	 * forwarded media had accumulated is safe: the codec handlers were just
+	 * rebuilt around the player, so nothing else sends under this SSRC now,
+	 * and forwarding re-bases on ext_seq when it resumes (fixed_rebase). */
+	if (media->fixed_egress_ssrc && mp->ssrc_out
+			&& mp->ssrc_out->h.ssrc == media->fixed_egress_ssrc && !mp->next_run)
+	{
+		uint64_t last = atomic_get_na(&mp->ssrc_out->stats->ext_seq);
+		if (last)
+			mp->seq = (uint16_t) (last + 1);
+		mp->ssrc_out->seq_diff = 0;
 	}
 }
 
