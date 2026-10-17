@@ -1080,7 +1080,11 @@ static void target_put(struct rtpengine_target *t) {
 			free_crypto_context(&t->outputs[i].encrypt_rtp);
 			free_crypto_context(&t->outputs[i].encrypt_rtcp);
 			dst_release(t->outputs[i].dst);
-			put_net(t->outputs[i].net);
+			// A target may be deleted while some output slots are still
+			// uninitialised (or failed during setup). put_net(NULL) can
+			// dereference NULL; only release a reference we acquired.
+			if (t->outputs[i].net)
+				put_net(t->outputs[i].net);
 		}
 		kfree(t->outputs);
 	}
