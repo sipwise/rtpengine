@@ -5376,7 +5376,7 @@ void call_destroy(call_t *c) {
 					se->highest_mos->mos % 10,
 					((se->highest_mos->reported - c->created) / 1000000L) / 60,
 					((se->highest_mos->reported - c->created) / 1000000L) % 60,
-					(unsigned int) se->packets_lost);
+					ssrc_packets_lost(se));
 				ilog(LOG_INFO, "------ respective (avg/min/max) jitter %" PRIu64 "/%" PRIu64 "/%" PRIu64 " ms, "
 						"RTT-e2e %" PRIu64 ".%" PRIu64 "/%" PRIu64 ".%" PRIu64
 						"/%" PRIu64 ".%" PRIu64 " ms, "
