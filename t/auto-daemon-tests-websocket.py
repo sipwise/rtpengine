@@ -93,6 +93,40 @@ async def testOJanus(self, msg, conn_num=0):
     await self._ws[conn_num].send(json.dumps(msg))
 
 
+class TestHTTPDisconnectStress(unittest.TestCase):
+    """Exercise the worker/service-lock cycle reported in issue #2197."""
+
+    def testAbortStormDoesNotBlockServiceThread(self):
+        import concurrent.futures
+        import http.client
+        import struct
+
+        def abort_metrics():
+            try:
+                with socket.create_connection(("127.0.0.1", 9191), timeout=3) as sock:
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER,
+                                    struct.pack("ii", 1, 0))
+                    sock.sendall(b"GET /metrics HTTP/1.1\r\n"
+                                 b"Host: localhost\r\n"
+                                 b"Connection: close\r\n\r\n")
+            except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+                pass
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=32) as pool:
+            for _ in range(12):
+                list(pool.map(lambda _: abort_metrics(), range(32)))
+                # Failure mode: the LWS service thread waits on a queued
+                # worker while all pool workers wait for its service lock.
+                conn = http.client.HTTPConnection("127.0.0.1", 9191, timeout=5)
+                try:
+                    conn.request("GET", "/ping", headers={"Connection": "close"})
+                    response = conn.getresponse()
+                    self.assertEqual(response.status, 200)
+                    self.assertEqual(response.read(), b"pong\n")
+                finally:
+                    conn.close()
+
+
 class TestWSEcho(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -3599,6 +3633,7 @@ if __name__ == "__main__":
                 "7",
                 "-E",
                 "--listen-http=127.0.0.1:9191",
+                "--http-threads=2",
                 "--janus-secret=dfgdfgdvgLyATjHPvckg",
                 "--delete-delay=0",
             ],

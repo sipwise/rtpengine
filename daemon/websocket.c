@@ -42,6 +42,7 @@ struct websocket_conn {
 	// multithreaded message processing
 	mutex_t lock;
 	unsigned int jobs;
+	bool writable_queued; // protected by websocket_callback_lock
 	websocket_message_q messages;
 	cond_t cond;
 	janus_sessions_ht janus_sessions;
@@ -62,6 +63,9 @@ struct websocket_ng_buf {
 static GQueue websocket_vhost_configs;
 static struct lws_context *websocket_context;
 static GThreadPool *websocket_threads;
+// Workers only enqueue writable notifications. The LWS service thread
+// consumes this queue after lws_service() returns.
+static GQueue websocket_pending_writes;
 static mutex_t websocket_callback_lock = MUTEX_STATIC_INIT;
 static mutex_t websocket_service_lock = MUTEX_STATIC_INIT;
 
@@ -134,67 +138,51 @@ static void __websocket_write_raw(struct websocket_conn *wc, const char *msg, si
 	t_queue_push_tail(&wc->output_q, websocket_output_new());
 }
 
-// called after all writes are done - non-locking
-// may intermittently release wc->lock
+// Called with wc->lock held, after appending response data. Do not wait
+// for the LWS service lock here: the service thread can be closing another
+// connection and waiting for a queued worker to finish (issue #2197).
 static void __websocket_write_done(struct websocket_conn *wc) {
-	while (true) {
-		// If this connection is already closed, don't trigger
-		// a wakeup of the service thread and don't request a
-		// writeable callback. We can't write anyway if the
-		// connection is already closed. Prevents a deadlock
-		// between acquiring the service lock here and the
-		// websocket_conn_cleanup called from within the service
-		// loop.
-		if (!wc->wsi)
-			return;
+	if (!wc->wsi)
+		return;
 
-		// Sadly lws_callback_on_writable() doesn't do any internal
-		// locking, therefore we must protect it against a concurrently
-		// running lws_service(), as well as against other threads
-		// invoking lws_callback_on_writable().
-		//
-		// Acquire the callback lock first, which is normally unlocked,
-		// then wake up the service thread and try to break out of
-		// lws_service().  The service thread holds the service lock
-		// while lws_service() is executing and releases it as soon as
-		// lws_service() is done. We therefore try to acquire the
-		// service lock here, which blocks us until lws_service() is
-		// actually done. At this point the service thread will try to
-		// acquire the callback lock, which is still held by us here,
-		// and so the service thread will block until we are done
-		// calling lws_callback_on_writable(). Finally we release both
-		// locks, which allows the service thread to resume
-		// lws_service().
-		//
-		// The suggested approach of using
-		// LWS_CALLBACK_EVENT_WAIT_CANCELLED together with a queue and
-		// then calling lws_callback_on_writable() from the service
-		// thread is not usable as libwebsockets 2.0 doesn't support
-		// LWS_CALLBACK_EVENT_WAIT_CANCELLED.
-
-		mutex_lock(&websocket_callback_lock);
-		lws_cancel_service(websocket_context);
-
-		if (mutex_trylock(&websocket_service_lock)) {
-			// Wrong lock order: service_lock should be the outer lock
-			// and wc->lock should be the inner lock. The connection may
-			// be in the process of being closed (websocket_conn_cleanup).
-			// Release wc->lock and try again.
-			mutex_unlock(&websocket_callback_lock);
-			mutex_unlock(&wc->lock);
-			sched_yield();
-			mutex_lock(&wc->lock);
-			continue;
-		}
-		lws_callback_on_writable(wc->wsi);
-
-		mutex_unlock(&websocket_service_lock);
-		mutex_unlock(&websocket_callback_lock);
-
-		break;
+	mutex_lock(&websocket_callback_lock);
+	if (!wc->writable_queued) {
+		wc->writable_queued = true;
+		g_queue_push_tail(&websocket_pending_writes, wc);
 	}
+	mutex_unlock(&websocket_callback_lock);
+
+	// This can be called safely from a worker; only the service thread
+	// invokes lws_callback_on_writable() while not inside lws_service().
+	lws_cancel_service(websocket_context);
 }
 
+// Executed only by the LWS service thread, outside lws_service().
+// Caller holds the service lock; callback_lock only protects the queue.
+static void websocket_flush_write_notifications(void) {
+	// Only the service thread can free an LWS connection, so a popped
+	// connection remains live until its writable event is scheduled.
+	// Do not hold the queue lock inside libwebsockets, as callbacks can
+	// re-enter the HTTP/WS code.
+	mutex_lock(&websocket_callback_lock);
+	unsigned int pending = websocket_pending_writes.length;
+	mutex_unlock(&websocket_callback_lock);
+
+	// Process a snapshot to avoid starving lws_service() if producers
+	// continuously queue new callbacks.
+	while (pending--) {
+		mutex_lock(&websocket_callback_lock);
+		struct websocket_conn *wc = g_queue_pop_head(&websocket_pending_writes);
+		if (wc)
+			wc->writable_queued = false;
+		mutex_unlock(&websocket_callback_lock);
+
+		if (!wc)
+			break;
+		if (wc->wsi)
+			lws_callback_on_writable(wc->wsi);
+	}
+}
 
 // adds data to output buffer (can be null) and triggers specified response: http or binary websocket - non-locking
 void __websocket_write_http_len(struct websocket_conn *wc, const char *msg, size_t len) {
@@ -801,6 +789,14 @@ static void websocket_conn_cleanup(struct websocket_conn *wc) {
 	mutex_lock(&wc->lock);
 
 	wc->wsi = NULL;
+	// Drop any queued callback before LWS frees its session storage.
+	// Lock order is wc->lock, then websocket_callback_lock everywhere.
+	mutex_lock(&websocket_callback_lock);
+	if (wc->writable_queued) {
+		g_queue_remove(&websocket_pending_writes, wc);
+		wc->writable_queued = false;
+	}
+	mutex_unlock(&websocket_callback_lock);
 	while (wc->jobs)
 		cond_wait(&wc->cond, &wc->lock);
 
@@ -1323,10 +1319,10 @@ static void websocket_loop(void *p) {
 
 		mutex_lock(&websocket_service_lock);
 		lws_service(websocket_context, 100);
+		// Flush only after LWS has exited its callbacks and is not
+		// holding the connection cleanup path.
+		websocket_flush_write_notifications();
 		mutex_unlock(&websocket_service_lock);
-
-		mutex_lock(&websocket_callback_lock);
-		mutex_unlock(&websocket_callback_lock);
 	}
 
 	websocket_cleanup();
