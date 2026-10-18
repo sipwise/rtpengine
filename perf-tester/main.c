@@ -544,7 +544,9 @@ static void new_stream_params(
 		abort();
 
 	struct poller_item pi = {
-		.fd = s->timer_fd,
+		.u = {
+			.fd = s->timer_fd,
+		},
 		.obj = &s->obj,
 		.readable = readable,
 		.closed = closed,
