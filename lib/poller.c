@@ -40,6 +40,8 @@ TYPED_GPTRARRAY_FULL(items_arr, struct poller_item_int, poller_free_item)
 
 struct poller {
 	int				fd;
+	int32_t				gen;
+	static_assert(sizeof(int) == sizeof(int32_t), "int fd is not 32 bits");
 	mutex_t				lock;
 	items_arr			*items;
 };
@@ -120,6 +122,8 @@ bool poller_add_item(struct poller *p, struct poller_item *i) {
 
 	if (i->u.fd < p->items->len && p->items->pdata[i->u.fd])
 		return false;
+
+	i->u.gen = ++p->gen;
 
 	ZERO(e);
 	e.events = epoll_events(i, NULL);
@@ -217,6 +221,9 @@ static int poller_poll(struct poller *p, int timeout, struct epoll_event *evs, i
 
 		it = (u64.fd < p->items->len) ? p->items->pdata[u64.fd] : NULL;
 		if (!it)
+			continue;
+
+		if (it->item.u.u64 != u64.u64)
 			continue;
 
 		obj_hold(it);
