@@ -84,7 +84,7 @@ static int tcp_listener_init(socket_t *sock, const endpoint_t *ep,
 		goto fail;
 
 	ZERO(i);
-	i.fd = sock->fd;
+	i.u.fd = sock->fd;
 	i.closed = tcp_listener_closed;
 	i.readable = tcp_listener_incoming;
 	i.obj = &cb->obj;
@@ -171,7 +171,7 @@ static void streambuf_listener_newconn(struct obj *p, socket_t *newsock, char *a
 	s->addr = strdup(addr);
 
 	ZERO(i);
-	i.fd = newsock->fd;
+	i.u.fd = newsock->fd;
 	i.closed = streambuf_stream_closed;
 	i.readable = streambuf_stream_readable;
 	i.writeable = streambuf_stream_writeable;
