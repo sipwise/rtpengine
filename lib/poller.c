@@ -123,7 +123,7 @@ bool poller_add_item(struct poller *p, struct poller_item *i) {
 
 	ZERO(e);
 	e.events = epoll_events(i, NULL);
-	e.data.fd = i->u.fd;
+	e.data.u64 = i->u.u64;
 	if (epoll_ctl(p->fd, EPOLL_CTL_ADD, i->u.fd, &e))
 		return false;
 
@@ -210,10 +210,12 @@ static int poller_poll(struct poller *p, int timeout, struct epoll_event *evs, i
 	for (i = 0; i < ret; i++) {
 		ev = &evs[i];
 
-		if (ev->data.fd < 0)
+		union poller_item_u64 u64 = { .u64 = ev->data.u64 };
+
+		if (u64.fd < 0)
 			continue;
 
-		it = (ev->data.fd < p->items->len) ? p->items->pdata[ev->data.fd] : NULL;
+		it = (u64.fd < p->items->len) ? p->items->pdata[u64.fd] : NULL;
 		if (!it)
 			continue;
 
@@ -233,7 +235,7 @@ static int poller_poll(struct poller *p, int timeout, struct epoll_event *evs, i
 
 			ZERO(e);
 			e.events = epoll_events(NULL, it);
-			e.data.fd = it->item.u.fd;
+			e.data.u64 = it->item.u.u64;
 			int eret = epoll_ctl(p->fd, EPOLL_CTL_MOD, it->item.u.fd, &e);
 
 			mutex_unlock(&p->lock);
@@ -282,7 +284,7 @@ void poller_blocked(struct poller *p, void *fdp) {
 
 	ZERO(e);
 	e.events = epoll_events(NULL, it);
-	e.data.fd = fd;
+	e.data.u64 = it->item.u.u64;
 	epoll_ctl(p->fd, EPOLL_CTL_MOD, fd, &e);
 }
 
