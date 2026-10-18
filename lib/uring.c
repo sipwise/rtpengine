@@ -241,7 +241,7 @@ bool uring_poller_add_item(struct poller *p, struct poller_item *i) {
 		return false;
 	if (!i)
 		return false;
-	if (i->fd < 0)
+	if (i->u.fd < 0)
 		return false;
 	if (!i->readable)
 		return false;
@@ -331,29 +331,29 @@ static void uring_poll_event(struct uring_req *req, int32_t res, uint32_t flags)
 	struct uring_poll_event *ereq = (__typeof(ereq)) req;
 	bool closed = false;
 
-	//ilog(LOG_INFO, "uring poll event %i %i %i", ereq->it.fd, res, flags);
+	//ilog(LOG_INFO, "uring poll event %i %i %i", ereq->it.u.fd, res, flags);
 
 	if (res < 0) {
 		if (res != -ECANCELED)
 			ilog(LOG_WARNING | LOG_FLAG_LIMIT, "io_uring poll error on fd %i: %s",
-					ereq->it.fd, strerror(-res));
+					ereq->it.u.fd, strerror(-res));
 		closed = true;
 	}
 	else if ((res & (POLLERR | POLLHUP))) {
-		//ilog(LOG_INFO, "uring poll fd error %i %i", ereq->it.fd, res);
+		//ilog(LOG_INFO, "uring poll fd error %i %i", ereq->it.u.fd, res);
 		closed = true;
 	}
 	else if ((res & POLLIN))
-		ereq->it.readable(ereq->it.fd, ereq->it.obj);
+		ereq->it.readable(ereq->it.u.fd, ereq->it.obj);
 	else {
 		ilog(LOG_WARNING | LOG_FLAG_LIMIT, "unhandled io_uring poll event mask on fd %i: %i",
-				ereq->it.fd, res);
+				ereq->it.u.fd, res);
 		closed = true;
 	}
 
 	if (closed) {
 		if (!ereq->closed)
-			ereq->it.closed(ereq->it.fd, ereq->it.obj);
+			ereq->it.closed(ereq->it.u.fd, ereq->it.obj);
 		ereq->closed = true;
 	}
 
@@ -363,8 +363,8 @@ static void uring_poll_event(struct uring_req *req, int32_t res, uint32_t flags)
 		struct poller *p = ereq->poller;
 		{
 			LOCK(&p->lock);
-			if (p->evs->len > ereq->it.fd && p->evs->pdata[ereq->it.fd] == ereq)
-				p->evs->pdata[ereq->it.fd] = NULL;
+			if (p->evs->len > ereq->it.u.fd && p->evs->pdata[ereq->it.u.fd] == ereq)
+				p->evs->pdata[ereq->it.u.fd] = NULL;
 		}
 		g_free(&ereq->req);
 	}
@@ -397,25 +397,25 @@ static void uring_poll_unblocked(struct uring_req *req, int32_t res, uint32_t fl
 	bool closed = false;
 	if (res < 0) {
 		ilog(LOG_WARNING | LOG_FLAG_LIMIT, "io_uring poll write error on fd %i: %s",
-				ureq->it.fd, strerror(-res));
+				ureq->it.u.fd, strerror(-res));
 		closed = true;
 	}
 	else if (!(res & (POLLOUT))) {
 		ilog(LOG_WARNING | LOG_FLAG_LIMIT, "unhandled io_uring poll event write mask on fd %i: %i",
-				ureq->it.fd, res);
+				ureq->it.u.fd, res);
 		closed = true;
 	}
 	else {
 		struct poller *p = ureq->poller;
-		if (p->blocked->len > ureq->it.fd)
-			g_array_index(p->blocked, char, ureq->it.fd) = 0;
-		ureq->it.writeable(ureq->it.fd, ureq->it.obj);
+		if (p->blocked->len > ureq->it.u.fd)
+			g_array_index(p->blocked, char, ureq->it.u.fd) = 0;
+		ureq->it.writeable(ureq->it.u.fd, ureq->it.obj);
 	}
 
 	assert((flags & IORING_CQE_F_MORE) == 0);
 
 	if (closed)
-		ureq->it.closed(ureq->it.fd, ureq->it.obj);
+		ureq->it.closed(ureq->it.u.fd, ureq->it.obj);
 
 	if (ureq->it.obj)
 		obj_put_o(ureq->it.obj);
@@ -443,12 +443,12 @@ static void uring_poll_recv(struct uring_req *req, int32_t res, uint32_t flags) 
 	struct poller *p = rreq->poller;
 	bool closed = false;
 
-	//ilog(LOG_INFO, "uring recvmsg event %i %i %i", rreq->it.fd, res, flags);
+	//ilog(LOG_INFO, "uring recvmsg event %i %i %i", rreq->it.u.fd, res, flags);
 
 	if (res < 0) {
 		if (res != -ECANCELED)
 			ilog(LOG_WARNING | LOG_FLAG_LIMIT, "io_uring recvmsg error on fd %i: %s",
-					rreq->it.fd, strerror(-res));
+					rreq->it.u.fd, strerror(-res));
 		closed = true;
 	}
 	else {
@@ -477,12 +477,12 @@ static void uring_poll_recv(struct uring_req *req, int32_t res, uint32_t flags) 
 
 	if (closed) {
 		if (!rreq->closed)
-			rreq->it.closed(rreq->it.fd, rreq->it.obj);
+			rreq->it.closed(rreq->it.u.fd, rreq->it.obj);
 		rreq->closed = true;
 	}
 
 	if (!(flags & IORING_CQE_F_MORE)) {
-		//ilog(LOG_INFO, "last uring recv event for fd %i for %p (%i)", rreq->it.fd, rreq->it.obj, rreq->it.obj->ref);
+		//ilog(LOG_INFO, "last uring recv event for fd %i for %p (%i)", rreq->it.u.fd, rreq->it.obj, rreq->it.obj->ref);
 		if (rreq->it.obj)
 			obj_put_o(rreq->it.obj);
 		g_free(&rreq->req);
@@ -491,19 +491,19 @@ static void uring_poll_recv(struct uring_req *req, int32_t res, uint32_t flags) 
 
 static void uring_poller_do_add(struct poller *p, struct poller_req *preq) {
 	// don't allow duplicates
-	if (p->evs->len > preq->it.fd && p->evs->pdata[preq->it.fd])
+	if (p->evs->len > preq->it.u.fd && p->evs->pdata[preq->it.u.fd])
 		abort(); // XXX handle gracefully?
 	struct uring_poll_event *ereq
 		= uring_alloc_req(struct uring_poll_event, uring_poll_event);
 	ereq->it = preq->it;
 	ereq->poller = p;
 	struct io_uring_sqe *sqe = io_uring_get_sqe(&rtpe_uring);
-	io_uring_prep_poll_multishot(sqe, ereq->it.fd, POLLHUP | POLLERR | POLLIN);
+	io_uring_prep_poll_multishot(sqe, ereq->it.u.fd, POLLHUP | POLLERR | POLLIN);
 	io_uring_sqe_set_data(sqe, ereq);
 	// save ereq for write blocks. no extra obj reference
-	if (p->evs->len <= ereq->it.fd)
-		g_ptr_array_set_size(p->evs, ereq->it.fd + 1);
-	p->evs->pdata[ereq->it.fd] = ereq;
+	if (p->evs->len <= ereq->it.u.fd)
+		g_ptr_array_set_size(p->evs, ereq->it.u.fd + 1);
+	p->evs->pdata[ereq->it.u.fd] = ereq;
 }
 static void uring_poller_do_blocked(struct poller *p, struct poller_req *preq) {
 	// valid fd?
@@ -517,7 +517,7 @@ static void uring_poller_do_blocked(struct poller *p, struct poller_req *preq) {
 	if (ureq->it.obj)
 		obj_hold_o(ureq->it.obj);
 	struct io_uring_sqe *sqe = io_uring_get_sqe(&rtpe_uring);
-	io_uring_prep_poll_add(sqe, ureq->it.fd, POLLOUT);
+	io_uring_prep_poll_add(sqe, ureq->it.u.fd, POLLOUT);
 	io_uring_sqe_set_data(sqe, ureq);
 }
 static void uring_poller_do_error(struct poller *p, struct poller_req *preq) {
@@ -544,7 +544,7 @@ static void uring_poller_do_buffers(struct poller *p, struct poller_req *preq) {
 	io_uring_sqe_set_data(sqe, breq); // XXX no content? not needed?
 }
 static void uring_poller_do_recv(struct poller *p, struct poller_req *preq) {
-	//ilog(LOG_INFO, "adding recv fd %i on %p for %p", preq->it.fd, p, preq->it.obj);
+	//ilog(LOG_INFO, "adding recv fd %i on %p for %p", preq->it.u.fd, p, preq->it.obj);
 	struct uring_poll_recv *rreq
 		= uring_alloc_req(struct uring_poll_recv, uring_poll_recv);
 	rreq->it = preq->it;
@@ -559,7 +559,7 @@ static void uring_poller_do_recv(struct poller *p, struct poller_req *preq) {
 		.msg_namelen = sizeof(struct sockaddr_storage),
 		.msg_controllen = 64,
 	};
-	io_uring_prep_recvmsg_multishot(sqe, rreq->it.fd, &rreq->msg, 0);
+	io_uring_prep_recvmsg_multishot(sqe, rreq->it.u.fd, &rreq->msg, 0);
 	sqe->ioprio |= IORING_RECVSEND_POLL_FIRST;
 	io_uring_sqe_set_flags(sqe, IOSQE_BUFFER_SELECT);
 	sqe->buf_group = 0;
@@ -613,7 +613,9 @@ void uring_poller_add_waker(struct poller *p) {
 			&(struct poller_item) {
 				.readable = uring_poller_waker_read,
 				.closed = uring_poller_waker_closed,
-				.fd = p->waker_fds[1],
+				.u = {
+					.fd = p->waker_fds[1],
+				},
 			});
 }
 
