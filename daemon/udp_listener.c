@@ -91,7 +91,7 @@ int udp_listener_init(socket_t *sock, const endpoint_t *ep,
 	socket_pktinfo(sock);
 
 	ZERO(i);
-	i.fd = sock->fd;
+	i.u.fd = sock->fd;
 	i.closed = udp_listener_closed;
 	i.readable = udp_listener_incoming;
 	i.obj = &cb->obj;
