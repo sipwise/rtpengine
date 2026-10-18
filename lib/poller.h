@@ -28,6 +28,7 @@ union poller_item_u64 {
 	struct {
 		int fd;
 	} __attribute__((packed));
+	uint64_t u64;
 };
 
 struct poller_item {
@@ -39,6 +40,8 @@ struct poller_item {
 	poller_func_t			writeable;
 	poller_func_t			closed;
 };
+
+static_assert(sizeof(union poller_item_u64) == sizeof(uint64_t), "wrong packing of union poller_item_u64");
 
 struct poller;
 
