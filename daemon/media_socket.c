@@ -4006,7 +4006,7 @@ stream_fd *stream_fd_new(struct socket_port_link *spl, call_t *call, struct loca
 	__C_DBG("stream_fd_new localport=%d", sfd->socket.local.port);
 
 	ZERO(pi);
-	pi.fd = sfd->socket.fd;
+	pi.u.fd = sfd->socket.fd;
 	pi.obj = &sfd->obj;
 	pi.readable = stream_fd_readable;
 	pi.recv = stream_fd_recv;

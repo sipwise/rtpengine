@@ -24,8 +24,14 @@ struct sockaddr;
 
 typedef void (*poller_func_t)(int, void *);
 
+union poller_item_u64 {
+	struct {
+		int fd;
+	} __attribute__((packed));
+};
+
 struct poller_item {
-	int				fd;
+	union poller_item_u64		u;
 	struct obj			*obj;
 
 	poller_func_t			readable;
