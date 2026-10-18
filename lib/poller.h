@@ -27,6 +27,7 @@ typedef void (*poller_func_t)(int, void *);
 union poller_item_u64 {
 	struct {
 		int fd;
+		int32_t gen;
 	} __attribute__((packed));
 	uint64_t u64;
 };
