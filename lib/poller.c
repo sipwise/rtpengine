@@ -103,7 +103,7 @@ bool poller_add_item(struct poller *p, struct poller_item *i) {
 		return false;
 	if (!i)
 		return false;
-	if (i->fd < 0)
+	if (i->u.fd < 0)
 		return false;
 	if (!i->readable && !i->writeable)
 		return false;
@@ -114,22 +114,22 @@ bool poller_add_item(struct poller *p, struct poller_item *i) {
 
 	LOCK(&p->lock);
 
-	if (i->fd < p->items->len && p->items->pdata[i->fd])
+	if (i->u.fd < p->items->len && p->items->pdata[i->u.fd])
 		return false;
 
 	ZERO(e);
 	e.events = epoll_events(i, NULL);
-	e.data.fd = i->fd;
-	if (epoll_ctl(p->fd, EPOLL_CTL_ADD, i->fd, &e))
+	e.data.fd = i->u.fd;
+	if (epoll_ctl(p->fd, EPOLL_CTL_ADD, i->u.fd, &e))
 		return false;
 
-	if (i->fd >= p->items->len)
-		g_ptr_array_set_size(p->items, i->fd + 1);
+	if (i->u.fd >= p->items->len)
+		g_ptr_array_set_size(p->items, i->u.fd + 1);
 
 	ip = obj_alloc0(struct poller_item_int, poller_item_free);
 	memcpy(&ip->item, i, sizeof(*i));
 	obj_hold_o(ip->item.obj); /* new ref in *ip */
-	p->items->pdata[i->fd] = obj_get(ip);
+	p->items->pdata[i->u.fd] = obj_get(ip);
 
 	} // unlock
 
@@ -217,28 +217,28 @@ static int poller_poll(struct poller *p, int timeout, struct epoll_event *evs, i
 		mutex_unlock(&p->lock);
 
 		if (it->error) {
-			it->item.closed(it->item.fd, it->item.obj);
+			it->item.closed(it->item.u.fd, it->item.obj);
 			goto next;
 		}
 
 		if ((ev->events & (POLLERR | POLLHUP)))
-			it->item.closed(it->item.fd, it->item.obj);
+			it->item.closed(it->item.u.fd, it->item.obj);
 		else if ((ev->events & POLLOUT)) {
 			mutex_lock(&p->lock);
 			it->blocked = 0;
 
 			ZERO(e);
 			e.events = epoll_events(NULL, it);
-			e.data.fd = it->item.fd;
-			int eret = epoll_ctl(p->fd, EPOLL_CTL_MOD, it->item.fd, &e);
+			e.data.fd = it->item.u.fd;
+			int eret = epoll_ctl(p->fd, EPOLL_CTL_MOD, it->item.u.fd, &e);
 
 			mutex_unlock(&p->lock);
 
 			if (eret == 0 && it->item.writeable)
-				it->item.writeable(it->item.fd, it->item.obj);
+				it->item.writeable(it->item.u.fd, it->item.obj);
 		}
 		else if ((ev->events & POLLIN))
-			it->item.readable(it->item.fd, it->item.obj);
+			it->item.readable(it->item.u.fd, it->item.obj);
 		else if (!ev->events)
 			goto next;
 		else
