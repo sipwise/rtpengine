@@ -1593,7 +1593,7 @@ static bool reorder_sdes_preferences(sdes_q *sdes_in, const str_q *offered_order
 /* "SDES-key-SUITE:KEY": use the given master key and salt (base64, as in a=crypto)
  * instead of generated or copied ones */
 static void __sdes_keys(const sdp_ng_flags *flags, sdes_q *cpq) {
-	for (__auto_type k = flags->sdes_keys.head; k; k = k->next) {
+	for (auto_iter(k, flags->sdes_keys.head); k; k = k->next) {
 		str b64 = *k->data, name;
 		if (!str_token(&name, &b64, ':') || !b64.len) {
 			ilogs(crypto, LOG_WARN, "Invalid SDES key '" STR_FORMAT "'", STR_FMT(k->data));
