@@ -13,193 +13,16 @@ use warnings;
 use Bencode;
 use JSON;
 use NGCP::Rtpengine::AutoTest;
+use NGCP::Rtpengine::FakeRedis;
 use NGCP::Rtpclient::SRTP;
-use File::Temp ();
-use IO::Select;
-use POSIX ();
-use Socket qw(AF_INET SOCK_STREAM sockaddr_in inet_aton);
 use Test::More;
-use Time::HiRes;
 
 my $redis_format = $ENV{RTPE_REDIS_FORMAT} // 'json';
 
-# Fake Redis server, run in a forked child.
-#
-# The daemon writes to Redis from the poller thread as well as after a signalling
-# request, so a test servicing it only between requests eventually leaves a write
-# unanswered, which blocks the daemon in redis_consume(). A separate process
-# always answers; the parent reads what was stored through the files below.
-#
-#   $state/seq       number of SETs the child has serviced
-#   $state/last      value of the most recent SET
-#   $state/override  if present, served in place of the next GET, then removed
-
-my $redis_listener;
-socket($redis_listener, AF_INET, SOCK_STREAM, 0) or die;
-bind($redis_listener, sockaddr_in(6379, inet_aton('203.0.113.42'))) or die;
-listen($redis_listener, 10) or die;
-
-my $state = File::Temp::tempdir("redis-srtp-index-XXXXXX", TMPDIR => 1, CLEANUP => 1);
-write_file("$state/seq", "0");
-
-sub write_file {
-	my ($path, $content) = @_;
-	open(my $fh, '>', "$path.tmp") or die "$path: $!";
-	binmode($fh);
-	print $fh $content;
-	close($fh) or die;
-	rename("$path.tmp", $path) or die "$path: $!";
-}
-
-sub read_file {
-	my ($path) = @_;
-	open(my $fh, '<', $path) or return;
-	binmode($fh);
-	local $/ = undef;
-	my $content = <$fh>;
-	close($fh);
-	return $content;
-}
-
-sub server_read_exact {
-	my ($fd, $len) = @_;
-	my $buf = '';
-	while (length($buf) < $len) {
-		my $part;
-		defined(recv($fd, $part, $len - length($buf), 0)) or return;
-		length($part) or return;
-		$buf .= $part;
-	}
-	return $buf;
-}
-
-sub server_read_line {
-	my ($fd) = @_;
-	my $buf = '';
-	while ($buf !~ /\r\n\z/) {
-		my $byte = server_read_exact($fd, 1);
-		defined($byte) or return;
-		$buf .= $byte;
-	}
-	$buf =~ s/\r\n\z//;
-	return $buf;
-}
-
-sub server_read_command {
-	my ($fd) = @_;
-	my $intro = server_read_line($fd);
-	(defined($intro) && $intro =~ /^\*(\d+)\z/) or return;
-	my @args;
-	for (1 .. $1) {
-		my $bulk = server_read_line($fd);
-		(defined($bulk) && $bulk =~ /^\$(\d+)\z/) or return;
-		my $arg = server_read_exact($fd, $1);
-		defined($arg) or return;
-		server_read_exact($fd, 2);
-		push @args, $arg;
-	}
-	return \@args;
-}
-
-# Answer every command the daemon can send, so it is never left waiting.
-sub redis_server {
-	my %store;
-	my $sets = 0;
-	my $select = IO::Select->new($redis_listener);
-
-	while (1) {
-		for my $fh ($select->can_read(1)) {
-			if ($fh == $redis_listener) {
-				my $client;
-				accept($client, $redis_listener) or next;
-				$select->add($client);
-				next;
-			}
-			my $command = server_read_command($fh);
-			if (!$command) {
-				$select->remove($fh);
-				close($fh);
-				next;
-			}
-			my $verb = uc($command->[0]);
-			if ($verb eq 'PING') {
-				send($fh, "+PONG\r\n", 0);
-			}
-			elsif ($verb eq 'INFO') {
-				my $info = "role:master\r\n";
-				send($fh, '$' . length($info) . "\r\n$info\r\n", 0);
-			}
-			elsif ($verb eq 'TYPE') {
-				send($fh, "+none\r\n", 0);
-			}
-			elsif ($verb eq 'KEYS') {
-				my @keys = keys %store;
-				my $reply = '*' . scalar(@keys) . "\r\n";
-				$reply .= '$' . length($_) . "\r\n$_\r\n" for @keys;
-				send($fh, $reply, 0);
-			}
-			elsif ($verb eq 'GET') {
-				my $value = read_file("$state/override");
-				if (defined $value) {
-					unlink("$state/override");
-				}
-				else {
-					$value = $store{$command->[1]};
-				}
-				if (defined $value) {
-					send($fh, '$' . length($value) . "\r\n$value\r\n", 0);
-				}
-				else {
-					send($fh, "\$-1\r\n", 0);
-				}
-			}
-			elsif ($verb eq 'SET') {
-				$store{$command->[1]} = $command->[2];
-				write_file("$state/last", $command->[2]);
-				write_file("$state/seq", ++$sets);
-				send($fh, "+OK\r\n", 0);
-			}
-			elsif ($verb eq 'DEL') {
-				delete $store{$command->[1]};
-				send($fh, ":1\r\n", 0);
-			}
-			else {
-				send($fh, "+OK\r\n", 0);
-			}
-		}
-	}
-}
-
-my $redis_pid = fork();
-defined($redis_pid) or die "cannot fork Redis server";
-if (!$redis_pid) {
-	$SIG{TERM} = sub { POSIX::_exit(0) }; ## no critic (Variables::RequireLocalizedPunctuationVars)
-	redis_server();
-	POSIX::_exit(0);
-}
-# The listener stays open here: under the preload's fake network, closing it in
-# the parent removes the socket the child is accepting on.
-END { kill('TERM', $redis_pid) if $redis_pid }
-
-sub redis_sets_seen {
-	return int(read_file("$state/seq") // 0);
-}
-
-# The daemon writes to Redis before it answers, so the record is normally there
-# already; poll briefly to cover the child not having flushed it yet.
-sub redis_record_after {
-	my ($before) = @_;
-	for (1 .. 500) {
-		return read_file("$state/last") if redis_sets_seen() > $before;
-		Time::HiRes::sleep(0.01);
-	}
-	die 'no Redis update seen after the daemon answered';
-}
-
-sub serve_next_get {
-	my ($record) = @_;
-	write_file("$state/override", $record);
-}
+# Fake Redis server that answers every command, in a forked child: the
+# daemon writes from the poller thread as well as after a signalling request.
+my $redis_listener = redis_listen('203.0.113.42');
+redis_serve($redis_listener);
 
 sub decode_record {
 	my ($record) = @_;
@@ -338,7 +161,7 @@ is($srtp_ctx_a->{roc}, 1, 'receiver still at ROC 1');
 my %legacy = %$decoded;
 delete @legacy{grep { /^ssrc_out_table-/ } keys %legacy};
 NGCP::Rtpengine::AutoTest::shut_rtpe();
-serve_next_get(encode_record(\%legacy));
+redis_serve_next_get(encode_record(\%legacy));
 autotest_start(@daemon_args) or die;
 
 $query = rtpe_req('query', 'query call restored from legacy record', { 'call-id' => $call_id });
@@ -359,7 +182,7 @@ $combined{$table_a} = [ { ssrc => $ssrc, in_srtp_index => 0, in_srtcp_index => 0
 	in_payload_type => 8, out_srtp_index => 0x10002, out_srtcp_index => 0,
 	out_payload_type => 8 } ];
 NGCP::Rtpengine::AutoTest::shut_rtpe();
-serve_next_get(encode_record(\%combined));
+redis_serve_next_get(encode_record(\%combined));
 autotest_start(@daemon_args) or die;
 
 $query = rtpe_req('query', 'query call restored from combined record', { 'call-id' => $call_id });

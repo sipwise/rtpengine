@@ -5,9 +5,9 @@ use warnings;
 use NGCP::Rtpengine::Test;
 use NGCP::Rtpclient::SRTP;
 use NGCP::Rtpengine::AutoTest;
+use NGCP::Rtpengine::FakeRedis;
 use Test::More;
 use Test2::Tools::Compare qw();
-use Socket qw(AF_INET SOCK_STREAM sockaddr_in pack_sockaddr_in inet_aton);
 use Bencode;
 use Data::Dumper;
 
@@ -15,173 +15,98 @@ $Data::Dumper::Sortkeys = 1;
 
 
 # fake Redis listener
-my $redis_listener;
-socket($redis_listener, AF_INET, SOCK_STREAM, 0) or die;
-bind($redis_listener, sockaddr_in(6379, inet_aton('203.0.113.42'))) or die;
-listen($redis_listener, 10) or die;
+my $redis_listener = redis_listen('203.0.113.42');
 
 my ($redis_fd, $redis_notify, $redis_subscribe);
 
-
-sub redis_rd {
-	my ($fd, $len) = @_;
-	my $buf;
-	alarm(1);
-	recv($fd, $buf, $len, 0) or die;
-	alarm(0);
-	return $buf;
-}
-sub redis_i {
-	my ($fd, $i, $n) = @_;
-	my $buf = redis_rd($fd, length($i));
-	is($buf, $i, $n);
-}
-sub redis_io {
-	my ($fd, $i, $o, $n) = @_;
-	redis_i($fd, $i, $n);
-	send($fd, $o, 0) or die;
-};
+my $info = info_reply('master', short => 1);
 
 
 $NGCP::Rtpengine::AutoTest::launch_cb = sub {
 	# accept Redis connection and read preamble
 
-	accept($redis_fd, $redis_listener) or die;
+	$redis_fd = redis_accept($redis_listener);
 
-	redis_io($redis_fd, "*1\r\n\$4\r\nPING\r\n",
-		"+PONG\r\n",
-		"PING 1");
-	redis_io($redis_fd, "*2\r\n\$6\r\nSELECT\r\n\$1\r\n2\r\n",
-		"+OK\r\n",
-		"SELECT 1");
-	redis_io($redis_fd, "*1\r\n\$4\r\nINFO\r\n",
-		"\$13\r\nrole:master\r\n\r\n",
-		"INFO 1");
-	redis_io($redis_fd, "*2\r\n\$4\r\nTYPE\r\n\$5\r\ncalls\r\n",
-		"+none\r\n",
-		"TYPE 1");
+	redis_expect($redis_fd, ['PING'], "+PONG\r\n", "PING 1");
+	redis_expect($redis_fd, ['SELECT', 2], "+OK\r\n", "SELECT 1");
+	redis_expect($redis_fd, ['INFO'], $info, "INFO 1");
+	redis_expect($redis_fd, ['TYPE', 'calls'], "+none\r\n", "TYPE 1");
 
 	# second FD, notification socket
 
-	accept($redis_notify, $redis_listener) or die;
+	$redis_notify = redis_accept($redis_listener);
 
-	redis_io($redis_notify, "*1\r\n\$4\r\nPING\r\n",
-		"+PONG\r\n",
-		"PING 2");
-	redis_io($redis_notify, "*2\r\n\$6\r\nSELECT\r\n\$1\r\n2\r\n",
-		"+OK\r\n",
-		"SELECT 2");
-	redis_io($redis_notify, "*1\r\n\$4\r\nINFO\r\n",
-		"\$13\r\nrole:master\r\n\r\n",
-		"INFO 2");
-	redis_io($redis_notify, "*2\r\n\$4\r\nTYPE\r\n\$5\r\ncalls\r\n",
-		"+none\r\n",
-		"TYPE 2");
+	redis_expect($redis_notify, ['PING'], "+PONG\r\n", "PING 2");
+	redis_expect($redis_notify, ['SELECT', 2], "+OK\r\n", "SELECT 2");
+	redis_expect($redis_notify, ['INFO'], $info, "INFO 2");
+	redis_expect($redis_notify, ['TYPE', 'calls'], "+none\r\n", "TYPE 2");
 
 	# two more sockets from different threads
 
-	my @fds;
-	accept($fds[0], $redis_listener) or die;
-	accept($fds[1], $redis_listener) or die;
+	my @fds = (redis_accept($redis_listener), redis_accept($redis_listener));
 
 	# notification socket re-init
 
-	redis_io($redis_notify, "*1\r\n\$4\r\nPING\r\n",
-		"+PONG\r\n",
-		"PING 2+1");
+	redis_expect($redis_notify, ['PING'], "+PONG\r\n", "PING 2+1");
 
-	for my $i (0, 1) {
-		my $fd = $fds[$i];
+	for my $fd (@fds) {
+		my $c = redis_read($fd);
 
-		my $s = redis_rd($fd, 10);
-
-		if ($s eq "*2\r\n\$10\r\np") {
+		if ($c && $c->[0] eq 'psubscribe') {
 			$redis_subscribe = $fd;
 
-			redis_io($fd, "subscribe\r\n\$16\r\n__keyspace\@3__:*\r\n",
-				"*3\r\n\$10\r\npsubscribe\r\n\$16\r\n__keyspace\@3__:*\r\n:1\r\n",
-				"psubscribe");
+			is(join(' ', @$c), "psubscribe __keyspace\@3__:*", "psubscribe");
+			redis_send($fd, "*3\r\n\$10\r\npsubscribe\r\n\$16\r\n__keyspace\@3__:*\r\n:1\r\n");
 		}
-		elsif ($s eq "*1\r\n\$4\r\nPI") {
+		elsif ($c && $c->[0] eq 'PING') {
 			# dup restore socket
 
-			redis_io($fd, "NG\r\n",
-				"+PONG\r\n",
-				"PING 3");
-			redis_io($fd, "*2\r\n\$6\r\nSELECT\r\n\$1\r\n2\r\n",
-				"+OK\r\n",
-				"SELECT 3");
-			redis_io($fd, "*1\r\n\$4\r\nINFO\r\n",
-				"\$13\r\nrole:master\r\n\r\n",
-				"INFO 3");
-			redis_io($fd, "*2\r\n\$4\r\nTYPE\r\n\$5\r\ncalls\r\n",
-				"+none\r\n",
-				"TYPE 3");
+			is(join(' ', @$c), 'PING', "PING 3");
+			redis_send($fd, "+PONG\r\n");
+			redis_expect($fd, ['SELECT', 2], "+OK\r\n", "SELECT 3");
+			redis_expect($fd, ['INFO'], $info, "INFO 3");
+			redis_expect($fd, ['TYPE', 'calls'], "+none\r\n", "TYPE 3");
 
 			# check conn, select DB, get keys, reset DB
 
-			redis_io($fd, "*1\r\n\$4\r\nPING\r\n",
-				"+PONG\r\n",
-				"PING 4");
-			redis_io($fd, "*2\r\n\$6\r\nSELECT\r\n\$1\r\n3\r\n",
-				"+OK\r\n",
-				"SELECT 4");
-			redis_io($fd, "*2\r\n\$4\r\nKEYS\r\n\$1\r\n*\r\n",
-				"*0\r\n",
-				"KEYS 4");
-			redis_io($fd, "*2\r\n\$6\r\nSELECT\r\n\$1\r\n2\r\n",
-				"+OK\r\n",
-				"SELECT 4+1");
+			redis_expect($fd, ['PING'], "+PONG\r\n", "PING 4");
+			redis_expect($fd, ['SELECT', 3], "+OK\r\n", "SELECT 4");
+			redis_expect($fd, ['KEYS', '*'], "*0\r\n", "KEYS 4");
+			redis_expect($fd, ['SELECT', 2], "+OK\r\n", "SELECT 4+1");
 		}
 	}
 
 	# restore from main socket
 
-	redis_io($redis_fd, "*1\r\n\$4\r\nPING\r\n",
-		"+PONG\r\n",
-		"PING 5");
-	redis_io($redis_fd, "*2\r\n\$4\r\nKEYS\r\n\$1\r\n*\r\n",
-		"*1\r\n\$6\r\nbadown\r\n",
-		"KEYS 5");
+	redis_expect($redis_fd, ['PING'], "+PONG\r\n", "PING 5");
+	redis_expect($redis_fd, ['KEYS', '*'], "*1\r\n\$6\r\nbadown\r\n", "KEYS 5");
 
 	# one own record, which cannot be restored: the restore thread's own
 	# connection reads it ...
 
-	my $restore_fd;
-	accept($restore_fd, $redis_listener) or die;
-	redis_io($restore_fd, "*1\r\n\$4\r\nPING\r\n",
-		"+PONG\r\n",
-		"PING 6");
-	redis_io($restore_fd, "*2\r\n\$6\r\nSELECT\r\n\$1\r\n2\r\n",
-		"+OK\r\n",
-		"SELECT 6");
-	redis_io($restore_fd, "*1\r\n\$4\r\nINFO\r\n",
-		"\$13\r\nrole:master\r\n\r\n",
-		"INFO 6");
-	redis_io($restore_fd, "*2\r\n\$4\r\nTYPE\r\n\$5\r\ncalls\r\n",
-		"+none\r\n",
-		"TYPE 6");
-	redis_io($restore_fd, "*2\r\n\$3\r\nGET\r\n\$6\r\nbadown\r\n",
-		"\$9\r\nnot-a-rec\r\n",
-		"GET 6");
+	my $restore_fd = redis_accept($redis_listener);
+	redis_expect($restore_fd, ['PING'], "+PONG\r\n", "PING 6");
+	redis_expect($restore_fd, ['SELECT', 2], "+OK\r\n", "SELECT 6");
+	redis_expect($restore_fd, ['INFO'], $info, "INFO 6");
+	redis_expect($restore_fd, ['TYPE', 'calls'], "+none\r\n", "TYPE 6");
+	redis_expect($restore_fd, ['GET', 'badown'], "\$9\r\nnot-a-rec\r\n", "GET 6");
 
 	# ... and the record is deleted from our own DB on the write connection,
 	# and on no other connection
 
-	redis_io($redis_fd, "*2\r\n\$3\r\nDEL\r\n\$6\r\nbadown\r\n",
-		":1\r\n",
-		"DEL of an unrestorable own record");
-	my $rin = '';
-	vec($rin, fileno($redis_notify), 1) = 1;
-	my $buf = '';
-	if (select(my $rout = $rin, undef, undef, 0.5) > 0) {
-		alarm(1);
-		recv($redis_notify, $buf, 1000, 0);
-		alarm(0);
-		send($redis_notify, ":1\r\n", 0);
-	}
-	is($buf, '', 'no DEL of an own record on the notification connection');
+	redis_expect($redis_fd, ['DEL', 'badown'], ":1\r\n", "DEL of an unrestorable own record");
+	is(no_command($redis_notify), '', 'no DEL of an own record on the notification connection');
 };
+
+# whatever command comes within 0.5 s, answered so that the daemon does not
+# wait; '' if none
+sub no_command {
+	my ($fd) = @_;
+	return '' unless readable($fd, 0.5);
+	my $c = redis_read($fd, 1) or return '';
+	redis_send($fd, ":1\r\n");
+	return join(' ', @$c);
+}
 
 
 autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1
@@ -196,36 +121,16 @@ autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1
 
 my $json_exp;
 $NGCP::Rtpengine::req_cb = sub {
-	redis_io($redis_fd, "*1\r\n\$4\r\nPING\r\n", "+PONG\r\n", "req PING");
-	redis_i($redis_fd, "*5\r\n\$3\r\nSET\r\n\$" . length(cid()) . "\r\n" . cid() . "\r\n\$", "req intro");
-	# the length is however many digits it takes, and a record large enough to
-	# need more than one read is normal
-	my $buf = '';
-	alarm(1);
-	while ($buf !~ /\r\n\z/) {
-		my $c;
-		defined(recv($redis_fd, $c, 1, 0)) or die;
-		$buf .= $c;
-	}
-	alarm(0);
-	ok($buf =~ /^\d+\r\n\z/, "record length");
-	my $len = int($buf);
-	my $rec = '';
-	alarm(5);
-	while (length($rec) < $len) {
-		my $chunk;
-		defined(recv($redis_fd, $chunk, $len - length($rec), 0)) or die;
-		length($chunk) or die "short read from redis socket";
-		$rec .= $chunk;
-	}
-	alarm(0);
-	$buf = $rec;
-	my $json = Bencode::bdecode($buf, 1);
+	redis_expect($redis_fd, ['PING'], "+PONG\r\n", "req PING");
+	# a record large enough to need more than one read is normal
+	my $c = redis_read($redis_fd);
+	is(join(' ', @$c[0, 1]), 'SET ' . cid(), "req intro");
+	ok(@$c == 5 && length($c->[2]), "record length");
+	my $json = Bencode::bdecode($c->[2], 1);
 	#print Dumper($json);
 	Test2::Tools::Compare::like($json, $json_exp, "JSON");
-	redis_io($redis_fd, "\r\n\$2\r\nEX\r\n\$5\r\n86400\r\n",
-		"+OK\r\n",
-		"req outro");
+	is(join(' ', @$c[3, 4]), 'EX 86400', "req outro");
+	redis_send($redis_fd, "+OK\r\n");
 };
 
 
@@ -792,17 +697,11 @@ my $dict = {
         };
 
 my $bdict = Bencode::bencode($dict),
-send($redis_subscribe, "*4\r\n\$8\r\npmessage\r\n\$16\r\n__keyspace\@3__:*\r\n\$21\r\n__keyspace\@3__:foobar\r\n\$3\r\nset\r\n", 0);
+redis_send($redis_subscribe, "*4\r\n\$8\r\npmessage\r\n\$16\r\n__keyspace\@3__:*\r\n\$21\r\n__keyspace\@3__:foobar\r\n\$3\r\nset\r\n");
 
-redis_io($redis_notify, "*1\r\n\$4\r\nPING\r\n",
-	"+PONG\r\n",
-	"PING");
-redis_io($redis_notify, "*2\r\n\$6\r\nSELECT\r\n\$1\r\n3\r\n",
-	"+OK\r\n",
-	"SELECT");
-redis_io($redis_notify, "*2\r\n\$3\r\nGET\r\n\$6\r\nfoobar\r\n",
-	"\$" . length($bdict) . "\r\n$bdict\r\n",
-	"GET");
+redis_expect($redis_notify, ['PING'], "+PONG\r\n", "PING");
+redis_expect($redis_notify, ['SELECT', 3], "+OK\r\n", "SELECT");
+redis_expect($redis_notify, ['GET', 'foobar'], "\$" . length($bdict) . "\r\n$bdict\r\n", "GET");
 
 sleep(1); # wait for call to be created
 
@@ -830,29 +729,14 @@ is($resp->{calls}[0], cid(), 'call ID');
 # foreign call whose record cannot be restored: the key belongs to its owner,
 # so a failed restore must not delete it, on either connection
 
-send($redis_subscribe, "*4\r\n\$8\r\npmessage\r\n\$16\r\n__keyspace\@3__:*\r\n\$22\r\n__keyspace\@3__:badcall\r\n\$3\r\nset\r\n", 0);
+redis_send($redis_subscribe, "*4\r\n\$8\r\npmessage\r\n\$16\r\n__keyspace\@3__:*\r\n\$22\r\n__keyspace\@3__:badcall\r\n\$3\r\nset\r\n");
 
-redis_io($redis_notify, "*1\r\n\$4\r\nPING\r\n",
-	"+PONG\r\n",
-	"PING");
-redis_io($redis_notify, "*2\r\n\$3\r\nGET\r\n\$7\r\nbadcall\r\n",
-	"\$9\r\nnot-a-rec\r\n",
-	"GET unrestorable");
+redis_expect($redis_notify, ['PING'], "+PONG\r\n", "PING");
+redis_expect($redis_notify, ['GET', 'badcall'], "\$9\r\nnot-a-rec\r\n", "GET unrestorable");
 
 # nothing may follow on the write or the notification connection
 for my $fd ([$redis_fd, 'write connection'], [$redis_notify, 'notification connection']) {
-	my $rin = '';
-	vec($rin, fileno($fd->[0]), 1) = 1;
-	my $n = select(my $rout = $rin, undef, undef, 0.5);
-	my $buf = '';
-	if ($n > 0) {
-		alarm(1);
-		recv($fd->[0], $buf, 1000, 0);
-		alarm(0);
-		# unblock the daemon, which waits for a reply
-		send($fd->[0], ":1\r\n", 0);
-	}
-	is($buf, '', "no DEL of a foreign key on the $fd->[1]");
+	is(no_command($fd->[0]), '', "no DEL of a foreign key on the $fd->[1]");
 }
 
 $resp = rtpe_req('list', 'list', {});
