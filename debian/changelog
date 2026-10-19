@@ -1,3 +1,42 @@
+ngcp-rtpengine (26.3.2.0+0~mr26.3.2.0) unstable; urgency=medium
+
+  [ Donat Zenichev ]
+  * [86c6138] MT#66271 discard ICE agent when peer drops ice or `ICE=remove`
+
+  [ Richard Fuchs ]
+  * [03d64ff] MT#55283 check validity of cached entry
+  * [09f2e78] MT#55283 honour actual output PT for cache players
+  * [4dc28ce] MT#55283 redirect additional call pointers
+  * [e0eec79] MT#55283 decrease length in iqueue_delete
+  * [1a6b40e] MT#55283 write proc packet also when forwarding
+  * [cdd4cbe] MT#55283 explicitly track non empty samples
+  * [d863f54] MT#55283 limit number of tracked stats blocks
+  * [52c6c91] MT#55283 switch to bounded str_to_*
+  * [cfcfebb] MT#55283 fix-up 64c6e51bc1
+  * [c25669c] MT#55283 set PTS after input reset
+  * [7b96b3a] MT#55283 keep number of slots if media slots is unset
+  * [b67edb6] MT#55283 guard against runaway recursion
+  * [68a6da4] MT#55283 fix compile error
+
+  [ baseballyama ]
+  * [1b5930e] MT#55283 Persist peer address confirmation and learning mode in Redis
+  * [1084d03] MT#55283 Keep the takeover grace period until media is accepted
+  * [52de132] MT#55283 Write the outbound SRTP index to Redis
+  * [3ec821c] MT#55283 redis: preserve legacy SSRC restore and test SRTP takeover
+
+  [ Dragos Vingarzan ]
+  * [2cbecc4] MT#55283 fix: null-packet dereference in DTX sequence initialization
+  * [ff851df] MT#55283 fix: retain SDP state for created and subscribed endpoints
+
+  [ darwvin-dev ]
+  * [fb90c68] MT#55283 don't clobber jitter estimator in metrics collection
+  * [c49be83] MT#55283 initialise kernel SSRC loss tracker
+
+  [ Orgad Shaneh ]
+  * [428f5c3] MT#55283 keep a=label in publish answer
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 19 Oct 2026 11:00:22 +0200
+
 ngcp-rtpengine (26.3.1.0+0~mr26.3.1.0) unstable; urgency=medium
 
   [ Alexander Bakker ]
