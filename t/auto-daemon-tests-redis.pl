@@ -5,9 +5,9 @@ use warnings;
 use NGCP::Rtpengine::Test;
 use NGCP::Rtpclient::SRTP;
 use NGCP::Rtpengine::AutoTest;
+use NGCP::Rtpengine::FakeRedis;
 use Test::More;
 use Test2::Tools::Compare qw();
-use Socket qw(AF_INET SOCK_STREAM sockaddr_in pack_sockaddr_in inet_aton);
 use Bencode;
 use Data::Dumper;
 
@@ -15,41 +15,22 @@ $Data::Dumper::Sortkeys = 1;
 
 
 # fake Redis listener
-my $redis_listener;
-socket($redis_listener, AF_INET, SOCK_STREAM, 0) or die;
-bind($redis_listener, sockaddr_in(6379, inet_aton('203.0.113.42'))) or die;
-listen($redis_listener, 10) or die;
-
+my $redis_listener = redis_listen('203.0.113.42');
 my $redis_fd;
-
-
-sub redis_i {
-	my ($i, $n) = @_;
-	my $buf;
-	alarm(1);
-	recv($redis_fd, $buf, length($i), 0) or die;
-	alarm(0);
-	is($buf, $i, $n);
-}
-sub redis_io {
-	my ($i, $o, $n) = @_;
-	redis_i($i, $n);
-	send($redis_fd, $o, 0) or die;
-};
 
 
 $NGCP::Rtpengine::AutoTest::launch_cb = sub {
 	# accept Redis connection and read preamble
 
-	accept($redis_fd, $redis_listener) or die;
+	$redis_fd = redis_accept($redis_listener);
 
-	redis_io("*2\r\n\$4\r\nAUTH\r\n\$4\r\nauth\r\n",	"+OK\r\n",			"AUTH");
-	redis_io("*2\r\n\$6\r\nSELECT\r\n\$1\r\n2\r\n",		"+OK\r\n",			"SELECT 1");
-	redis_io("*1\r\n\$4\r\nINFO\r\n",			"\$13\r\nrole:master\r\n\r\n",	"INFO");
-	redis_io("*2\r\n\$4\r\nTYPE\r\n\$5\r\ncalls\r\n",	"+none\r\n",			"TYPE");
+	redis_expect($redis_fd, ['AUTH', 'auth'],	"+OK\r\n",			"AUTH");
+	redis_expect($redis_fd, ['SELECT', 2],		"+OK\r\n",			"SELECT 1");
+	redis_expect($redis_fd, ['INFO'],		info_reply('master', short => 1), "INFO");
+	redis_expect($redis_fd, ['TYPE', 'calls'],	"+none\r\n",			"TYPE");
 
-	redis_io("*1\r\n\$4\r\nPING\r\n",			"+PONG\r\n",			"PING");
-	redis_io("*2\r\n\$4\r\nKEYS\r\n\$1\r\n*\r\n",		"*0\r\n",			"KEYS");
+	redis_expect($redis_fd, ['PING'],		"+PONG\r\n",			"PING");
+	redis_expect($redis_fd, ['KEYS', '*'],		"*0\r\n",			"KEYS");
 };
 
 
@@ -62,36 +43,16 @@ autotest_start(qw(--config-file=none -t -1 -i foo/203.0.113.1 -i foo/2001:db8:43
 
 my $json_exp;
 $NGCP::Rtpengine::req_cb = sub {
-	redis_io("*1\r\n\$4\r\nPING\r\n", "+PONG\r\n", "req PING");
-	redis_i("*5\r\n\$3\r\nSET\r\n\$" . length(cid()) . "\r\n" . cid() . "\r\n\$", "req intro");
-	# the length is however many digits it takes, and a record large enough to
-	# need more than one read is normal
-	my $buf = '';
-	alarm(1);
-	while ($buf !~ /\r\n\z/) {
-		my $c;
-		defined(recv($redis_fd, $c, 1, 0)) or die;
-		$buf .= $c;
-	}
-	alarm(0);
-	ok($buf =~ /^\d+\r\n\z/, "record length");
-	my $len = int($buf);
-	my $rec = '';
-	alarm(5);
-	while (length($rec) < $len) {
-		my $chunk;
-		defined(recv($redis_fd, $chunk, $len - length($rec), 0)) or die;
-		length($chunk) or die "short read from redis socket";
-		$rec .= $chunk;
-	}
-	alarm(0);
-	$buf = $rec;
-	my $json = Bencode::bdecode($buf, 1);
+	redis_expect($redis_fd, ['PING'], "+PONG\r\n", "req PING");
+	# a record large enough to need more than one read is normal
+	my $c = redis_read($redis_fd);
+	is(join(' ', @$c[0, 1]), 'SET ' . cid(), "req intro");
+	ok(@$c == 5 && length($c->[2]), "record length");
+	my $json = Bencode::bdecode($c->[2], 1);
 	#print Dumper($json);
 	Test2::Tools::Compare::like($json, $json_exp, "JSON");
-	redis_io("\r\n\$2\r\nEX\r\n\$5\r\n86400\r\n",
-		"+OK\r\n",
-		"req outro");
+	is(join(' ', @$c[3, 4]), 'EX 86400', "req outro");
+	redis_send($redis_fd, "+OK\r\n");
 };
 
 
