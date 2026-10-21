@@ -3722,6 +3722,10 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 				goto err_next;
 		}
 		else {
+			/* the real media from another party may end a `stop-on-ingress` playback */
+			if (phc->mp.rtp && phc->mp.media_out->monologue != phc->mp.media->monologue)
+				media_player_check_stop_on_ingress(phc->mp.media_out);
+
 			struct codec_handler *transcoder = codec_handler_get(phc->mp.media, phc->payload_type,
 					phc->mp.media_out, sh);
 			// this transfers the packet from 's' to 'packets_out'

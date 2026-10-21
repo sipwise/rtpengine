@@ -279,6 +279,7 @@ RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 		     detect_dtmf:1,
 		     block_dtmf:1,
 		     block_egress:1,
+		     stop_on_ingress:1,
 	             t38_decode:1,
 	             t38_force:1,
 	             t38_stop:1,

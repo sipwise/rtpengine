@@ -2002,7 +2002,9 @@ const char *call_play_media_ng(ng_command_ctx_t *ctx) {
 				.repeat = flags.repeat_times,
 				.duration_spent = flags.repeat_duration,
 				.start_pos = flags.start_pos,
-				.block_egress = !!flags.block_egress,
+				/* other parties media must stay blocked until it takes over */
+				.block_egress = flags.block_egress || flags.stop_on_ingress,
+				.stop_on_ingress = !!flags.stop_on_ingress,
 				.codec_set = flags.codec_set,
 				.file = flags.file,
 				.blob = flags.blob,

@@ -54,6 +54,7 @@ my @flags = qw(
 	block-short
 	recording-vsc
 	block-egress
+	stop-on-ingress
 	directional
 	allow-no-codec-media
 	bidirectional

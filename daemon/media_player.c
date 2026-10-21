@@ -172,8 +172,11 @@ static void media_player_shutdown(struct media_player *mp) {
 	//ilog(LOG_DEBUG, "shutting down media_player");
 	timerthread_obj_deschedule(&mp->tt_obj);
 	mp->next_run = 0;
+	mp->stop_on_ingress_armed = false;
 
-	if (mp->sink.sink) {
+	/* no handler means already shutdown (e.g. `stop media` after a `stop-on-ingress` stop),
+	 * and flushing with a NULL source would remove packets not belonging to this player */
+	if (mp->sink.sink && mp->coder.handler) {
 		unsigned int num = send_timer_flush(mp->sink.sink->send_timer, mp->coder.handler);
 		ilog(LOG_DEBUG, "%u packets removed from send queue", num);
 		// roll back seq numbers already used
@@ -213,6 +216,24 @@ long long media_player_stop(struct media_player *mp) {
 	return mp->last_frame_ts;
 #else
 	return 0;
+#endif
+}
+
+
+/**
+ * called with call->master_lock held in R, for each RTP packet forwarded to `m`
+ */
+void media_player_check_stop_on_ingress(struct call_media *m) {
+#ifdef WITH_TRANSCODING
+	struct media_player *mp = m->players[MP_DEFAULT];
+	if (!mp || !mp->stop_on_ingress_armed)
+		return;
+	/* only the first packet schedules the stop */
+	if (atomic_exchange_na(&mp->ingress_seen, true))
+		return;
+	/* the stop needs the call locked in W, let the player's timer thread do it */
+	ilog(LOG_DEBUG, "Media received from other party, scheduling stop of media playback");
+	timerthread_obj_schedule_abs(&mp->tt_obj, rtpe_now);
 #endif
 }
 
@@ -1537,6 +1558,9 @@ static void __media_player_set_opts(struct media_player *mp, const media_player_
 
 	if (mp->media && mp->opts.block_egress)
 		MEDIA_SET(mp->media, BLOCK_EGRESS);
+
+	mp->stop_on_ingress_armed = mp->opts.stop_on_ingress;
+	atomic_set_na(&mp->ingress_seen, false);
 }
 
 
@@ -2120,6 +2144,32 @@ static mp_cached_code __media_player_add_db(struct media_player *mp,
 	return __media_player_add_blob_id(mp, opts, dst_pt);
 }
 
+/**
+ * called with nothing locked, after `media_player_check_stop_on_ingress()` has seen media
+ */
+static void media_player_stop_on_ingress(struct media_player *mp) {
+	call_t *call = mp->call;
+
+	rwlock_lock_w(&call->master_lock);
+
+	/* re-check under lock, the playback may have been stopped or restarted in the meanwhile */
+	if (mp->stop_on_ingress_armed && atomic_get_na(&mp->ingress_seen)) {
+		mp->stop_on_ingress_armed = false;
+
+		if (mp->media && mp->media->players[MP_DEFAULT] == mp) {
+			ilog(LOG_INFO, "Media received from other party, stopping media playback");
+			call_stop_media(mp->media, MP_DEFAULT);
+		}
+	}
+
+	/* unless stopped, `media_player_run()` skipped `run_func`, which is what reschedules
+	 * the player: do it here (a no-op if a restart has rescheduled it already) */
+	if (mp->next_run)
+		timerthread_obj_schedule_abs(&mp->tt_obj, mp->next_run);
+
+	rwlock_unlock_w(&call->master_lock);
+}
+
 static void media_player_run(void *ptr) {
 	struct media_player *mp = ptr;
 	call_t *call = mp->call;
@@ -2132,16 +2182,21 @@ static void media_player_run(void *ptr) {
 	mutex_lock(&mp->lock);
 
 	bool finished = false;
-	if (mp->next_run)
+	/* stopping needs the call locked in W, done below */
+	bool stop = mp->stop_on_ingress_armed && atomic_get_na(&mp->ingress_seen);
+	if (!stop && mp->next_run)
 		finished = mp->run_func(mp);
 
 	mutex_unlock(&mp->lock);
 	rwlock_unlock_r(&call->master_lock);
 
-	if (finished) {
+	if (stop)
+		media_player_stop_on_ingress(mp);
+	else if (finished) {
 		rwlock_lock_w(&call->master_lock);
 
 		mp->next_run = 0;
+		mp->stop_on_ingress_armed = false;
 
 		if (mp->opts.block_egress)
 			MEDIA_CLEAR(mp->media, BLOCK_EGRESS);

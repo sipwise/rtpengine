@@ -25,7 +25,8 @@ typedef struct {
 	long long duration_spent; /* in milliseconds */
 	str_case_value_ht codec_set;
 	unsigned int block_egress:1,
-				moh:1;
+				moh:1,
+				stop_on_ingress:1;
 	str file, blob;
 	unsigned long long db_id;
 } media_player_opts_t;
@@ -73,6 +74,10 @@ struct media_player {
 	int64_t next_run;
 
 	media_player_opts_t opts;
+	/* `stop-on-ingress` playback waiting for media, only written with call->master_lock in W */
+	bool stop_on_ingress_armed;
+	/* media seen while armed, set from the packet path, accessed atomically */
+	bool ingress_seen;
 
 	struct media_player_coder coder;
 	struct media_player_content_index cache_index;
@@ -128,6 +133,7 @@ bool media_player_play(struct media_player *mp, media_player_opts_t *opts);
 bool media_player_start(struct media_player *);
 long long media_player_stop(struct media_player *);
 bool media_player_is_active(struct call_media *);
+void media_player_check_stop_on_ingress(struct call_media *);
 
 int media_player_setup(struct media_player *mp, const rtp_payload_type *src_pt,
 		const rtp_payload_type *dst_pt, str_case_value_ht codec_set);

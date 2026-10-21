@@ -973,6 +973,10 @@ const char *call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 		case CSH_LOOKUP("static codecs"):
 			out->static_codecs = true;
 			break;
+		case CSH_LOOKUP("stop-on-ingress"):
+		case CSH_LOOKUP("stop on ingress"):
+			out->stop_on_ingress = true;
+			break;
 		case CSH_LOOKUP("strict-source"):
 		case CSH_LOOKUP("strict source"):
 			out->strict_source = true;
