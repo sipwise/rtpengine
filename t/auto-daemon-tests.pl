@@ -25724,6 +25724,146 @@ rcv($sock_b, -1, rtpm(8, $seq + 9, $ts + 160 * 4, $ssrc, $pcma_5));
 
 
 
+# media from B forwarded to A, header fields may be rewritten after a playback
+my $fwd_silence = qr/^\x80[\x08\x88].{10}\x00{160}$/s;
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 2140)], [qw(198.51.100.3 2142)]);
+
+($port_a) = offer('media playback, stop on ingress', { ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2140 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('media playback, stop on ingress', { replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2142 RTP/AVP 8
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# long enough to still be playing when B's media arrives
+$resp = rtpe_req('play media', 'media playback, stop on ingress', { 'from-tag' => ft(), blob => $wav_file,
+	'repeat-times' => 100, flags => ['stop-on-ingress'] });
+is $resp->{duration}, 100, 'media duration';
+
+(undef, undef, $seq, $ts, $ssrc) = rcv($sock_a, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
+rcv($sock_a, -1, rtpm(8, $seq + 1, $ts + 160 * 1, $ssrc, $pcma_2));
+rcv($sock_a, -1, rtpm(8, $seq + 2, $ts + 160 * 2, $ssrc, $pcma_3));
+
+# first packet from B stops the playback, while itself still being blocked
+snd($sock_b, $port_a, rtp(8, 4000, 8000, 0x6543, "\x00" x 160));
+Time::HiRes::sleep(0.1);
+my @stop_on_ingress_drained;
+while (defined $sock_a->recv(my $packet, 65535, Socket::MSG_DONTWAIT())) {
+	push(@stop_on_ingress_drained, $packet);
+}
+ok(!(grep { $_ =~ $fwd_silence } @stop_on_ingress_drained), 'triggering packet not forwarded');
+rcv_no($sock_a);
+
+# then media from B is forwarded as usual
+snd($sock_b, $port_a, rtp(8, 4001, 8160, 0x6543, "\x00" x 160));
+rcv($sock_a, $port_b, $fwd_silence);
+snd($sock_b, $port_a, rtp(8, 4002, 8320, 0x6543, "\x00" x 160));
+rcv($sock_a, $port_b, $fwd_silence);
+
+# the controller's own `stop media` afterwards is harmless
+rtpe_req('stop media', 'media playback, stop on ingress', { 'from-tag' => ft() });
+snd($sock_b, $port_a, rtp(8, 4003, 8480, 0x6543, "\x00" x 160));
+rcv($sock_a, $port_b, $fwd_silence);
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 2150)], [qw(198.51.100.3 2152)]);
+
+($port_a) = offer('media playback, block egress without stop on ingress', { ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2150 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('media playback, block egress without stop on ingress', { replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2152 RTP/AVP 8
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$resp = rtpe_req('play media', 'media playback, block egress without stop on ingress', { 'from-tag' => ft(),
+	blob => $wav_file, 'repeat-times' => 100, flags => ['block egress'] });
+is $resp->{duration}, 100, 'media duration';
+
+(undef, undef, $seq, $ts, $ssrc) = rcv($sock_a, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
+rcv($sock_a, -1, rtpm(8, $seq + 1, $ts + 160 * 1, $ssrc, $pcma_2));
+
+# media from B stays blocked and the playback goes on
+snd($sock_b, $port_a, rtp(8, 4000, 8000, 0x6543, "\x00" x 160));
+rcv($sock_a, -1, rtpm(8, $seq + 2, $ts + 160 * 2, $ssrc, $pcma_3));
+snd($sock_b, $port_a, rtp(8, 4001, 8160, 0x6543, "\x00" x 160));
+rcv($sock_a, -1, rtpm(8, $seq + 3, $ts + 160 * 3, $ssrc, $pcma_4));
+rcv($sock_a, -1, rtpm(8, $seq + 4, $ts + 160 * 4, $ssrc, $pcma_5));
+rcv($sock_a, -1, rtpm(8, $seq + 5, $ts + 160 * 5, $ssrc, $pcma_1));
+
+rtpe_req('stop media', 'media playback, block egress without stop on ingress', { 'from-tag' => ft() });
+
+
+
+
 ($sock_a, $sock_b) = new_call([qw(198.51.100.9 2020)], [qw(198.51.100.9 2022)]);
 
 offer('media playback, side A, select by label', { ICE => 'remove', replace => ['origin'],
