@@ -10,34 +10,37 @@ use Time::HiRes qw(clock_gettime CLOCK_MONOTONIC sleep);
 use Socket qw(MSG_DONTWAIT);
 use POSIX ();
 use File::Temp qw(tempfile);
+use List::Util qw(max min);
 
 
 $ENV{RTPENGINE_EXTENDED_TESTS} or exit();
 
 
 sub start_daemon {
-	my ($policy, $delay) = @_;
+	my ($policy, $delay, @options) = @_;
 	my @buffer_delay = defined $delay ? ("--audio-buffer-delay=$delay") : ();
 	autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1
 			-n 2223 -f -L 7 -E --audio-buffer-length=500),
-			"--audio-player=$policy", @buffer_delay) or die;
+			"--audio-player=$policy", @buffer_delay, @options) or die;
 }
 
 
 sub sdp {
-	my ($port, $direction, $key) = @_;
+	my ($port, $direction, $key, $dtmf) = @_;
 	my $protocol = $key ? 'RTP/SAVP' : 'RTP/AVP';
 	return "v=0\no=- 1 1 IN IP4 198.51.100.14\ns=inject test\nt=0 0\n"
-		. "m=audio $port $protocol 0\nc=IN IP4 198.51.100.14\n"
-		. "a=rtpmap:0 PCMU/8000\na=$direction\n"
+		. "m=audio $port $protocol 0" . ($dtmf ? ' 101' : '') . "\nc=IN IP4 198.51.100.14\n"
+		. "a=rtpmap:0 PCMU/8000\n"
+		. ($dtmf ? "a=rtpmap:101 telephone-event/8000\na=fmtp:101 0-15\n" : '')
+		. "a=$direction\n"
 		. ($key ? "a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:$key\n" : '');
 }
 
 
 sub negotiate {
-	my ($command, $name, $request, $port, $direction, $key) = @_;
-	my $response = rtpe_req($command, $name, { %$request, sdp => sdp($port, $direction, $key) });
-	my ($relay_port) = ($response->{sdp} // '') =~ /m=audio (\d+) RTP\/S?AVP 0\r?\n/;
+	my ($command, $name, $request, $port, $direction, $key, $dtmf) = @_;
+	my $response = rtpe_req($command, $name, { %$request, sdp => sdp($port, $direction, $key, $dtmf) });
+	my ($relay_port) = ($response->{sdp} // '') =~ /m=audio (\d+) RTP\/S?AVP 0(?: 101)?\r?\n/;
 	ok $relay_port, "$name - PCMU media port returned";
 	die "missing PCMU media port" unless $relay_port;
 	like $response->{sdp}, qr/a=rtpmap:0 PCMU\/8000/, "$name - PCMU negotiated";
@@ -49,6 +52,33 @@ sub negotiate {
 sub srtp_context {
 	my ($key) = @_;
 	return { cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80}, key => $key };
+}
+
+
+sub srtp_receive {
+	my ($crypto, $packet) = @_;
+	return $packet unless $crypto;
+	my ($seq, $ssrc) = unpack('x2 n x4 N', $packet);
+	my $context = $crypto->{ssrcs}{$ssrc} //= srtp_context($crypto->{key});
+	# a receiver estimates the rollover counter (RFC 3711 appendix A): B's wrap can fall into the
+	# injected stretch, where A never sees the sequence 0 that the library counts
+	$context->{roc}++ if $seq && defined $context->{last_seq} && $context->{last_seq} - $seq > 0x8000;
+	$context->{last_seq} = $seq;
+	return NGCP::Rtpengine::AutoTest::srtp_dec(undef, undef, undef, undef, undef, undef, $packet, $context);
+}
+
+
+# encrypts a packet the way srtp_snd does, with the context keeping the rollover counter
+sub srtp_encrypted {
+	my ($context, $packet) = @_;
+	if (!$context->{skey}) {
+		my ($master, $salt) = NGCP::Rtpclient::SRTP::decode_inline_base64($context->{key}, $context->{cs});
+		@$context{qw(skey sauth ssalt)} = NGCP::Rtpclient::SRTP::gen_rtp_session_keys($master, $salt);
+	}
+	my ($encrypted, $roc) = NGCP::Rtpclient::SRTP::encrypt_rtp(@$context{qw(cs skey ssalt sauth roc)},
+		'', 0, 0, 0, $packet);
+	$context->{roc} = $roc;
+	return $encrypted;
 }
 
 
@@ -64,15 +94,18 @@ sub send_audio {
 				my $gap = defined $peer->{last_send} ? $now - $peer->{last_send} : 0;
 				$peer->{max_gap} = $gap if $gap > ($peer->{max_gap} // 0);
 				$peer->{last_send} = $now;
-				my $packet = rtp(0, $peer->{sequence}++, $peer->{timestamp}, $peer->{ssrc}, $peer->{payload} x 160);
-				if ($peer->{send_crypto}) {
-					srtp_snd($peer->{socket}, $peer->{port}, $packet, $peer->{send_crypto});
+				for (1 .. ($peer->{per_tick} // 1)) {
+					my $packet = rtp(0, $peer->{sequence}++, $peer->{timestamp}, $peer->{ssrc}, $peer->{payload} x 160);
+					$packet = $peer->{decorate}->($packet) if $peer->{decorate};
+					if ($peer->{send_crypto}) {
+						srtp_snd($peer->{socket}, $peer->{port}, $packet, $peer->{send_crypto});
+					}
+					else {
+						snd($peer->{socket}, $peer->{port}, $packet);
+					}
+					$peer->{timestamp} += 160;
+					$peer->{sent}++;
 				}
-				else {
-					snd($peer->{socket}, $peer->{port}, $packet);
-				}
-				$peer->{timestamp} += 160;
-				$peer->{sent}++;
 			}
 			$next_send += 0.02;
 		}
@@ -147,6 +180,20 @@ sub stop_sender {
 	my $summary = do { local $/ = undef; readline($sender->{status}) };
 	diag "continuous sender: $summary" if defined $summary && length $summary;
 	close $sender->{status};
+	return $summary;
+}
+
+
+# a restarted sender carries on from where the stopped one left off
+sub continue_peers {
+	my ($peers, $summary) = @_;
+	for my $index (0 .. $#$peers) {
+		my $label = $peers->[$index]{label} // chr(65 + $index);
+		my ($sent) = ($summary // '') =~ /\b\Q$label\E=(\d+) packets/;
+		die "no packet count for $label from the sender" unless defined $sent;
+		$peers->[$index]{sequence} += $sent;
+		$peers->[$index]{timestamp} += 160 * $sent;
+	}
 }
 
 
@@ -155,12 +202,7 @@ sub receive_audio {
 	while (defined $socket->recv(my $packet, 2048, MSG_DONTWAIT)) {
 		$observation->{packets}++;
 		next unless defined $observation->{expected};
-		if (my $crypto = $observation->{crypto}) {
-			my $ssrc = unpack('x8 N', $packet);
-			my $context = $crypto->{ssrcs}{$ssrc} //= srtp_context($crypto->{key});
-			$packet = NGCP::Rtpengine::AutoTest::srtp_dec(undef, undef, undef, undef, undef, undef,
-				$packet, $context);
-		}
+		$packet = srtp_receive($observation->{crypto}, $packet);
 		my ($header, $pt, $sequence, $timestamp, $ssrc, $payload) = unpack('CCnNN a*', $packet);
 		if (length($packet) != 172 || $header != 0x80 || ($pt & 0x7f) != 0) {
 			$observation->{invalid}++;
@@ -334,6 +376,242 @@ sub exercise_injection {
 	stop_sender($sender);
 	die $error unless $ok;
 	rtpe_req('delete', 'delete main call', { 'call-id' => $main_call });
+}
+
+
+sub collect_sequence {
+	my ($peers, $duration, $arrivals, $subscriber) = @_;
+	my $selector = IO::Select->new(map { $_->{socket} } @$peers, ($subscriber ? $subscriber : ()));
+	my $deadline = clock_gettime(CLOCK_MONOTONIC) + $duration;
+	while ((my $wait = $deadline - clock_gettime(CLOCK_MONOTONIC)) > 0) {
+		for my $socket ($selector->can_read($wait)) {
+			while (defined $socket->recv(my $packet, 2048, MSG_DONTWAIT)) {
+				next if length($packet) < 12;
+				if ($subscriber && fileno($socket) == fileno($subscriber->{socket})) {
+					push @{$subscriber->{arrivals}}, [unpack('x8 N', $packet), unpack('x2 n', $packet), $packet];
+				}
+				elsif (fileno($socket) == fileno($peers->[0]{socket})) {
+					my $plain = srtp_receive($peers->[0]{receive_crypto}, $packet);
+					push @$arrivals, [unpack('x8 N', $plain), unpack('x2 n', $plain), $plain, $packet,
+						unpack('x4 N', $plain)];
+				}
+			}
+		}
+	}
+}
+
+
+sub exercise_sequence_continuity {
+	my ($srtp_a, $srtp_b, %options) = @_;
+	my $start = $options{start} // 1000;
+	my $cycles = $options{cycles} // 1;
+	my @sockets = new_call(map { ['198.51.100.14', $_] } (6000, 6002, 6004, 6006));
+	my ($call, $a_tag, $b_tag) = (cid(), ft(), tt());
+	my $c_tag = "$a_tag-c";
+	my $s_tag = "$a_tag-s";
+	my $a_key = $srtp_a ? 'DVM+BTeYX2UI1LaA9bgXrcBEDBxoItA9/39fSoRF' : undef;
+	my $b_key = $srtp_b ? 'eMlRvW8mWU4WodT9JOvAM+pn6I0/EXOhT9n0KeKk' : undef;
+	# with DTMF injection, B's packets pass through a handler that applies the sequence offset in userspace,
+	# given a telephone-event payload type: without one, rtpengine transcodes to inject the tones in band
+	my $dtmf = $options{inject_dtmf} || $options{dtmf_first};
+	my @flag_list = (($options{recrypt} ? 'recrypt' : ()), ($options{fixed_egress} ? 'fixed-egress-SSRC' : ()),
+		($dtmf ? 'inject-DTMF' : ()));
+	my @flags = @flag_list ? (flags => \@flag_list) : ();
+	my ($port_b, $b_receive_key) = negotiate('offer', 'sequence offer',
+		{ 'call-id' => $call, 'from-tag' => $a_tag, @flags, ($options{sdes} ? (SDES => $options{sdes}) : ()),
+			($srtp_b ? () : ('transport-protocol' => 'RTP/AVP')) },
+		6000, 'sendrecv', $a_key, $dtmf);
+	my ($port_a, $a_receive_key) = negotiate('answer', 'sequence answer',
+		{ 'call-id' => $call, 'from-tag' => $a_tag, 'to-tag' => $b_tag, @flags }, 6002, 'sendrecv', $b_key, $dtmf);
+	# a re-invite answered with a new key: rtpengine goes on answering the offerer with the key it had
+	my %send_key = (A => $a_key, B => $b_key);
+	if (my $answerer = $options{rekey}) {
+		my $offerer = $answerer eq 'A' ? 'B' : 'A';
+		my %party = (A => [$a_tag, 6000], B => [$b_tag, 6002]);
+		my %request = ('call-id' => $call, 'from-tag' => $party{$offerer}[0], 'to-tag' => $party{$answerer}[0], @flags);
+		my $new_key = '+aEmLrFyFEwyKnyLapvCjvNqhNGvCvHWX41KgsFx';
+		my (undef, $offered) = negotiate('offer', "sequence re-offer by $offerer", \%request,
+			$party{$offerer}[1], 'sendrecv', $send_key{$offerer});
+		is $offered, $send_key{$offerer}, "the re-offer gives $answerer the key $offerer sends with";
+		my (undef, $answered) = negotiate('answer', "sequence re-answer by $answerer", \%request,
+			$party{$answerer}[1], 'sendrecv', $new_key);
+		is $answered, $send_key{$answerer}, "$offerer is still answered with the key $answerer replaced";
+		$send_key{$answerer} = $new_key;
+	}
+	my ($port_c) = negotiate('publish', 'sequence source C', { 'call-id' => $call, 'from-tag' => $c_tag }, 6004, 'sendonly');
+	# S subscribes to B: a second sink of B's stream, beside A
+	my $subscriber;
+	if ($options{subscriber}) {
+		my $offer = rtpe_req('subscribe request', 'sequence subscriber S',
+			{ 'call-id' => $call, 'from-tag' => $b_tag, 'to-tag' => $s_tag });
+		like $offer->{sdp}, qr/m=audio \d+ RTP\/AVP 0/, 'S is offered B';
+		rtpe_req('subscribe answer', 'sequence subscriber S answer',
+			{ 'call-id' => $call, 'to-tag' => $s_tag, sdp => sdp(6006, 'sendrecv') });
+		$subscriber = { socket => $sockets[3], arrivals => [] };
+	}
+	my @ports = ($port_a, $port_b, $port_c);
+	my @payloads = ("\xef", "\xdf", "\xcf");
+	my @peers = map {
+		{ socket => $sockets[$_], port => $ports[$_], payload => $payloads[$_],
+			sequence => 1000, timestamp => 8000, ssrc => 0x12340000 + $_ }
+	} (0 .. 2);
+	$peers[1]{sequence} = $start;
+	if ($a_key) {
+		ok $a_receive_key, 'SRTP receive key negotiated for A' or die 'missing SRTP receive key';
+		$peers[0]{send_crypto} = srtp_context($send_key{A});
+		$peers[0]{receive_crypto} = { key => $a_receive_key, ssrcs => {} };
+	}
+	if ($b_key) {
+		is $b_receive_key, $a_key, 'B is offered the key A sends with';
+		is $a_receive_key, $b_key, 'A is answered with the key B sends with';
+		$peers[1]{send_crypto} = srtp_context($send_key{B});
+	}
+	# B's packets carry padding, and a CSRC where the SRTP helper does not get in the way; plain under DTMF
+	# injection, where an event takes over B's header
+	my $csrc = $a_key || $dtmf ? '' : pack('N', 0x0c0c0c0c);
+	my $padding = $dtmf ? '' : "\0\0\0\4";
+	my $decorate = sub {
+		my ($packet) = @_;
+		substr($packet, 0, 1) = chr(0x80 | 0x20 | length($csrc) / 4);
+		return substr($packet, 0, 12) . $csrc . substr($packet, 12) . $padding;
+	};
+	$peers[1]{decorate} = $decorate unless $dtmf;
+	my $source_ssrc = $peers[1]{ssrc};
+	my $changed_ssrc = 0x12349999;
+	my @arrivals;
+	my $switch_at = 0;
+	my $sender = start_sender(\@peers);
+	my $ok = eval {
+		collect_sequence(\@peers, 0.6, \@arrivals, $subscriber);
+		if ($options{dtmf_first}) {
+			# the event's repeated end packets move B's numbering on before the injection
+			rtpe_req('play DTMF', 'sequence DTMF event from B',
+				{ 'call-id' => $call, 'from-tag' => $b_tag, code => '5', volume => 10, duration => 100 });
+			collect_sequence(\@peers, 0.6, \@arrivals, $subscriber);
+		}
+		for (1 .. $cycles) {
+			inject('inject start', 'sequence start C', $call, $a_tag, $c_tag);
+			collect_sequence(\@peers, 0.6, \@arrivals, $subscriber);
+			if (my $jump = $options{seq_jump}) {
+				# B's numbering and clock jump ahead while its packets go into the mix
+				continue_peers(\@peers, stop_sender($sender));
+				$sender = undef;
+				$peers[1]{sequence} += $jump;
+				$peers[1]{timestamp} += 160 * $jump;
+				$sender = start_sender(\@peers);
+				collect_sequence(\@peers, 0.3, \@arrivals, $subscriber);
+			}
+			if (my $burst = $options{burst}) {
+				# B sends faster than its clock while its packets go into the mix, so the DTX buffer discards
+				continue_peers(\@peers, stop_sender($sender));
+				$sender = undef;
+				$peers[1]{per_tick} = $burst;
+				$sender = start_sender(\@peers);
+				collect_sequence(\@peers, 0.6, \@arrivals, $subscriber);
+				continue_peers(\@peers, stop_sender($sender));
+				$sender = undef;
+				$peers[1]{per_tick} = 1;
+				$sender = start_sender(\@peers);
+				collect_sequence(\@peers, 0.2, \@arrivals, $subscriber);
+			}
+			inject('inject stop', 'sequence stop C', $call, $a_tag, $c_tag);
+			collect_sequence(\@peers, 0.6, \@arrivals, $subscriber);
+		}
+		if ($options{source_change}) {
+			stop_sender($sender);
+			$sender = undef;
+			$peers[1]{ssrc} = $changed_ssrc;
+			$peers[1]{sequence} = 500;
+			$switch_at = scalar(@arrivals);
+			$sender = start_sender(\@peers);
+			collect_sequence(\@peers, 0.6, \@arrivals, $subscriber);
+		}
+		1;
+	};
+	my $error = $@;
+	stop_sender($sender) if $sender;
+	die $error unless $ok;
+	# a fixed egress SSRC stands in for the source SSRC at A
+	my $egress_ssrc = $options{fixed_egress} ? (@arrivals ? $arrivals[0][0] : -1) : $source_ssrc;
+	my @from_b = grep { $_->[0] == $egress_ssrc } @arrivals;
+	# a DTMF event stands in for B's packets while it lasts
+	my @event = grep { (ord(substr($_->[2], 1, 1)) & 0x7f) == 101 } @from_b;
+	my @audio = grep { (ord(substr($_->[2], 1, 1)) & 0x7f) != 101 } @from_b;
+	my @sequence = map { $_->[1] } @from_b;
+	my @steps = map { ($sequence[$_] - $sequence[$_ - 1]) & 0xffff } (1 .. $#sequence);
+	my @jumps = grep { $steps[$_] != 1 } (0 .. $#steps);
+	my @damaged = grep {
+		length($_->[2]) != 172 + length($csrc) + length($padding)
+			|| substr($_->[2], 12, length($csrc)) ne $csrc
+			|| substr($_->[2], length($_->[2]) - length($padding)) ne $padding
+			|| substr($_->[2], 12 + length($csrc), 160) ne "\xdf" x 160
+	} @audio;
+	cmp_ok scalar(@sequence), '>', 40 * ($cycles || 1), 'A receives B throughout';
+	cmp_ok scalar(@event), '>', 0, 'the DTMF event reaches A' if $options{dtmf_first};
+	is scalar(grep { $_ == 0 || $_ > 0x7fff } @steps), 0, 'B never repeats a number or goes backwards at A';
+	is scalar(@damaged), 0, 'B reaches A whole, ' . ($csrc ? 'CSRC list, ' : '') . 'payload and padding included';
+	if ($options{fixed_egress}) {
+		isnt $egress_ssrc, $source_ssrc, 'A receives the fixed egress SSRC in place of the source SSRC';
+		is scalar(grep { $_->[0] == $source_ssrc || $_->[0] == $changed_ssrc } @arrivals), 0,
+			'the source SSRCs never reach A';
+	}
+	if ($options{source_change}) {
+		cmp_ok scalar(@arrivals) - $switch_at, '>', 20, 'A keeps receiving B after B changes its SSRC';
+	}
+	# a fixed egress SSRC is re-based at every change of source, the injected one included
+	unless ($options{fixed_egress}) {
+		is scalar(@jumps), $cycles, 'B keeps the sender numbering at A, skipping each injected stretch';
+		# B's own numbers, read off B's timestamps: an injection leaves no offset behind, and the two
+		# repeated end packets of a DTMF event move the numbers after it on by two
+		my $event_end = @event ? max(map { $_->[1] } @event) : undef;
+		my @renumbered = grep {
+			my $moved = defined $event_end && $_->[1] > $event_end ? 2 : 0;
+			(($_->[1] - $start - $moved) & 0xffff) != ($_->[4] - 8000) / 160
+		} @audio;
+		is scalar(@renumbered), 0, 'A receives the sequence numbers B sends'
+			. ($options{dtmf_first} ? ', moved on by the DTMF event' : '');
+	}
+	elsif (!$cycles) {
+		is scalar(@jumps), 0, 'A receives a continuous sequence under the fixed egress SSRC';
+	}
+	# B's packets leave for A under the key B sends with, unless a fixed egress SSRC stands in or B replaced the key
+	if ($srtp_a && $srtp_b && !$options{fixed_egress} && ($options{rekey} // '') ne 'B') {
+		# B's packets encrypted again in B's order, the ones that went into the mix included
+		my $b_context = srtp_context($send_key{B});
+		my %encrypted;
+		for my $i (0 .. max(map { ($_->[1] - $start) & 0xffff } @from_b)) {
+			my $sent = $decorate->(rtp(0, ($start + $i) & 0xffff, 8000 + 160 * $i, $peers[1]{ssrc}, "\xdf" x 160));
+			$encrypted{($start + $i) & 0xffff} = srtp_encrypted($b_context, $sent);
+		}
+		my @rewritten = grep { $_->[3] ne $encrypted{$_->[1]} } @from_b;
+		is scalar(@rewritten), 0, 'B reaches A byte for byte as B encrypted it';
+	}
+	diag 'B sequence at A jumps: ' . join(', ', map { "$sequence[$_] -> $sequence[$_ + 1]" } @jumps) if @jumps;
+	if ($subscriber) {
+		my @at_s = @{$subscriber->{arrivals}};
+		# B's own numbers, read off B's timestamps; the changed SSRC starts again at 500
+		my @s_renumbered = grep {
+			my $base = $_->[0] == $changed_ssrc ? 500 : $start;
+			(($_->[1] - $base) & 0xffff) != (unpack('x4 N', $_->[2]) - 8000) / 160
+		} @at_s;
+		my @s_foreign = grep { $_->[0] != $source_ssrc && $_->[0] != $changed_ssrc } @at_s;
+		my $first_bytes = chr(0x80 | 0x20 | length($csrc) / 4) . chr(0);
+		my @s_damaged = grep {
+			substr($_->[2], 0, 2) ne $first_bytes || substr($_->[2], 12) ne $csrc . ("\xdf" x 160) . $padding
+		} @at_s;
+		cmp_ok scalar(@at_s), '>', 40 * ($cycles || 1), 'S receives B throughout';
+		is scalar(@s_foreign), 0, 'S receives the SSRCs B sends with'
+			or diag 'S received SSRCs: ' . join(', ', map { sprintf '%x', $_ } sort keys %{{ map { $_->[0] => 1 } @at_s }});
+		is scalar(@s_renumbered), 0, 'S receives the sequence numbers B sends'
+			or diag 'B sequence at S differs from B: ' . join(', ', map { $_->[1] } @s_renumbered[0 .. min(4, $#s_renumbered)]);
+		is scalar(@s_damaged), 0, 'B reaches S whole';
+		if ($options{source_change}) {
+			my ($first_changed) = grep { $_->[0] == $changed_ssrc } @at_s;
+			ok $first_changed && $first_changed->[1] >= 500 && $first_changed->[1] <= 505,
+				'S receives the new source numbered from 500';
+		}
+	}
+	rtpe_req('delete', 'delete sequence call', { 'call-id' => $call });
 }
 
 
@@ -655,6 +933,71 @@ subtest 'delete B during bidirectional injection' => sub { exercise_bidirectiona
 subtest 'delete bidirectional injection endpoint' => sub { exercise_bidirectional_injection(0); };
 subtest 'delayed delete of bidirectional injection endpoint' => sub { exercise_bidirectional_injection(1); };
 subtest 'same call' => sub { exercise_injection({}); };
+subtest 'the sender numbering continues after injection' => sub { exercise_sequence_continuity(0, 0); };
+subtest 'the sender numbering continues across 65535 after injection' => sub {
+	exercise_sequence_continuity(0, 0, start => 65500);
+};
+subtest 'the sender numbering continues after repeated injections' => sub {
+	exercise_sequence_continuity(0, 0, cycles => 2);
+};
+subtest 'SRTP under a key of our own keeps the sender numbering after injection' => sub {
+	exercise_sequence_continuity(1, 0);
+};
+subtest 'SRTP under a key of our own keeps the sender numbering across 65535 after injection' => sub {
+	exercise_sequence_continuity(1, 0, start => 65500);
+};
+subtest 'SRTP passthrough keeps the sender numbering after injection' => sub { exercise_sequence_continuity(1, 1); };
+subtest 'SRTP recrypt under the sender key keeps the numbering after injection' => sub {
+	exercise_sequence_continuity(1, 1, recrypt => 1);
+};
+subtest 'SRTP passthrough keeps the sender numbering after repeated injections' => sub {
+	exercise_sequence_continuity(1, 1, cycles => 2);
+};
+subtest 'SRTP passthrough keeps the sender numbering across 65535 after injection' => sub {
+	exercise_sequence_continuity(1, 1, start => 65500);
+};
+subtest 'SRTP recrypt under the sender key keeps the numbering across 65535 after injection' => sub {
+	exercise_sequence_continuity(1, 1, recrypt => 1, start => 65500);
+};
+subtest 'SRTP under the sender key keeps the numbering when the offer asks for unencrypted SRTCP' => sub {
+	exercise_sequence_continuity(1, 1, sdes => ['unencrypted_srtcp']);
+};
+subtest 'SRTP under the sender key keeps the numbering when the receiver answers a re-invite with a new key' => sub {
+	exercise_sequence_continuity(1, 1, rekey => 'A');
+};
+subtest 'SRTP keeps the sender numbering when the sender answers a re-invite with a new key' => sub {
+	exercise_sequence_continuity(1, 1, rekey => 'B');
+};
+subtest 'a fixed egress SSRC never repeats a number across an injection' => sub {
+	exercise_sequence_continuity(0, 0, fixed_egress => 1);
+};
+subtest 'SRTP under the sender key with a fixed egress SSRC never repeats a number across an injection' => sub {
+	exercise_sequence_continuity(1, 1, fixed_egress => 1);
+};
+subtest 'the sender numbering continues when B jumps its numbering during injection' => sub {
+	exercise_sequence_continuity(0, 0, seq_jump => 200);
+};
+subtest 'the sender numbering continues after injection where userspace applies the offset' => sub {
+	exercise_sequence_continuity(0, 0, inject_dtmf => 1);
+};
+subtest 'an injection keeps the numbering a DTMF event moved on' => sub {
+	exercise_sequence_continuity(0, 0, dtmf_first => 1);
+};
+subtest 'the sender numbering continues when B jumps its numbering during injection, where userspace applies the offset' => sub {
+	exercise_sequence_continuity(0, 0, inject_dtmf => 1, seq_jump => 200);
+};
+subtest 'SRTP under the sender key with a fixed egress SSRC renumbers across a source change' => sub {
+	exercise_sequence_continuity(1, 1, fixed_egress => 1, source_change => 1, cycles => 0);
+};
+subtest 'SRTP recrypt with a fixed egress SSRC renumbers across a source change' => sub {
+	exercise_sequence_continuity(1, 1, recrypt => 1, fixed_egress => 1, source_change => 1, cycles => 0);
+};
+subtest 'a second sink of the stream receives the packet as sent, beside a fixed egress SSRC' => sub {
+	exercise_sequence_continuity(0, 0, fixed_egress => 1, source_change => 1, cycles => 0, subscriber => 1);
+};
+subtest 'a second sink of the stream keeps the sender numbering after an injection' => sub {
+	exercise_sequence_continuity(0, 0, subscriber => 1);
+};
 subtest 'source-call-id' => sub { exercise_injection({ external => 1 }); };
 subtest 'SRTP source-call-id' => sub { exercise_injection({ external => 1, srtp => 1 }); };
 subtest 'explicit player survives stop' => sub {
@@ -675,6 +1018,12 @@ NGCP::Rtpengine::AutoTest::shut_rtpe();
 start_daemon('play-media', 40);
 subtest 'standalone playback stopped after injection' => sub { exercise_playback('stop'); };
 subtest 'standalone playback ends after injection' => sub { exercise_playback('eof'); };
+NGCP::Rtpengine::AutoTest::shut_rtpe();
+
+start_daemon('on-demand', 40, qw(--dtx-delay=10 --dtx-shift=0 --dtx-buffer=3 --dtx-lag=40));
+subtest 'the sender numbering continues when the DTX buffer discards packets during injection' => sub {
+	exercise_sequence_continuity(0, 0, inject_dtmf => 1, burst => 2);
+};
 NGCP::Rtpengine::AutoTest::shut_rtpe();
 
 start_daemon('on-demand');

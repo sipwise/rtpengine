@@ -233,6 +233,7 @@ struct codec_ssrc_handler {
 	uint64_t skip_pts;
 
 	bool rtp_mark;
+	bool decode_only; // consumes without replacing: doesn't move the seq offset
 };
 struct transcode_packet {
 	seq_packet_t p; // must be first
@@ -2432,7 +2433,8 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 
 		if (seq_ret == 1) {
 			// seq reset - update output seq. we keep our output seq clean
-			ssrc_out->seq_diff -= packet->p.seq - seq_ori;
+			if (!ch->decode_only)
+				ssrc_out->seq_diff -= packet->p.seq - seq_ori;
 			seq_ret = 0;
 		}
 
@@ -4032,7 +4034,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 		// release and try again
 		mutex_unlock(&dtxb->lock);
 
-		if (call && mp_copy.ssrc_out) {
+		if (call && mp_copy.ssrc_out && !ch->decode_only) {
 			// packet consumed - track seq
 			rwlock_lock_r(&call->master_lock);
 			__ssrc_lock_both(&mp_copy);
@@ -4545,6 +4547,7 @@ static struct ssrc_entry *__ssrc_handler_decode_new(void *p) {
 
 	__auto_type ch = obj_alloc0(struct codec_ssrc_handler, __free_ssrc_handler);
 	ch->handler = h;
+	ch->decode_only = true;
 	ch->ptime = h->dest_pt.ptime;
 
 	format_t dest_format = {
@@ -4900,7 +4903,8 @@ static tc_code __rtp_decode_direct(struct codec_ssrc_handler *ch, struct codec_s
 			code = ret == 0 ? TCC_OK : TCC_ERR;
 		}
 	}
-	__buffer_delay_seq(input_ch->handler->delay_buffer, mp, -1);
+	if (!ch->decode_only) // consumed, not replaced: doesn't count towards the seq offset
+		__buffer_delay_seq(input_ch->handler->delay_buffer, mp, -1);
 	return code;
 }
 static tc_code __rtp_decode_async(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
