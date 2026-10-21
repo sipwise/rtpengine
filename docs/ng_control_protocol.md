@@ -1424,6 +1424,17 @@ Spaces in each string may be replaced by hyphens.
     Intended for feeding media into a system that has to bind a receiver to an
     SSRC up front, such as a WebRTC selective forwarding unit.
 
+* `stop on ingress`
+
+    Only useful for `play media` NG requests. With this option,
+    the `play media` plays the media to the selected call party, but only until
+    a real media for that party arrives (even a single RTP packet from the previously learned source).
+    Thus, as soon as the first RTP packet from the called call party (which would be forwarded to the
+    selected party) is received, the playback is stopped right away and the media forwarding
+    is then resumed (the same way as with a `stop media` message). It implies to `block
+    egress`, so the other parties media is not heard while the playback is
+    ongoing. See the `play media` message for all other details.
+
 * `strict source`
 
 	Normally, *rtpengine* attempts to learn the correct endpoint address for every stream during
@@ -2471,6 +2482,19 @@ Media files can be provided through one of these keys:
 * `start-pos`
 
 	Contains an integer. The start frame position to begin the playback from.
+
+With the `stop on ingress` flag present, the playback is replacing media from the other call parties only
+for as long as there is no real media coming. A typical use case is an emulation of ringback tone towards
+a caller while the callee has advertised the early media (e.g. `183` with SDP),
+but in fact it is rather unknown whether it actually sends any (expected to not receive any single RTP packet).
+Media from the other parties is blocked (`block egress` is implied) for a while, and then the first RTP packet
+received from any of them (which would be then forwarded to the selected participant), stops the ongoing playback
+and the media forwarding resumes. This packet itself, as well as the packets received before the playback is fully
+stopped (typically it takes few ms), are not forwarded. Important, RTCP packets don't stop the playback.
+Media that is being forwarded by the kernel module at the moment doesn't stop the playback, as it is not seen by the daemon.
+But this doesn't happen as long as the selected participant is the only destination of that media, as blocked
+destinations are excluded from kernel forwarding. Then later, any media that arrives after the playback
+has been stopped is forwarded as usual (so in kernel space) and a later `stop media` message for the same participant is harmless.
 
 In addition to the `result` key, the response dictionary may contain the key `duration` if the length of
 the media file could be determined. The duration is given as in integer representing milliseconds.
