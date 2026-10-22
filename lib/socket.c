@@ -661,6 +661,9 @@ bool endpoint_parse_any_getaddrinfo_alt(endpoint_t *d, endpoint_t *d2, const cha
 	const char *ep;
 	char buf[256];
 
+	while (*s == ' ')
+		s++;
+
 	ep = strrchr(s, ':');
 	if (!ep) {
 		if (strchr(s, '.'))
@@ -682,6 +685,9 @@ bool endpoint_parse_any_getaddrinfo_alt(endpoint_t *d, endpoint_t *d2, const cha
 	d->port = atoi(ep+1);
 	if (d->port > 0xffff)
 		return false;
+
+	while (len > 0 && s[len - 1] == ' ')
+		len--;
 
 	/* original s was [IPv6]:port */
 	if ((len > 2) && (s[0] == '[') && (s[len - 1] == ']')) {
