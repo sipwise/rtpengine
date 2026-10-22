@@ -2422,7 +2422,10 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 		}
 
 		ssrc_in->packets_lost = seq->lost_count;
-		atomic_set_na(&ssrc_in->stats->ext_seq, seq->ext_seq);
+		// stats->ext_seq is the SRTP receive index (packet_index() in rtp.c and the
+		// kernel module) and is already updated for every received packet. The
+		// sequencer's position is an emission position that can legitimately move
+		// backwards, so it must not be written into the receive index.
 
 		ilogs(transcoding, LOG_DEBUG, "Processing RTP packet: seq %u, TS %lu",
 				packet->p.seq, packet->ts);
