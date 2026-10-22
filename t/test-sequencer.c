@@ -503,12 +503,127 @@ void test5(void) {
 }
 
 
+// a lost-packet emission must not strand lower queued packets behind a_idx
+void test6(void) {
+	packet_sequencer_t ps = {0};
+	packet_sequencer_init(&ps, ffunc, false);
+
+	void *p;
+	int i;
+	num_freed = 0;
+
+	seq_packet_t pks[5] = {0};
+	pks[0].seq = 0;
+	pks[1].seq = 2;
+	pks[2].seq = 4;
+	pks[3].seq = 130;
+	pks[4].seq = 131;
+
+	i = packet_sequencer_insert(&ps, &pks[0]);
+	assert(i == 0);
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == &pks[0]);
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == NULL);
+
+	// seq 1 lost
+	i = packet_sequencer_insert(&ps, &pks[1]);
+	assert(i == 2);
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == NULL);
+
+	// seq 3 lost
+	i = packet_sequencer_insert(&ps, &pks[2]);
+	assert(i == 2);
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == NULL);
+
+	// forced emission of seq 2 (lost-packet path); seq 4 stays queued
+	p = packet_sequencer_force_next_packet(&ps);
+	assert(p == &pks[1]);
+	assert(ps.lost_count == 1);
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == NULL);
+
+	// a packet far ahead arrives; a_nxt must still point at seq 4
+	i = packet_sequencer_insert(&ps, &pks[3]);
+	assert(i == 2);
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == NULL);
+
+	// forced emission must give seq 4, not seq 130
+	p = packet_sequencer_force_next_packet(&ps);
+	assert(p == &pks[2]);
+	assert(ps.lost_count == 2);
+	assert(ps.roc == 0);
+
+	p = packet_sequencer_force_next_packet(&ps);
+	assert(p == &pks[3]);
+	assert(ps.lost_count == 127);
+
+	i = packet_sequencer_insert(&ps, &pks[4]);
+	assert(i == 0);
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == &pks[4]);
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == NULL);
+
+	assert(ps.lost_count == 127);
+	assert(ps.roc == 0);
+	assert(ps.n_pks == 0);
+	assert(num_freed == 0);
+
+	packet_sequencer_destroy(&ps);
+}
+
+// a packet exactly one ring size ahead across the wrap-around is a seq reset
+void test7(void) {
+	packet_sequencer_t ps = {0};
+	packet_sequencer_init(&ps, ffunc, false);
+
+	void *p;
+	int i;
+	num_freed = 0;
+
+	seq_packet_t pks[3] = {0};
+	pks[0].seq = 65534;
+	pks[1].seq = 0;
+	pks[2].seq = 127;
+
+	i = packet_sequencer_insert(&ps, &pks[0]);
+	assert(i == 0);
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == &pks[0]);
+
+	// seq 65535 lost, seq 0 queued
+	i = packet_sequencer_insert(&ps, &pks[1]);
+	assert(i == 2);
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == NULL);
+
+	// seq 127 is 128 ahead of the expected 65535: a reset, not the head slot
+	i = packet_sequencer_insert(&ps, &pks[2]);
+	assert(i == 1);
+	assert(num_freed == 1);
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == &pks[2]);
+	p = packet_sequencer_next_packet(&ps);
+	assert(p == NULL);
+
+	assert(ps.lost_count == 0);
+	assert(ps.n_pks == 0);
+
+	packet_sequencer_destroy(&ps);
+}
+
 int main(void) {
 	test1();
 	test2();
 	test3();
 	test4();
 	test5();
+	test6();
+	test7();
 
 	return 0;
 }
