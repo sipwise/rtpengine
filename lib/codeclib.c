@@ -541,7 +541,9 @@ out:;
 		ps->a_nxt = -1u;
 
 	unsigned int ext_seq = ps->roc << 16 | packet->seq;
-	while (ext_seq < ps->ext_seq) {
+	// a lower seq is a rollover only if it is far behind (forward wrap-around),
+	// not when a late or replayed packet is emitted
+	while (ext_seq < ps->ext_seq && ps->ext_seq - ext_seq >= 0x8000) {
 		ps->roc++;
 		ext_seq += 0x10000;
 	}
