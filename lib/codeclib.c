@@ -586,8 +586,19 @@ out:;
 	ps->n_pks--;
 	ps->a_seq = (packet->seq + 1) & 0xffff;
 	ps->a_idx = (ix + 1) % G_N_ELEMENTS(ps->packets);
-	if (ps->a_nxt == ix)
-		ps->a_nxt = -1u;
+
+	// find the next closest queued packet, if any. a_nxt must always be
+	// the lowest pending slot relative to a_idx, otherwise a later lost-packet
+	// emission through a_nxt skips over lower queued packets, which are then
+	// stranded behind a_idx and replayed as in-sequence packets 128 seqs later
+	ps->a_nxt = -1u;
+	for (unsigned int i = 0; ps->n_pks && i < G_N_ELEMENTS(ps->packets); i++) {
+		unsigned int nx = (ps->a_idx + i) % G_N_ELEMENTS(ps->packets);
+		if (ps->packets[nx]) {
+			ps->a_nxt = nx;
+			break;
+		}
+	}
 
 	unsigned int ext_seq = ps->roc << 16 | packet->seq;
 	while (ext_seq < ps->ext_seq) {
@@ -629,7 +640,8 @@ int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *p) {
 	if (G_LIKELY(diff >= 0 && diff < G_N_ELEMENTS(ps->packets)))
 		goto seq_ok;
 	// early packet with wrap-around: p->seq = 20, ps->a_seq = 65530, diff = -65510
-	if (diff < (-0xffff + (signed) G_N_ELEMENTS(ps->packets)))
+	// (a packet exactly one ring size ahead is a seq reset, same as without wrap-around)
+	if (diff < (-0x10000 + (signed) G_N_ELEMENTS(ps->packets)))
 		goto seq_ok;
 	// recent duplicate: p->seq = 1000, ps->seq = 1080, diff = -80
 	if (diff < 0 && diff > -(signed) G_N_ELEMENTS(ps->packets)) {
