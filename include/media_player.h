@@ -72,6 +72,8 @@ struct media_player {
 	struct sink_handler sink;
 
 	int64_t next_run;
+	/* bumped on every stop and (re)start, only written with call->master_lock in W */
+	unsigned int run_gen;
 
 	media_player_opts_t opts;
 	/* `stop-on-ingress` playback waiting for media, only written with call->master_lock in W */

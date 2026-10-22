@@ -172,6 +172,7 @@ static void media_player_shutdown(struct media_player *mp) {
 	//ilog(LOG_DEBUG, "shutting down media_player");
 	timerthread_obj_deschedule(&mp->tt_obj);
 	mp->next_run = 0;
+	mp->run_gen++;
 	mp->stop_on_ingress_armed = false;
 
 	/* no handler means already shutdown (e.g. `stop media` after a `stop-on-ingress` stop),
@@ -1559,6 +1560,7 @@ static void __media_player_set_opts(struct media_player *mp, const media_player_
 	if (mp->media && mp->opts.block_egress)
 		MEDIA_SET(mp->media, BLOCK_EGRESS);
 
+	mp->run_gen++;
 	mp->stop_on_ingress_armed = mp->opts.stop_on_ingress;
 	atomic_set_na(&mp->ingress_seen, false);
 }
@@ -2182,6 +2184,7 @@ static void media_player_run(void *ptr) {
 	mutex_lock(&mp->lock);
 
 	bool finished = false;
+	unsigned int gen = mp->run_gen;
 	/* stopping needs the call locked in W, done below */
 	bool stop = mp->stop_on_ingress_armed && atomic_get_na(&mp->ingress_seen);
 	if (!stop && mp->next_run)
@@ -2195,14 +2198,18 @@ static void media_player_run(void *ptr) {
 	else if (finished) {
 		rwlock_lock_w(&call->master_lock);
 
-		mp->next_run = 0;
-		mp->stop_on_ingress_armed = false;
+		/* skip if stopped or restarted after the lock was released, as the
+		 * cleanup below would cut off the new playback */
+		if (mp->run_gen == gen) {
+			mp->next_run = 0;
+			mp->stop_on_ingress_armed = false;
 
-		if (mp->opts.block_egress)
-			MEDIA_CLEAR(mp->media, BLOCK_EGRESS);
+			if (mp->opts.block_egress)
+				MEDIA_CLEAR(mp->media, BLOCK_EGRESS);
 
-		codec_update_all_source_handlers(mp->media->monologue);
-		update_init_monologue_subscribers(mp->media->monologue, OP_PLAY_MEDIA);
+			codec_update_all_source_handlers(mp->media->monologue);
+			update_init_monologue_subscribers(mp->media->monologue, OP_PLAY_MEDIA);
+		}
 
 		rwlock_unlock_w(&call->master_lock);
 	}
