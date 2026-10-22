@@ -1441,6 +1441,14 @@ static void __ice_offer(const sdp_ng_flags *flags, struct call_media *this,
 	if (flags->ice_reject)
 		MEDIA_CLEAR(other, ICE);
 
+	// An answer must not introduce ICE where the original offer did not
+	// advertise it. A locally created ICE agent means we intentionally
+	// offered ICE on this leg, in which case keep the negotiated state.
+	// In other cases ignore ICE=force on the answer (see issue #2161).
+	if (flags->opmode == OP_ANSWER && flags->ice_option == ICE_FORCE &&
+			!MEDIA_ISSET(other, ICE) && !this->ice_agent)
+		MEDIA_CLEAR(this, ICE);
+
 	if (flags->passthrough_on) {
 		ilog(LOG_DEBUG, "enabling passthrough mode");
 		MEDIA_SET(this, PASSTHRU);

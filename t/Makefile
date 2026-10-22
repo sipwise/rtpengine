@@ -87,7 +87,7 @@ include ../lib/common.Makefile
 	daemon-tests-templ-def daemon-tests-templ-def-offer daemon-tests-t38 daemon-tests-evs-dtx \
 	daemon-tests-transform daemon-tests-http daemon-tests-heuristic daemon-tests-asymmetric \
 	daemon-tests-dtx-no-shift daemon-tests-rtcp daemon-tests-redis-subscribe daemon-tests-rtp-ext daemon-tests-ssrc \
-	daemon-tests-bundle daemon-tests-dtls daemon-tests-rollback \
+	daemon-tests-bundle daemon-tests-dtls daemon-tests-ice-force-answer daemon-tests-rollback \
 	daemon-tests-rollback-redis daemon-tests-redis-srtp-index \
 	daemon-tests-recording daemon-tests-create daemon-tests-created-subscriptions daemon-tests-alias \
 	daemon-tests-kernel-api daemon-tests-dtmf-fanout \
@@ -140,7 +140,7 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-sdp-orig-replacements daemon-tests-moh daemon-tests-evs-dtx daemon-tests-transform \
 	daemon-tests-transcode-config daemon-tests-codec-prefs daemon-tests-http daemon-tests-heuristic \
 	daemon-tests-asymmetric daemon-tests-rtcp daemon-tests-redis-subscribe daemon-tests-rtp-ext daemon-tests-ssrc \
-	daemon-tests-bundle daemon-tests-dtls daemon-tests-rollback daemon-tests-rollback-redis \
+	daemon-tests-bundle daemon-tests-dtls daemon-tests-ice-force-answer daemon-tests-rollback daemon-tests-rollback-redis \
 	daemon-tests-redis-srtp-index \
 	daemon-tests-recording daemon-tests-create daemon-tests-created-subscriptions \
 	daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-dtx-no-shift daemon-tests-dtx-dtmf \
@@ -322,6 +322,9 @@ daemon-tests-bundle:	daemon-test-deps
 
 daemon-tests-dtls:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtls.pl
+
+daemon-tests-ice-force-answer:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-ice-force-answer.pl
 
 daemon-tests-recording:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-recording.pl
