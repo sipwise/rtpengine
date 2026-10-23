@@ -128,6 +128,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 	enum call_stream_state css;
 
 	hlp->count++;
+	rtpe_now = now_us();
 
 	rwlock_lock_r(&c->master_lock);
 	log_info_call(c);
