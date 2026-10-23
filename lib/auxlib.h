@@ -540,77 +540,68 @@ taint_func(srandom, "use rtpe_ssl_init() instead");
 
 /*** ATOMIC64 ***/
 
-typedef struct {
-	uint64_t a;
-} atomic64;
+#define atomic_get_na(x) __atomic_load_n(x, __ATOMIC_RELAXED)
+#define atomic_get(x) __atomic_load_n(x, __ATOMIC_SEQ_CST)
+#define atomic_set_na(x,y) __atomic_store_n(x, y, __ATOMIC_RELAXED)
+#define atomic_set(x,y) __atomic_store_n(x, y, __ATOMIC_SEQ_CST)
+#define atomic_inc_na(x) __atomic_fetch_add(x, 1, __ATOMIC_RELAXED)
+#define atomic_inc(x) __atomic_fetch_add(x, 1, __ATOMIC_SEQ_CST)
+#define atomic_dec(x) __atomic_fetch_sub(x, 1, __ATOMIC_SEQ_CST)
+#define atomic_add(x,y) __atomic_fetch_add(x, y, __ATOMIC_SEQ_CST)
+#define atomic_add_na(x,y) __atomic_fetch_add(x, y, __ATOMIC_RELAXED)
+#define atomic_sub(x,y) __atomic_fetch_sub(x, y, __ATOMIC_SEQ_CST)
+#define atomic_sub_na(x,y) __atomic_fetch_sub(x, y, __ATOMIC_RELAXED)
+#define atomic_and(x,y) __atomic_fetch_and(x, y, __ATOMIC_SEQ_CST)
+#define atomic_or(x,y) __atomic_fetch_or(x, y, __ATOMIC_SEQ_CST)
+#define atomic_exchange(x,y) __atomic_exchange_n(x, y, __ATOMIC_SEQ_CST)
+#define atomic_exchange_na(x,y) __atomic_exchange_n(x, y, __ATOMIC_RELAXED)
+#define atomic_compare_exchange(x,y,z) __atomic_compare_exchange_n(x, y, z, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
+
+
+typedef int64_t atomic64;
 typedef atomic64 atomic64_t;
 
-static_assert(sizeof(atomic64_t) == sizeof(int64_t), "atomic64_t != int64_t");
+
+#define atomic64_get atomic_get
+#define atomic64_get_na atomic_get_na
+#define atomic64_set atomic_set
+#define atomic64_set_na atomic_set_na
+#define atomic64_and atomic_and
+#define atomic64_or atomic_or
+#define atomic64_inc atomic_inc
+#define atomic64_inc_na atomic_inc_na
+#define atomic64_add atomic_add
+#define atomic64_add_na atomic_add_na
+#define atomic64_set_if(x,y,z) atomic_compare_exchange(x,&(z),y)
 
 
-INLINE uint64_t atomic64_get(const atomic64 *u) {
-	return __atomic_load_n(&u->a, __ATOMIC_SEQ_CST);
-}
-INLINE uint64_t atomic64_get_na(const atomic64 *u) {
-	return __atomic_load_n(&u->a, __ATOMIC_RELAXED);
-}
-INLINE void atomic64_set(atomic64 *u, uint64_t a) {
-	__atomic_store_n(&u->a, a, __ATOMIC_SEQ_CST);
-}
-INLINE gboolean atomic64_set_if(atomic64 *u, uint64_t a, uint64_t i) {
-	return __atomic_compare_exchange_n(&u->a, &i, a, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
-}
-INLINE void atomic64_set_na(atomic64 *u, uint64_t a) {
-	__atomic_store_n(&u->a, a, __ATOMIC_RELAXED);
-}
-INLINE uint64_t atomic64_add(atomic64 *u, uint64_t a) {
-	return __atomic_fetch_add(&u->a, a, __ATOMIC_SEQ_CST);
-}
-INLINE uint64_t atomic64_add_na(atomic64 *u, uint64_t a) {
-	return __atomic_fetch_add(&u->a, a, __ATOMIC_RELAXED);
-}
-INLINE uint64_t atomic64_get_set(atomic64 *u, uint64_t a) {
-	uint64_t old;
+INLINE int64_t atomic64_get_set(atomic64 *u, int64_t a) {
+	int64_t old;
 	do {
 		old = atomic64_get(u);
-		if (__atomic_compare_exchange_n(&u->a, &old, a, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
+		if (atomic_compare_exchange(u, &old, a))
 			return old;
 	} while (1);
 }
-INLINE uint64_t atomic64_or(atomic64 *u, uint64_t a) {
-	return __atomic_fetch_or(&u->a, a, __ATOMIC_SEQ_CST);
-}
-INLINE uint64_t atomic64_and(atomic64 *u, uint64_t a) {
-	return __atomic_fetch_and(&u->a, a, __ATOMIC_SEQ_CST);
-}
 
-INLINE uint64_t atomic64_inc(atomic64 *u) {
-	return atomic64_add(u, 1);
-}
-INLINE uint64_t atomic64_inc_na(atomic64 *u) {
-	return atomic64_add_na(u, 1);
-}
-INLINE uint64_t atomic64_dec(atomic64 *u) {
-	return atomic64_add(u, -1);
-}
 INLINE void atomic64_local_copy_zero(atomic64 *dst, atomic64 *src) {
 	atomic64_set_na(dst, atomic64_get_set(src, 0));
 }
 #define atomic64_local_copy_zero_struct(d, s, member) \
 	atomic64_local_copy_zero(&((d)->member), &((s)->member))
 
-INLINE void atomic64_min(atomic64 *min, uint64_t val) {
+INLINE void atomic64_min(atomic64 *min, int64_t val) {
 	do {
-		uint64_t old = atomic64_get_na(min);
+		int64_t old = atomic64_get_na(min);
 		if (old && old <= val)
 			break;
 		if (atomic64_set_if(min, val, old))
 			break;
 	} while (1);
 }
-INLINE void atomic64_max(atomic64 *max, uint64_t val) {
+INLINE void atomic64_max(atomic64 *max, int64_t val) {
 	do {
-		uint64_t old = atomic64_get_na(max);
+		int64_t old = atomic64_get_na(max);
 		if (old && old >= val)
 			break;
 		if (atomic64_set_if(max, val, old))
@@ -618,20 +609,20 @@ INLINE void atomic64_max(atomic64 *max, uint64_t val) {
 	} while (1);
 }
 
-INLINE void atomic64_calc_rate_from_diff(long long run_diff_us, uint64_t diff, atomic64 *rate_var) {
+INLINE void atomic64_calc_rate_from_diff(long long run_diff_us, int64_t diff, atomic64 *rate_var) {
 	atomic64_set_na(rate_var, run_diff_us ? diff * 1000000LL / run_diff_us : 0);
 }
 INLINE void atomic64_calc_rate(const atomic64 *ax_var, long long run_diff_us,
 		atomic64 *intv_var, atomic64 *rate_var)
 {
-	uint64_t ax = atomic64_get_na(ax_var);
-	uint64_t old_intv = atomic64_get_na(intv_var);
+	int64_t ax = atomic64_get_na(ax_var);
+	int64_t old_intv = atomic64_get_na(intv_var);
 	atomic64_set_na(intv_var, ax);
 	atomic64_calc_rate_from_diff(run_diff_us, ax - old_intv, rate_var);
 }
 INLINE void atomic64_calc_diff(const atomic64 *ax_var, atomic64 *intv_var, atomic64 *diff_var) {
-	uint64_t ax = atomic64_get_na(ax_var);
-	uint64_t old_intv = atomic64_get_na(intv_var);
+	int64_t ax = atomic64_get_na(ax_var);
+	int64_t old_intv = atomic64_get_na(intv_var);
 	atomic64_set_na(intv_var, ax);
 	atomic64_set_na(diff_var, ax - old_intv);
 }
@@ -648,59 +639,43 @@ INLINE double atomic64_div(const atomic64 *n, const atomic64 *d) {
 	return (double) atomic64_get_na(n) / (double) dd;
 }
 
-#define atomic_get_na(x) __atomic_load_n(x, __ATOMIC_RELAXED)
-#define atomic_get(x) __atomic_load_n(x, __ATOMIC_SEQ_CST)
-#define atomic_set_na(x,y) __atomic_store_n(x, y, __ATOMIC_RELAXED)
-#define atomic_set(x,y) __atomic_store_n(x, y, __ATOMIC_SEQ_CST)
-#define atomic_inc_na(x) __atomic_fetch_add(x, 1, __ATOMIC_RELAXED)
-#define atomic_inc(x) __atomic_fetch_add(x, 1, __ATOMIC_SEQ_CST)
-#define atomic_dec(x) __atomic_fetch_sub(x, 1, __ATOMIC_SEQ_CST)
-#define atomic_add(x,y) __atomic_fetch_add(x, y, __ATOMIC_SEQ_CST)
-#define atomic_add_na(x,y) __atomic_fetch_add(x, y, __ATOMIC_RELAXED)
-#define atomic_sub(x,y) __atomic_fetch_sub(x, y, __ATOMIC_SEQ_CST)
-#define atomic_sub_na(x,y) __atomic_fetch_sub(x, y, __ATOMIC_RELAXED)
-#define atomic_exchange(x,y) __atomic_exchange_n(x, y, __ATOMIC_SEQ_CST)
-#define atomic_exchange_na(x,y) __atomic_exchange_n(x, y, __ATOMIC_RELAXED)
-#define atomic_compare_exchange(x,y,z) __atomic_compare_exchange_n(x, y, z, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
-
-
 /*** ATOMIC BITFIELD OPERATIONS ***/
 
 /* checks if at least one of the flags is set */
-INLINE bool bf_isset(const atomic64 *u, const uint64_t f) {
+INLINE bool bf_isset(const atomic64 *u, const int64_t f) {
 	if ((atomic64_get(u) & f))
 		return true;
 	return false;
 }
 /* checks if all of the flags are set */
-INLINE bool bf_areset(const atomic64 *u, const uint64_t f) {
+INLINE bool bf_areset(const atomic64 *u, const int64_t f) {
 	if ((atomic64_get(u) & f) == f)
 		return true;
 	return false;
 }
 /* returns true if at least one of the flags was set already */
-INLINE bool bf_set(atomic64 *u, const uint64_t f) {
+INLINE bool bf_set(atomic64 *u, const int64_t f) {
 	return (atomic64_or(u, f) & f) ? true : false;
 }
 /* returns true if at least one of the flags was set */
-INLINE bool bf_clear(atomic64 *u, const uint64_t f) {
+INLINE bool bf_clear(atomic64 *u, const int64_t f) {
 	return (atomic64_and(u, ~f) & f) ? true : false;
 }
-INLINE void bf_set_clear(atomic64 *u, const uint64_t f, bool cond) {
+INLINE void bf_set_clear(atomic64 *u, const int64_t f, bool cond) {
 	if (cond)
 		bf_set(u, f);
 	else
 		bf_clear(u, f);
 }
 /* works only for single flags */
-INLINE void bf_copy(atomic64 *u, const uint64_t f,
-		const atomic64 *s, const uint64_t g)
+INLINE void bf_copy(atomic64 *u, const int64_t f,
+		const atomic64 *s, const int64_t g)
 {
 	bf_set_clear(u, f, bf_isset(s, g));
 }
 /* works for multiple flags */
-INLINE void bf_copy_same(atomic64 *u, const atomic64 *s, const uint64_t g) {
-	uint64_t old, set, clear;
+INLINE void bf_copy_same(atomic64 *u, const atomic64 *s, const int64_t g) {
+	int64_t old, set, clear;
 	old = atomic64_get(s);
 	set = old & g;
 	clear = ~old & g;
