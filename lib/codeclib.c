@@ -603,9 +603,11 @@ seq_ok:;
 	if (ps->a_idx != idx)
 		ret = 2; // indicates an out-of-order packet
 
-	// if not set
-	if (ps->a_nxt == -1u)
-		ps->a_nxt = idx;
+	// if not set and this is the first packet
+	if (ps->a_nxt == -1u) {
+		if (ret != 2)
+			ps->a_nxt = idx;
+	}
 	// or if new idx is less than a_nxt
 	else if ((ps->a_nxt - ps->a_idx) % G_N_ELEMENTS(ps->packets)
 			> (idx - ps->a_idx) % G_N_ELEMENTS(ps->packets))
