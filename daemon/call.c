@@ -131,7 +131,6 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 	struct packet_stream *ps;
 	int tmp_t_reason = UNKNOWN;
 	enum call_stream_state css;
-	int64_t timestamp;
 
 	hlp->count++;
 
@@ -179,7 +178,8 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 	for (__auto_type it = c->streams.head; it; it = it->next) {
 		ps = it->data;
 
-		timestamp = packet_stream_last_packet(ps);
+		int64_t last_packet = packet_stream_last_packet(ps);
+		int64_t timestamp = last_packet;
 
 		if (!ps->media)
 			continue;
@@ -202,19 +202,22 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 		if (css == CSS_ICE)
 			timestamp = atomic64_get_na(&ps->media->ice_agent->last_activity);
 
+		int64_t last_kernel_packet = atomic64_get_na(&ps->stats_in->last_packet_us);
+		int64_t last_user_packet = atomic64_get_na(&ps->last_packet_us);
+
 		if (PS_ISSET(ps, RTP)) {
-			if (rtpe_now - atomic64_get_na(&ps->stats_in->last_packet_us) < 2000000LL) {
+			if (rtpe_now - last_kernel_packet < 2000000LL) {
 				// kernel activity
-				if (rtpe_now - atomic64_get_na(&ps->last_packet_us) < 2000000LL)
+				if (rtpe_now - last_user_packet < 2000000LL)
 					hlp->user_kernel_streams++; // user activity
 				else
 					hlp->kernel_streams++;
 			}
-			else if (rtpe_now - atomic64_get_na(&ps->last_packet_us) < 2000000LL)
+			else if (rtpe_now - last_user_packet < 2000000LL)
 				hlp->user_streams++; // user activity
 		}
 
-		bool active_media = (rtpe_now - packet_stream_last_packet(ps) < 1000000LL);
+		bool active_media = (rtpe_now - last_packet < 1000000LL);
 		if (active_media)
 			CALL_CLEAR(sfd->call, FOREIGN_MEDIA);
 
@@ -257,7 +260,7 @@ no_sfd:
 		for (__auto_type l = media->ssrc_hash_in.nq.head; l; l = l->next) {
 			struct ssrc_entry_call *ctx = l->data;
 
-			if (rtpe_now - atomic64_get_na(&ctx->stats->last_packet_us) < 2000000L)
+			if (rtpe_now - (int64_t) atomic64_get_na(&ctx->stats->last_packet_us) < 2000000L)
 				payload_tracker_add(&ctx->tracker,
 						atomic_get_na(&ctx->stats->last_pt));
 		}
@@ -265,7 +268,7 @@ no_sfd:
 		for (__auto_type l = media->ssrc_hash_out.nq.head; l; l = l->next) {
 			struct ssrc_entry_call *ctx = l->data;
 
-			if (rtpe_now - atomic64_get_na(&ctx->stats->last_packet_us) < 2000000L)
+			if (rtpe_now - (int64_t )atomic64_get_na(&ctx->stats->last_packet_us) < 2000000L)
 				payload_tracker_add(&ctx->tracker,
 						atomic_get_na(&ctx->stats->last_pt));
 		}
@@ -276,7 +279,7 @@ no_sfd:
 			goto out;
 
 		// update every 5 minutes
-		if (has_srtp && rtpe_now - atomic64_get_na(&c->last_redis_update_us) > 60*5*1000000LL)
+		if (has_srtp && rtpe_now - (int64_t) atomic64_get_na(&c->last_redis_update_us) > 60*5*1000000LL)
 			do_update = true;
 
 		goto out;
