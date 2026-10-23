@@ -274,7 +274,6 @@ sub encrypt_rtp {
 	$seq == 0 and $roc++;
 
 	my ($exttype, $extlen, $ext) = ('', '', '');
-	print(unpack('H*', $hdr) . "\n");
 	if ((unpack('C', $hdr))[0] & 0x10) {
 		# extension
 		my $rest;
