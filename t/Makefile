@@ -92,7 +92,8 @@ include ../lib/common.Makefile
 	daemon-tests-redis-destroyed daemon-tests-redis-reconnect \
 	daemon-tests-recording daemon-tests-create daemon-tests-created-subscriptions daemon-tests-alias \
 	daemon-tests-kernel-api daemon-tests-dtmf-fanout \
-	daemon-tests-video daemon-tests-inject daemon-tests-dtx-dtmf
+	daemon-tests-video daemon-tests-inject daemon-tests-dtx-dtmf \
+	daemon-tests-roc-pl
 
 TESTS := test-bitstr test-str aes-crypt aead-aes-crypt test-const_str_hash.strhash
 ifeq ($(with_transcoding),yes)
@@ -148,7 +149,8 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-dtx-no-shift daemon-tests-dtx-dtmf \
 	daemon-tests-alias \
 	daemon-tests-kernel-api daemon-tests-dtmf-fanout \
-	daemon-tests-video daemon-tests-inject
+	daemon-tests-video daemon-tests-inject \
+	daemon-tests-roc-pl
 
 daemon-test-deps:	tests-preload.so
 	$(MAKE) -C ../daemon
@@ -173,6 +175,9 @@ daemon-tests-redis-srtp-index:	daemon-test-deps
 
 daemon-tests-jb:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-jb.pl
+
+daemon-tests-roc-pl:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-roc-pl.pl
 
 daemon-tests-heuristic:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-heuristic.pl
