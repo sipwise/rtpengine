@@ -727,6 +727,19 @@ out:
 }
 
 
+// sequence-gap based loss, counted in userspace and in the kernel for packets each one handled
+uint32_t ssrc_packets_lost(struct ssrc_entry_call *se) {
+	return se->packets_lost + atomic_get_na(&se->stats->total_lost);
+}
+
+// RFC 3550 interarrival jitter (scaled by 16, in RTP timestamp units). The kernel keeps
+// its own estimate if it measures RTP stats, which is the current one once it has taken
+// over forwarding this SSRC.
+uint32_t ssrc_jitter(struct ssrc_entry_call *se) {
+	uint32_t kernel_jitter = atomic_get_na(&se->stats->jitter);
+	return kernel_jitter ? kernel_jitter : se->jitter;
+}
+
 // call master lock held in R
 void ssrc_collect_metrics(struct call_media *media) {
 	for (GList *l = media->ssrc_hash_in.nq.head; l; l = l->next) {
@@ -735,17 +748,20 @@ void ssrc_collect_metrics(struct call_media *media) {
 			break; // end of list
 
 		// work on a copy, as the estimator itself must stay in RTP timestamp units
-		uint32_t jitter = s->jitter;
+		uint32_t jitter = ssrc_jitter(s);
 		// exclude zero values - technically possible but unlikely and probably just unset
 		if (!jitter)
 			continue;
 
-		if (s->tracker.most_len > 0 && s->tracker.most[0] != 255) {
-			const rtp_payload_type *rpt = get_rtp_payload_type(s->tracker.most[0],
-					&media->codecs);
-			if (rpt && rpt->clock_rate)
-				jitter = jitter * 1000 / rpt->clock_rate;
-		}
+		// The sampled metric is in ms. Without a known RTP clock rate,
+		// publishing raw clock ticks here would mislabel its units.
+		if (!s->tracker.most_len || s->tracker.most[0] == 255)
+			continue;
+		const rtp_payload_type *rpt = get_rtp_payload_type(s->tracker.most[0],
+				&media->codecs);
+		if (!rpt || !rpt->clock_rate)
+			continue;
+		jitter = jitter * 1000 / rpt->clock_rate;
 
 		if (media->streams.head) {
 			LOCK(&media->streams.head->lock);
