@@ -62,6 +62,9 @@ enum endpoint_learning {
 	X(redis_tcp_keepalive_time) \
 	X(redis_tcp_keepalive_intvl) \
 	X(redis_tcp_keepalive_probes) \
+	X(redis_sentinel_interval) \
+	X(redis_resync_delete_window) \
+	X(redis_resync_delete_max) \
 	X(num_threads) \
 	X(media_num_threads) \
 	X(codec_num_threads) \
@@ -139,6 +142,12 @@ enum endpoint_learning {
 	X(player_cache) \
 	X(poller_per_thread) \
 	X(redis_resolve_on_reconnect) \
+	X(redis_require_master) \
+	X(redis_repair_writes) \
+	X(redis_resync_on_master_change) \
+	X(redis_via_sentinel) \
+	X(redis_write_via_sentinel) \
+	X(redis_subscribe_via_sentinel) \
 	X(measure_rtp) \
 	X(amr_cn_dtx) \
 	X(evs_cn_dtx) \
@@ -153,6 +162,11 @@ enum endpoint_learning {
 	X(redis_hostname) \
 	X(redis_write_hostname) \
 	X(redis_subscribe_hostname) \
+	X(redis_cafile) \
+	X(redis_capath) \
+	X(redis_certfile) \
+	X(redis_keyfile) \
+	X(redis_tls_server_name) \
 	X(moh_attr_name) \
 	X(spooldir) \
 	X(rec_method) \
