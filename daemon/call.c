@@ -6849,6 +6849,10 @@ static bool monologue_call_create_media(struct call_monologue *ml, sdp_ng_flags 
 	bf_set(&m->media_flags, MEDIA_FLAG_SEND | MEDIA_FLAG_RECV
 			| MEDIA_FLAG_SETUP_ACTIVE | MEDIA_FLAG_SETUP_PASSIVE
 			| MEDIA_FLAG_DTLS | MEDIA_FLAG_SDES);
+	if (flags->dtls_off)
+		MEDIA_CLEAR(m, DTLS);
+	if (flags->sdes_off)
+		MEDIA_CLEAR(m, SDES);
 
 	__rtcp_mux_set(flags, m);
 	media_init_from_flags(m, flags);
@@ -6972,6 +6976,8 @@ bool monologue_call_create_answer(struct call_monologue *ml, sdp_ng_flags *flags
 
 		sdp_sp_move(&media->sp, sp);
 	}
+
+	monologue_media_start(ml);
 
 	return true;
 }
