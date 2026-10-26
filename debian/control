@@ -28,6 +28,7 @@ Build-Depends:
  libio-multiplex-perl,
  libio-socket-inet6-perl,
  libio-socket-ip-perl,
+ libio-socket-ssl-perl,
  libiptc-dev,
  libjson-glib-dev,
  libjson-perl,

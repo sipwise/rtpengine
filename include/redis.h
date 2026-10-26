@@ -15,7 +15,14 @@
 #include "crypto.h"
 #include "dtls.h"
 
+struct redis_sentinel;
+struct event;
+struct ssl_st;
+
 #define REDIS_RESTORE_NUM_THREADS 4
+
+// also logged while calls are being restored
+#define rlog(l, x...) ilog(l | LOG_FLAG_RESTORE, x)
 
 enum redis_role {
 	MASTER_REDIS_ROLE = 0,
@@ -71,11 +78,21 @@ struct redis {
 
 	struct event_base		*async_ev;
 	struct redisAsyncContext	*async_ctx;
+	struct ssl_st			*async_ssl;	/* its TLS, freed with it */
 	mutex_t				async_lock;
 	GQueue				async_queue;
 	int64_t				async_last;
 
 	bool		update_resolve;
+	bool		require_master;	/* a role error drops the connection */
+	atomic64	lock_waiters;	/* signalling writes waiting for lock */
+	cond_t		lock_waiters_cond;	/* signalled when the last one has it */
+	char		master_replid[48];	/* of the master last connected to */
+
+	struct redis_sentinel	*sentinel;	/* address from Redis Sentinel, or NULL */
+	uint64_t		gen;		/* generation of the master in endpoint */
+	struct event		*notify_timer;	/* subscriber: checks the generation */
+	uint64_t		notify_gen;	/* generation the subscription was made at */
 };
 
 struct redis_hash {
@@ -113,7 +130,8 @@ void redis_notify_loop(void *d);
 void redis_delete_async_loop(void *d);
 
 
-struct redis *redis_new(const endpoint_t *, int, const char *, const char *, enum redis_role, int, bool);
+struct redis *redis_new(const endpoint_t *, int, const char *, const char *, enum redis_role, int, bool,
+		bool, struct redis_sentinel *);
 struct redis *redis_dup(const struct redis *r, int db);
 void redis_close(struct redis *r);
 int redis_restore(struct redis *, bool foreign, int db);
@@ -125,6 +143,12 @@ int redis_notify_subscribe_action(struct redis *r, enum subscribe_action action,
 int redis_set_timeout(struct redis* r, int64_t timeout);
 int redis_set_cmd_timeout(struct redis *r, int64_t timeout);
 int redis_reconnect(struct redis* r);
+void redis_repair_init(void);
+void redis_repair_loop(void *);
+void redis_repair_free(void);
+int redis_tls_init(void);
+void redis_tls_free(void);
+int redis_tls_start(redisContext *, const char *name, int64_t timeout_us, struct ssl_st **);
 
 
 #endif
