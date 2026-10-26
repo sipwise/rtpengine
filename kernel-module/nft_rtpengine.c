@@ -7108,7 +7108,7 @@ static int rtpengine46(struct sk_buff *oskb,
 			g->decrypt_rtp.cipher->name);
 
 	datalen = ntohs(uh->len);
-	if (datalen < sizeof(*uh))
+	if (datalen < sizeof(*uh) || datalen > oskb->len - (oskb->transport_header - oskb->network_header))
 		goto out_target;
 	datalen -= sizeof(*uh);
 	DBG("udp payload = %u\n", datalen);
