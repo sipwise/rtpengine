@@ -2673,6 +2673,10 @@ command. Sample return dictionary:
 	      "zerowaystreams": 0,
 	      "onewaystreams": 0,
 	      "rediswriteerrors": 0,
+	      "redisrepairedwrites": 0,
+	      "redisresyncs": 0,
+	      "redisresynccalls": 0,
+	      "redisresyncdeletes": 0,
 	      "avgcallduration": "0.000000"
 	    },
 	    "intervalstatistics": {
