@@ -2508,6 +2508,9 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 	unsigned int type_pref, local_pref;
 	enum ice_candidate_type cand_type;
 
+	if (!rtp->selected_sfd)
+		return;
+
 	media = rtp->media;
 
 	cand_type = ICT_HOST;
