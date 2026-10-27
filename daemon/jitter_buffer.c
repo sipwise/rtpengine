@@ -186,26 +186,29 @@ static struct jb_packet* get_jb_packet(struct media_packet *mp, const str *s) {
 	return p;
 }
 
-// jb is locked (temporarily unlocked during operation, then relocked)
+// jb is locked
 static int remove_oldest_packets(struct jitter_buffer *jb, int num_to_remove) {
 	if (num_to_remove <= 0)
 		return 0;
-	
+
 	int removed = 0;
-	mutex_unlock(&jb->lock);
-	
+
+	// The jitter buffer thread pops and re-inserts entries under the queue's
+	// own lock, so the tree must only be touched while holding it. Lock order
+	// jb->lock -> ttq.lock is the same as in timerthread_queue_push().
+	LOCK(&jb->ttq.lock);
+
 	for (int i = 0; i < num_to_remove; i++) {
 		struct timerthread_queue_entry *ttqe = rtpe_g_tree_first(jb->ttq.entries);
 		if (!ttqe)
 			break;
-		
+
 		g_tree_remove(jb->ttq.entries, ttqe);
 		if (jb->ttq.entry_free_func)
 			jb->ttq.entry_free_func(ttqe);
 		removed++;
 	}
-	
-	mutex_lock(&jb->lock);
+
 	return removed;
 }
 
