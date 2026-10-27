@@ -81,9 +81,10 @@ static void libopus_decoder_close(decoder_t *dec) {
 	opus_decoder_destroy(dec->opus);
 }
 static int libopus_decoder_input(decoder_t *dec, const str *data, frame_q *out, bool mark) {
-	// get frame with buffer large enough for the max
+	// get frame with buffer large enough for the max: an Opus packet can
+	// carry up to 120 ms of audio, at whatever rate the decoder runs at
 	AVFrame *frame = av_frame_alloc();
-	frame->nb_samples = 960;
+	frame->nb_samples = dec->in_format.clockrate * 120 / 1000;
 	frame->format = AV_SAMPLE_FMT_S16;
 	frame->sample_rate = dec->in_format.clockrate;
 	DEF_CH_LAYOUT(&frame->CH_LAYOUT, dec->in_format.channels);
