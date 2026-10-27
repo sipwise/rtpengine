@@ -3051,11 +3051,11 @@ static void media_packet_rtp_out(struct packet_handler_ctx *phc, struct sink_han
 
 	const char *unkern = NULL;
 
-	uint32_t fixed_ssrc = phc->mp.media_out->fixed_egress_ssrc;
+	uint32_t fixed_ssrc = phc->mp.ssrc_in ? phc->mp.media_out->fixed_egress_ssrc : 0;
 
 	/* A fixed egress SSRC is just a mapping from the ingress SSRC, so record it
 	 * where every consumer already looks for one. */
-	if (fixed_ssrc && phc->mp.ssrc_in)
+	if (fixed_ssrc)
 		phc->mp.ssrc_in->ssrc_map_out = fixed_ssrc;
 
 	if (G_LIKELY(!phc->rtcp && phc->mp.rtp)) {
@@ -3065,7 +3065,7 @@ static void media_packet_rtp_out(struct packet_handler_ctx *phc, struct sink_han
 
 		/* a fixed egress SSRC outlives the ingress SSRC, so carry the
 		 * sequence numbering across a change of source */
-		if (fixed_ssrc && phc->mp.ssrc_out) {
+		if (fixed_ssrc) {
 			struct ssrc_entry_call *so = phc->mp.ssrc_out;
 			uint32_t in_ssrc = ntohl(phc->mp.rtp->ssrc);
 			uint16_t seq = ntohs(phc->mp.rtp->seq_num);
