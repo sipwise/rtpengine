@@ -40,6 +40,9 @@ LDLIBS += $(LDLIBS_LIBJWT)
 CFLAGS += $(CFLAGS_BCG729)
 LDLIBS += $(LDLIBS_BCG729)
 
+CFLAGS += $(CFLAGS_CODEC2)
+LDLIBS += $(LDLIBS_CODEC2)
+
 SRCS := epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c packet.c \
 		decoder.c output.c mix.c db.c log.c forward.c tag.c custom_poller.c notify.c tls_send.c s3.c \
 		gcs.c

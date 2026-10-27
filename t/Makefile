@@ -31,6 +31,7 @@ CFLAGS += $(CFLAGS_LIBSWSCALE)
 CFLAGS += $(CFLAGS_LIBAVFILTER)
 CFLAGS += $(CFLAGS_SPANDSP)
 CFLAGS += $(CFLAGS_OPUS)
+CFLAGS += $(CFLAGS_CODEC2)
 CFLAGS += $(CFLAGS_LIBZ)
 CFLAGS += $(CFLAGS_LIBWEBSOCKETS)
 CFLAGS += $(CFLAGS_LIBEVENT)
@@ -67,6 +68,7 @@ LDLIBS += $(LDLIBS_LIBEVENT)
 LDLIBS += $(LDLIBS_LIBHIREDIS)
 LDLIBS += $(LDLIBS_MYSQL)
 LDLIBS += $(LDLIBS_BCG729)
+LDLIBS += $(LDLIBS_CODEC2)
 endif
 
 CFLAGS += $(CFLAGS_CODEC_CHAIN)
@@ -545,6 +547,7 @@ test-transcode:	test-transcode.o \
 	../lib/bencode.o \
 	../lib/bufferpool.o \
 	../lib/cchain.o \
+	../lib/codec2.o \
 	../lib/codeclib.o \
 	../lib/dtmflib.o \
 	../lib/g711.o \

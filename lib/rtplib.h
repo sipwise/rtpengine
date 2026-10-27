@@ -94,6 +94,10 @@ union codec_format_options {
 
 		int level_asymmetry_allowed:1;
 	} h264;
+
+	struct {
+		int mode; // bit rate of the "mode=" parameter (700 for 700C), 0 = not given
+	} codec2;
 };
 
 struct rtp_codec_format {

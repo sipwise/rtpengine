@@ -348,6 +348,7 @@ struct decoder_s {
 		} dtmf;
 		void *evs;
 		OpusDecoder *opus;
+		void *codec2; // struct CODEC2
 	};
 
 	unsigned long rtp_ts;
@@ -404,6 +405,7 @@ struct encoder_s {
 			int64_t cmr_in_ts;
 		} evs;
 		OpusEncoder *opus;
+		void *codec2; // struct CODEC2
 	};
 	AVPacket *avpkt;
 	AVAudioFifo *fifo;

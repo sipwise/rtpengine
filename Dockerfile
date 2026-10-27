@@ -16,6 +16,7 @@ RUN apt-get update \
   libavcodec-extra \
   libavfilter-dev \
   libbcg729-dev \
+  libcodec2-dev \
   libcurl4-openssl-dev \
   libevent-dev \
   libglib2.0-dev \
