@@ -4502,7 +4502,7 @@ static const char *evs_encoder_init(encoder_t *enc, const str *extra_opts) {
 		// EVS
 		if (o->max_br && enc->bitrate > o->max_br)
 			enc->bitrate = o->max_br;
-		if (o->min_br && enc->bitrate < o->max_br)
+		if (o->min_br && enc->bitrate < o->min_br)
 			enc->bitrate = o->min_br;
 
 		// verify bitrate
