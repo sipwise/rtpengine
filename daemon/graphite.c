@@ -289,9 +289,11 @@ static void graphite_loop_run(endpoint_t *graphite_ep, int64_t microseconds) {
 				return;
 			}
 			rc = socket_error(&graphite_sock);
-			if (rc < 0) ilog(LOG_ERROR,"getsockopt failure.");
-			if (rc != 0) {
-				ilog(LOG_ERROR,"Socket connect failed. fd: %i, Reason: %s\n",graphite_sock.fd, strerror(rc));
+			if (rc < 0)
+				ilog(LOG_ERROR,"getsockopt failure.");
+			else if (rc > 0) {
+				ilog(LOG_ERROR,"Socket connect failed. fd: %i, Reason: %s\n",
+						graphite_sock.fd, strerror(rc));
 				close_socket(&graphite_sock);
 				connection_state = STATE_DISCONNECTED;
 				return;
