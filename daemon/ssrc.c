@@ -735,7 +735,7 @@ void ssrc_collect_metrics(struct call_media *media) {
 			break; // end of list
 
 		// work on a copy, as the estimator itself must stay in RTP timestamp units
-		uint32_t jitter = s->jitter;
+		uint32_t jitter = atomic_get_na(&s->jitter);
 		// exclude zero values - technically possible but unlikely and probably just unset
 		if (!jitter)
 			continue;
