@@ -17,6 +17,7 @@ Build-Depends:
  libbcg729-dev <!pkg.ngcp-rtpengine.nobcg729 !pkg.ngcp-rtpengine.no-transcoding>,
  libbellesip-dev <pkg.ngcp-rtpengine.pysip-lite>,
  libbencode-perl,
+ libcodec2-dev <!pkg.ngcp-rtpengine.nocodec2 !pkg.ngcp-rtpengine.no-transcoding>,
  libcrypt-openssl-rsa-perl,
  libcrypt-rijndael-perl,
  libcurl4-openssl-dev | libcurl4-gnutls-dev,

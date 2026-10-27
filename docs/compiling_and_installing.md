@@ -82,6 +82,7 @@ test suite.
 	- *libiptc* library for iptables management (optional)
 	- *ffmpeg* codec libraries for transcoding (optional) such as *libavcodec*, *libavfilter*, *libswresample*
 	- *bcg729* for full G.729 transcoding support (optional)
+	- *libcodec2* for Codec 2 transcoding support (optional)
 	- *libmosquitto*
 	- *libwebsockets*
 	- *libopus*

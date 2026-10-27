@@ -64,6 +64,9 @@ typedef GString *format_print_f(const struct rtp_payload_type *);
 #include <bcg729/encoder.h>
 #include <bcg729/decoder.h>
 #endif
+#ifdef HAVE_CODEC2
+#include <codec2/codec2.h>
+#endif
 #include <opus.h>
 
 #define AMR_FT_TYPES 14
@@ -348,6 +351,9 @@ struct decoder_s {
 		} dtmf;
 		void *evs;
 		OpusDecoder *opus;
+#ifdef HAVE_CODEC2
+		struct CODEC2 *codec2;
+#endif
 	};
 
 	unsigned long rtp_ts;
@@ -404,6 +410,9 @@ struct encoder_s {
 			int64_t cmr_in_ts;
 		} evs;
 		OpusEncoder *opus;
+#ifdef HAVE_CODEC2
+		struct CODEC2 *codec2;
+#endif
 	};
 	AVPacket *avpkt;
 	AVAudioFifo *fifo;

@@ -31,6 +31,7 @@ The following codecs are supported by *rtpengine*:
 * Opus
 * AMR (narrowband and wideband)
 * EVS (if supplied -- see below)
+* Codec 2 (if built with *libcodec2* -- see below)
 
 Codec support is dependent on support provided by the `ffmpeg` codec libraries, which may vary from
 version to version. Use the `--codecs` command line option to have *rtpengine* print a list of codecs
@@ -71,6 +72,28 @@ can be removed from `debian/control` or by switching to a different Debian build
 Set the environment variable
 `export DEB_BUILD_PROFILES="pkg.ngcp-rtpengine.nobcg729"` (or use the `-P` flag to the *dpkg* tools)
 and then build the *rtpengine* packages.
+
+## Codec 2 support
+
+Transcoding to and from [Codec 2](https://www.rowetel.com/?page_id=452) is available through the
+*libcodec2* library. The build system uses the library if *pkg-config* finds it, or if its headers
+are installed in `/usr/include/codec2`. Without it, *rtpengine* still recognises Codec 2 in SDP and
+passes it through, but can't transcode it. In a Debian build environment, the build dependency on
+*libcodec2-dev* can be dropped with the build profile `pkg.ngcp-rtpengine.nocodec2`.
+
+There is no standard RTP payload format for Codec 2. *Rtpengine* follows the convention used by
+*Asterisk*: the encoding name is `codec2` with a clock rate of 8000 Hz (mono only), and each RTP
+packet carries one or more complete Codec 2 frames back to back, each padded to whole bytes.
+
+The Codec 2 mode is selected through the format parameter `mode=`, with one of the values `3200`,
+`2400`, `1600`, `1400`, `1300`, `1200` or `700C`. Without it, mode 2400 is used, which is also
+the only mode *Asterisk* supports. Both sides must use the same mode for a Codec 2 stream to be
+passed through without transcoding. Modes 1600 and below use 40 ms frames, so their packetisation
+time is always a multiple of 40 ms. Other modes (such as 450) can be passed through, but not
+transcoded.
+
+When requesting Codec 2 through the `transcode` option, the mode can be given as the bit rate, for
+example `codec2/8000/1/3200`, or as a format parameter, for example `codec2/8000/1///mode=1300`.
 
 ## DTMF transcoding
 

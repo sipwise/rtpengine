@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Codec 2 support is optional: only enabled if libcodec2 is found
+
+if pkg-config --exists codec2; then
+  echo "CFLAGS_CODEC2 := -DHAVE_CODEC2"
+  echo "CFLAGS_CODEC2 += $(pkg-config --cflags codec2)"
+  echo "LDLIBS_CODEC2 := $(pkg-config --libs codec2)"
+elif [ -e /usr/include/codec2/codec2.h ]; then
+  echo "CFLAGS_CODEC2 := -DHAVE_CODEC2"
+  echo "CFLAGS_CODEC2 += -I/usr/include/codec2"
+  echo "LDLIBS_CODEC2 := -lcodec2"
+fi
