@@ -692,7 +692,7 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char *addr)
 
 		/* report the SSRCs picked for media sent towards the recipient of this SDP,
 		 * one entry per m= section */
-		if (flags.fixed_egress_ssrc && to_ml->medias) {
+		if (flags.fixed_egress_ssrc) {
 			parser_arg ssrcs = parser->dict_add_list(output, "egress SSRC");
 			for (unsigned int i = 0; i < to_ml->medias->len; i++) {
 				struct call_media *media = to_ml->medias->pdata[i];
