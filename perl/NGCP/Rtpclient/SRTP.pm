@@ -380,6 +380,7 @@ sub decrypt_rtcp {
 	my $pkt = $hdr . $enc;
 
 	my $hmac = hmac_sha1($auth_packet, $sauth);
+	#print("HMAC for packet " . unpack("H*", $pkt) . " idx $idx is " . unpack("H*", $hmac) . " vs "  . unpack("H*", $auth_tag) . "\n");
 
 	return ($pkt, $idx, $auth_tag, $hmac);
 }
