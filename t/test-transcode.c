@@ -212,6 +212,7 @@ static void __expect(const char *file, int line, rtp_pt_q *dumper, const char *c
 	g_string_free(s, TRUE);
 }
 
+#if defined(WITH_AMR_TESTS) || defined(HAVE_CODEC2)
 #define check_encoder(side, otherside, in_pt, out_pt, out_bitrate) \
 	__check_encoder(__FILE__, __LINE__, media_ ## side, media_ ## otherside, in_pt, out_pt, out_bitrate)
 
@@ -231,6 +232,7 @@ static void __check_encoder(const char *file, int line, struct call_media *m,
 	}
 	printf("test ok: %s:%i\n", file, line);
 }
+#endif
 
 #define packet_seq_ts(side, pt_in, pload, rtp_ts, rtp_seq, pt_out, pload_exp, ts_exp, fatal) \
 	__packet_seq_ts( __FILE__, __LINE__, media_ ## side, pt_in, (str) STR_CONST(pload), \
@@ -430,12 +432,14 @@ static void dtmf(const char *s) {
 #define PCMU_silence "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"
 #define G722_payload "\x23\x84\x20\x84\x20\x84\x04\x84\x04\x04\x84\x04\x84\x04\x84\x05\x85\x46\x87\x48\xc8\x48\x88\x48\xc8\x49\x8a\x4b\xcc\x4c\x8c\x4c\xcc\x4c\x8c\x4d\xce\x50\xcf\x51\x90\x50\xcf\x12\xd1\x52\xd2\x54\x91\x52\xd2\x54\x92\x54\xd3\x56\x93\xd6\x94\xd4\x93\xd7\xd5\x55\x94\x55\xd5\x55\xd4\x56\xd5\x17\xd7\x5a\x95\xd7\x97\xd9\xd4\x16\x58\x57\x98\xd5\xd7\x5b\x96\xda\xd6\x1b\x57\x5a\xd6\x1a\x57\x5b\x98\xd6\xd8\x56\x98\xd7\xd9\x5a\x95\xdb\xd6\x1c\x52\x5e\xd7\x5c\x93\xdf\x99\xd5\xd7\x5f\xd9\x14\x56\x7f\x92\xda\xd9\x5c\x92\xdd\xd7\x5d\x92\xff\xd6\x5a\x96\xdc\xd5\x18\x56\x7e\xd2\x5e\x96\xde\x94\xd8\xd8\x58\xd3\x79\x93\xfb\x90\xdc\xd6\x5b\xdd\x58\x96\xff"
 #define AMR_WB_payload "\xf0\x1c\xf3\x06\x08\x10\x77\x32\x23\x20\xd3\x50\x62\x12\xc7\x7c\xe2\xea\x84\x0e\x6e\xf4\x4d\xe4\x7f\xc9\x4c\xcc\x58\x5d\xed\xcc\x5d\x7c\x6c\x14\x7d\xc0" // octet aligned
+#ifdef HAVE_CODEC2
 // Codec 2 frames: only the sizes are checked, as the encoded bits depend on the libcodec2 version
 #define CODEC2_3200_payload "\x8c\x25\x13\x6a\x9d\x4e\x22\x07" // 64 bits per 20 ms
 #define CODEC2_2400_payload "\x8c\x25\x13\x6a\x9d\x4e" // 48 bits per 20 ms
 #define CODEC2_1600_payload "\x8c\x25\x13\x6a\x9d\x4e\x22\x07" // 64 bits per 40 ms
 #define CODEC2_1300_payload "\x8c\x25\x13\x6a\x9d\x4e\x20" // 52 bits per 40 ms
 #define CODEC2_450_payload "\x8c\x25\x13" // 18 bits per 40 ms
+#endif
 #define AMR_WB_payload_noe "\xf1\xfc\xc1\x82\x04\x1d\xcc\x88\xc8\x34\xd4\x18\x84\xb1\xdf\x38\xba\xa1\x03\x9b\xbd\x13\x79\x1f\xf2\x53\x33\x16\x17\x7b\x73\x17\x5f\x1b\x05\x1f\x70" // bandwidth efficient
 
 int main(void) {
@@ -770,96 +774,99 @@ int main(void) {
 	}
 #endif
 
+#ifdef HAVE_CODEC2
 	{
 		str codec_name = STR_CONST("codec2");
 		codec_def_t *def = codec_find(&codec_name, MT_AUDIO);
 		assert(def);
-		if (def->support_encoding && def->support_decoding) {
-			// forward Codec 2, default mode 2400: one 6-byte frame per 20 ms
-			start();
-			sdp_pt(0, PCMU, 8000);
-			transcode(codec2);
-			offer();
-			expect(A, "0/PCMU/8000");
-			expect(B, "0/PCMU/8000 96/codec2/8000");
-			sdp_pt(96, codec2, 8000);
-			answer();
-			expect(A, "0/PCMU/8000");
-			expect(B, "96/codec2/8000");
-			packet_seq_nf(A, 0, PCMU_payload, 0, 0, 96, CODEC2_2400_payload);
-			packet_seq_nf(A, 0, PCMU_payload, 160, 1, 96, CODEC2_2400_payload);
-			packet_seq_nf(B, 96, CODEC2_2400_payload, 0, 0, 0, PCMU_payload);
-			packet_seq_nf(B, 96, CODEC2_2400_payload, 160, 1, 0, PCMU_payload);
-			check_encoder(A, B, 0, 96, 2400);
-			end();
+		// built with libcodec2, so both directions must be supported
+		assert(def->support_encoding && def->support_decoding);
 
-			// reverse Codec 2, mode 3200: one 8-byte frame per 20 ms
-			start();
-			sdp_pt_fmt(96, codec2, 8000, "mode=3200");
-			transcode(PCMU);
-			offer();
-			expect(A, "96/codec2/8000/mode=3200");
-			expect(B, "96/codec2/8000/mode=3200 0/PCMU/8000");
-			sdp_pt(0, PCMU, 8000);
-			answer();
-			expect(A, "96/codec2/8000/mode=3200");
-			expect(B, "0/PCMU/8000");
-			packet_seq_nf(B, 0, PCMU_payload, 0, 0, 96, CODEC2_3200_payload);
-			packet_seq_nf(B, 0, PCMU_payload, 160, 1, 96, CODEC2_3200_payload);
-			packet_seq_nf(A, 96, CODEC2_3200_payload, 0, 0, 0, PCMU_payload);
-			packet_seq_nf(A, 96, CODEC2_3200_payload, 160, 1, 0, PCMU_payload);
-			check_encoder(B, A, 0, 96, 3200);
-			end();
+		// forward Codec 2, default mode 2400: one 6-byte frame per 20 ms
+		start();
+		sdp_pt(0, PCMU, 8000);
+		transcode(codec2);
+		offer();
+		expect(A, "0/PCMU/8000");
+		expect(B, "0/PCMU/8000 96/codec2/8000");
+		sdp_pt(96, codec2, 8000);
+		answer();
+		expect(A, "0/PCMU/8000");
+		expect(B, "96/codec2/8000");
+		packet_seq_nf(A, 0, PCMU_payload, 0, 0, 96, CODEC2_2400_payload);
+		packet_seq_nf(A, 0, PCMU_payload, 160, 1, 96, CODEC2_2400_payload);
+		packet_seq_nf(B, 96, CODEC2_2400_payload, 0, 0, 0, PCMU_payload);
+		packet_seq_nf(B, 96, CODEC2_2400_payload, 160, 1, 0, PCMU_payload);
+		check_encoder(A, B, 0, 96, 2400);
+		end();
 
-			// forward Codec 2, mode 1300 selected through the bit rate: 40 ms frames,
-			// so two 20 ms PCMU packets make one 7-byte Codec 2 packet
-			start();
-			sdp_pt(0, PCMU, 8000);
-			transcode_s("codec2/8000/1/1300");
-			offer();
-			expect(A, "0/PCMU/8000");
-			expect(B, "0/PCMU/8000 96/codec2/8000/mode=1300");
-			sdp_pt_fmt(96, codec2, 8000, "mode=1300");
-			answer();
-			expect(A, "0/PCMU/8000");
-			expect(B, "96/codec2/8000/mode=1300");
-			packet_seq(A, 0, PCMU_payload, 0, 0, -1, ""); // nothing: half a frame
-			packet_seq_nf(A, 0, PCMU_payload, 160, 1, 96, CODEC2_1300_payload);
-			packet_seq(A, 0, PCMU_payload, 320, 2, -1, "");
-			packet_seq_nf(A, 0, PCMU_payload, 480, 3, 96, CODEC2_1300_payload);
-			check_encoder(A, B, 0, 96, 1300);
-			end();
+		// reverse Codec 2, mode 3200: one 8-byte frame per 20 ms
+		start();
+		sdp_pt_fmt(96, codec2, 8000, "mode=3200");
+		transcode(PCMU);
+		offer();
+		expect(A, "96/codec2/8000/mode=3200");
+		expect(B, "96/codec2/8000/mode=3200 0/PCMU/8000");
+		sdp_pt(0, PCMU, 8000);
+		answer();
+		expect(A, "96/codec2/8000/mode=3200");
+		expect(B, "0/PCMU/8000");
+		packet_seq_nf(B, 0, PCMU_payload, 0, 0, 96, CODEC2_3200_payload);
+		packet_seq_nf(B, 0, PCMU_payload, 160, 1, 96, CODEC2_3200_payload);
+		packet_seq_nf(A, 96, CODEC2_3200_payload, 0, 0, 0, PCMU_payload);
+		packet_seq_nf(A, 96, CODEC2_3200_payload, 160, 1, 0, PCMU_payload);
+		check_encoder(B, A, 0, 96, 3200);
+		end();
 
-			// same mode on both sides: plain passthrough
-			start();
-			sdp_pt_fmt(96, codec2, 8000, "mode=1600");
-			transcode(PCMU);
-			offer();
-			expect(A, "96/codec2/8000/mode=1600");
-			expect(B, "96/codec2/8000/mode=1600 0/PCMU/8000");
-			sdp_pt_fmt(96, codec2, 8000, "mode=1600");
-			answer();
-			expect(A, "96/codec2/8000/mode=1600");
-			expect(B, "96/codec2/8000/mode=1600");
-			packet(A, 96, CODEC2_1600_payload, 96, CODEC2_1600_payload);
-			packet(B, 96, CODEC2_1600_payload, 96, CODEC2_1600_payload);
-			end();
+		// forward Codec 2, mode 1300 selected through the bit rate: 40 ms frames,
+		// so two 20 ms PCMU packets make one 7-byte Codec 2 packet
+		start();
+		sdp_pt(0, PCMU, 8000);
+		transcode_s("codec2/8000/1/1300");
+		offer();
+		expect(A, "0/PCMU/8000");
+		expect(B, "0/PCMU/8000 96/codec2/8000/mode=1300");
+		sdp_pt_fmt(96, codec2, 8000, "mode=1300");
+		answer();
+		expect(A, "0/PCMU/8000");
+		expect(B, "96/codec2/8000/mode=1300");
+		packet_seq(A, 0, PCMU_payload, 0, 0, -1, ""); // nothing: half a frame
+		packet_seq_nf(A, 0, PCMU_payload, 160, 1, 96, CODEC2_1300_payload);
+		packet_seq(A, 0, PCMU_payload, 320, 2, -1, "");
+		packet_seq_nf(A, 0, PCMU_payload, 480, 3, 96, CODEC2_1300_payload);
+		check_encoder(A, B, 0, 96, 1300);
+		end();
 
-			// a mode we can't transcode is still passed through unchanged
-			start();
-			sdp_pt_fmt(96, codec2, 8000, "mode=450");
-			offer();
-			expect(A, "96/codec2/8000/mode=450");
-			expect(B, "96/codec2/8000/mode=450");
-			sdp_pt_fmt(96, codec2, 8000, "mode=450");
-			answer();
-			expect(A, "96/codec2/8000/mode=450");
-			expect(B, "96/codec2/8000/mode=450");
-			packet(A, 96, CODEC2_450_payload, 96, CODEC2_450_payload);
-			packet(B, 96, CODEC2_450_payload, 96, CODEC2_450_payload);
-			end();
-		}
+		// same mode on both sides: plain passthrough
+		start();
+		sdp_pt_fmt(96, codec2, 8000, "mode=1600");
+		transcode(PCMU);
+		offer();
+		expect(A, "96/codec2/8000/mode=1600");
+		expect(B, "96/codec2/8000/mode=1600 0/PCMU/8000");
+		sdp_pt_fmt(96, codec2, 8000, "mode=1600");
+		answer();
+		expect(A, "96/codec2/8000/mode=1600");
+		expect(B, "96/codec2/8000/mode=1600");
+		packet(A, 96, CODEC2_1600_payload, 96, CODEC2_1600_payload);
+		packet(B, 96, CODEC2_1600_payload, 96, CODEC2_1600_payload);
+		end();
+
+		// a mode we can't transcode is still passed through unchanged
+		start();
+		sdp_pt_fmt(96, codec2, 8000, "mode=450");
+		offer();
+		expect(A, "96/codec2/8000/mode=450");
+		expect(B, "96/codec2/8000/mode=450");
+		sdp_pt_fmt(96, codec2, 8000, "mode=450");
+		answer();
+		expect(A, "96/codec2/8000/mode=450");
+		expect(B, "96/codec2/8000/mode=450");
+		packet(A, 96, CODEC2_450_payload, 96, CODEC2_450_payload);
+		packet(B, 96, CODEC2_450_payload, 96, CODEC2_450_payload);
+		end();
 	}
+#endif
 
 	// G.722 <> PCMA
 	start();

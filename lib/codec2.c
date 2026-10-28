@@ -173,7 +173,6 @@ static void codec2_init(struct rtp_payload_type *pt) {
 
 #ifdef HAVE_CODEC2
 
-#include <codec2.h>
 #include "fix_frame_channel_layout.compat"
 
 
