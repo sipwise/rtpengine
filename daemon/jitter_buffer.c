@@ -194,8 +194,8 @@ static int remove_oldest_packets(struct jitter_buffer *jb, int num_to_remove) {
 	int removed = 0;
 
 	// The jitter buffer thread pops and re-inserts entries under the queue's
-	// own lock, so the tree must only be touched while holding it. Lock order
-	// jb->lock -> ttq.lock is the same as in timerthread_queue_push().
+	// own lock, so the tree must only be touched while holding it. jb stays
+	// locked throughout, so that nothing else can run in between.
 	LOCK(&jb->ttq.lock);
 
 	for (int i = 0; i < num_to_remove; i++) {
