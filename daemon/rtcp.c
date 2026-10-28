@@ -1681,7 +1681,7 @@ void rtcp_send_report(struct call_media *media, struct ssrc_entry_call *ssrc_out
 		rtcp_packet = STR_LEN(sr->str, sr->len - RTP_BUFFER_TAIL_ROOM);
 		str payload;
 		struct rtcp_packet *header = rtcp_payload(&payload, &rtcp_packet);
-		crypt_handler->out->rtcp_crypt(header, &rtcp_packet, &payload, ps, ssrc_out);
+		crypt_handler->out->rtcp_crypt(header, &rtcp_packet, &payload, rtcp_ps, ssrc_out);
 	}
 
 	socket_sendto(&ps->selected_sfd->socket, rtcp_packet.s, rtcp_packet.len, &ps->endpoint);
