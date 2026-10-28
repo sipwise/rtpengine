@@ -1527,7 +1527,7 @@ static void fill_bundle_pt_stats(kernelize_state *s, struct call_media *bundle, 
 	__auto_type iter = t_hash_table_iter(bundle->pt_media);
 	void *pt;
 	struct call_media *pt_media;
-	while (t_hash_table_iter_next(&iter, &pt, &pt_media)) {
+	while (t_hash_table_iter_next(&iter, &pt, &pt_media) && s->num_payload_types < RTPE_NUM_PAYLOAD_TYPES) {
 		struct packet_stream *pt_ps = get_media_component(pt_media, component);
 		if (!pt_ps)
 			continue; // log as error?
