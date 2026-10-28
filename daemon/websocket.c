@@ -1152,6 +1152,7 @@ static void websocket_cleanup(void) {
 
 
 static void addr_any_v6_consolidate(endpoint_t eps[2], bool have_lws_ipv6) {
+#if !(LWS_LIBRARY_VERSION_MAJOR >= 3 || (LWS_LIBRARY_VERSION_MAJOR == 2 && LWS_LIBRARY_VERSION_MINOR >= 1))
 	// Don't try to double bind on ADDR_ANY. If we find ADDR_ANY, bind to the
 	// v6 port and omit the v4 binding (and let libwebsockets handle the 4/6
 	// translation) unless we find ourselves without v6 support.
@@ -1170,6 +1171,7 @@ static void addr_any_v6_consolidate(endpoint_t eps[2], bool have_lws_ipv6) {
 
 	eps[0] = eps[1];
 	eps[1].port = 0;
+#endif
 }
 
 int websocket_init(void) {
@@ -1230,6 +1232,8 @@ int websocket_init(void) {
 				.protocols = websocket_protocols,
 				.keepalive_timeout = rtpe_config.http_keepalive_timeout,
 #if LWS_LIBRARY_VERSION_MAJOR >= 3 || (LWS_LIBRARY_VERSION_MAJOR == 2 && LWS_LIBRARY_VERSION_MINOR >= 1)
+				.options = LWS_SERVER_OPTION_IPV6_V6ONLY_MODIFY
+					| LWS_SERVER_OPTION_IPV6_V6ONLY_VALUE,
 				.pt_serv_buf_size = wci.pt_serv_buf_size,
 #endif
 			};
