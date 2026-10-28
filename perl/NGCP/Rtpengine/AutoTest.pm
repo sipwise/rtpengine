@@ -26,7 +26,7 @@ BEGIN {
 	our @EXPORT = qw(autotest_start new_call new_call_nc offer answer ft tt cid snd snd_no srtp_snd rtp rcv srtp_rcv rcv_no rcv_maybe
 		srtp_dec escape rtpm rtpmre reverse_tags new_ft new_tt crlf sdp_split rtpe_req offer_answer
 		autotest_init subscribe_request subscribe_answer publish create create_answer
-		use_json rtpe_raw_req last_resp);
+		use_json rtpe_raw_req last_resp srtcp_rcv);
 };
 
 
@@ -278,8 +278,8 @@ sub rtp {
 	return pack('CCnNN a* a*', 0x80 | ($x ? 0x90 : 0x00), $pt, $seq, $ts, $ssrc, $x, $payload);
 }
 sub rcv {
-	my ($sock, $port, $match, $cb, $cb_arg) = @_;
-	my @caller = caller;
+	my ($sock, $port, $match, $cb, $cb_arg, @caller) = @_;
+	@caller = caller unless @caller;
 	my $p = '';
 	local $SIG{ALRM} = sub { die("recv timed out"); };
 	alarm(1);
@@ -343,7 +343,11 @@ sub rcv_maybe {
 }
 sub srtp_rcv {
 	my ($sock, $port, $match, $srtp_ctx) = @_;
-	return rcv($sock, $port, $match, \&srtp_dec, $srtp_ctx);
+	return rcv($sock, $port, $match, \&srtp_dec, $srtp_ctx, caller);
+}
+sub srtcp_rcv {
+	my ($sock, $port, $match, $srtcp_ctx) = @_;
+	return rcv($sock, $port, $match, \&srtcp_dec, $srtcp_ctx, caller);
 }
 sub srtp_dec {
 	my ($hdr_mark, $pt, $seq, $ts, $ssrc, $payload, $pack, $srtp_ctx) = @_;
@@ -354,6 +358,16 @@ sub srtp_dec {
 	my ($dec, $out_roc, $tag, $hmac) = NGCP::Rtpclient::SRTP::decrypt_rtp(@$srtp_ctx{qw(cs skey ssalt sauth roc)}, $pack);
 	$srtp_ctx->{roc} = $out_roc;
 	is $tag, substr($hmac, 0, length($tag)), 'SRTP auth tag matches';
+	return $dec;
+}
+sub srtcp_dec {
+	my ($hdr_mark, $pt, $seq, $ts, $ssrc, $payload, $pack, $srtp_ctx) = @_;
+	if (!$srtp_ctx->{c_skey}) {
+		my ($key, $salt) = NGCP::Rtpclient::SRTP::decode_inline_base64($srtp_ctx->{key}, $srtp_ctx->{cs});
+		@$srtp_ctx{qw(c_skey c_sauth c_ssalt)} = NGCP::Rtpclient::SRTP::gen_rtcp_session_keys($key, $salt);
+	}
+	my ($dec, $idx, $tag, $hmac) = NGCP::Rtpclient::SRTP::decrypt_rtcp(@$srtp_ctx{qw(cs c_skey c_ssalt c_sauth)}, $pack);
+	is $tag, substr($hmac, 0, length($tag)), 'SRTCP auth tag matches';
 	return $dec;
 }
 sub escape {
