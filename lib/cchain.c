@@ -74,12 +74,15 @@ struct codec_cc_s {
 
 	mutex_t async_lock;
 	AVPacket *avpkt_async;
-	size_t data_len;
+	// output packet duration/pts for the in-flight async job, computed at
+	// submit time (while the input buffer is still valid) via the codec-chain
+	// def callbacks, same as the sync path
+	int64_t async_duration;
+	int64_t async_pts;
 	bool async_busy; // currently processing a packet
 	bool async_blocked; // couldn't find context
 	bool async_shutdown; // shutdown/free happened while busy
 	async_job_q async_jobs;
-	unsigned long ts;
 	void *(*async_init)(void *, void *, void *);
 	void (*async_callback)(AVPacket *, void *);
 	void *async_cb_obj;
@@ -435,8 +438,8 @@ static void cc_run_callback(void *p, ssize_t size) {
 
 	if (size >= 0) {
 		pkt->size = size;
-		pkt->duration = c->data_len * 6L; // XXX
-		pkt->pts = c->ts * 6L; // XXX
+		pkt->duration = c->async_duration;
+		pkt->pts = c->async_pts;
 	}
 
 	cc_X_pkt_callback(c, size, __cc_run_async);
@@ -446,8 +449,10 @@ static bool __cc_run_async(codec_cc_t *c, const str *data, unsigned long ts, voi
 	AVPacket *pkt = c->avpkt_async;
 	pkt->size = 2048;
 
-	c->data_len = data->len;
-	c->ts = ts;
+	// compute output duration/pts now, while the input buffer is still valid;
+	// the GPU completion callback fires later, after the input may be freed
+	c->async_duration = c->def->duration(data->s, data->len);
+	c->async_pts = c->def->timestamp(ts, c->codec);
 	c->async_cb_obj = async_cb_obj;
 
 	return cc_async_runner_do(&c->async_runner->runner,
