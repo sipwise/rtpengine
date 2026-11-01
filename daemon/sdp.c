@@ -1103,8 +1103,12 @@ static bool parse_attribute_fmtp(struct sdp_attribute *output) {
 	a->format_parms_str = *value_str;
 
 	a->payload_type = str_to_i(&a->payload_type_str, -1);
-	if (a->payload_type == -1)
-		return false;
+	if (a->payload_type == -1) {
+		/* format non numérique (TS 24.380, 4.3.3.1 : « MCPTT ») : attribut conservé tel quel, comme un attribut
+		 * générique, au lieu d'être retiré à la réécriture. */
+		output->attr = ATTR_OTHER;
+		return true;
+	}
 
 	return true;
 }
@@ -1651,7 +1655,11 @@ static bool __rtp_payload_types(struct stream_params *sp, struct sdp_media *medi
 
 		s = ql->data;
 		i = (unsigned int) strtoul(s->s, &ep, 10);
-		if (ep == s->s || i > 127)
+		if (ep == s->s) {
+			/* format non numérique (TS 24.380, 4.3.3.1 : « MCPTT ») : pas de type RTP, la section est conservée */
+			continue;
+		}
+		if (i > 127)
 			return false;
 
 		/* first look in rtpmap for a match, then check RFC types,
