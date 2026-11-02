@@ -57,6 +57,10 @@
 		(list)->length--; \
 		if (!(list)->head) \
 			(list)->tail = NULL; \
+		else { \
+			__auto_type __head = (__typeof((list)->offset)) (list)->head; \
+			__head->link.prev = NULL; \
+		} \
 	} \
 	__ret; \
 })
@@ -104,6 +108,7 @@
 	} \
 	else \
 		(list)->head = __link->link.next; \
+	__link->link.next = __link->link.prev = NULL; \
 	(list)->length--; \
 } while (0)
 
