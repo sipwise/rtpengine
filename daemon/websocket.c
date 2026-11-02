@@ -67,7 +67,6 @@ static GThreadPool *websocket_threads;
 // consumes this queue after lws_service() returns.
 static GQueue websocket_pending_writes;
 static mutex_t websocket_callback_lock = MUTEX_STATIC_INIT;
-static mutex_t websocket_service_lock = MUTEX_STATIC_INIT;
 
 
 static struct websocket_message *websocket_message_new(struct websocket_conn *wc) {
@@ -1319,14 +1318,10 @@ err:
 static void websocket_loop(void *p) {
 	ilogs(http, LOG_INFO, "Websocket listener thread running");
 	while (!rtpe_shutdown) {
-		// see websocket_write_raw() for locking logic
-
-		mutex_lock(&websocket_service_lock);
 		lws_service(websocket_context, 100);
 		// Flush only after LWS has exited its callbacks and is not
 		// holding the connection cleanup path.
 		websocket_flush_write_notifications();
-		mutex_unlock(&websocket_service_lock);
 	}
 
 	websocket_cleanup();
