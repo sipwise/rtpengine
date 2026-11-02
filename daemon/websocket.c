@@ -42,10 +42,11 @@ struct websocket_conn {
 	// multithreaded message processing
 	mutex_t lock;
 	unsigned int jobs;
-	bool writable_queued; // protected by websocket_callback_lock
 	websocket_message_q messages;
 	cond_t cond;
 	janus_sessions_ht janus_sessions;
+
+	IQUEUE_LINK queue_link; // protected by websocket_callback_lock
 
 	// output buffer - also protected by lock
 	websocket_output_q output_q;
@@ -65,7 +66,8 @@ static struct lws_context *websocket_context;
 static GThreadPool *websocket_threads;
 // Workers only enqueue writable notifications. The LWS service thread
 // consumes this queue after lws_service() returns.
-static GQueue websocket_pending_writes;
+typedef IQUEUE(struct websocket_conn, queue_link) websocket_callback_queue;
+static websocket_callback_queue websocket_pending_writes;
 static mutex_t websocket_callback_lock = MUTEX_STATIC_INIT;
 
 
@@ -145,10 +147,8 @@ static void __websocket_write_done(struct websocket_conn *wc) {
 		return;
 
 	mutex_lock(&websocket_callback_lock);
-	if (!wc->writable_queued) {
-		wc->writable_queued = true;
-		g_queue_push_tail(&websocket_pending_writes, wc);
-	}
+	if (!i_queue_is_linked(&websocket_pending_writes, wc))
+		i_queue_push_tail(&websocket_pending_writes, wc);
 	mutex_unlock(&websocket_callback_lock);
 
 	// This can be called safely from a worker; only the service thread
@@ -171,9 +171,7 @@ static void websocket_flush_write_notifications(void) {
 	// continuously queue new callbacks.
 	while (pending--) {
 		mutex_lock(&websocket_callback_lock);
-		struct websocket_conn *wc = g_queue_pop_head(&websocket_pending_writes);
-		if (wc)
-			wc->writable_queued = false;
+		struct websocket_conn *wc = i_queue_pop_head(&websocket_pending_writes);
 		mutex_unlock(&websocket_callback_lock);
 
 		if (!wc)
@@ -791,10 +789,8 @@ static void websocket_conn_cleanup(struct websocket_conn *wc) {
 	// Drop any queued callback before LWS frees its session storage.
 	// Lock order is wc->lock, then websocket_callback_lock everywhere.
 	mutex_lock(&websocket_callback_lock);
-	if (wc->writable_queued) {
-		g_queue_remove(&websocket_pending_writes, wc);
-		wc->writable_queued = false;
-	}
+	if (i_queue_is_linked(&websocket_pending_writes, wc))
+		i_queue_delete(&websocket_pending_writes, wc);
 	mutex_unlock(&websocket_callback_lock);
 	while (wc->jobs)
 		cond_wait(&wc->cond, &wc->lock);
