@@ -131,6 +131,13 @@
 } while (0)
 
 
+#define i_queue_is_linked(list, ele) ({ \
+	bool __ret; \
+	__auto_type __link = (__typeof((list)->offset)) (ele); \
+	__ret = __link->link.next || __link->link.prev || (list)->head == (ele); \
+	__ret; \
+})
+
 #define i_queue_truncate(list, num) do { \
 	while ((list)->length > (num)) \
 		i_queue_pop_tail(list); \
