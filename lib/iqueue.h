@@ -87,13 +87,13 @@
 #define i_queue_push_tail(list, ele) do { \
 	if ((list)->tail) { \
 		__auto_type __link = (__typeof((list)->offset)) (list)->tail; \
-		__link->link.next = ele; \
+		__link->link.next = (ele); \
 	} \
-	__auto_type __link = (__typeof((list)->offset)) ele; \
+	__auto_type __link = (__typeof((list)->offset)) (ele); \
 	__link->link.prev = (list)->tail; \
-	(list)->tail = ele; \
+	(list)->tail = (ele); \
 	if (!(list)->head) \
-		(list)->head = ele; \
+		(list)->head = (ele); \
 	(list)->length++; \
 } while (0)
 
@@ -101,19 +101,19 @@
 #define i_queue_push_head(list, ele) do { \
 	if ((list)->head) { \
 		__auto_type __link = (__typeof((list)->offset)) (list)->head; \
-		__link->link.prev = ele; \
+		__link->link.prev = (ele); \
 	} \
-	__auto_type __link = (__typeof((list)->offset)) ele; \
+	__auto_type __link = (__typeof((list)->offset)) (ele); \
 	__link->link.next = (list)->head; \
-	(list)->head = ele; \
+	(list)->head = (ele); \
 	if (!(list)->tail) \
-		(list)->tail = ele; \
+		(list)->tail = (ele); \
 	(list)->length++; \
 } while (0)
 
 
 #define i_queue_delete(list, ele) do { \
-	__auto_type __link = (__typeof((list)->offset)) ele; \
+	__auto_type __link = (__typeof((list)->offset)) (ele); \
 	if (__link->link.next) { \
 		__auto_type __next_link = (__typeof((list)->offset)) __link->link.next; \
 		__next_link->link.prev = __link->link.prev; \
