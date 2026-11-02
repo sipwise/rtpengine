@@ -1,3 +1,51 @@
+ngcp-rtpengine (26.2.1.6+0~mr26.2.1.6) unstable; urgency=medium
+
+  [ Kevin Binetruy ]
+  * [b6def2d] MT#55283 cli: reconnect only the Redis connections that exist
+  * [b7558a2] MT#55283 redis: do not read past a short INFO reply
+  * [219a7e8] MT#55283 redis: print the command timeout in milliseconds
+  * [c9c841e] MT#55283 redis: never delete a foreign call's key after a failed restore
+  * [21b862f] MT#55283 cli: parse arguments without reading past the str
+
+  [ Richard Fuchs ]
+  * [9184156] MT#55283 upgrade fd in struct to union
+  * [e2b51a5] MT#55283 further upgrade poller union
+  * [8ea8346] MT#55283 prevent racy reuse of poller slots
+  * [3433dd6] MT#55283 fix int/uint mixup
+  * [8405c23] MT#55283 fix sequencer insert bug
+  * [20605ac] MT#55283 test for I7e9936dbe6
+  * [f189148] MT#55283 fix off-by-one
+  * [dca02b1] MT#55283 check skb->len against UDP header
+  * [294c82d] MT#55283 fix socket_error signedness
+  * [47aa1f5] MT#55283 fix possible array overflow
+  * [b322d45] MT#55283 fix tests after I8bfaff33247
+  * [613e28d] MT#55283 extend SRTCP support in test suite
+  * [97333f3] MT#55283 use correct crypto context for SRTCP out
+  * [13ca576] MT#55283 tests for I494018b56
+  * [b99d8ef] MT#55283 fix iqueue pop linkage
+
+  [ Darwvin ]
+  * [7a1bd05] MT#55283 homer: reset TCP connection on EOF before sending HEP frames
+  * [c674a45] MT#55283 ice: avoid forcing ICE in a non-ICE answer without an ICE agent
+  * [9e92427] MT#55283 docs: clarify ICE negotiation constraints for answer messages
+  * [0b6b33b] MT#55283 tests: cover ICE=force with non-ICE answer and bidirectional RTP
+  * [0e74695] MT#55283 tests: wire forced-ICE answer regression into daemon test targets
+
+  [ Arman Bahlakeh ]
+  * [5b948d1] MT#55283 transcode: do not write the sequencer position into the SRTP receive index
+
+  [ Idan Freiberg ]
+  * [d4c75dc] MT#55283 Fix SRTP initialization for created endpoints
+
+  [ Dragos Oancea ]
+  * [f090804] MT#55283 EVS: fix lower bitrate clamp comparing against max_br
+  * [018df10] MT#55283 opus: size decoder output buffer for the longest Opus packet
+
+  [ darwvin-dev ]
+  * [dc57eeb] MT#55283 websocket: prevent HTTP disconnect deadlock by deferring writable callbacks (#2197)
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 02 Nov 2026 18:46:10 +0100
+
 ngcp-rtpengine (26.2.1.5+0~mr26.2.1.5) unstable; urgency=medium
 
   [ Richard Fuchs ]
