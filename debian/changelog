@@ -1,3 +1,59 @@
+ngcp-rtpengine (26.3.1.2+0~mr26.3.1.2) unstable; urgency=medium
+
+  [ Kevin Binetruy ]
+  * [638e34b] MT#55283 cli: reconnect only the Redis connections that exist
+  * [a786bec] MT#55283 redis: do not read past a short INFO reply
+  * [969b1e9] MT#55283 redis: print the command timeout in milliseconds
+  * [6161928] MT#55283 redis: never delete a foreign call's key after a failed restore
+  * [df99536] MT#55283 cli: parse arguments without reading past the str
+
+  [ Richard Fuchs ]
+  * [741d661] MT#55283 upgrade fd in struct to union
+  * [8b2201a] MT#55283 further upgrade poller union
+  * [86ffd59] MT#55283 prevent racy reuse of poller slots
+  * [248652e] MT#55283 fix int/uint mixup
+  * [97e5080] MT#55283 fix sequencer insert bug
+  * [e756380] MT#55283 test for I7e9936dbe6
+  * [e7ac5fe] MT#55283 fix off-by-one
+  * [f51b3ff] MT#55283 check skb->len against UDP header
+  * [c1c6579] MT#55283 fix socket_error signedness
+  * [34d480e] MT#55283 fix ssrc_in non-null dependency logic
+  * [9846a90] MT#55283 skip null check
+  * [16c599c] MT#55283 atomic read of jitter
+  * [68241d7] MT#55283 skip printing attributes if no sfd
+  * [0e26c19] MT#55283 fix possible array overflow
+  * [884fb2d] MT#55283 fix tests after I8bfaff33247
+  * [e7e11d4] MT#55283 extend SRTCP support in test suite
+  * [3f637d3] MT#55283 use correct crypto context for SRTCP out
+  * [388c1d0] MT#55283 tests for I494018b56
+  * [a90dabd] MT#55283 update libwebsockets V6ONLY logic
+  * [edfbc3c] MT#55283 fix iqueue pop linkage
+
+  [ Darwvin ]
+  * [9ff416c] MT#55283 homer: reset TCP connection on EOF before sending HEP frames
+  * [39f0ce5] MT#55283 kernel-module: avoid put_net(NULL) for unfinished target outputs
+  * [cf99259] MT#55283 ice: avoid forcing ICE in a non-ICE answer without an ICE agent
+  * [e5e0a37] MT#55283 docs: clarify ICE negotiation constraints for answer messages
+  * [4b4eafe] MT#55283 tests: cover ICE=force with non-ICE answer and bidirectional RTP
+  * [3bb2388] MT#55283 tests: wire forced-ICE answer regression into daemon test targets
+
+  [ Arman Bahlakeh ]
+  * [f860b7c] MT#55283 tests: cover stranded packets and the wrap-around window in the sequencer
+  * [f14f94d] MT#55283 transcode: do not write the sequencer position into the SRTP receive index
+
+  [ Idan Freiberg ]
+  * [e0f312b] MT#55283 Fix SRTP initialization for created endpoints
+
+  [ Dragos Oancea ]
+  * [16430c9] MT#55283 EVS: fix lower bitrate clamp comparing against max_br
+  * [1bafcf6] MT#55283 opus: size decoder output buffer for the longest Opus packet
+  * [c926960] MT#55283 jitter_buffer: lock the timer queue when discarding burst packets
+
+  [ darwvin-dev ]
+  * [005acae] MT#55283 websocket: prevent HTTP disconnect deadlock by deferring writable callbacks (#2197)
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 02 Nov 2026 18:45:57 +0100
+
 ngcp-rtpengine (26.3.1.1+0~mr26.3.1.1) unstable; urgency=medium
 
   [ Donat Zenichev ]
