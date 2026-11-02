@@ -1,3 +1,48 @@
+ngcp-rtpengine (26.0.1.27+0~mr26.0.1.27) unstable; urgency=medium
+
+  [ Kevin Binetruy ]
+  * [389b38d] MT#55283 cli: reconnect only the Redis connections that exist
+  * [e7c07d5] MT#55283 redis: do not read past a short INFO reply
+  * [177a8c0] MT#55283 redis: print the command timeout in milliseconds
+  * [7a103c1] MT#55283 redis: never delete a foreign call's key after a failed restore
+  * [3f08f8e] MT#55283 cli: parse arguments without reading past the str
+
+  [ Richard Fuchs ]
+  * [e56baff] MT#55283 upgrade fd in struct to union
+  * [f4d9338] MT#55283 further upgrade poller union
+  * [a561d29] MT#55283 prevent racy reuse of poller slots
+  * [6fb9623] MT#55283 fix int/uint mixup
+  * [3d196a5] MT#55283 check skb->len against UDP header
+  * [977d1c3] MT#55283 fix socket_error signedness
+  * [d66dcdd] MT#55283 fix possible array overflow
+  * [ffe9d52] MT#55283 fix tests after I8bfaff33247
+  * [0d2319d] MT#55283 extend SRTCP support in test suite
+  * [a555c65] MT#55283 use correct crypto context for SRTCP out
+  * [3ac6ca8] MT#55283 tests for I494018b56
+  * [17bbd82] MT#55283 fix iqueue pop linkage
+
+  [ Darwvin ]
+  * [5004ee9] MT#55283 homer: reset TCP connection on EOF before sending HEP frames
+  * [7b36a34] MT#55283 ice: avoid forcing ICE in a non-ICE answer without an ICE agent
+  * [e1b6dd0] MT#55283 docs: clarify ICE negotiation constraints for answer messages
+  * [4c47a90] MT#55283 tests: cover ICE=force with non-ICE answer and bidirectional RTP
+  * [3d46382] MT#55283 tests: wire forced-ICE answer regression into daemon test targets
+
+  [ Arman Bahlakeh ]
+  * [f6e1c3a] MT#55283 transcode: do not write the sequencer position into the SRTP receive index
+
+  [ Idan Freiberg ]
+  * [9cbadac] MT#55283 Fix SRTP initialization for created endpoints
+
+  [ Dragos Oancea ]
+  * [6cdc9ae] MT#55283 EVS: fix lower bitrate clamp comparing against max_br
+  * [274f54b] MT#55283 opus: size decoder output buffer for the longest Opus packet
+
+  [ darwvin-dev ]
+  * [bfe4c64] MT#55283 websocket: prevent HTTP disconnect deadlock by deferring writable callbacks (#2197)
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 02 Nov 2026 18:46:29 +0100
+
 ngcp-rtpengine (26.0.1.26+0~mr26.0.1.26) unstable; urgency=medium
 
   [ Richard Fuchs ]
