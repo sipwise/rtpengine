@@ -83,10 +83,7 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev, $ufrag_a, $ufrag_b,
 	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq, $has_recv, $tmp_blob,
 	$pwd_a, $pwd_b, $packet, $tid, $buf, $addr, $msg, $text,
-	$code, $lfam, $laddr, $lport, $efam, $eaddr, $eport, $mismatch, $numdest,
-	$intcp, @g, @decr, @ssrc, @ssrcst, @ssrci, @ptst, @ptmi, $npts, $midmap,
-	@mid, $iface, $stats, @rbuf, $flags, $idx, $sfam, $saddr, $sport, $dfam, $daddr,
-	$dport, $midx, @encr, @seqs, @pto, $nexf, $exmid, $exmidlen, $exmids, $tos, %dict);
+	$code, %dict);
 
 
 
@@ -107,13 +104,13 @@ sub add_target {
 		@{$ret{g}}[0..31],
 		@{$ret{decr}}[0..11],
 		@{$ret{ssrc}}[0..3], @{$ret{ssrcst}}[0..3], @{$ret{ssrci}}[0..3],
-		@{$ret{ptst}}[0..31],
-		@{$ret{ptmi}}[0..31],
+		@{$ret{ptst}}[0..47],
+		@{$ret{ptmi}}[0..47],
 		$ret{npts}, $ret{midmap},
 		@{$ret{mid}}[0..15],
 		$ret{iface}, $ret{stats},
 		@{$ret{rbuf}}[0..3], $ret{flags})
-		= unpack('i! x![L!]   (i! L x12 S  x[S])[2]    i! i! i!    (i! i! i! i!)[8]    (i! i! a32 i! a14 x![i!] i! i! i! a256 i! i! i!)   N4 Q4 i!4     Q32    i!32    i!    C   (a255 x![L!] L!)[8]    Q Q   (i! i! Q Q) s', $text);
+		= unpack('i! x![L!]   (i! L x12 S  x[S])[2]    i! i! i!    (i! i! i! i!)[8]    (i! i! a32 i! a14 x![i!] i! i! i! a256 i! i! i!)   N4 Q4 i!4     Q48    i!48    i!    C   (a255 x![L!] L!)[8]    Q Q   (i! i! Q Q) s', $text);
 	is($code, 2, "add target msg");
 	$kintf->send(pack('ii', 3, length($text)), 0, $addr);
 	return %ret;
@@ -123,6 +120,7 @@ sub add_destination {
 	my $buf;
 	my ($addr) = $kintf->recv($buf, 4096);
 	my ($msg, $text) = unpack("i! a*", $buf);
+	print(length($text), "\n");
 	is($msg, 3, "write message");
 	my (%ret, $code);
 	($code,
@@ -132,13 +130,27 @@ sub add_destination {
 		$ret{dfam}, $ret{daddr}, $ret{dport},
 		$ret{midx},
 		@{$ret{encr}}[0..11],
-		@{$ret{ssrc}}[0..3], @{$ret{seqs}}[0..3], @{$ret{pto}}[0..127],
-		$ret{nexf},
+		@{$ret{ssrc}}[0..3], @{$ret{seqs}}[0..3],
+		@{$ret{pto}}[0..191],
+		@{$ret{exfilt}}[0..31], $ret{num_exfilt},
 		$ret{exmid}, $ret{exmidlen}, $ret{exmids},
 		$ret{iface}, $ret{stats}, @{$ret{ssrcst}}[0..3],
 		$ret{tos}, $ret{flags})
-		= unpack('i! x![L!]   (i! L x12 S  x[S])     i! x![L!]     (i! L x12 S  x[S])[2]    i!    (i! i! a32 i! a14 x![i!] i! i! i! a256 i! i! i!)    L4 L4 (i! a16 c i!)[32]   i!    c c a255  x![L!]    Q Q Q4    c     i!', $text);
+		= unpack('i! x![L!]   (i! L x12 S  x[S])     i! x![L!]     (i! L x12 S  x[S])[2]    i!    (i! i! a32 i! a14 x![i!] i! i! i! a256 i! i! i!)    L4 L4    (i! a16 c c x![i!])[48]  c32 i!    c c a255  x![L!]    Q Q Q4    c     i!', $text);
 	is($code, 3, "add destination msg");
+	print Dumper ($text);
+	print Dumper ($code,
+		$ret{lfam}, $ret{laddr}, $ret{lport},
+		$ret{idx},
+		$ret{sfam}, $ret{saddr}, $ret{sport},
+		$ret{dfam}, $ret{daddr}, $ret{dport},
+		$ret{midx},
+		@{$ret{encr}}[0..11],
+		@{$ret{ssrc}}[0..3], @{$ret{seqs}}[0..3],
+		@{$ret{pto}}[0..191],
+		$ret{exmid}, $ret{exmidlen}, $ret{exmids},
+		$ret{iface}, $ret{stats}, @{$ret{ssrcst}}[0..3],
+		$ret{tos}, $ret{flags});
 	$kintf->send(pack('ii', 3, length($text)), 0, $addr);
 	return %ret;
 }
