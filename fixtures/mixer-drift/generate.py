@@ -5,7 +5,7 @@ profiles=[]
 duration=80
 for source in range(2):
  period=(2.0,2.6)[source];first=(0.4,1.1)[source];speech=(0.22,0.16)[source]
- bursts=[{'start':first+i*period,'end':first+i*period+speech,'frequency':400+i*50} for i in range(int((duration-first-speech)/period)+1)]
+ bursts=[{'start':first+i*period,'end':first+i*period+speech,'frequency':(400 if source==0 else 3400)+i*50} for i in range(int((duration-first-speech)/period)+1)]
  pcm=bytearray(duration*16000*2)
  for burst in bursts:
   for i in range(round(burst['start']*16000),round(burst['end']*16000)):
