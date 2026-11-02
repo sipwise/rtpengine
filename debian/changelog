@@ -1,3 +1,10 @@
+ngcp-rtpengine (13.5.1.31+0~mr13.5.1.31) unstable; urgency=medium
+
+  [ darwvin-dev ]
+  * [488f751] MT#55283 websocket: prevent HTTP disconnect deadlock by deferring writable callbacks (#2197)
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 02 Nov 2026 18:46:40 +0100
+
 ngcp-rtpengine (13.5.1.30+0~mr13.5.1.30) unstable; urgency=medium
 
   [ Richard Fuchs ]
