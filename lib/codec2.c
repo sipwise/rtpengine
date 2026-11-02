@@ -214,6 +214,11 @@ static void codec2_def_init(struct codec_def_s *def) {
 }
 
 
+static int c2_bytes_per_frame(struct CODEC2 *c2) {
+	return (codec2_bits_per_frame(c2) + 7) / 8;
+}
+
+
 static const char *codec2_decoder_init(decoder_t *dec, const str *extra_opts) {
 	if (dec->in_format.clockrate != 8000)
 		return "Codec 2 requires a clock rate of 8000 Hz";
@@ -231,14 +236,14 @@ static const char *codec2_decoder_init(decoder_t *dec, const str *extra_opts) {
 
 	ilog(LOG_DEBUG, "Created Codec 2 decoder in mode %s (%i samples and %i bytes per frame)",
 			codec2_mode_name(mode), codec2_samples_per_frame(dec->codec2),
-			codec2_bytes_per_frame(dec->codec2));
+			c2_bytes_per_frame(dec->codec2));
 
 	return NULL;
 }
 
 static int codec2_decoder_input(decoder_t *dec, const str *data, frame_q *out, bool mark) {
 	struct CODEC2 *c2 = dec->codec2;
-	const int bytes_per_frame = codec2_bytes_per_frame(c2);
+	const int bytes_per_frame = c2_bytes_per_frame(c2);
 	const int samples_per_frame = codec2_samples_per_frame(c2);
 
 	size_t num_frames = data->len / bytes_per_frame;
@@ -317,7 +322,7 @@ static const char *codec2_encoder_init(encoder_t *enc, const str *extra_opts) {
 	enc->bitrate = mode;
 
 	ilog(LOG_DEBUG, "Created Codec 2 encoder in mode %s (%i frames of %i bytes per packet)",
-			codec2_mode_name(mode), frames, codec2_bytes_per_frame(enc->codec2));
+			codec2_mode_name(mode), frames, c2_bytes_per_frame(enc->codec2));
 
 	return NULL;
 }
@@ -328,7 +333,7 @@ static int codec2_encoder_input(encoder_t *enc, AVFrame **frame) {
 
 	struct CODEC2 *c2 = enc->codec2;
 	const int samples_per_frame = codec2_samples_per_frame(c2);
-	const int bytes_per_frame = codec2_bytes_per_frame(c2);
+	const int bytes_per_frame = c2_bytes_per_frame(c2);
 
 	if ((*frame)->nb_samples != enc->samples_per_frame) {
 		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Codec 2: input %i samples instead of %i",
