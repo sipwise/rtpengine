@@ -2654,9 +2654,10 @@ static int codec_add_dtmf_packet(struct codec_ssrc_handler *ch, struct codec_ssr
 
 skip:
 	ssrc_entry_release(output_ch);
+	size_t ext_len = mp->sink.rtpext->length(mp);
 	char *buf = bufferpool_alloc(media_bufferpool,
-			packet->payload->len + sizeof(struct rtp_header) + RTP_BUFFER_TAIL_ROOM);
-	memcpy(buf + sizeof(struct rtp_header), packet->payload->s, packet->payload->len);
+			packet->payload->len + sizeof(struct rtp_header) + ext_len + RTP_BUFFER_TAIL_ROOM);
+	memcpy(buf + sizeof(struct rtp_header) + ext_len, packet->payload->s, packet->payload->len);
 	if (packet->bypass_seq) // inject original seq
 		codec_output_rtp(mp, &ch->csch, packet->handler ? : h, buf, packet->payload->len, packet->ts,
 				(struct rtp_markers) { .marker = packet->marker },
