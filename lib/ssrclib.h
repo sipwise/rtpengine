@@ -28,9 +28,14 @@ void ssrc_hash_full_init(struct ssrc_hash *, ssrc_create_func_t, void *uptr); //
 void ssrc_hash_full_fast_init(struct ssrc_hash *, ssrc_create_func_t, void *uptr); // doesn't pre-create object
 void ssrc_hash_destroy(struct ssrc_hash *);
 
-void *get_ssrc_full(uint32_t, struct ssrc_hash *, bool *created); // creates new entry if not found
+void *get_ssrc_full(uint32_t, struct ssrc_hash *, bool *created, bool move_to_front); // creates new entry if not found
 INLINE void *get_ssrc(uint32_t ssrc, struct ssrc_hash *ht) {
-	return get_ssrc_full(ssrc, ht, NULL);
+	return get_ssrc_full(ssrc, ht, NULL, true);
+}
+
+// RTCP lookups preserve the active RTP sender at the front of the list.
+INLINE void *get_ssrc_no_move(uint32_t ssrc, struct ssrc_hash *ht) {
+	return get_ssrc_full(ssrc, ht, NULL, false);
 }
 
 #endif

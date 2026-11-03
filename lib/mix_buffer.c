@@ -270,7 +270,7 @@ bool mix_buffer_write_delay(struct mix_buffer *mb, uint32_t ssrc, const void *bu
 	LOCK(&mb->lock);
 
 	bool created;
-	g_autoptr(mix_buffer_ssrc_source) src = get_ssrc_full(ssrc, &mb->ssrc_hash, &created);
+	g_autoptr(mix_buffer_ssrc_source) src = get_ssrc_full(ssrc, &mb->ssrc_hash, &created, true);
 	if (!src)
 		return false;
 	if (created)
