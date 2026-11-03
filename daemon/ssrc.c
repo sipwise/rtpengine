@@ -43,9 +43,12 @@ static struct ssrc_entry *create_ssrc_entry_call(void *uptr) {
 	ent->lost_bits = -1;
 	return &ent->h;
 }
-static void add_ssrc_entry(uint32_t ssrc, struct ssrc_entry *ent, struct ssrc_hash *ht) {
+static void add_ssrc_entry(uint32_t ssrc, struct ssrc_entry *ent, struct ssrc_hash *ht, bool move_to_front) {
 	init_ssrc_entry(ent, ssrc);
-	g_queue_push_head_link(&ht->nq, &ent->link);
+	if (move_to_front)
+		g_queue_push_head_link(&ht->nq, &ent->link);
+	else
+		g_queue_push_tail_link(&ht->nq, &ent->link);
 	obj_hold(ent); // queue entry
 }
 static void free_sender_report(struct ssrc_sender_report_item *i) {
@@ -176,15 +179,16 @@ static void mos_calc_legacy(struct ssrc_stats_block *ssb) {
 	ssb->mos = mos_from_rx(r / 10);			// e5
 }
 
-static void *find_ssrc(uint32_t ssrc, struct ssrc_hash *ht, unsigned int *iters) {
+static void *find_ssrc(uint32_t ssrc, struct ssrc_hash *ht, unsigned int *iters, bool move_to_front) {
 	LOCK(&ht->lock);
 	for (GList *l = ht->nq.head; l; l = l->next) {
 		struct ssrc_entry *ret = l->data;
 		if (ret->ssrc == ssrc) {
 			obj_hold(ret);
-			// move to front
-			g_queue_unlink(&ht->nq, &ret->link);
-			g_queue_push_head_link(&ht->nq, &ret->link);
+			if (move_to_front) {
+				g_queue_unlink(&ht->nq, &ret->link);
+				g_queue_push_head_link(&ht->nq, &ret->link);
+			}
 			return ret;
 		}
 	}
@@ -194,7 +198,7 @@ static void *find_ssrc(uint32_t ssrc, struct ssrc_hash *ht, unsigned int *iters)
 }
 
 // returns a new reference
-void *get_ssrc_full(uint32_t ssrc, struct ssrc_hash *ht, bool *created) {
+void *get_ssrc_full(uint32_t ssrc, struct ssrc_hash *ht, bool *created, bool move_to_front) {
 	struct ssrc_entry *ent;
 
 	if (!ht->create_func)
@@ -202,7 +206,7 @@ void *get_ssrc_full(uint32_t ssrc, struct ssrc_hash *ht, bool *created) {
 
 	while (true) {
 		unsigned int iters;
-		ent = find_ssrc(ssrc, ht, &iters);
+		ent = find_ssrc(ssrc, ht, &iters, move_to_front);
 		if (G_LIKELY(ent)) {
 			if (created)
 				*created = false;
@@ -244,7 +248,7 @@ void *get_ssrc_full(uint32_t ssrc, struct ssrc_hash *ht, bool *created) {
 				obj_put(ent);
 			continue;
 		}
-		add_ssrc_entry(ssrc, ent, ht);
+		add_ssrc_entry(ssrc, ent, ht, move_to_front);
 		if (created)
 			*created = true;
 		ht->iters++;
@@ -307,7 +311,7 @@ static void *__do_time_report_item(struct call_media *m, size_t struct_size, siz
 	sti->ntp_ts_lsw = ntp_lsw;
 	sti->ntp_ts_msw = ntp_msw;
 
-	e = get_ssrc(ssrc, &m->ssrc_hash_in);
+	e = get_ssrc_no_move(ssrc, &m->ssrc_hash_in);
 	if (G_UNLIKELY(!e)) {
 		free_func(sti);
 		return NULL;
@@ -331,7 +335,7 @@ static struct ssrc_entry_call *hunt_ssrc(struct call_media *media, uint32_t ssrc
 		return NULL;
 
 	IQUEUE_FOREACH(&media->media_subscriptions, ms) {
-		struct ssrc_entry_call *e = find_ssrc(ssrc, &ms->media->ssrc_hash_in, NULL);
+		struct ssrc_entry_call *e = find_ssrc(ssrc, &ms->media->ssrc_hash_in, NULL, false);
 		if (e)
 			return e;
 	}
@@ -350,7 +354,7 @@ static int64_t __calc_rtt(struct call_media *m, struct crtt_args a)
 	if (!a.ntp_middle_bits || !a.delay)
 		return 0;
 
-	struct ssrc_entry_call *e = find_ssrc(a.ssrc, a.ht, NULL);
+	struct ssrc_entry_call *e = find_ssrc(a.ssrc, a.ht, NULL, false);
 	if (G_UNLIKELY(!e))
 		return 0;
 
@@ -467,7 +471,7 @@ void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssr
 			.delay = rr->dlsr,
 			.reports_queue_offset = G_STRUCT_OFFSET(struct ssrc_entry_call, sender_reports));
 
-	struct ssrc_entry_call *other_e = get_ssrc(rr->from, &m->ssrc_hash_in);
+	struct ssrc_entry_call *other_e = get_ssrc_no_move(rr->from, &m->ssrc_hash_in);
 	if (G_UNLIKELY(!other_e))
 		goto out_nl;
 
@@ -614,7 +618,7 @@ void ssrc_voip_metrics(struct call_media *m, const struct ssrc_xr_voip_metrics *
 			vm->ext_r_factor, vm->mos_lq, vm->mos_cq, vm->rx_config, vm->jb_nom,
 			vm->jb_max, vm->jb_abs_max);
 
-	struct ssrc_entry_call *e = get_ssrc(vm->ssrc, &m->ssrc_hash_in);
+	struct ssrc_entry_call *e = get_ssrc_no_move(vm->ssrc, &m->ssrc_hash_in);
 	if (!e)
 		return;
 	e->last_rtt_xr = vm->rnd_trip_delay;

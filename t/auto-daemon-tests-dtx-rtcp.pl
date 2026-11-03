@@ -72,18 +72,35 @@ for my $player ('off', 'always') {
 	my $before = () = rtpe_log() =~ /DTX buffer for 5678\/0 has been shut down/g;
 	my $switched = clock_gettime(CLOCK_MONOTONIC);
 	$frame = 0;
-	while (clock_gettime(CLOCK_MONOTONIC)-$switched < 0.4) {
+	my ($old_report_sent, $new_noise) = (0, 0);
+	while (clock_gettime(CLOCK_MONOTONIC)-$switched < 1.2) {
 		my $now = clock_gettime(CLOCK_MONOTONIC)-$switched;
 		if ($frame < 10 && $now >= $frame*0.02) {
 			snd($source, $port, rtp($frame ? 0 : 128, 200+$frame,
 				200000+160*$frame, 0x5679, "\x30" x 160));
 			$frame++;
 		}
+		if (!$old_report_sent && $now >= 0.55) {
+			# Reports from a previous RTP sender must not replace the current sender either.
+			my $report = pack('CCnNNNNNN', 0x80, 200, 6, 0x5678,
+				time()+2208988800, 0, 103200, 20, 3200)
+				. pack('CCnNCCa4n', 0x81, 202, 3, 0x5678, 1, 4, 'test', 0);
+			snd($source_rtcp, $rtcp_port, $report);
+			$old_report_sent = 1;
+		}
 		for my $socket ($selector->can_read(0.001)) {
 			my $packet;
 			$socket->recv($packet, 65535);
+			next unless $socket == $listener && length($packet) == 652
+				&& (ord(substr($packet,1,1)) & 127) == 96 && $now > 0.75 && $now < 1.1;
+			my @samples = unpack('s>*', substr($packet,12));
+			my $energy = 0;
+			$energy += $_*$_ for @samples;
+			$new_noise++ if sqrt($energy/@samples) > 50;
 		}
 	}
+	like(rtpe_log(), qr/SR from 5678:/, "$player player previous sender report processed");
+	cmp_ok($new_noise, '>=', 10, "$player player keeps current source comfort noise after previous sender RTCP");
 	my $after = () = rtpe_log() =~ /DTX buffer for 5678\/0 has been shut down/g;
 	cmp_ok($after, '>', $before, "$player player stops old DTX source after an RTP SSRC change");
 	rtpe_req('delete', "$player player DTX RTCP cleanup", {});

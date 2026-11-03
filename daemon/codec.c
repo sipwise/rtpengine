@@ -3938,21 +3938,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 
 		ps = mp_copy.stream;
 		struct call_media *media = ps ? ps->media : NULL;
-		struct ssrc_entry_call *se = NULL;
-		if (media) {
-			LOCK(&media->ssrc_hash_in.lock);
-			// RTCP reports also move SSRCs to the front. Only RTP sources can replace
-			// the active DTX source; a report-only SSRC must not stop its timer.
-			for (GList *l = media->ssrc_hash_in.nq.head; l; l = l->next) {
-				struct ssrc_entry_call *candidate = l->data;
-				LOCK(&candidate->tracker.lock);
-				if (candidate->tracker.last_pt_idx < 0)
-					continue;
-				ssrc_entry_hold(candidate);
-				se = candidate;
-				break;
-			}
-		}
+		struct ssrc_entry_call *se = media ? call_get_first_ssrc(&media->ssrc_hash_in) : NULL;
 		log_info_stream_fd(mp_copy.sfd);
 
 		// copy out other fields so we can unlock
@@ -4024,8 +4010,6 @@ static void __dtx_send_later(struct codec_timer *ct) {
 				break;
 			}
 		}
-
-		ssrc_entry_release(se);
 
 		if (shutdown) {
 			if (ch && ch->handler)

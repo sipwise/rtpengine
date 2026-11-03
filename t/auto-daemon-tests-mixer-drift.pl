@@ -15,7 +15,7 @@ use FindBin;
 use File::Temp qw(tempdir);
 use File::Path qw(make_path);
 
-plan skip_all => 'enable RTPENGINE_EXTENDED_TESTS for the 184-second conference admission test'
+plan skip_all => 'enable RTPENGINE_EXTENDED_TESTS for the conference admission test'
 	unless $ENV{RTPENGINE_EXTENDED_TESTS};
 
 my $ffmpeg = $ENV{RTPENGINE_TEST_FFMPEG} // 'ffmpeg';
@@ -202,6 +202,18 @@ sub endpoint_sdp {
 		.($i<2 ? "a=fmtp:96 octet-align=1; mode-set=0,1,2\r\n" : '')."a=sendrecv\r\n";
 }
 
+my $duration = $ENV{RTPENGINE_MIXER_DRIFT_DURATION} // 180;
+die 'RTPENGINE_MIXER_DRIFT_DURATION must be an integer of at least 180 seconds'
+	unless $duration =~ /^\d+$/ && $duration >= 180;
+my (@cycle_starts, @silence_intervals);
+for (my $start = 0; $start < $duration; $start += 80) {
+	push @cycle_starts, $start;
+	# Exercise speech resumption after both an early and a later SID-only interval.
+	if (@cycle_starts == 1 || @cycle_starts == 5) {
+		push @silence_intervals, [$start + 80, $start + 100];
+		$start += 20;
+	}
+}
 my @input;
 my @offset = (0.33,0.63);
 for my $source (0..1) {
@@ -211,16 +223,20 @@ for my $source (0..1) {
 	my $original = amr_packets($data);
 	my @packets;
 	my @bursts = @{$profile->{bursts}};
-	# Two 80-second speech/SID traces surround 20 seconds of SID-only silence.
-	for my $shift (0,100) {
+	# Repeat the speech/SID trace while keeping RTP clocks continuous through long silences.
+	for my $shift (@cycle_starts) {
 		push @packets,map {{%$_,frame=>$_->{frame}+50*$shift}} @$original;
 	}
 	my ($sid) = reverse grep {((ord(substr($_->{body},0,1)) >> 3) & 15)==9} @$original;
 	die 'fixture has no SID' unless $sid;
-	push @packets,map {{frame=>4000+8*$_,body=>$sid->{body},marker=>0}} 0..124;
-	@packets = sort {$a->{frame}<=>$b->{frame}} @packets;
-	$profile->{bursts} = [map {my $shift=$_;map {{%$_,start=>$_->{start}+$shift+$offset[$source],
-		end=>$_->{end}+$shift+$offset[$source]}} @bursts} (0,100)];
+	for my $interval (@silence_intervals) {
+		push @packets,map {{frame=>50*$interval->[0]+8*$_,body=>$sid->{body},marker=>0}} 0..124;
+	}
+	@packets = sort {$a->{frame}<=>$b->{frame}} grep {
+		$_->{frame}*.02+$offset[$source]+$profile->{jitter_amplitude}<$duration
+	} @packets;
+	$profile->{bursts} = [grep {$_->{end}<$duration} map {my $shift=$_;map {{%$_,start=>$_->{start}+$shift+$offset[$source],
+		end=>$_->{end}+$shift+$offset[$source]}} @bursts} @cycle_starts];
 	push @input,\@packets;
 }
 my $chirp = prompt_wav(0.7,3100);
@@ -294,7 +310,7 @@ my %endpoint=map {fileno($sockets[$_])=>$_} 0..4;
 my @next=(0,0);my @sequence=(100,200);my @sent=({},{});my @max_lateness=(0,0);
 my @event_log;
 my $started=clock_gettime(CLOCK_MONOTONIC);
-while (clock_gettime(CLOCK_MONOTONIC)-$started<184) {
+while (clock_gettime(CLOCK_MONOTONIC)-$started<$duration+4) {
 	for my $i (0..1) {
 		while ($next[$i]<@{$input[$i]} && defined $ports[$i]) {
 			my $frame=$input[$i][$next[$i]];
@@ -368,7 +384,7 @@ for my $i (0..3) {
 		my @lags=map {$_->{lag}} grep {defined $_->{lag}} @markers;
 		is(scalar(@lags),scalar(@markers),"$tags[$i] source $source every post-prompt marker arrives");
 		my @windows;
-		for (my $start=20;$start<180;$start+=20) {
+		for (my $start=20;$start<$duration;$start+=20) {
 			my @lag=map {$_->{lag}} grep {defined $_->{lag} && $_->{input}>=$start && $_->{input}<$start+20} @markers;
 			push @windows,{start=>$start,median=>median(@lag)} if @lag;
 		}
@@ -389,5 +405,6 @@ for my $i (0..3) {
 	}
 }
 open(my $result,'>',"$directory/results.json") or die $!;
-print {$result} JSON::PP->new->canonical->pretty->encode({streams=>\@results,events=>\@event_log,max_lateness=>\@max_lateness});close($result);
+print {$result} JSON::PP->new->canonical->pretty->encode({streams=>\@results,events=>\@event_log,max_lateness=>\@max_lateness,
+	duration=>$duration,cycle_starts=>\@cycle_starts,silence_intervals=>\@silence_intervals});close($result);
 done_testing();

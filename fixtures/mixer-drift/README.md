@@ -55,7 +55,12 @@ RTPENGINE_EXTENDED_TESTS=1 \
   make daemon-tests-mixer-drift
 ```
 
-The replay lasts 184 seconds plus offline decoding/analysis. Without the extended-test
+The default replay lasts 184 seconds plus offline decoding/analysis.
+Set `RTPENGINE_MIXER_DRIFT_DURATION=640` for a 10-minute-40-second source timeline
+plus four seconds of output collection. This repeats the same fixture within one call,
+with 20-second SID-only intervals at 80–100 and 420–440 seconds. Source admission
+offsets of 330/630 ms also apply to these intervals. Every other latency and pacing
+threshold stays the same, including the fixed 40-ms growth allowance for the whole call. Without the extended-test
 flag it explicitly skips. It requires full AMR-WB and Opus support in the daemon and
 AMR-WB/Opus reference decoders in FFmpeg. `RTPENGINE_TEST_FFMPEG` selects that executable.
 Artifacts otherwise use an automatically removed temporary directory.

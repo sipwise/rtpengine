@@ -2664,7 +2664,7 @@ noop:
 static const char *__stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc,
 		uint32_t output_ssrc,
 		struct ssrc_entry_call **output, struct ssrc_hash *ssrc_hash,
-		const char *label)
+		const char *label, bool is_rtcp)
 {
 	const char *ret = NULL;
 
@@ -2677,7 +2677,7 @@ static const char *__stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc,
 	mutex_unlock(&ssrc_hash->lock);
 
 	bool created = false;
-	struct ssrc_entry_call *se = first ?: get_ssrc_full(ssrc, ssrc_hash, &created);
+	struct ssrc_entry_call *se = first ?: get_ssrc_full(ssrc, ssrc_hash, &created, !is_rtcp);
 
 	if (created) {
 		ret = "SSRC changed";
@@ -2700,26 +2700,26 @@ static const char *__stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc,
 // check and update input SSRC pointers
 // returns non-null with reason string if stream should be removed from kernel
 static const char *__stream_ssrc_in(struct packet_stream *in_srtp, uint32_t ssrc_bs,
-		struct ssrc_entry_call **ssrc_in_p, struct ssrc_hash *ssrc_hash)
+		struct ssrc_entry_call **ssrc_in_p, struct ssrc_hash *ssrc_hash, bool is_rtcp)
 {
 	return __stream_ssrc_inout(in_srtp, ntohl(ssrc_bs),
-			0, ssrc_in_p, ssrc_hash, "ingress");
+			0, ssrc_in_p, ssrc_hash, "ingress", is_rtcp);
 }
 // check and update output SSRC pointers
 // returns non-null with reason string if stream should be removed from kernel
 static const char *__stream_ssrc_out(struct packet_stream *out_srtp, uint32_t ssrc_bs,
 		struct ssrc_entry_call *ssrc_in, struct ssrc_entry_call **ssrc_out_p,
 		struct ssrc_hash *ssrc_hash,
-		bool ssrc_change)
+		bool ssrc_change, bool is_rtcp)
 {
 	if (ssrc_change)
 		return __stream_ssrc_inout(out_srtp, ssrc_in->ssrc_map_out,
 				ntohl(ssrc_bs), ssrc_out_p, ssrc_hash,
-				"egress (mapped)");
+				"egress (mapped)", is_rtcp);
 
 	return __stream_ssrc_inout(out_srtp, ntohl(ssrc_bs),
 			0, ssrc_out_p, ssrc_hash,
-			"egress (direct)");
+			"egress (direct)", is_rtcp);
 }
 
 
@@ -3003,7 +3003,7 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc) {
 
 	if (phc->mp.rtp) {
 		unkern = __stream_ssrc_in(phc->in_srtp, phc->mp.rtp->ssrc, &phc->mp.ssrc_in,
-				ssrc_hash);
+				ssrc_hash, false);
 
 		if (G_LIKELY(phc->mp.ssrc_in))
 			payload_tracker_add(&phc->mp.ssrc_in->tracker, phc->payload_type);
@@ -3032,7 +3032,7 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc) {
 	}
 	else if (phc->rtcp) {
 		unkern = __stream_ssrc_in(phc->in_srtp, phc->mp.rtcp->ssrc, &phc->mp.ssrc_in,
-				ssrc_hash);
+				ssrc_hash, true);
 	}
 
 	if (unkern)
@@ -3065,7 +3065,7 @@ static void media_packet_rtp_out(struct packet_handler_ctx *phc, struct sink_han
 	if (G_LIKELY(!phc->rtcp && phc->mp.rtp)) {
 		unkern = __stream_ssrc_out(phc->out_srtp, phc->mp.rtp->ssrc, phc->mp.ssrc_in,
 				&phc->mp.ssrc_out, &phc->mp.media_out->ssrc_hash_out,
-				sh->attrs.transcoding || fixed_ssrc);
+				sh->attrs.transcoding || fixed_ssrc, phc->rtcp);
 
 		/* a fixed egress SSRC outlives the ingress SSRC, so carry the
 		 * sequence numbering across a change of source */
@@ -3087,7 +3087,7 @@ static void media_packet_rtp_out(struct packet_handler_ctx *phc, struct sink_han
 	else if (phc->rtcp && phc->mp.rtcp) {
 		unkern = __stream_ssrc_out(phc->out_srtp, phc->mp.rtcp->ssrc, phc->mp.ssrc_in,
 				&phc->mp.ssrc_out, &phc->mp.media_out->ssrc_hash_out,
-				sh->attrs.transcoding || fixed_ssrc);
+				sh->attrs.transcoding || fixed_ssrc, phc->rtcp);
 	}
 
 	if (unkern)
