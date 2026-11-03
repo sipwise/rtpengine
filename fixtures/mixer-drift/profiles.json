@@ -1,0 +1,387 @@
+[
+  {
+    "source": 0,
+    "duration": 80,
+    "bursts": [
+      {
+        "start": 0.4,
+        "end": 0.62,
+        "frequency": 400
+      },
+      {
+        "start": 2.4,
+        "end": 2.62,
+        "frequency": 450
+      },
+      {
+        "start": 4.4,
+        "end": 4.62,
+        "frequency": 500
+      },
+      {
+        "start": 6.4,
+        "end": 6.62,
+        "frequency": 550
+      },
+      {
+        "start": 8.4,
+        "end": 8.620000000000001,
+        "frequency": 600
+      },
+      {
+        "start": 10.4,
+        "end": 10.620000000000001,
+        "frequency": 650
+      },
+      {
+        "start": 12.4,
+        "end": 12.620000000000001,
+        "frequency": 700
+      },
+      {
+        "start": 14.4,
+        "end": 14.620000000000001,
+        "frequency": 750
+      },
+      {
+        "start": 16.4,
+        "end": 16.619999999999997,
+        "frequency": 800
+      },
+      {
+        "start": 18.4,
+        "end": 18.619999999999997,
+        "frequency": 850
+      },
+      {
+        "start": 20.4,
+        "end": 20.619999999999997,
+        "frequency": 900
+      },
+      {
+        "start": 22.4,
+        "end": 22.619999999999997,
+        "frequency": 950
+      },
+      {
+        "start": 24.4,
+        "end": 24.619999999999997,
+        "frequency": 1000
+      },
+      {
+        "start": 26.4,
+        "end": 26.619999999999997,
+        "frequency": 1050
+      },
+      {
+        "start": 28.4,
+        "end": 28.619999999999997,
+        "frequency": 1100
+      },
+      {
+        "start": 30.4,
+        "end": 30.619999999999997,
+        "frequency": 1150
+      },
+      {
+        "start": 32.4,
+        "end": 32.62,
+        "frequency": 1200
+      },
+      {
+        "start": 34.4,
+        "end": 34.62,
+        "frequency": 1250
+      },
+      {
+        "start": 36.4,
+        "end": 36.62,
+        "frequency": 1300
+      },
+      {
+        "start": 38.4,
+        "end": 38.62,
+        "frequency": 1350
+      },
+      {
+        "start": 40.4,
+        "end": 40.62,
+        "frequency": 1400
+      },
+      {
+        "start": 42.4,
+        "end": 42.62,
+        "frequency": 1450
+      },
+      {
+        "start": 44.4,
+        "end": 44.62,
+        "frequency": 1500
+      },
+      {
+        "start": 46.4,
+        "end": 46.62,
+        "frequency": 1550
+      },
+      {
+        "start": 48.4,
+        "end": 48.62,
+        "frequency": 1600
+      },
+      {
+        "start": 50.4,
+        "end": 50.62,
+        "frequency": 1650
+      },
+      {
+        "start": 52.4,
+        "end": 52.62,
+        "frequency": 1700
+      },
+      {
+        "start": 54.4,
+        "end": 54.62,
+        "frequency": 1750
+      },
+      {
+        "start": 56.4,
+        "end": 56.62,
+        "frequency": 1800
+      },
+      {
+        "start": 58.4,
+        "end": 58.62,
+        "frequency": 1850
+      },
+      {
+        "start": 60.4,
+        "end": 60.62,
+        "frequency": 1900
+      },
+      {
+        "start": 62.4,
+        "end": 62.62,
+        "frequency": 1950
+      },
+      {
+        "start": 64.4,
+        "end": 64.62,
+        "frequency": 2000
+      },
+      {
+        "start": 66.4,
+        "end": 66.62,
+        "frequency": 2050
+      },
+      {
+        "start": 68.4,
+        "end": 68.62,
+        "frequency": 2100
+      },
+      {
+        "start": 70.4,
+        "end": 70.62,
+        "frequency": 2150
+      },
+      {
+        "start": 72.4,
+        "end": 72.62,
+        "frequency": 2200
+      },
+      {
+        "start": 74.4,
+        "end": 74.62,
+        "frequency": 2250
+      },
+      {
+        "start": 76.4,
+        "end": 76.62,
+        "frequency": 2300
+      },
+      {
+        "start": 78.4,
+        "end": 78.62,
+        "frequency": 2350
+      }
+    ],
+    "frame_types": {
+      "2": 527,
+      "9": 480,
+      "15": 2993
+    },
+    "file": "source-0.awb",
+    "sha256": "fdd3cc1aec36b7e8541f92434c31a443ec537e6f5a235897437ef2efc6a840fb",
+    "jitter_amplitude": 0.015,
+    "jitter_step": 0.37
+  },
+  {
+    "source": 1,
+    "duration": 80,
+    "bursts": [
+      {
+        "start": 1.1,
+        "end": 1.26,
+        "frequency": 3400
+      },
+      {
+        "start": 3.7,
+        "end": 3.8600000000000003,
+        "frequency": 3450
+      },
+      {
+        "start": 6.300000000000001,
+        "end": 6.460000000000001,
+        "frequency": 3500
+      },
+      {
+        "start": 8.9,
+        "end": 9.06,
+        "frequency": 3550
+      },
+      {
+        "start": 11.5,
+        "end": 11.66,
+        "frequency": 3600
+      },
+      {
+        "start": 14.1,
+        "end": 14.26,
+        "frequency": 3650
+      },
+      {
+        "start": 16.700000000000003,
+        "end": 16.860000000000003,
+        "frequency": 3700
+      },
+      {
+        "start": 19.3,
+        "end": 19.46,
+        "frequency": 3750
+      },
+      {
+        "start": 21.900000000000002,
+        "end": 22.060000000000002,
+        "frequency": 3800
+      },
+      {
+        "start": 24.500000000000004,
+        "end": 24.660000000000004,
+        "frequency": 3850
+      },
+      {
+        "start": 27.1,
+        "end": 27.26,
+        "frequency": 3900
+      },
+      {
+        "start": 29.700000000000003,
+        "end": 29.860000000000003,
+        "frequency": 3950
+      },
+      {
+        "start": 32.300000000000004,
+        "end": 32.46,
+        "frequency": 4000
+      },
+      {
+        "start": 34.900000000000006,
+        "end": 35.06,
+        "frequency": 4050
+      },
+      {
+        "start": 37.5,
+        "end": 37.66,
+        "frequency": 4100
+      },
+      {
+        "start": 40.1,
+        "end": 40.26,
+        "frequency": 4150
+      },
+      {
+        "start": 42.7,
+        "end": 42.86,
+        "frequency": 4200
+      },
+      {
+        "start": 45.300000000000004,
+        "end": 45.46,
+        "frequency": 4250
+      },
+      {
+        "start": 47.900000000000006,
+        "end": 48.06,
+        "frequency": 4300
+      },
+      {
+        "start": 50.5,
+        "end": 50.66,
+        "frequency": 4350
+      },
+      {
+        "start": 53.1,
+        "end": 53.26,
+        "frequency": 4400
+      },
+      {
+        "start": 55.7,
+        "end": 55.86,
+        "frequency": 4450
+      },
+      {
+        "start": 58.300000000000004,
+        "end": 58.46,
+        "frequency": 4500
+      },
+      {
+        "start": 60.900000000000006,
+        "end": 61.06,
+        "frequency": 4550
+      },
+      {
+        "start": 63.50000000000001,
+        "end": 63.660000000000004,
+        "frequency": 4600
+      },
+      {
+        "start": 66.1,
+        "end": 66.25999999999999,
+        "frequency": 4650
+      },
+      {
+        "start": 68.7,
+        "end": 68.86,
+        "frequency": 4700
+      },
+      {
+        "start": 71.3,
+        "end": 71.46,
+        "frequency": 4750
+      },
+      {
+        "start": 73.89999999999999,
+        "end": 74.05999999999999,
+        "frequency": 4800
+      },
+      {
+        "start": 76.5,
+        "end": 76.66,
+        "frequency": 4850
+      },
+      {
+        "start": 79.1,
+        "end": 79.25999999999999,
+        "frequency": 4900
+      }
+    ],
+    "frame_types": {
+      "2": 317,
+      "9": 492,
+      "15": 3191
+    },
+    "file": "source-1.awb",
+    "sha256": "a16fb2e0a5b6efe084ae869dde56796bf60dcb0df8ec42614ea52265c81357b4",
+    "jitter_amplitude": 0.02,
+    "jitter_step": 0.26
+  }
+]

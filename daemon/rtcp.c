@@ -1302,7 +1302,7 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 		return;
 
 	// reverse SSRC mapping
-	struct ssrc_entry_call *map_ctx = get_ssrc(ctx->scratch.rr.ssrc, &ctx->mp->media->ssrc_hash_out);
+	struct ssrc_entry_call *map_ctx = get_ssrc_no_move(ctx->scratch.rr.ssrc, &ctx->mp->media->ssrc_hash_out);
 	if (!map_ctx)
 		return;
 	rr->ssrc = htonl(map_ctx->ssrc_map_out);
@@ -1311,7 +1311,7 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 		return;
 
 	// for reception stats
-	struct ssrc_entry_call *input_ctx = get_ssrc(map_ctx->ssrc_map_out,
+	struct ssrc_entry_call *input_ctx = get_ssrc_no_move(map_ctx->ssrc_map_out,
 			&ctx->mp->media_out->ssrc_hash_in);
 	if (!input_ctx)
 		return;
