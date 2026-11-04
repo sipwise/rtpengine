@@ -1,3 +1,10 @@
+ngcp-rtpengine (26.3.1.3+0~mr26.3.1.3) unstable; urgency=medium
+
+  [ Donat Zenichev ]
+  * [82581f2] MT#66417 codec_add_dtmf_packet: add room for the header extension
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 04 Nov 2026 11:47:15 +0100
+
 ngcp-rtpengine (26.3.1.2+0~mr26.3.1.2) unstable; urgency=medium
 
   [ Kevin Binetruy ]
