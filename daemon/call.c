@@ -2590,6 +2590,15 @@ static void codecs_offer(struct call_media *receiver, struct call_media *sender,
 	// update supp codecs based on actions so far
 	codec_tracker_update(&receiver->codecs, &sp->codecs);
 
+	if (flags->telephone_event_payload != -1) {
+		// Asymmetric mode intentionally does not translate compatible payload types.
+		if (flags->allow_asymmetric_codecs)
+			ilog(LOG_WARN, "Ignoring telephone-event-payload with allow-asymmetric-codecs");
+		else
+			codec_store_remap_telephone_event(&receiver->codecs, &sender->codecs,
+					flags->telephone_event_payload);
+	}
+
 	// set up handlers
 	codec_handlers_update(receiver, sender, .flags = flags, .sp = sp,
 			.allow_asymmetric = !!(flags->allow_asymmetric_codecs));

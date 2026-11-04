@@ -197,6 +197,7 @@ __attribute__((nonnull(1, 2)))
 void codec_store_track(struct codec_store *, const str_q *);
 __attribute__((nonnull(1, 2, 3)))
 void codec_store_transcode(struct codec_store *, const str_q *, struct codec_store *);
+void codec_store_remap_telephone_event(struct codec_store *, const struct codec_store *, int);
 __attribute__((nonnull(1, 2)))
 void codec_store_create(struct codec_store *, const str_q *);
 __attribute__((nonnull(1, 2, 3)))
