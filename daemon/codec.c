@@ -4072,6 +4072,8 @@ static void __dtx_send_later(struct codec_timer *ct) {
 	rwlock_lock_r(&call->master_lock);
 	__ssrc_lock_both(&mp_copy);
 
+	mp_copy.dtx = true;
+
 	if (dtxp) {
 		ilogs(dtx, LOG_DEBUG, "Decoding DTX-buffered RTP packet (TS %lu) now; "
 				"%i packets left in queue", ts, p_left);
@@ -4111,8 +4113,17 @@ static void __dtx_send_later(struct codec_timer *ct) {
 			mutex_unlock(&dtxb->lock);
 		}
 	}
-	if (ch && ch->encoder && mp_copy.ssrc_out)
-		mp_copy.ssrc_out->ts_out = ch->encoder->next_pts + ch->csch.first_ts;
+
+	if (ch && mp_copy.ssrc_out) {
+		// The decoder may feed a different output encoder. Use this listener's
+		// RTP clock, including the encoder's sample-to-RTP clock conversion.
+		struct codec_ssrc_handler *output_ch = __output_ssrc_handler(ch, &mp_copy);
+		if (output_ch->encoder)
+			mp_copy.ssrc_out->ts_out = output_ch->csch.first_ts
+					+ fraction_divl(output_ch->encoder->next_pts,
+							&output_ch->encoder->clockrate_fact);
+		ssrc_entry_release(output_ch);
+	}
 
 	mutex_lock(&dtxb->lock);
 
@@ -4738,6 +4749,11 @@ static void packet_encoded_tx(struct codec_ssrc_handler *ch, struct media_packet
 		if (!repeats)
 			break;
 	} while (repeats--);
+
+	// Async decoding may finish after the DTX timer saved the encoder state.
+	// Refresh the next RTP timestamp when the output packet is actually encoded.
+	if (mp->dtx && !is_dtmf)
+		mp->ssrc_out->ts_out = ch->csch.first_ts + fraction_divl(pts + duration, cr_fact);
 }
 
 

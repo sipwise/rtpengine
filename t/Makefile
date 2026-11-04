@@ -94,6 +94,7 @@ include ../lib/common.Makefile
 	daemon-tests-redis-destroyed daemon-tests-redis-reconnect \
 	daemon-tests-recording daemon-tests-create daemon-tests-create-srtp daemon-tests-created-subscriptions daemon-tests-alias \
 	daemon-tests-kernel-api daemon-tests-dtmf-fanout daemon-tests-dtx-rtcp daemon-tests-mixer-drift \
+	daemon-tests-dtx-clock \
 	daemon-tests-video daemon-tests-inject daemon-tests-dtx-dtmf \
 	daemon-tests-roc-pl \
 	daemon-tests-ice-force-answer
@@ -151,6 +152,7 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-recording daemon-tests-create daemon-tests-create-srtp daemon-tests-created-subscriptions \
 	daemon-tests-ice-force-answer \
 	daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-dtx-no-shift daemon-tests-dtx-dtmf daemon-tests-dtx-rtcp daemon-tests-mixer-drift \
+	daemon-tests-dtx-clock \
 	daemon-tests-alias \
 	daemon-tests-kernel-api daemon-tests-dtmf-fanout \
 	daemon-tests-video daemon-tests-inject \
@@ -203,6 +205,9 @@ daemon-tests-mixer-drift:	daemon-test-deps
 
 daemon-tests-dtmf-fanout:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtmf-fanout.pl
+
+daemon-tests-dtx-clock:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtx-clock.pl
 
 daemon-tests-dtx-no-shift:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtx-no-shift.pl
