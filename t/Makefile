@@ -81,22 +81,64 @@ COMMONOBJS := ../lib/str.o ../lib/auxlib.o ../lib/rtplib.o ../lib/loglib.o ../li
 
 include ../lib/common.Makefile
 
-.PHONY:		all-tests unit-tests daemon-tests daemon-tests \
-	daemon-tests-main daemon-tests-jb daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-pubsub \
-	daemon-tests-intfs daemon-tests-stats daemon-tests-delay-buffer daemon-tests-delay-timing \
-	daemon-tests-evs daemon-tests-player-cache daemon-tests-redis daemon-tests-redis-json \
-	daemon-tests-measure-rtp daemon-tests-mos-legacy daemon-tests-mos-fullband daemon-tests-config-file \
-	daemon-tests-templ-def daemon-tests-templ-def-offer daemon-tests-t38 daemon-tests-evs-dtx \
-	daemon-tests-transform daemon-tests-http daemon-tests-heuristic daemon-tests-asymmetric \
-	daemon-tests-dtx-no-shift daemon-tests-rtcp daemon-tests-redis-subscribe daemon-tests-rtp-ext daemon-tests-ssrc \
-	daemon-tests-bundle daemon-tests-dtls daemon-tests-rollback \
-	daemon-tests-rollback-redis daemon-tests-redis-srtp-index daemon-tests-redis-errors \
-	daemon-tests-redis-destroyed daemon-tests-redis-reconnect \
-	daemon-tests-recording daemon-tests-create daemon-tests-create-srtp daemon-tests-created-subscriptions daemon-tests-alias \
-	daemon-tests-kernel-api daemon-tests-dtmf-fanout daemon-tests-dtmf-payload-remap daemon-tests-dtx-rtcp daemon-tests-mixer-drift \
-	daemon-tests-video daemon-tests-inject daemon-tests-dtx-dtmf \
-	daemon-tests-roc-pl \
-	daemon-tests-ice-force-answer
+.PHONY:		all-tests \
+	unit-tests \
+	daemon-tests \
+	daemon-tests \
+	daemon-tests-main \
+	daemon-tests-jb \
+	daemon-tests-dtx \
+	daemon-tests-dtx-cn \
+	daemon-tests-pubsub \
+	daemon-tests-intfs \
+	daemon-tests-stats \
+	daemon-tests-delay-buffer \
+	daemon-tests-delay-timing \
+	daemon-tests-evs \
+	daemon-tests-player-cache \
+	daemon-tests-redis \
+	daemon-tests-redis-json \
+	daemon-tests-measure-rtp \
+	daemon-tests-mos-legacy \
+	daemon-tests-mos-fullband \
+	daemon-tests-config-file \
+	daemon-tests-templ-def \
+	daemon-tests-templ-def-offer \
+	daemon-tests-t38 \
+	daemon-tests-evs-dtx \
+	daemon-tests-transform \
+	daemon-tests-http \
+	daemon-tests-heuristic \
+	daemon-tests-asymmetric \
+	daemon-tests-dtx-no-shift \
+	daemon-tests-rtcp \
+	daemon-tests-redis-subscribe \
+	daemon-tests-rtp-ext \
+	daemon-tests-ssrc \
+	daemon-tests-bundle \
+	daemon-tests-dtls \
+	daemon-tests-rollback \
+	daemon-tests-rollback-redis \
+	daemon-tests-redis-srtp-index \
+	daemon-tests-redis-errors \
+	daemon-tests-redis-destroyed \
+	daemon-tests-redis-reconnect \
+	daemon-tests-recording \
+	daemon-tests-create \
+	daemon-tests-create-srtp \
+	daemon-tests-created-subscriptions \
+	daemon-tests-alias \
+	daemon-tests-kernel-api \
+	daemon-tests-dtmf-fanout \
+	daemon-tests-dtmf-payload-remap \
+	daemon-tests-dtx-rtcp \
+	daemon-tests-mixer-drift \
+	daemon-tests-dtx-clock \
+	daemon-tests-video \
+	daemon-tests-inject \
+	daemon-tests-dtx-dtmf \
+	daemon-tests-ice-force-answer \
+	#
 
 TESTS := test-bitstr test-str aes-crypt aead-aes-crypt test-const_str_hash.strhash
 ifeq ($(with_transcoding),yes)
@@ -133,28 +175,70 @@ unit-tests:	$(TESTS) aead-decrypt kernel-extmap-filter
 	  exit 1 ; \
 	fi
 
-daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests-websocket \
-	daemon-tests-evs daemon-tests-async-tc \
-	daemon-tests-audio-player daemon-tests-audio-player-play-media \
+daemon-tests: \
+	daemon-tests-main \
+	daemon-tests-jb \
+	daemon-tests-pubsub \
+	daemon-tests-websocket \
+	daemon-tests-evs \
+	daemon-tests-async-tc \
+	daemon-tests-audio-player \
+	daemon-tests-audio-player-play-media \
 	daemon-tests-record-egress-play-media \
-	daemon-tests-intfs daemon-tests-stats daemon-tests-player-cache daemon-tests-redis \
-	daemon-tests-rtpp-flags daemon-tests-redis-json daemon-tests-measure-rtp daemon-tests-mos-legacy \
-	daemon-tests-mos-fullband daemon-tests-config-file \
-	daemon-tests-templ-def daemon-tests-templ-def-offer \
-	daemon-tests-sdp-manipulations daemon-tests-sdes-manipulations \
-	daemon-tests-sdp-orig-replacements daemon-tests-moh daemon-tests-evs-dtx daemon-tests-transform \
-	daemon-tests-transcode-config daemon-tests-codec-prefs daemon-tests-http daemon-tests-heuristic \
-	daemon-tests-asymmetric daemon-tests-rtcp daemon-tests-redis-subscribe daemon-tests-rtp-ext daemon-tests-ssrc \
-	daemon-tests-bundle daemon-tests-dtls daemon-tests-rollback daemon-tests-rollback-redis \
-	daemon-tests-redis-srtp-index daemon-tests-redis-errors daemon-tests-redis-destroyed \
+	daemon-tests-intfs \
+	daemon-tests-stats \
+	daemon-tests-player-cache \
+	daemon-tests-redis \
+	daemon-tests-rtpp-flags \
+	daemon-tests-redis-json \
+	daemon-tests-measure-rtp \
+	daemon-tests-mos-legacy \
+	daemon-tests-mos-fullband \
+	daemon-tests-config-file \
+	daemon-tests-templ-def \
+	daemon-tests-templ-def-offer \
+	daemon-tests-sdp-manipulations \
+	daemon-tests-sdes-manipulations \
+	daemon-tests-sdp-orig-replacements \
+	daemon-tests-moh \
+	daemon-tests-evs-dtx \
+	daemon-tests-transform \
+	daemon-tests-transcode-config \
+	daemon-tests-codec-prefs \
+	daemon-tests-http \
+	daemon-tests-heuristic \
+	daemon-tests-asymmetric \
+	daemon-tests-rtcp \
+	daemon-tests-redis-subscribe \
+	daemon-tests-rtp-ext \
+	daemon-tests-ssrc \
+	daemon-tests-bundle \
+	daemon-tests-dtls \
+	daemon-tests-rollback \
+	daemon-tests-rollback-redis \
+	daemon-tests-redis-srtp-index \
+	daemon-tests-redis-errors \
+	daemon-tests-redis-destroyed \
 	daemon-tests-redis-reconnect \
-	daemon-tests-recording daemon-tests-create daemon-tests-create-srtp daemon-tests-created-subscriptions \
+	daemon-tests-recording \
+	daemon-tests-create \
+	daemon-tests-create-srtp \
+	daemon-tests-created-subscriptions \
 	daemon-tests-ice-force-answer \
-	daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-dtx-no-shift daemon-tests-dtx-dtmf daemon-tests-dtx-rtcp daemon-tests-mixer-drift \
+	daemon-tests-dtx \
+	daemon-tests-dtx-cn \
+	daemon-tests-dtx-no-shift \
+	daemon-tests-dtx-dtmf \
+	daemon-tests-dtx-rtcp \
+	daemon-tests-mixer-drift \
+	daemon-tests-dtx-clock \
 	daemon-tests-alias \
-	daemon-tests-kernel-api daemon-tests-dtmf-fanout daemon-tests-dtmf-payload-remap \
-	daemon-tests-video daemon-tests-inject \
-	daemon-tests-roc-pl
+	daemon-tests-kernel-api \
+	daemon-tests-dtmf-fanout \
+	daemon-tests-dtmf-payload-remap \
+	daemon-tests-video \
+	daemon-tests-inject \
+	#
 
 daemon-test-deps:	tests-preload.so
 	$(MAKE) -C ../daemon
@@ -206,6 +290,9 @@ daemon-tests-dtmf-payload-remap:	daemon-test-deps
 
 daemon-tests-dtmf-fanout:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtmf-fanout.pl
+
+daemon-tests-dtx-clock:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtx-clock.pl
 
 daemon-tests-dtx-no-shift:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtx-no-shift.pl
