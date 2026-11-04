@@ -516,8 +516,8 @@ static int rtcp_generic(struct rtcp_chain_element *el, struct rtcp_process_ctx *
 	return 0;
 }
 
-static int rtcp_Xr(struct rtcp_chain_element *el) {
-	if (el->len < el->rtcp_packet->header.count * sizeof(struct report_block))
+static int rtcp_Xr(struct rtcp_chain_element *el, size_t header_size) {
+	if (el->len < header_size + el->rtcp_packet->header.count * sizeof(struct report_block))
 		return -1;
 	return 0;
 }
@@ -535,7 +535,7 @@ static void rtcp_rr_list(const struct rtcp_packet *common, struct report_block *
 
 
 static int rtcp_sr(struct rtcp_chain_element *el, struct rtcp_process_ctx *log_ctx) {
-	if (rtcp_Xr(el))
+	if (rtcp_Xr(el, sizeof(struct sender_report_packet)))
 		return -1;
 	CAH(common, &el->sr->rtcp);
 	CAH(sr, el->sr);
@@ -544,7 +544,7 @@ static int rtcp_sr(struct rtcp_chain_element *el, struct rtcp_process_ctx *log_c
 }
 
 static int rtcp_rr(struct rtcp_chain_element *el, struct rtcp_process_ctx *log_ctx) {
-	if (rtcp_Xr(el))
+	if (rtcp_Xr(el, sizeof(struct receiver_report_packet)))
 		return -1;
 	CAH(common, &el->rr->rtcp);
 	rtcp_rr_list(&el->rr->rtcp, el->rr->reports, log_ctx);
