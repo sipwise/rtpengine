@@ -15,6 +15,110 @@ autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
 		or die;
 
 
+my ($key_a, $key_b);
+
+
+new_call;
+
+(undef, undef, undef, undef, undef, undef, undef, undef, $key_a) = offer('rekey with tag change (GH#2234)', { DTLS => 'off', 'transport-protocol' => 'RTP/SAVP' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:2 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:7 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
+SDP
+
+answer('rekey with tag change (GH#2234)', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/SAVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+a=crypto:7 AES_CM_128_HMAC_SHA1_80 inline:dxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxbJv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+reverse_tags;
+
+offer('rekey with tag change (GH#2234)', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/SAVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:dxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxbJv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+(undef, undef, $key_b) = answer('rekey with tag change (GH#2234)', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+SDP
+
+is($key_a, $key_b, "key unchanged");
+
+
+
 # SDES manipulations
 
 new_call;
