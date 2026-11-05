@@ -2039,22 +2039,44 @@ static void __sdes_accept(struct call_media *media, const sdp_ng_flags *flags) {
 	/* outgoing suites */
 	__auto_type l = media->sdes_out.head;
 
+	// to allow renumbering during a re-offer
+	struct crypto_params_sdes *maybe_renumber = NULL;
+
 	while (l) {
+		__auto_type next = l->next;
 		struct crypto_params_sdes *cps_out = l->data;
 		if (cps_out->params.crypto_suite != cps_in->params.crypto_suite)
-			goto del_next;
-		if (cps_out->tag != cps_in->tag)
-			goto del_next;
+			goto del_free_next;
+		if (cps_out->tag != cps_in->tag) {
+			if (op_is_offer(flags->opmode) && !maybe_renumber) {
+				maybe_renumber = cps_out;
+				goto del_next;
+			}
+			goto del_free_next;
+		}
 
 		/* this one's good */
-		l = l->next;
-		continue;
-del_next:
+		goto next;
+del_free_next:
 		/* mismatch, prune this one out */
 		crypto_params_sdes_free(cps_out);
-		__auto_type next = l->next;
+del_next:
 		t_queue_delete_link(&media->sdes_out, l);
+next:
 		l = next;
+	}
+
+	// if no match was found and this is a re-offer, we may
+	// be able to reuse an existing suite with a different tag
+	// to avoid a re-key
+	if (maybe_renumber) {
+		if (!media->sdes_out.length) {
+			maybe_renumber->tag = cps_in->tag;
+			t_queue_push_head(&media->sdes_out, maybe_renumber);
+		}
+		else
+			crypto_params_sdes_free(maybe_renumber);
+
 	}
 }
 
