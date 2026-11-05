@@ -1655,6 +1655,12 @@ static void __sdes_keys(const sdp_ng_flags *flags, sdes_q *cpq) {
 	}
 }
 
+
+static bool op_is_offer(enum ng_opmode op) {
+	return (op == OP_OFFER || op == OP_SUBSCRIBE_REQ || op == OP_CREATE);
+}
+
+
 /**
  *  Only generates SDES parameters for outgoing SDP, which is our media "out" direction.
  * `this` is the receiver of the message.
@@ -1676,8 +1682,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 	/* preferred crypto suites for the offerer - generated answer */
 	const str_q *offered_order = &flags->sdes_offerer_pref;
 
-	bool is_offer = (flags->opmode == OP_OFFER || flags->opmode == OP_SUBSCRIBE_REQ
-			|| flags->opmode == OP_CREATE);
+	bool is_offer = op_is_offer(flags->opmode);
 
 	if (!this->protocol || !this->protocol->srtp || MEDIA_ISSET(this, PASSTHRU)) {
 		crypto_params_sdes_queue_clear(cpq);
