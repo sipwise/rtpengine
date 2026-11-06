@@ -11,7 +11,6 @@ use NGCP::Rtpclient::ICE;
 use POSIX;
 use Socket;
 use IO::Socket::UNIX;
-use Data::Dumper;
 use Errno;
 
 
@@ -120,7 +119,6 @@ sub add_destination {
 	my $buf;
 	my ($addr) = $kintf->recv($buf, 4096);
 	my ($msg, $text) = unpack("i! a*", $buf);
-	print(length($text), "\n");
 	is($msg, 3, "write message");
 	my (%ret, $code);
 	($code,
@@ -138,19 +136,6 @@ sub add_destination {
 		$ret{tos}, $ret{flags})
 		= unpack('i! x![L!]   (i! L x12 S  x[S])     i! x![L!]     (i! L x12 S  x[S])[2]    i!    (i! i! a32 i! a14 x![i!] i! i! i! a256 i! i! i!)    L4 L4    (i! a16 c c x![i!])[48]  c32 i!    c c a255  x![L!]    Q Q Q4    c     i!', $text);
 	is($code, 3, "add destination msg");
-	print Dumper ($text);
-	print Dumper ($code,
-		$ret{lfam}, $ret{laddr}, $ret{lport},
-		$ret{idx},
-		$ret{sfam}, $ret{saddr}, $ret{sport},
-		$ret{dfam}, $ret{daddr}, $ret{dport},
-		$ret{midx},
-		@{$ret{encr}}[0..11],
-		@{$ret{ssrc}}[0..3], @{$ret{seqs}}[0..3],
-		@{$ret{pto}}[0..191],
-		$ret{exmid}, $ret{exmidlen}, $ret{exmids},
-		$ret{iface}, $ret{stats}, @{$ret{ssrcst}}[0..3],
-		$ret{tos}, $ret{flags});
 	$kintf->send(pack('ii', 3, length($text)), 0, $addr);
 	return %ret;
 }
