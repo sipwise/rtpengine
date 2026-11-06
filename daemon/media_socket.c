@@ -1909,7 +1909,43 @@ static const char *kernelize_one(kernelize_state *s,
 	redi->output.iface_stats = sink->selected_sfd->local_intf->stats;
 	redi->output.stats = sink->stats_out;
 
-	if (reti->track_ssrc) {
+	if (reti->track_ssrc && sink->media->fixed_egress_ssrc) {
+		/* With a fixed egress SSRC every ingress SSRC maps onto the same egress
+		 * entry, so the egress hash holds a single entry and pairing it with
+		 * the ingress slots one to one would leave every slot but the first
+		 * without substitution: a second ingress SSRC (a media player feeding
+		 * this leg, a re-INVITE from the far end) would then leave the sink
+		 * under its own SSRC and sequence. Give every slot the fixed SSRC and
+		 * the shared counters (the SRTP index must be one per SSRC), and
+		 * re-base each slot's sequence offset on the egress counter so that a
+		 * returning SSRC carries on where the last packet left off. */
+		struct ssrc_entry_call *se = get_ssrc(sink->media->fixed_egress_ssrc,
+				&sink->media->ssrc_hash_out);
+		if (se) {
+			/* The egress counter only reflects packets already sent: the
+			 * one being handled right now is still queued, and on a fresh
+			 * leg nothing has gone out yet. So the slot of the SSRC that
+			 * userspace is forwarding keeps the offset userspace computed
+			 * (exact continuity), and only the other slots are re-based on
+			 * the counter, when there is one. */
+			uint32_t last = atomic_get_na(&se->stats->ext_seq);
+			for (unsigned int u = 0; u < G_N_ELEMENTS(redi->output.ssrc_out) && s->ssrc[u]; u++) {
+				uint32_t in_last = atomic_get_na(&s->ssrc[u]->stats->ext_seq);
+				bool current = se->fixed_in_ssrc_set && s->ssrc[u]->h.ssrc == se->fixed_in_ssrc;
+				redi->output.seq_offset[u] = (!current && last && in_last)
+					? (uint16_t) (last - in_last) : se->seq_diff;
+				redi->output.ssrc_stats[u] = se->stats;
+				redi->output.ssrc_out[u] = htonl(se->h.ssrc);
+			}
+			/* the kernel now advances the egress counter: userspace must
+			 * re-base on it when it next sees a packet of this leg. Only
+			 * for RTP: offloading RTCP does not move the RTP numbering. */
+			if (!rtcp)
+				se->fixed_rebase = true;
+			ssrc_entry_release(se);
+		}
+	}
+	else if (reti->track_ssrc) {
 		unsigned int u = 0;
 		for (GList *l = sink->media->ssrc_hash_out.nq.head; l; l = l->next) {
 			struct ssrc_entry_call *se = l->data;
