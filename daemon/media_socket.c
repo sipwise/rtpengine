@@ -19,6 +19,7 @@
 #include "iptables.h"
 #include "main.h"
 #include "media_player.h"
+#include "audio_player.h"
 #include "jitter_buffer.h"
 #include "dtmf.h"
 #include "mqtt.h"
@@ -264,13 +265,19 @@ static const struct streamhandler __sh_noop = {
 	.in		= &__shio_noop,
 	.out		= &__shio_noop,
 };
+/* Plain RTP output keeps the egress index in userspace (`rtp_update_index`)
+ * whatever the input: SRTP or AVPF input too, not only RTP/AVP. Otherwise a
+ * plain leg fed by SRTP or AVPF (e.g. a WebRTC client bridged to plain RTP) has
+ * no egress counter until the kernel takes over, and a fixed egress SSRC
+ * re-bases its sequence on that empty or stale counter. Integer arithmetic on
+ * userspace-forwarded packets only; the kernel already keeps the index. */
 static const struct streamhandler __sh_noop_index = {
 	.in		= &__shio_noop,
 	.out		= &__shio_noop_index,
 };
 static const struct streamhandler __sh_savp2avp = {
 	.in		= &__shio_decrypt,
-	.out		= &__shio_noop,
+	.out		= &__shio_noop_index,
 };
 static const struct streamhandler __sh_avp2savp = {
 	.in		= &__shio_noop,
@@ -278,7 +285,7 @@ static const struct streamhandler __sh_avp2savp = {
 };
 static const struct streamhandler __sh_avpf2avp = {
 	.in		= &__shio_avpf_strip,
-	.out		= &__shio_noop,
+	.out		= &__shio_noop_index,
 };
 static const struct streamhandler __sh_avpf2savp = {
 	.in		= &__shio_avpf_strip,
@@ -286,7 +293,7 @@ static const struct streamhandler __sh_avpf2savp = {
 };
 static const struct streamhandler __sh_savpf2avp = {
 	.in		= &__shio_decrypt_avpf_strip,
-	.out		= &__shio_noop,
+	.out		= &__shio_noop_index,
 };
 static const struct streamhandler __sh_savp2savp = {
 	.in		= &__shio_decrypt,
@@ -1902,7 +1909,43 @@ static const char *kernelize_one(kernelize_state *s,
 	redi->output.iface_stats = sink->selected_sfd->local_intf->stats;
 	redi->output.stats = sink->stats_out;
 
-	if (reti->track_ssrc) {
+	if (reti->track_ssrc && sink->media->fixed_egress_ssrc) {
+		/* With a fixed egress SSRC every ingress SSRC maps onto the same egress
+		 * entry, so the egress hash holds a single entry and pairing it with
+		 * the ingress slots one to one would leave every slot but the first
+		 * without substitution: a second ingress SSRC (a media player feeding
+		 * this leg, a re-INVITE from the far end) would then leave the sink
+		 * under its own SSRC and sequence. Give every slot the fixed SSRC and
+		 * the shared counters (the SRTP index must be one per SSRC), and
+		 * re-base each slot's sequence offset on the egress counter so that a
+		 * returning SSRC carries on where the last packet left off. */
+		struct ssrc_entry_call *se = get_ssrc(sink->media->fixed_egress_ssrc,
+				&sink->media->ssrc_hash_out);
+		if (se) {
+			/* The egress counter only reflects packets already sent: the
+			 * one being handled right now is still queued, and on a fresh
+			 * leg nothing has gone out yet. So the slot of the SSRC that
+			 * userspace is forwarding keeps the offset userspace computed
+			 * (exact continuity), and only the other slots are re-based on
+			 * the counter, when there is one. */
+			uint32_t last = atomic_get_na(&se->stats->ext_seq);
+			for (unsigned int u = 0; u < G_N_ELEMENTS(redi->output.ssrc_out) && s->ssrc[u]; u++) {
+				uint32_t in_last = atomic_get_na(&s->ssrc[u]->stats->ext_seq);
+				bool current = se->fixed_in_ssrc_set && s->ssrc[u]->h.ssrc == se->fixed_in_ssrc;
+				redi->output.seq_offset[u] = (!current && last && in_last)
+					? (uint16_t) (last - in_last) : se->seq_diff;
+				redi->output.ssrc_stats[u] = se->stats;
+				redi->output.ssrc_out[u] = htonl(se->h.ssrc);
+			}
+			/* the kernel now advances the egress counter: userspace must
+			 * re-base on it when it next sees a packet of this leg. Only
+			 * for RTP: offloading RTCP does not move the RTP numbering. */
+			if (!rtcp)
+				se->fixed_rebase = true;
+			ssrc_entry_release(se);
+		}
+	}
+	else if (reti->track_ssrc) {
 		unsigned int u = 0;
 		for (GList *l = sink->media->ssrc_hash_out.nq.head; l; l = l->next) {
 			struct ssrc_entry_call *se = l->data;
@@ -3068,20 +3111,33 @@ static void media_packet_rtp_out(struct packet_handler_ctx *phc, struct sink_han
 				sh->attrs.transcoding || fixed_ssrc, phc->rtcp);
 
 		/* a fixed egress SSRC outlives the ingress SSRC, so carry the
-		 * sequence numbering across a change of source */
-		if (fixed_ssrc) {
+		 * sequence numbering across a change of source. Not while an audio
+		 * player feeds the sink: then this packet is decoded into its mix
+		 * buffer and never reaches the wire under this SSRC, whose numbering
+		 * belongs to the player (which advances seq_diff itself) until it
+		 * stops - forwarding re-bases on ext_seq when it resumes. */
+		if (fixed_ssrc && !audio_player_is_active(phc->mp.media_out)) {
 			struct ssrc_entry_call *so = phc->mp.ssrc_out;
 			uint32_t in_ssrc = ntohl(phc->mp.rtp->ssrc);
 			uint16_t seq = ntohs(phc->mp.rtp->seq_num);
-			if (so->fixed_in_ssrc_set && so->fixed_in_ssrc != in_ssrc) {
+			if ((so->fixed_in_ssrc_set && so->fixed_in_ssrc != in_ssrc) || so->fixed_rebase) {
 				/* the egress sequence counter lives in memory shared with
 				 * the kernel module, so it stays current even while the
 				 * stream is offloaded and userspace sees no packets */
-				uint16_t last = atomic_get_na(&so->stats->ext_seq);
-				so->seq_diff = last + 1 - seq;
+				uint32_t last = atomic_get_na(&so->stats->ext_seq);
+				/* Nothing counted under this SSRC yet: there is no
+				 * numbering to carry on from, so keep the offset in use.
+				 * Re-basing on an empty counter restarts the sequence at
+				 * 1, which a fixed SSRC makes look like a jump back to
+				 * whoever is downstream. Every plain RTP output keeps the
+				 * egress index (see __sh_noop_index), so an empty counter
+				 * means a leg that has sent nothing yet. */
+				if (last)
+					so->seq_diff = (uint16_t) (last + 1) - seq;
 			}
 			so->fixed_in_ssrc = in_ssrc;
 			so->fixed_in_ssrc_set = true;
+			so->fixed_rebase = false;
 		}
 	}
 	else if (phc->rtcp && phc->mp.rtcp) {
