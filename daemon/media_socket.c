@@ -264,13 +264,19 @@ static const struct streamhandler __sh_noop = {
 	.in		= &__shio_noop,
 	.out		= &__shio_noop,
 };
+/* Plain RTP output keeps the egress index in userspace (`rtp_update_index`)
+ * whatever the input: SRTP or AVPF input too, not only RTP/AVP. Otherwise a
+ * plain leg fed by SRTP or AVPF (e.g. a WebRTC client bridged to plain RTP) has
+ * no egress counter until the kernel takes over, and a fixed egress SSRC
+ * re-bases its sequence on that empty or stale counter. Integer arithmetic on
+ * userspace-forwarded packets only; the kernel already keeps the index. */
 static const struct streamhandler __sh_noop_index = {
 	.in		= &__shio_noop,
 	.out		= &__shio_noop_index,
 };
 static const struct streamhandler __sh_savp2avp = {
 	.in		= &__shio_decrypt,
-	.out		= &__shio_noop,
+	.out		= &__shio_noop_index,
 };
 static const struct streamhandler __sh_avp2savp = {
 	.in		= &__shio_noop,
@@ -278,7 +284,7 @@ static const struct streamhandler __sh_avp2savp = {
 };
 static const struct streamhandler __sh_avpf2avp = {
 	.in		= &__shio_avpf_strip,
-	.out		= &__shio_noop,
+	.out		= &__shio_noop_index,
 };
 static const struct streamhandler __sh_avpf2savp = {
 	.in		= &__shio_avpf_strip,
@@ -286,7 +292,7 @@ static const struct streamhandler __sh_avpf2savp = {
 };
 static const struct streamhandler __sh_savpf2avp = {
 	.in		= &__shio_decrypt_avpf_strip,
-	.out		= &__shio_noop,
+	.out		= &__shio_noop_index,
 };
 static const struct streamhandler __sh_savp2savp = {
 	.in		= &__shio_decrypt,
