@@ -1622,7 +1622,7 @@ static void rtcp_receiver_reports(ssrc_q *out, struct ssrc_hash *hash) {
 
 // call must be locked in R
 // if a `ps` is locked, it must be passed as argument
-// ssrc_out may be locked
+// ssrc_out must not be locked
 void rtcp_send_report(struct call_media *media, struct ssrc_entry_call *ssrc_out,
 		const struct packet_stream *locked)
 {
