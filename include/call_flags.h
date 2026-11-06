@@ -94,6 +94,7 @@ struct sdp_ng_flags {
 	str xmlrpc_callback;
 	endpoint_t dtmf_log_dest;
 	str_case_value_ht codec_set;
+	int telephone_event_payload; // -1: no explicit outgoing PT
 	int ptime,
 	    rev_ptime;
 	str dtls_fingerprint;

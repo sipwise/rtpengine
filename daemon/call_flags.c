@@ -1131,6 +1131,7 @@ void call_ng_flags_init(sdp_ng_flags *out, enum ng_opmode opmode) {
 	out->dtls_passive = dtls_passive_def;
 	out->el_option = rtpe_config.endpoint_learning;
 	out->tos = 256;
+	out->telephone_event_payload = -1;
 	out->delay_buffer = -1;
 	out->delete_delay = -1;
 	out->volume = 9999;
@@ -1157,6 +1158,33 @@ static const char *call_ng_direction_flag(const ng_parser_t *parser, sdp_ng_flag
 }
 const char *call_ng_codec_flags(const ng_parser_t *parser, str *key, parser_arg value, helper_arg arg) {
 	sdp_ng_flags *out = arg.flags;
+	if (!str_cmp(key, "telephone-event-payload")) {
+#ifndef WITH_TRANSCODING
+		return "telephone-event-payload requires transcoding support";
+#else
+		if (out->opmode != OP_OFFER)
+			return "telephone-event-payload is only supported in offers";
+		// Flags-string clients can only supply the payload type as a string.
+		// Parse strings strictly: the JSON integer helper accepts numeric prefixes.
+		long long pt = -1;
+		if (parser->is_int(value))
+			pt = parser->get_int(value);
+		else {
+			str number;
+			if (parser->get_str(value, &number)) {
+				for (size_t i = 0; i < number.len; i++) {
+					if (number.s[i] < '0' || number.s[i] > '9')
+						return "telephone-event-payload must be an integer from 96 to 127";
+				}
+				pt = str_to_ll(&number, -1);
+			}
+		}
+		if (pt < 96 || pt > 127)
+			return "telephone-event-payload must be an integer from 96 to 127";
+		out->telephone_event_payload = pt;
+		return NULL;
+#endif
+	}
 	switch (__csh_lookup(key)) {
 		case CSH_LOOKUP("except"):
 			return call_ng_flags_str_list(parser, value, call_ng_flags_str_ht, &out->codec_except);
@@ -1631,6 +1659,8 @@ const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg v
 		case CSH_LOOKUP("codec"):
 		case CSH_LOOKUP("codecs"):
 			return parser->dict_iter(parser, value, call_ng_codec_flags, out);
+		case CSH_LOOKUP("codec-telephone-event-payload"):
+			return call_ng_codec_flags(parser, &STR_CONST("telephone-event-payload"), value, out);
 		case CSH_LOOKUP("command"):
 			break;
 		case CSH_LOOKUP("db-id"):
@@ -1972,8 +2002,7 @@ const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg v
 		case CSH_LOOKUP("rtpp flags"):;
 			/* s - list of rtpp flags */
 			out->rtpp_flags = true;
-			parse_rtpp_flags(&s, out);
-			break;
+			return parse_rtpp_flags(&s, out);
 		case CSH_LOOKUP("SDES"):
 		case CSH_LOOKUP("sdes"):
 			return call_ng_flags_str_list(parser, value, ng_sdes_option, out);
@@ -2095,8 +2124,7 @@ const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg v
 			}
 			// naive approach: just parse them out every time
 			// TODO: improve this by pre-parsing the flags at startup
-			parse_rtpp_flags(tplate, out);
-			break;
+			return parse_rtpp_flags(tplate, out);
 		case CSH_LOOKUP("to-interface"):
 		case CSH_LOOKUP("to interface"):
 			out->direction[1] = s;
@@ -2206,11 +2234,17 @@ const char *call_ng_process_flags(sdp_ng_flags *out, ng_command_ctx_t *ctx) {
 	ctx->flags = out;
 
 	// check for default templates, "default" first
-	if (rtpe_default_signalling_templates[OP_OTHER].len)
-		parse_rtpp_flags(&rtpe_default_signalling_templates[OP_OTHER], out);
+	if (rtpe_default_signalling_templates[OP_OTHER].len) {
+		const char *err = parse_rtpp_flags(&rtpe_default_signalling_templates[OP_OTHER], out);
+		if (err)
+			return err;
+	}
 	// and then one matching the current command
-	if (ctx->opmode != OP_OTHER && rtpe_default_signalling_templates[ctx->opmode].len)
-		parse_rtpp_flags(&rtpe_default_signalling_templates[ctx->opmode], out);
+	if (ctx->opmode != OP_OTHER && rtpe_default_signalling_templates[ctx->opmode].len) {
+		const char *err = parse_rtpp_flags(&rtpe_default_signalling_templates[ctx->opmode], out);
+		if (err)
+			return err;
+	}
 
 	return parser->dict_iter(parser, ctx->req, call_ng_main_flags, out);
 }

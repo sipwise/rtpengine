@@ -1529,12 +1529,55 @@ Contains zero or more of:
 
 `codec` contains a dictionary controlling various aspects of codecs (or RTP payload types).
 
-These options can also be put into the `flags` list using a prefix of `codec-`. For example,
+Except for `telephone-event-payload`, these options can also be put into the `flags` list using a prefix of `codec-`. For example,
 to set the codec options for two variants of Opus when they're implicitly accepted, (see
 the example under `set`), one would put the following into the `flags` list:
 `codec-set-opus/48000/1/16000` `codec-set-opus/48000/2/32000`
 
 The following keys are understood:
+
+* `telephone-event-payload`
+
+	An optional outgoing-offer payload-type preference for RFC 4733 (RFC 2833)
+	`telephone-event`. Supply an integer from 96 through 127 in the `codec`
+	dictionary, for example `"codec": {"telephone-event-payload": 101}`. A
+	string holding the number, such as `"101"`, is accepted as well.
+	This option requires a transcoding-enabled build and is supported only in
+	`offer` requests; invalid types/ranges and use in other commands return an
+	error.
+
+	Clients that build the request from a flags string can't create the `codec`
+	dictionary. For them, the top-level key `codec-telephone-event-payload` is
+	accepted as an alias. For example, Kamailio's
+	`rtpengine_offer("... codec-telephone-event-payload=101")` sends
+	`"codec-telephone-event-payload": "101"`. The same `key=value` form works
+	inside `rtpp-flags`. The option is still not accepted in the `flags` list.
+
+	Only an existing, single telephone-event codec with a compatible input
+	codec at the same clock rate is renumbered. Its clock rate and format
+	parameters are retained. No telephone-event codec is synthesized and no
+	in-band tone conversion is requested. The original offerer's codec store
+	is left intact; the answer and RTP forwarding use the negotiated PT for
+	each leg. The preference is request-scoped: supply it on each offer where
+	it is wanted, including re-offers.
+
+	This is a preference, not a mandatory policy: an occupied target PT,
+	multiple telephone-event codecs, or a missing compatible input codec
+	causes the preference to be ignored with a warning. Absence of an event
+	codec is a no-op. Other codec manipulation options still take effect.
+	Check the returned SDP to confirm the requested PT was selected.
+	Do not combine this option with `allow-asymmetric-codecs` on either the
+	offer or answer: asymmetric mode intentionally does not translate PTs.
+	An offer containing both options ignores the preference with a warning.
+
+	Translation reuses the existing telephone-event processing path; it is
+	not a byte-for-byte RTP header rewrite. SSRC/sequence handling and RTCP
+	translation follow the existing transcoding machinery. To keep primary
+	audio out of an implicitly enabled audio player, use `"audio-player": "off"`;
+	other explicit transcoding, DTMF blocking/replacement, or detection settings
+	remain effective. This option makes no CPU-cost or header-preservation guarantee.
+	Interactions with static/reused codecs, call restoration, and other codec
+	manipulation policies require integration testing for the intended deployment.
 
 * `accept`
 
