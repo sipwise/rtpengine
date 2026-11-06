@@ -3088,8 +3088,16 @@ static void media_packet_rtp_out(struct packet_handler_ctx *phc, struct sink_han
 				/* the egress sequence counter lives in memory shared with
 				 * the kernel module, so it stays current even while the
 				 * stream is offloaded and userspace sees no packets */
-				uint16_t last = atomic_get_na(&so->stats->ext_seq);
-				so->seq_diff = last + 1 - seq;
+				uint32_t last = atomic_get_na(&so->stats->ext_seq);
+				/* Nothing counted under this SSRC yet: there is no
+				 * numbering to carry on from, so keep the offset in use.
+				 * Re-basing on an empty counter restarts the sequence at
+				 * 1, which a fixed SSRC makes look like a jump back to
+				 * whoever is downstream. Every plain RTP output keeps the
+				 * egress index (see __sh_noop_index), so an empty counter
+				 * means a leg that has sent nothing yet. */
+				if (last)
+					so->seq_diff = (uint16_t) (last + 1) - seq;
 			}
 			so->fixed_in_ssrc = in_ssrc;
 			so->fixed_in_ssrc_set = true;
