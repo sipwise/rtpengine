@@ -81,6 +81,7 @@ ssize_t (*real_sendto)(int, const void *, size_t, int, const struct sockaddr *, 
 ssize_t (*real_sendmsg)(int, const struct msghdr *, int);
 int (*real_setsockopt)(int, int, int, const void *, socklen_t);
 int (*real_open)(const char *, int, mode_t);
+int (*real_open64)(const char *, int, mode_t);
 ssize_t (*real_read)(int, void *, size_t);
 ssize_t (*real_write)(int, const void *, size_t);
 
@@ -105,6 +106,7 @@ static void do_init(void) {
 	real_sendmsg = dlsym(RTLD_NEXT, "sendmsg");
 	real_setsockopt = dlsym(RTLD_NEXT, "setsockopt");
 	real_open = dlsym(RTLD_NEXT, "open");
+	real_open64 = dlsym(RTLD_NEXT, "open64");
 	real_read = dlsym(RTLD_NEXT, "read");
 	real_write = dlsym(RTLD_NEXT, "write");
 
@@ -962,7 +964,7 @@ do_set:
 	return real_setsockopt(fd, level, optname, optval, optlen);
 }
 
-int open(const char *fn, int flags, mode_t mode) {
+int __open(const char *fn, int flags, mode_t mode, int (*rfn)(const char *, int, mode_t)) {
 	unsigned int i;
 
 	for (i = 0; i < MAX_MOCK_FILES; i++) {
@@ -974,7 +976,7 @@ int open(const char *fn, int flags, mode_t mode) {
 		goto found;
 	}
 
-	return real_open(fn, flags, mode);
+	return rfn(fn, flags, mode);
 
 found:
 	if (!mock_peer)
@@ -1030,6 +1032,14 @@ found:
 	};
 
 	return fd;
+}
+
+int open(const char *fn, int flags, mode_t mode) {
+	return __open(fn, flags, mode, real_open);
+}
+
+int open64(const char *fn, int flags, mode_t mode) {
+	return __open(fn, flags, mode, real_open64);
 }
 
 ssize_t read(int fd, void *buf, size_t len) {
