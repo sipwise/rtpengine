@@ -11,6 +11,7 @@ use NGCP::Rtpclient::ICE;
 use NGCP::Rtpclient::DTLS;
 use POSIX;
 use IO::Multiplex;
+use MIME::Base64 qw(encode_base64);
 
 $ENV{RTPENGINE_EXTENDED_TESTS} or exit();
 
@@ -55,6 +56,258 @@ sub mux_timeout {
 	ok(1, 'DTLS connected');
 	$mux->endloop();
 };
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.35 4080)], [qw(198.51.100.35 4082)]);
+
+$mux = IO::Multiplex->new();
+$mux->set_callback_object(__PACKAGE__);
+$mux->add($sock_b);
+$mux->set_timeout($sock_b, 1);
+
+$dtls = NGCP::Rtpclient::DTLS::Group->new($mux, $dtls_func, [[$sock_b]]);
+$fingerprint = $dtls->[0]->fingerprint();
+
+($port_b, $port_bx) = offer('ROC after restart', {
+		'transport-protocol' => 'RTP/AVP',
+		'rtcp-mux' => ['accept', 'require'],
+	}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 4082 RTP/SAVP 8
+a=setup:actpass
+a=fingerprint:sha-256 $fingerprint
+a=tls-id:xxxxxxxxxxxxxxxx
+a=rtcp-mux
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+SDP
+
+is($port_b, $port_bx, 'rtcp-mux');
+
+
+($port_a, $port_ax, $fingerprint_a, $tls_id_a) = answer('ROC after restart', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 4080 RTP/AVP 8
+a=rtcp-mux
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+a=setup:active
+a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
+SDP
+
+is($port_a, $port_ax, 'rtcp-mux');
+
+
+@components = ([$sock_b, $port_a]);
+
+$dtls->accept();
+
+$mux->loop();
+
+my @keys = $dtls->[0]->get_keys();
+
+is($keys[0], 'SRTP_AES128_CM_SHA1_80', 'AES_CM_128_HMAC_SHA1_80');
+
+$srtp_ctx_b = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => encode_base64($keys[1] . $keys[3]),
+};
+$srtp_ctx_a = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => encode_base64($keys[2] . $keys[4]),
+};
+
+$sock_b->blocking(1);
+
+     snd($sock_a, $port_b, rtp( 8, 8000, 7000+160*0, 0x6543, "\x10" . ("\x00" x 158) . "\x50"));
+srtp_rcv($sock_b, $port_a, rtpm(8, 8000, 7000+160*0, 0x6543, "\x10" . ("\x00" x 158) . "\x50"), $srtp_ctx_b);
+
+srtp_snd($sock_b, $port_a, rtp( 8, 9000, 8000+160*0, 0x4321, "\x20" . ("\x00" x 158) . "\x70"), $srtp_ctx_a);
+     rcv($sock_a, $port_b, rtpm(8, 9000, 8000+160*0, 0x4321, "\x20" . ("\x00" x 158) . "\x70"));
+
+is($srtp_ctx_a->{roc}, 0, 'ROC 0');
+is($srtp_ctx_b->{roc}, 0, 'ROC 0');
+
+
+     snd($sock_a, $port_b, rtp( 8,  9000, 7000+160*1, 0x6543, "\x10" . ("\x00" x 158) . "\x50"));
+srtp_rcv($sock_b, $port_a, rtpm(8,  9000, 7000+160*1, 0x6543, "\x10" . ("\x00" x 158) . "\x50"), $srtp_ctx_b);
+     snd($sock_a, $port_b, rtp( 8, 10000, 7000+160*2, 0x6543, "\x10" . ("\x00" x 158) . "\x50"));
+srtp_rcv($sock_b, $port_a, rtpm(8, 10000, 7000+160*2, 0x6543, "\x10" . ("\x00" x 158) . "\x50"), $srtp_ctx_b);
+     snd($sock_a, $port_b, rtp( 8, 20000, 7000+160*3, 0x6543, "\x10" . ("\x00" x 158) . "\x50"));
+srtp_rcv($sock_b, $port_a, rtpm(8, 20000, 7000+160*3, 0x6543, "\x10" . ("\x00" x 158) . "\x50"), $srtp_ctx_b);
+     snd($sock_a, $port_b, rtp( 8, 40000, 7000+160*4, 0x6543, "\x10" . ("\x00" x 158) . "\x50"));
+srtp_rcv($sock_b, $port_a, rtpm(8, 40000, 7000+160*4, 0x6543, "\x10" . ("\x00" x 158) . "\x50"), $srtp_ctx_b);
+     snd($sock_a, $port_b, rtp( 8, 50000, 7000+160*5, 0x6543, "\x10" . ("\x00" x 158) . "\x50"));
+srtp_rcv($sock_b, $port_a, rtpm(8, 50000, 7000+160*5, 0x6543, "\x10" . ("\x00" x 158) . "\x50"), $srtp_ctx_b);
+     snd($sock_a, $port_b, rtp( 8, 60000, 7000+160*6, 0x6543, "\x10" . ("\x00" x 158) . "\x50"));
+srtp_rcv($sock_b, $port_a, rtpm(8, 60000, 7000+160*6, 0x6543, "\x10" . ("\x00" x 158) . "\x50"), $srtp_ctx_b);
+     snd($sock_a, $port_b, rtp( 8, 65520, 7000+160*7, 0x6543, "\x10" . ("\x00" x 158) . "\x50"));
+srtp_rcv($sock_b, $port_a, rtpm(8, 65520, 7000+160*7, 0x6543, "\x10" . ("\x00" x 158) . "\x50"), $srtp_ctx_b);
+is($srtp_ctx_b->{roc}, 0, 'ROC 0');
+     snd($sock_a, $port_b, rtp( 8,     0, 7000+160*8, 0x6543, "\x10" . ("\x00" x 158) . "\x50"));
+srtp_rcv($sock_b, $port_a, rtpm(8,     0, 7000+160*8, 0x6543, "\x10" . ("\x00" x 158) . "\x50"), $srtp_ctx_b);
+is($srtp_ctx_b->{roc}, 1, 'ROC 1');
+     snd($sock_a, $port_b, rtp( 8,  1000, 7000+160*9, 0x6543, "\x10" . ("\x00" x 158) . "\x50"));
+srtp_rcv($sock_b, $port_a, rtpm(8,  1000, 7000+160*9, 0x6543, "\x10" . ("\x00" x 158) . "\x50"), $srtp_ctx_b);
+is($srtp_ctx_b->{roc}, 1, 'ROC 1');
+
+
+srtp_snd($sock_b, $port_a, rtp( 8, 10000, 8000+160*1, 0x4321, "\x20" . ("\x00" x 158) . "\x70"), $srtp_ctx_a);
+     rcv($sock_a, $port_b, rtpm(8, 10000, 8000+160*1, 0x4321, "\x20" . ("\x00" x 158) . "\x70"));
+srtp_snd($sock_b, $port_a, rtp( 8, 20000, 8000+160*2, 0x4321, "\x20" . ("\x00" x 158) . "\x70"), $srtp_ctx_a);
+     rcv($sock_a, $port_b, rtpm(8, 20000, 8000+160*2, 0x4321, "\x20" . ("\x00" x 158) . "\x70"));
+srtp_snd($sock_b, $port_a, rtp( 8, 30000, 8000+160*3, 0x4321, "\x20" . ("\x00" x 158) . "\x70"), $srtp_ctx_a);
+     rcv($sock_a, $port_b, rtpm(8, 30000, 8000+160*3, 0x4321, "\x20" . ("\x00" x 158) . "\x70"));
+srtp_snd($sock_b, $port_a, rtp( 8, 40000, 8000+160*4, 0x4321, "\x20" . ("\x00" x 158) . "\x70"), $srtp_ctx_a);
+     rcv($sock_a, $port_b, rtpm(8, 40000, 8000+160*4, 0x4321, "\x20" . ("\x00" x 158) . "\x70"));
+srtp_snd($sock_b, $port_a, rtp( 8, 50000, 8000+160*5, 0x4321, "\x20" . ("\x00" x 158) . "\x70"), $srtp_ctx_a);
+     rcv($sock_a, $port_b, rtpm(8, 50000, 8000+160*5, 0x4321, "\x20" . ("\x00" x 158) . "\x70"));
+srtp_snd($sock_b, $port_a, rtp( 8, 60000, 8000+160*6, 0x4321, "\x20" . ("\x00" x 158) . "\x70"), $srtp_ctx_a);
+     rcv($sock_a, $port_b, rtpm(8, 60000, 8000+160*6, 0x4321, "\x20" . ("\x00" x 158) . "\x70"));
+srtp_snd($sock_b, $port_a, rtp( 8, 65520, 8000+160*7, 0x4321, "\x20" . ("\x00" x 158) . "\x70"), $srtp_ctx_a);
+     rcv($sock_a, $port_b, rtpm(8, 65520, 8000+160*7, 0x4321, "\x20" . ("\x00" x 158) . "\x70"));
+is($srtp_ctx_a->{roc}, 0, 'ROC 0');
+srtp_snd($sock_b, $port_a, rtp( 8,     0, 8000+160*8, 0x4321, "\x20" . ("\x00" x 158) . "\x70"), $srtp_ctx_a);
+     rcv($sock_a, $port_b, rtpm(8,     0, 8000+160*8, 0x4321, "\x20" . ("\x00" x 158) . "\x70"));
+is($srtp_ctx_a->{roc}, 1, 'ROC 1');
+srtp_snd($sock_b, $port_a, rtp( 8,  1000, 8000+160*9, 0x4321, "\x20" . ("\x00" x 158) . "\x70"), $srtp_ctx_a);
+     rcv($sock_a, $port_b, rtpm(8,  1000, 8000+160*9, 0x4321, "\x20" . ("\x00" x 158) . "\x70"));
+is($srtp_ctx_a->{roc}, 1, 'ROC 1');
+
+# restart DTLS
+
+$mux = IO::Multiplex->new();
+$mux->set_callback_object(__PACKAGE__);
+$mux->add($sock_b);
+$mux->set_timeout($sock_b, 1);
+
+$dtls = NGCP::Rtpclient::DTLS::Group->new($mux, $dtls_func, [[$sock_b]]);
+$fingerprint = $dtls->[0]->fingerprint();
+
+
+($port_b) = offer('ROC after restart', {
+		'transport-protocol' => 'RTP/AVP',
+		'rtcp-mux' => ['accept', 'require'],
+	}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 4082 RTP/SAVP 8
+a=setup:actpass
+a=fingerprint:sha-256 $fingerprint
+a=tls-id:yyyyyyyyyyyyyyyy
+a=rtcp-mux
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+SDP
+
+is($port_b, $port_bx, 'same port');
+
+
+($port_a, undef, $fingerprint_b, $tls_id_b) = answer('ROC after restart', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 4080 RTP/AVP 8
+a=rtcp-mux
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+a=setup:active
+a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
+SDP
+
+is($port_a, $port_ax, 'same port');
+is($fingerprint_a, $fingerprint_b, 'same fingerprint');
+isnt($tls_id_a, $tls_id_b, 'different TLS ID');
+
+
+@components = ([$sock_b, $port_a]);
+
+$dtls->accept();
+
+$mux->loop();
+
+@keys = $dtls->[0]->get_keys();
+
+is($keys[0], 'SRTP_AES128_CM_SHA1_80', 'AES_CM_128_HMAC_SHA1_80');
+
+$srtp_ctx_b = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => encode_base64($keys[1] . $keys[3]),
+	roc => 1,
+};
+$srtp_ctx_a = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => encode_base64($keys[2] . $keys[4]),
+	roc => 1,
+};
+
+$sock_b->blocking(1);
+
+     snd($sock_a, $port_b, rtp( 8, 8000, 7000+160*0, 0x6543, "\x10" . ("\x00" x 158) . "\x50"));
+srtp_rcv($sock_b, $port_a, rtpm(8, 8000, 7000+160*0, 0x6543, "\x10" . ("\x00" x 158) . "\x50"), $srtp_ctx_b);
+
+srtp_snd($sock_b, $port_a, rtp( 8, 9000, 8000+160*0, 0x4321, "\x20" . ("\x00" x 158) . "\x70"), $srtp_ctx_a);
+     rcv($sock_a, $port_b, rtpm(8, 9000, 8000+160*0, 0x4321, "\x20" . ("\x00" x 158) . "\x70"));
+
+is($srtp_ctx_a->{roc}, 1, 'ROC 1');
+is($srtp_ctx_b->{roc}, 1, 'ROC 1');
+
+
+rtpe_req('delete', 'delete');
+
 
 
 
