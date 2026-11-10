@@ -42,6 +42,11 @@ sub mux_input {
 	my ($self, $mux, $fh, $input) = @_;
 	my $peer = $mux->udp_peer($fh);
 	$dtls->input($fh, $input, $peer);
+};
+
+sub mux_timeout {
+	my ($self, $mux, $fh) = @_;
+	$mux->set_timeout($fh, 1);
 
 	for my $comp (@$dtls) {
 		$comp->{_connected} or return;
@@ -172,6 +177,7 @@ is($port_a, $port_ax, 'rtcp-mux');
 
 # passive connect
 $mux->add($sock_a);
+$mux->set_timeout($sock_a, 1);
 @components = ([$sock_a, $port_a]);
 $dtls->connect();
 $mux->loop();
@@ -307,6 +313,7 @@ is($port_a, $port_ax, 'rtcp-mux');
 
 # passive connect
 $mux->add($sock_a);
+$mux->set_timeout($sock_a, 1);
 @components = ([$sock_a, $port_a]);
 $dtls->connect();
 $mux->loop();
@@ -442,6 +449,7 @@ is($port_a, $port_ax, 'rtcp-mux');
 
 # passive connect
 $mux->add($sock_a);
+$mux->set_timeout($sock_a, 1);
 @components = ([$sock_a, $port_a]);
 $dtls->connect();
 $mux->loop();
@@ -577,6 +585,7 @@ is($port_a, $port_ax, 'rtcp-mux');
 
 # active connect
 $mux->add($sock_a);
+$mux->set_timeout($sock_a, 1);
 @components = ([$sock_a, $port_a]);
 $dtls->connect();
 $mux->loop();
@@ -704,6 +713,7 @@ is($port_a, $port_ax, 'rtcp-mux');
 
 # active connect
 $mux->add($sock_a);
+$mux->set_timeout($sock_a, 1);
 @components = ([$sock_a, $port_a]);
 $dtls->connect();
 $mux->loop();
@@ -830,6 +840,7 @@ is($port_a, $port_ax, 'rtcp-mux');
 
 # passive connect
 $mux->add($sock_a);
+$mux->set_timeout($sock_a, 1);
 @components = ([$sock_a, $port_a]);
 $dtls->accept();
 $mux->loop();
@@ -955,6 +966,7 @@ SDP
 
 # active connect
 $mux->add($sock_a);
+$mux->set_timeout($sock_a, 1);
 @components = ([$sock_a, $port_a]);
 $dtls->connect();
 $mux->loop();
@@ -1092,6 +1104,7 @@ SDP
 
 # active connect
 $mux->add($sock_a);
+$mux->set_timeout($sock_a, 1);
 @components = ([$sock_a, $port_a]);
 $dtls->connect();
 $mux->loop();
@@ -1230,6 +1243,7 @@ SDP
 
 # passive connect
 $mux->add($sock_a);
+$mux->set_timeout($sock_a, 1);
 @components = ([$sock_a, $port_a]);
 $dtls->accept();
 $mux->loop();
@@ -1362,6 +1376,7 @@ rcv_no($sock_a);
 
 # active connect
 $mux->add($sock_a);
+$mux->set_timeout($sock_a, 1);
 @components = ([$sock_a, $port_a]);
 $dtls->connect();
 $mux->loop();
@@ -1494,6 +1509,7 @@ rcv_no($sock_a);
 
 # active connect
 $mux->add($sock_a);
+$mux->set_timeout($sock_a, 1);
 @components = ([$sock_a, $port_a]);
 $dtls->connect();
 $mux->loop();
@@ -1623,6 +1639,7 @@ rcv($sock_a, -1, qr/^\x01\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtp
 
 # active connect
 $mux->add($sock_a);
+$mux->set_timeout($sock_a, 1);
 @components = ([$sock_a, $port_a]);
 $dtls->connect();
 $mux->loop();
@@ -1674,6 +1691,7 @@ snd($sock_a, $ret1[0], NGCP::Rtpclient::ICE::stun_succ($ret1[0], $ret1[2], 'bd5e
 
 # passive connect (accept) DTLS
 $mux->add($sock_a);
+$mux->set_timeout($sock_a, 1);
 @components = ([$sock_a, $ret1[0]]);
 $dtls->accept();
 $mux->loop();
@@ -1691,6 +1709,7 @@ $mux->add($sock_a);
 $mux->add($sock_ax);
 $dtls = NGCP::Rtpclient::DTLS::Group->new($mux, $dtls_func, [[$sock_a], [$sock_ax]]);
 $fingerprint = $dtls->[0]->fingerprint();
+$mux->set_timeout($sock_a, 1);
 
 ($port_a, $port_ax) = offer('DTLS bkw', { 'transport-protocol' => 'RTP/AVP' }, <<SDP);
 v=0
@@ -1755,6 +1774,7 @@ $mux->add($sock_b);
 $mux->add($sock_bx);
 $dtls = NGCP::Rtpclient::DTLS::Group->new($mux, $dtls_func, [[$sock_b], [$sock_bx]]);
 $fingerprint = $dtls->[0]->fingerprint();
+$mux->set_timeout($sock_b, 1);
 
 ($port_a, $port_ax) = offer('DTLS fwd', { 'transport-protocol' => 'RTP/SAVP', SDES => 'off' }, <<SDP);
 v=0
@@ -1823,6 +1843,7 @@ $mux->add($sock_a);
 $mux->add($sock_ax);
 $dtls = NGCP::Rtpclient::DTLS::Group->new($mux, $dtls_func, [[$sock_a], [$sock_ax]]);
 $fingerprint = $dtls->[0]->fingerprint();
+$mux->set_timeout($sock_a, 1);
 
 ($port_a, $port_ax, $port_c, $port_cx) = offer('bundle DTLS bkw', { 'transport-protocol' => 'RTP/AVP', bundle => ['accept'] }, <<SDP);
 v=0
