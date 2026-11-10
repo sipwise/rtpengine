@@ -20,6 +20,8 @@ sub new {
 	$self->{_mux} = $mux;
 	$self->{_tag} = $tag;
 	$self->{_local_sockets} = $local_sockets;
+	$self->{_connected} = 0;
+	$self->{_openssl_done} = 0;
 
 	if ($cert) {
 		$self->set_cert($cert);
@@ -173,7 +175,6 @@ sub _openssl_input {
 		$self->{_profile} = $1;
 		$self->{_keys} = pack('H*', $2);
 		$self->{_connected} = 1;
-		$self->{_openssl_done} = 1;
 	}
 	if ($self->{_openssl_buf} =~ /\nDONE\n/s) {
 		$self->{_openssl_done} = 1;
