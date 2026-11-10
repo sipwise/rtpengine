@@ -25,7 +25,7 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev, $ufrag_a, $ufrag_b,
 	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq, $has_recv, $tmp_blob,
 	$pwd_a, $pwd_b, $packet, $tls_id_a, $tls_id_b, $dtls, $mux, $fingerprint,
-	$fingerprint_a, $fingerprint_b, @components, $packet, $tid);
+	$fingerprint_a, $fingerprint_b, @components, $tid);
 
 
 
