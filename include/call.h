@@ -777,6 +777,9 @@ struct call {
 	 */
 	rwlock_t		master_lock;
 
+	// one kernelize() at a time: streams that are each other's sinks retry against each other
+	mutex_t			kernelize_lock;
+
 	/* everything below is protected by the master_lock */
 	monologues_q		monologues;	/* call_monologue */
 	medias_q		medias;		/* call_media */
