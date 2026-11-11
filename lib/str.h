@@ -410,15 +410,35 @@ INLINE void str_swap(str *a, str *b) {
 		return ret; \
 	}
 
+// Keep the conversion function's full return type until all checks have passed.
 #define str_to_x(type, name, max_len, fn, min_val, max_val) \
-	str_to_xx(type, name, max_len, fn, min_val, ==, max_val, max_val, 10)
+	INLINE type name(const str *s, type def) { \
+		char *ep; \
+		char buf[max_len + 1]; \
+		__typeof__(fn(buf, &ep, 10)) ret; \
+		const __typeof__(ret) min = min_val, max = max_val; \
+		if (s->len == 0 || s->len > max_len) \
+			return def; \
+		memcpy(buf, s->s, s->len); \
+		buf[s->len] = '\0'; \
+		/* strtoul/strtoull accept a minus sign; these helpers must not. */ \
+		if (min == 0 && memchr(buf, '-', s->len)) \
+			return def; \
+		errno = 0; \
+		ret = fn(buf, &ep, 10); \
+		if (errno == ERANGE || ep == buf || ep != buf + s->len) \
+			return def; \
+		if (ret < min || ret > max) \
+			return def; \
+		return ret; \
+	}
 
 str_to_x(long long, str_to_ll, MAX_LONG_LONG_LEN, strtoll, LLONG_MIN, LLONG_MAX)
-str_to_x(unsigned long long, str_to_ull, MAX_LONG_LONG_LEN, strtoll, ULLONG_MAX, ULLONG_MAX)
+str_to_x(unsigned long long, str_to_ull, MAX_LONG_LONG_LEN, strtoull, 0, ULLONG_MAX)
 str_to_x(long, str_to_l, MAX_LONG_LEN, strtol, LONG_MIN, LONG_MAX)
-str_to_x(unsigned long, str_to_ul, MAX_LONG_LEN, strtol, ULONG_MAX, ULONG_MAX)
+str_to_x(unsigned long, str_to_ul, MAX_LONG_LEN, strtoul, 0, ULONG_MAX)
 str_to_x(int, str_to_i, MAX_INT_LEN, strtol, INT_MIN, INT_MAX)
-str_to_x(unsigned int, str_to_u, MAX_INT_LEN, strtoul, INT_MAX, INT_MAX)
+str_to_x(unsigned int, str_to_u, MAX_INT_LEN, strtoul, 0, UINT_MAX)
 str_to_xx(double, str_to_d, MAX_DOUBLE_LEN, strtod, DBL_MIN, <=, +HUGE_VAL, -HUGE_VAL)
 
 
