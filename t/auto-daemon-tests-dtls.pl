@@ -2130,5 +2130,8 @@ rtpe_req('delete', 'delete');
 
 
 
+undef $dtls;
+undef $mux;
+
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
