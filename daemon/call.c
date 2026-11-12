@@ -1436,60 +1436,61 @@ no_rtcp:
 	return true;
 }
 
+
 __attribute__((nonnull(1, 2, 3)))
-static void __ice_offer(const sdp_ng_flags *flags, struct call_media *this,
-		struct call_media *other, bool ice_restart)
+static void __ice_offer(const sdp_ng_flags *flags, struct call_media *receiver,
+		struct call_media *sender, bool ice_restart)
 {
 	// the default is to pass through the offering client's choice
-	if (!MEDIA_ISSET(this, INITIALIZED))
-		bf_copy_same(&this->media_flags, &other->media_flags, MEDIA_FLAG_ICE);
+	if (!MEDIA_ISSET(receiver, INITIALIZED))
+		bf_copy_same(&receiver->media_flags, &sender->media_flags, MEDIA_FLAG_ICE);
 	// unless instructed not to
 	if (flags->ice_option == ICE_REMOVE)
-		MEDIA_CLEAR(this, ICE);
+		MEDIA_CLEAR(receiver, ICE);
 	else if (flags->ice_option != ICE_DEFAULT) {
 		if (flags->opmode != OP_ANSWER && flags->opmode != OP_PUBLISH)
-			MEDIA_SET(this, ICE);
+			MEDIA_SET(receiver, ICE);
 	}
 
 	if (flags->ice_reject)
-		MEDIA_CLEAR(other, ICE);
+		MEDIA_CLEAR(sender, ICE);
 
 	// An answer must not introduce ICE where the original offer did not
 	// advertise it. A locally created ICE agent means we intentionally
 	// offered ICE on this leg, in which case keep the negotiated state.
 	// In other cases ignore ICE=force on the answer (see issue #2161).
 	if (!op_is_offer(flags->opmode) && flags->ice_option == ICE_FORCE &&
-			!MEDIA_ISSET(other, ICE) && !this->ice_agent)
-		MEDIA_CLEAR(this, ICE);
+			!MEDIA_ISSET(sender, ICE) && !receiver->ice_agent)
+		MEDIA_CLEAR(receiver, ICE);
 
 	if (flags->passthrough_on) {
 		ilog(LOG_DEBUG, "enabling passthrough mode");
-		MEDIA_SET(this, PASSTHRU);
-		MEDIA_SET(other, PASSTHRU);
+		MEDIA_SET(receiver, PASSTHRU);
+		MEDIA_SET(sender, PASSTHRU);
 		return;
 	}
 	if (flags->passthrough_off) {
 		ilog(LOG_DEBUG, "disabling passthrough mode");
-		MEDIA_CLEAR(this, PASSTHRU);
-		MEDIA_CLEAR(other, PASSTHRU);
+		MEDIA_CLEAR(receiver, PASSTHRU);
+		MEDIA_CLEAR(sender, PASSTHRU);
 		return;
 	}
 
 	if (flags->ice_option != ICE_FORCE && flags->ice_option != ICE_DEFAULT) {
 		/* special case: if doing ICE on both sides and ice_force is not set, we cannot
 		 * be sure that media will pass through us, so we have to disable certain features */
-		if (MEDIA_ISSET(this, ICE) && MEDIA_ISSET(other, ICE)) {
+		if (MEDIA_ISSET(receiver, ICE) && MEDIA_ISSET(sender, ICE)) {
 			ilog(LOG_DEBUG, "enabling passthrough mode");
-			MEDIA_SET(this, PASSTHRU);
-			MEDIA_SET(other, PASSTHRU);
+			MEDIA_SET(receiver, PASSTHRU);
+			MEDIA_SET(sender, PASSTHRU);
 			return;
 		}
 		// if this is an answer, may see our ICE offer being rejected. if the original offer
 		// wasn't forcing ICE, then we're only acting as a passthrough and so we must disable
 		// ICE on the remote side as well. we can use the presence of an ICE agent as a test
 		// to see whether ICE was originally forced or not.
-		if (!op_is_offer(flags->opmode) && !MEDIA_ISSET(other, ICE) && !this->ice_agent) {
-			MEDIA_CLEAR(this, ICE);
+		if (!op_is_offer(flags->opmode) && !MEDIA_ISSET(sender, ICE) && !receiver->ice_agent) {
+			MEDIA_CLEAR(receiver, ICE);
 			return;
 		}
 	}
@@ -1497,76 +1498,75 @@ static void __ice_offer(const sdp_ng_flags *flags, struct call_media *this,
 	if (flags->opmode == OP_OFFER) {
 		switch (flags->ice_lite_option) {
 			case ICE_LITE_OFF:
-				MEDIA_CLEAR(this, ICE_LITE_SELF);
-				MEDIA_CLEAR(other, ICE_LITE_SELF);
+				MEDIA_CLEAR(receiver, ICE_LITE_SELF);
+				MEDIA_CLEAR(sender, ICE_LITE_SELF);
 				break;
 			case ICE_LITE_FWD:
-				MEDIA_SET(this, ICE_LITE_SELF);
-				MEDIA_CLEAR(other, ICE_LITE_SELF);
+				MEDIA_SET(receiver, ICE_LITE_SELF);
+				MEDIA_CLEAR(sender, ICE_LITE_SELF);
 				break;
 			case ICE_LITE_BKW:
-				MEDIA_CLEAR(this, ICE_LITE_SELF);
-				MEDIA_SET(other, ICE_LITE_SELF);
+				MEDIA_CLEAR(receiver, ICE_LITE_SELF);
+				MEDIA_SET(sender, ICE_LITE_SELF);
 				break;
 			case ICE_LITE_BOTH:
-				MEDIA_SET(this, ICE_LITE_SELF);
-				MEDIA_SET(other, ICE_LITE_SELF);
+				MEDIA_SET(receiver, ICE_LITE_SELF);
+				MEDIA_SET(sender, ICE_LITE_SELF);
 				break;
 			default:
 				break;
 		}
 
 		if (flags->trickle_ice)
-			MEDIA_SET(this, TRICKLE_ICE);
+			MEDIA_SET(receiver, TRICKLE_ICE);
 		if (flags->ice2)
-			MEDIA_SET(this, ICE2);
+			MEDIA_SET(receiver, ICE2);
 	}
 	else if (flags->opmode == OP_SUBSCRIBE_REQ) {
-		// leave source media (`other`) alone
+		// leave source media alone
 		switch (flags->ice_lite_option) {
 			case ICE_LITE_OFF:
 			case ICE_LITE_BKW:
-				MEDIA_CLEAR(this, ICE_LITE_SELF);
+				MEDIA_CLEAR(receiver, ICE_LITE_SELF);
 				break;
 			case ICE_LITE_FWD:
 			case ICE_LITE_BOTH:
-				MEDIA_SET(this, ICE_LITE_SELF);
+				MEDIA_SET(receiver, ICE_LITE_SELF);
 				break;
 			default:
 				break;
 		}
 
 		if (flags->trickle_ice)
-			MEDIA_SET(this, TRICKLE_ICE);
+			MEDIA_SET(receiver, TRICKLE_ICE);
 		if (flags->ice2)
-			MEDIA_SET(this, ICE2);
+			MEDIA_SET(receiver, ICE2);
 	}
 
 	/* determine roles (even if we don't actually do ICE) */
-	/* this = receiver, other = sender */
 	/* ICE_CONTROLLING is from our POV, the other ICE flags are from peer's POV */
-	if (MEDIA_ISSET(this, ICE_LITE_PEER) && !MEDIA_ISSET(this, ICE_LITE_SELF))
-		MEDIA_SET(this, ICE_CONTROLLING);
-	else if (!MEDIA_ISSET(this, INITIALIZED) || ice_restart) {
-		if (MEDIA_ISSET(this, ICE_LITE_SELF))
-			MEDIA_CLEAR(this, ICE_CONTROLLING);
+	if (MEDIA_ISSET(receiver, ICE_LITE_PEER) && !MEDIA_ISSET(receiver, ICE_LITE_SELF))
+		MEDIA_SET(receiver, ICE_CONTROLLING);
+	else if (!MEDIA_ISSET(receiver, INITIALIZED) || ice_restart) {
+		if (MEDIA_ISSET(receiver, ICE_LITE_SELF))
+			MEDIA_CLEAR(receiver, ICE_CONTROLLING);
 		else if (flags->opmode == OP_OFFER || flags->opmode == OP_SUBSCRIBE_REQ)
-			MEDIA_SET(this, ICE_CONTROLLING);
+			MEDIA_SET(receiver, ICE_CONTROLLING);
 		else
-			MEDIA_CLEAR(this, ICE_CONTROLLING);
+			MEDIA_CLEAR(receiver, ICE_CONTROLLING);
 	}
 
 	if (flags->opmode == OP_OFFER) {
 		/* roles are reversed for the other side */
-		if (MEDIA_ISSET(other, ICE_LITE_PEER) && !MEDIA_ISSET(other, ICE_LITE_SELF))
-			MEDIA_SET(other, ICE_CONTROLLING);
-		else if (!MEDIA_ISSET(other, INITIALIZED) || ice_restart) {
-			if (MEDIA_ISSET(other, ICE_LITE_SELF))
-				MEDIA_CLEAR(other, ICE_CONTROLLING);
+		if (MEDIA_ISSET(sender, ICE_LITE_PEER) && !MEDIA_ISSET(sender, ICE_LITE_SELF))
+			MEDIA_SET(sender, ICE_CONTROLLING);
+		else if (!MEDIA_ISSET(sender, INITIALIZED) || ice_restart) {
+			if (MEDIA_ISSET(sender, ICE_LITE_SELF))
+				MEDIA_CLEAR(sender, ICE_CONTROLLING);
 			else if (flags->opmode == OP_OFFER)
-				MEDIA_CLEAR(other, ICE_CONTROLLING);
+				MEDIA_CLEAR(sender, ICE_CONTROLLING);
 			else
-				MEDIA_SET(other, ICE_CONTROLLING);
+				MEDIA_SET(sender, ICE_CONTROLLING);
 		}
 	}
 }
