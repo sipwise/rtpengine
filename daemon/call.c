@@ -2176,6 +2176,8 @@ static void __dtls_restart(struct call_media *m) {
 		dtls_shutdown(ps);
 		__init_stream(ps);
 	}
+
+	call_media_reset_crypto_roc(m);
 }
 
 static void __fingerprint_changed(struct call_media *m) {

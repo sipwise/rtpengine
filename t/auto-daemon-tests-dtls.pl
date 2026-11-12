@@ -286,12 +286,12 @@ is($keys[0], 'SRTP_AES128_CM_SHA1_80', 'AES_CM_128_HMAC_SHA1_80');
 $srtp_ctx_b = {
 	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
 	key => encode_base64($keys[1] . $keys[3]),
-	roc => 1,
+	roc => 0,
 };
 $srtp_ctx_a = {
 	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
 	key => encode_base64($keys[2] . $keys[4]),
-	roc => 1,
+	roc => 0,
 };
 
 $sock_b->blocking(1);
@@ -302,8 +302,8 @@ srtp_rcv($sock_b, $port_a, rtpm(8, 8000, 7000+160*0, 0x6543, "\x10" . ("\x00" x 
 srtp_snd($sock_b, $port_a, rtp( 8, 9000, 8000+160*0, 0x4321, "\x20" . ("\x00" x 158) . "\x70"), $srtp_ctx_a);
      rcv($sock_a, $port_b, rtpm(8, 9000, 8000+160*0, 0x4321, "\x20" . ("\x00" x 158) . "\x70"));
 
-is($srtp_ctx_a->{roc}, 1, 'ROC 1');
-is($srtp_ctx_b->{roc}, 1, 'ROC 1');
+is($srtp_ctx_a->{roc}, 0, 'ROC 0');
+is($srtp_ctx_b->{roc}, 0, 'ROC 0');
 
 
 rtpe_req('delete', 'delete');
