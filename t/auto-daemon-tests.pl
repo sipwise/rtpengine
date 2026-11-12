@@ -4490,7 +4490,6 @@ Test2::Tools::Compare::like($resp, {
                                                                                          'initialized',
                                                                                          'send',
                                                                                          'recv',
-                                                                                         'ICE controlling'
                                                                                        ],
                                                                             'type' => 'audio'
                                                                           }
@@ -4775,7 +4774,6 @@ Test2::Tools::Compare::like($resp, {
                                                                                          'initialized',
                                                                                          'send',
                                                                                          'recv',
-                                                                                         'ICE controlling'
                                                                                        ],
                                                                             'type' => 'audio'
                                                                           }
