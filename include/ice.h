@@ -202,7 +202,7 @@ INLINE bool ice_is_usable(struct call_media *media) {
 		return true;
 	return false;
 }
-INLINE bool ice_is_restart(struct ice_agent *ag, struct stream_params *sp) {
+INLINE bool ice_is_restart(struct ice_agent *ag, const struct stream_params *sp) {
 	if (!ag || !sp)
 		return false;
 	struct call_media *media = ag->media;

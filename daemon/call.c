@@ -2259,7 +2259,7 @@ get:
 // process received a=setup and related attributes
 __attribute__((nonnull(1, 2, 3)))
 static void __dtls_logic(const sdp_ng_flags *flags,
-		struct call_media *other_media, struct stream_params *sp)
+		struct call_media *other_media, const struct stream_params *sp)
 {
 	uint64_t tmp;
 
@@ -2337,7 +2337,7 @@ static void __ice_init(struct call_media *media) {
 }
 
 __attribute__((nonnull(1, 2)))
-static void media_loop_protect(struct stream_params *sp, struct call_media *media) {
+static void media_loop_protect(const struct stream_params *sp, struct call_media *media) {
 	struct intf_address intf_addr;
 
 	/* check if the advertised endpoint is one of our own addresses. this can
@@ -2378,7 +2378,7 @@ static void generate_mid(struct call_media *media, unsigned int idx) {
 }
 
 __attribute__((nonnull(1, 2)))
-static void media_update_media_id(struct call_media *media, struct stream_params *sp) {
+static void media_update_media_id(struct call_media *media, const struct stream_params *sp) {
 	struct call_monologue *ml = media->monologue;
 
 	if (!media->media_id.len) {
@@ -2408,7 +2408,7 @@ static void media_update_media_id(struct call_media *media, struct stream_params
 }
 
 __attribute__((nonnull(1, 2)))
-static void media_answer_media_id(struct call_media *media, struct stream_params *sp) {
+static void media_answer_media_id(struct call_media *media, const struct stream_params *sp) {
 	if (!sp->media_id.len)
 		return;
 
@@ -2467,14 +2467,14 @@ static void __t38_reset(struct call_media *media, struct call_media *other_media
 }
 
 __attribute__((nonnull(1, 2)))
-static void media_update_protocol(struct call_media *media, struct stream_params *sp) {
+static void media_update_protocol(struct call_media *media, const struct stream_params *sp) {
 	memory_arena_str_cpy_free(&media->protocol_str, &sp->protocol_str);
 	media->protocol = sp->protocol;
 }
 
 __attribute__((nonnull(1, 2, 3, 4)))
 static void media_set_protocol(struct call_media *media, struct call_media *other_media,
-		struct stream_params *sp, sdp_ng_flags *flags)
+		const struct stream_params *sp, const sdp_ng_flags *flags)
 {
 	/* deduct protocol from stream parameters received */
 	memory_arena_str_cpy_free(&other_media->protocol_str, &sp->protocol_str);
@@ -2748,7 +2748,7 @@ static void monologue_media_start(struct call_monologue *ml) {
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1)))
 static void __update_init_subscribers(struct call_media *media, struct stream_params *sp,
-		sdp_ng_flags *flags, enum ng_opmode opmode, unsigned int iter)
+		const sdp_ng_flags *flags, enum ng_opmode opmode, unsigned int iter)
 {
 	if (media->update_iter == iter)
 		return;
@@ -2798,7 +2798,7 @@ static void __update_init_subscribers(struct call_media *media, struct stream_pa
 }
 
 void update_init_subscribers(struct call_media *media, struct stream_params *sp,
-		sdp_ng_flags *flags, enum ng_opmode opmode)
+		const sdp_ng_flags *flags, enum ng_opmode opmode)
 {
 	__update_init_subscribers(media, sp, flags, opmode, ++media->call->update_iter);
 }
@@ -2961,7 +2961,7 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 }
 
 __attribute__((nonnull(1, 2)))
-static void media_set_siprec_label(struct call_media *media, sdp_ng_flags *flags, unsigned int id)
+static void media_set_siprec_label(struct call_media *media, const sdp_ng_flags *flags, unsigned int id)
 {
 	if (!flags->siprec)
 		return;
@@ -2975,7 +2975,7 @@ static void media_set_siprec_label(struct call_media *media, sdp_ng_flags *flags
 }
 
 __attribute__((nonnull(1, 2)))
-static void media_update_label(struct call_media *media, sdp_ng_flags *flags, const str *label)
+static void media_update_label(struct call_media *media, const sdp_ng_flags *flags, const str *label)
 {
 	if (flags->siprec) // we generate our own
 		return;
@@ -3097,7 +3097,7 @@ static void media_init_extmap(struct call_media *media, struct rtp_extension *ex
 }
 
 __attribute__((nonnull(1, 2)))
-static bool media_extmap_strip(const str *name, const struct sdp_ng_flags *flags) {
+static bool media_extmap_strip(const str *name, const sdp_ng_flags *flags) {
 	if (t_hash_table_is_set(flags->rtpext_strip)) {
 		if (t_hash_table_lookup(flags->rtpext_strip, STR_PTR("all")))
 			return false;
@@ -3108,7 +3108,7 @@ static bool media_extmap_strip(const str *name, const struct sdp_ng_flags *flags
 }
 
 __attribute__((nonnull(1, 2)))
-static bool media_extmap_strip_mask(const str *name, const struct sdp_ng_flags *flags) {
+static bool media_extmap_strip_mask(const str *name, const sdp_ng_flags *flags) {
 	if (!media_extmap_strip(name, flags))
 		return false;
 	if (t_hash_table_is_set(flags->rtpext_mask)) {
@@ -3121,7 +3121,7 @@ static bool media_extmap_strip_mask(const str *name, const struct sdp_ng_flags *
 }
 
 __attribute__((nonnull(1, 2)))
-static void media_extmap_accept(struct rtp_extension *ext, const struct sdp_ng_flags *flags) {
+static void media_extmap_accept(struct rtp_extension *ext, const sdp_ng_flags *flags) {
 	if (flags->bundle_accept && ext->handler.id == RTP_EXT_MID) {
 		ext->accepted = true;
 		return;
@@ -3136,8 +3136,8 @@ static void media_extmap_accept(struct rtp_extension *ext, const struct sdp_ng_f
 
 __attribute__((nonnull(1, 2, 4)))
 static void media_update_extmap(struct call_media *media, struct stream_params *sp,
-		void (*manip)(struct rtp_extension *, const struct sdp_ng_flags *),
-		const struct sdp_ng_flags *flags)
+		void (*manip)(struct rtp_extension *, const sdp_ng_flags *),
+		const sdp_ng_flags *flags)
 {
 	extmap_ht orig;
 	media_reset_extmap(media, NULL, &orig);
@@ -3183,7 +3183,7 @@ static bool media_extmap_exclude_accepted(struct rtp_extension *ext) {
 
 __attribute__((nonnull(1, 2, 4)))
 static void media_set_extmap(struct call_media *media, const extmap_q *emq,
-		bool (*manip)(const str *, const struct sdp_ng_flags *), const struct sdp_ng_flags *flags)
+		bool (*manip)(const str *, const sdp_ng_flags *), const sdp_ng_flags *flags)
 {
 	media_reset_extmap(media, media_extmap_exclude_accepted, NULL);
 
@@ -3208,7 +3208,7 @@ static void media_set_extmap(struct call_media *media, const extmap_q *emq,
 }
 
 __attribute__((nonnull(1, 2)))
-static void media_set_audio_player(struct call_media *media, sdp_ng_flags *flags) {
+static void media_set_audio_player(struct call_media *media, const sdp_ng_flags *flags) {
 	if (flags->audio_player == AP_FORCE || rtpe_config.use_audio_player == UAP_ALWAYS) {
 		MEDIA_SET(media, AUDIO_PLAYER);
 		MEDIA_CLEAR(media, AUDIO_PLAYER_IMPLICIT);
@@ -3218,7 +3218,7 @@ static void media_set_audio_player(struct call_media *media, sdp_ng_flags *flags
 }
 
 static void media_make_audio_player(struct call_media *media, rtp_payload_type *pref_dest_codec,
-		sdp_ng_flags *flags)
+		const sdp_ng_flags *flags)
 {
 	if (!MEDIA_ARESET2(media, AUDIO_PLAYER, SEND))
 		return;
@@ -3233,7 +3233,7 @@ static void media_make_audio_player(struct call_media *media, rtp_payload_type *
 }
 
 __attribute__((nonnull(1, 2)))
-static void media_init_from_flags(struct call_media *media, sdp_ng_flags *flags) {
+static void media_init_from_flags(struct call_media *media, const sdp_ng_flags *flags) {
 	if (flags->opmode == OP_OFFER && flags->reset) {
 		MEDIA_CLEAR(media, INITIALIZED);
 		if (media->ice_agent)
@@ -3255,7 +3255,7 @@ static void media_init_from_flags(struct call_media *media, sdp_ng_flags *flags)
 }
 
 __attribute__((nonnull(1, 2)))
-static void media_set_echo(struct call_media *media, sdp_ng_flags *flags) {
+static void media_set_echo(struct call_media *media, const sdp_ng_flags *flags) {
 	switch (flags->media_echo) {
 		case MEO_FWD:
 			MEDIA_SET(media, BLACKHOLE);
@@ -3278,7 +3278,7 @@ static void media_set_echo(struct call_media *media, sdp_ng_flags *flags) {
 }
 
 __attribute__((nonnull(1, 2)))
-static void media_set_echo_reverse(struct call_media *media, sdp_ng_flags *flags) {
+static void media_set_echo_reverse(struct call_media *media, const sdp_ng_flags *flags) {
 	switch (flags->media_echo) {
 		case MEO_FWD:
 			MEDIA_SET(media, ECHO);
@@ -3301,7 +3301,7 @@ static void media_set_echo_reverse(struct call_media *media, sdp_ng_flags *flags
 }
 
 __attribute__((nonnull(1, 2)))
-static bool media_update_type(struct call_media *media, struct stream_params *sp) {
+static bool media_update_type(struct call_media *media, const struct stream_params *sp) {
 	// is the media type still the same?
 	if (!str_cmp_str(&media->type, &sp->type))
 		return false;
@@ -3339,7 +3339,7 @@ static void media_update_flags(struct call_media *media, struct stream_params *s
 
 __attribute__((nonnull(1, 2, 3)))
 static void media_set_address_family(struct call_media *media, struct call_media *src,
-		struct sdp_ng_flags *flags)
+		const sdp_ng_flags *flags)
 {
 	/* for outgoing SDP, use "direction"/DF or default to what was offered */
 	if (!media->desired_family || !MEDIA_ISSET(media, ICE)) {
@@ -3350,8 +3350,9 @@ static void media_set_address_family(struct call_media *media, struct call_media
 	}
 }
 
+
 __attribute__((nonnull(1, 2, 3)))
-static void media_update_crypto(struct call_media *media, struct stream_params *sp, sdp_ng_flags *flags) {
+static void media_update_crypto(struct call_media *media, struct stream_params *sp, const sdp_ng_flags *flags) {
 	if (!sp->rtp_endpoint.port)
 		return;
 
@@ -3415,7 +3416,7 @@ static void media_set_ptime(struct call_media *media, struct stream_params *sp, 
 }
 
 
-unsigned int proto_num_ports(unsigned int sp_ports, struct call_media *media, sdp_ng_flags *flags,
+unsigned int proto_num_ports(unsigned int sp_ports, struct call_media *media, const sdp_ng_flags *flags,
 		bool allow_offer_split)
 {
 	if (sp_ports == 0)
@@ -3464,7 +3465,7 @@ static void media_update_transcoding_flag(struct call_media *media) {
  * This function just adds a fictitious media for this side, pretending it had 0 port.
  */
 static struct call_media *monologue_add_zero_media(struct call_monologue *sender_ml, struct stream_params *sp,
-	unsigned int *num_ports_other, sdp_ng_flags *flags, str_ht tracker)
+	unsigned int *num_ports_other, const sdp_ng_flags *flags, str_ht tracker)
 {
 	struct call_media *sender_media = NULL;
 	sp->rtp_endpoint.port = 0; /* pretend it was a zero stream */
@@ -3762,7 +3763,7 @@ static void monologue_bundle_mid(struct call_monologue *ml) {
 }
 
 __attribute__((nonnull(1, 2)))
-static void monologue_bundle_offer(struct call_monologue *ml, sdp_ng_flags *flags) {
+static void monologue_bundle_offer(struct call_monologue *ml, const sdp_ng_flags *flags) {
 	if (!flags->bundle_offer || flags->opmode != OP_OFFER)
 		return;
 
@@ -3811,7 +3812,7 @@ static void monologue_bundle_offer(struct call_monologue *ml, sdp_ng_flags *flag
 }
 
 __attribute__((nonnull(1, 2)))
-static void monologue_bundle_accept(struct call_monologue *ml, sdp_ng_flags *flags) {
+static void monologue_bundle_accept(struct call_monologue *ml, const sdp_ng_flags *flags) {
 	if (!ML_ISSET(ml, BUNDLE))
 		return;
 

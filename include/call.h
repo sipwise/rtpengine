@@ -1001,7 +1001,7 @@ void update_init_monologue_subscribers(struct call_monologue *ml, enum ng_opmode
 
 __attribute__((nonnull(1)))
 void update_init_subscribers(struct call_media *media, struct stream_params *sp,
-		sdp_ng_flags *flags, enum ng_opmode opmode);
+		const sdp_ng_flags *flags, enum ng_opmode opmode);
 
 int call_stream_address(GString *, struct packet_stream *ps, enum stream_address_format format,
 		const struct local_intf *ifa, bool keep_unspec);
