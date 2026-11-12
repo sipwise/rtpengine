@@ -1084,29 +1084,36 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 		PS_SET(ps, NAT_WAIT);
 }
 
+
+static void call_media_reset_crypto_roc(struct call_media *media) {
+	ilog(LOG_DEBUG, "Resetting SRTP sequencing/ROC");
+
+	mutex_lock(&media->ssrc_hash_in.lock);
+	for (GList *l = media->ssrc_hash_in.nq.head; l; l = l->next) {
+		struct ssrc_entry_call *se = l->data;
+		atomic_set_na(&se->stats->ext_seq, 0);
+	}
+	mutex_unlock(&media->ssrc_hash_in.lock);
+
+	mutex_lock(&media->ssrc_hash_out.lock);
+	for (GList *l = media->ssrc_hash_out.nq.head; l; l = l->next) {
+		struct ssrc_entry_call *se = l->data;
+		atomic_set_na(&se->stats->ext_seq, 0);
+	}
+	mutex_unlock(&media->ssrc_hash_out.lock);
+}
+
+
 static void call_stream_crypto_reset(struct packet_stream *ps) {
 	ilog(LOG_DEBUG, "Resetting crypto context");
 
+	if (!PS_ISSET(ps, RTP))
+		return;
+
 	crypto_reset(&ps->crypto);
-
-	struct call_media *media = ps->media;
-
-	if (PS_ISSET(ps, RTP)) {
-		mutex_lock(&media->ssrc_hash_in.lock);
-		for (GList *l = media->ssrc_hash_in.nq.head; l; l = l->next) {
-			struct ssrc_entry_call *se = l->data;
-			atomic_set_na(&se->stats->ext_seq, 0);
-		}
-		mutex_unlock(&media->ssrc_hash_in.lock);
-
-		mutex_lock(&media->ssrc_hash_out.lock);
-		for (GList *l = media->ssrc_hash_out.nq.head; l; l = l->next) {
-			struct ssrc_entry_call *se = l->data;
-			atomic_set_na(&se->stats->ext_seq, 0);
-		}
-		mutex_unlock(&media->ssrc_hash_out.lock);
-	}
+	call_media_reset_crypto_roc(ps->media);
 }
+
 
 /* called with call locked in R or W, but ps not locked */
 enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
