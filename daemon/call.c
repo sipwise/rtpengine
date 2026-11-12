@@ -73,6 +73,8 @@ __attribute__((nonnull(1, 2, 4)))
 static struct media_subscription *__subscribe_medias_both_ways(struct call_media * a, struct call_media * b,
 		bool is_offer, medias_q *);
 static void call_stream_crypto_reset(struct packet_stream *ps);
+static bool op_is_offer(enum ng_opmode op);
+
 
 /* called with call->master_lock held in R */
 static void call_timer_delete_monologues(call_t *c) {
@@ -1456,7 +1458,7 @@ static void __ice_offer(const sdp_ng_flags *flags, struct call_media *this,
 	// advertise it. A locally created ICE agent means we intentionally
 	// offered ICE on this leg, in which case keep the negotiated state.
 	// In other cases ignore ICE=force on the answer (see issue #2161).
-	if (flags->opmode == OP_ANSWER && flags->ice_option == ICE_FORCE &&
+	if (!op_is_offer(flags->opmode) && flags->ice_option == ICE_FORCE &&
 			!MEDIA_ISSET(other, ICE) && !this->ice_agent)
 		MEDIA_CLEAR(this, ICE);
 
@@ -1486,7 +1488,7 @@ static void __ice_offer(const sdp_ng_flags *flags, struct call_media *this,
 		// wasn't forcing ICE, then we're only acting as a passthrough and so we must disable
 		// ICE on the remote side as well. we can use the presence of an ICE agent as a test
 		// to see whether ICE was originally forced or not.
-		if (flags->opmode == OP_ANSWER && !MEDIA_ISSET(other, ICE) && !this->ice_agent) {
+		if (!op_is_offer(flags->opmode) && !MEDIA_ISSET(other, ICE) && !this->ice_agent) {
 			MEDIA_CLEAR(this, ICE);
 			return;
 		}
