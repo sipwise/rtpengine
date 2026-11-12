@@ -1437,49 +1437,134 @@ no_rtcp:
 }
 
 
+// processing of ICE options from a received SDP
 __attribute__((nonnull(1, 2, 3)))
-static void __ice_offer(const sdp_ng_flags *flags, struct call_media *receiver,
-		struct call_media *sender, bool ice_restart)
+static void ice_accept(const sdp_ng_flags *flags, struct call_media *sender, const struct stream_params *sp)
 {
-	// the default is to pass through the offering client's choice
-	if (!MEDIA_ISSET(receiver, INITIALIZED))
-		bf_copy_same(&receiver->media_flags, &sender->media_flags, MEDIA_FLAG_ICE);
-	// unless instructed not to
-	if (flags->ice_option == ICE_REMOVE)
-		MEDIA_CLEAR(receiver, ICE);
-	else if (flags->ice_option != ICE_DEFAULT) {
-		if (flags->opmode != OP_ANSWER && flags->opmode != OP_PUBLISH)
-			MEDIA_SET(receiver, ICE);
+	if (MEDIA_ISSET(sender, PASSTHRU)) {
+		bf_copy_same(&sender->media_flags, &sp->sp_flags,
+				SHARED_FLAG_ICE |
+				SHARED_FLAG_ICE2 |
+				SHARED_FLAG_TRICKLE_ICE |
+				SHARED_FLAG_ICE_LITE_PEER |
+				SHARED_FLAG_END_OF_CANDIDATES);
+
+		return;
 	}
+
+	if (!sp->rtp_endpoint.port)
+		return;
+
+	if (!op_is_offer(flags->opmode) && flags->opmode != OP_PUBLISH) {
+		// answer SDP
+		if (!SP_ISSET(sp, ICE))
+			MEDIA_CLEAR(sender, ICE);
+
+		return;
+	}
+
+	// received offer SDP
+	bf_copy_same(&sender->media_flags, &sp->sp_flags,
+			SHARED_FLAG_ICE |
+			SHARED_FLAG_ICE2 |
+			SHARED_FLAG_TRICKLE_ICE |
+			SHARED_FLAG_ICE_LITE_PEER |
+			SHARED_FLAG_END_OF_CANDIDATES);
 
 	if (flags->ice_reject)
 		MEDIA_CLEAR(sender, ICE);
 
-	// An answer must not introduce ICE where the original offer did not
-	// advertise it. A locally created ICE agent means we intentionally
-	// offered ICE on this leg, in which case keep the negotiated state.
-	// In other cases ignore ICE=force on the answer (see issue #2161).
-	if (!op_is_offer(flags->opmode) && flags->ice_option == ICE_FORCE && !receiver->ice_agent)
+	if (!MEDIA_ISSET(sender, ICE))
+		return;
+
+	if (flags->ice_lite_option == ICE_LITE_OFF || flags->ice_lite_option == ICE_LITE_FWD)
+		MEDIA_CLEAR(sender, ICE_LITE_SELF);
+	else if (flags->ice_lite_option == ICE_LITE_BKW || flags->ice_lite_option == ICE_LITE_BOTH)
+		MEDIA_SET(sender, ICE_LITE_SELF);
+
+	// determine ICE roles
+	// ICE_CONTROLLING is from our POV, the other ICE flags are from peer's POV
+	if (MEDIA_ISSET(sender, ICE_LITE_PEER) && !MEDIA_ISSET(sender, ICE_LITE_SELF))
+		MEDIA_SET(sender, ICE_CONTROLLING);
+	else if (!MEDIA_ISSET(sender, INITIALIZED) || ice_is_restart(sender->ice_agent, sp)) {
+		if (MEDIA_ISSET(sender, ICE_LITE_SELF))
+			MEDIA_CLEAR(sender, ICE_CONTROLLING);
+		else if (flags->opmode == OP_OFFER || flags->opmode == OP_PUBLISH)
+			MEDIA_CLEAR(sender, ICE_CONTROLLING);
+		else
+			MEDIA_SET(sender, ICE_CONTROLLING);
+	}
+}
+
+
+// ICE processing for an outgoing SDP
+__attribute__((nonnull(1, 2)))
+static void ice_set_options(const sdp_ng_flags *flags, struct call_media *receiver, bool deflt)
+{
+	if (MEDIA_ISSET(receiver, PASSTHRU))
+		return;
+
+	// honour ICE=remove also for an answer: legacy way to reject an ICE offer
+	if (flags->ice_option == ICE_REMOVE)
 		MEDIA_CLEAR(receiver, ICE);
 
-	if (flags->passthrough_on) {
-		ilog(LOG_DEBUG, "enabling passthrough mode");
-		MEDIA_SET(receiver, PASSTHRU);
-		MEDIA_SET(sender, PASSTHRU);
+	if (!op_is_offer(flags->opmode))
 		return;
+
+	if (flags->ice_option == ICE_REMOVE)
+		MEDIA_CLEAR(receiver, ICE);
+	else if (flags->ice_option != ICE_DEFAULT)
+		MEDIA_SET(receiver, ICE);
+	else if (!MEDIA_ISSET(receiver, INITIALIZED) && deflt)
+		MEDIA_SET(receiver, ICE);
+
+	if (!MEDIA_ISSET(receiver, ICE))
+		return;
+
+	if (flags->ice_lite_option == ICE_LITE_OFF || flags->ice_lite_option == ICE_LITE_BKW)
+		MEDIA_CLEAR(receiver, ICE_LITE_SELF);
+	else if (flags->ice_lite_option == ICE_LITE_FWD || flags->ice_lite_option == ICE_LITE_BOTH)
+		MEDIA_SET(receiver, ICE_LITE_SELF);
+
+	if (flags->trickle_ice)
+		MEDIA_SET(receiver, TRICKLE_ICE);
+	if (flags->ice2)
+		MEDIA_SET(receiver, ICE2);
+
+	// determine ICE roles
+	// ICE_CONTROLLING is from our POV, the other ICE flags are from peer's POV
+	if (MEDIA_ISSET(receiver, ICE_LITE_PEER) && !MEDIA_ISSET(receiver, ICE_LITE_SELF))
+		MEDIA_SET(receiver, ICE_CONTROLLING);
+	else if (!MEDIA_ISSET(receiver, INITIALIZED)) {
+		if (MEDIA_ISSET(receiver, ICE_LITE_SELF))
+			MEDIA_CLEAR(receiver, ICE_CONTROLLING);
+		else if (flags->opmode == OP_OFFER || flags->opmode == OP_SUBSCRIBE_REQ)
+			MEDIA_SET(receiver, ICE_CONTROLLING);
+		else
+			MEDIA_CLEAR(receiver, ICE_CONTROLLING);
 	}
-	if (flags->passthrough_off) {
-		ilog(LOG_DEBUG, "disabling passthrough mode");
-		MEDIA_CLEAR(receiver, PASSTHRU);
+}
+
+
+__attribute__((nonnull(1, 2, 3)))
+static void ice_passthrough(struct call_media *sender, struct call_media *receiver, const sdp_ng_flags *flags)
+{
+	if (flags->passthrough_on) {
+		ilog(LOG_DEBUG, "Enabling passthrough mode");
+		MEDIA_SET(sender, PASSTHRU);
+		MEDIA_SET(receiver, PASSTHRU);
+	}
+	else if (flags->passthrough_off) {
+		ilog(LOG_DEBUG, "Disabling passthrough mode");
 		MEDIA_CLEAR(sender, PASSTHRU);
-		return;
+		MEDIA_CLEAR(receiver, PASSTHRU);
 	}
 
 	if (flags->ice_option != ICE_FORCE && flags->ice_option != ICE_DEFAULT) {
 		/* special case: if doing ICE on both sides and ice_force is not set, we cannot
 		 * be sure that media will pass through us, so we have to disable certain features */
 		if (MEDIA_ISSET(receiver, ICE) && MEDIA_ISSET(sender, ICE)) {
-			ilog(LOG_DEBUG, "enabling passthrough mode");
+			ilog(LOG_DEBUG, "Enabling passthrough mode");
 			MEDIA_SET(receiver, PASSTHRU);
 			MEDIA_SET(sender, PASSTHRU);
 			return;
@@ -1491,81 +1576,6 @@ static void __ice_offer(const sdp_ng_flags *flags, struct call_media *receiver,
 		if (!op_is_offer(flags->opmode) && !MEDIA_ISSET(sender, ICE) && !receiver->ice_agent) {
 			MEDIA_CLEAR(receiver, ICE);
 			return;
-		}
-	}
-
-	if (flags->opmode == OP_OFFER) {
-		switch (flags->ice_lite_option) {
-			case ICE_LITE_OFF:
-				MEDIA_CLEAR(receiver, ICE_LITE_SELF);
-				MEDIA_CLEAR(sender, ICE_LITE_SELF);
-				break;
-			case ICE_LITE_FWD:
-				MEDIA_SET(receiver, ICE_LITE_SELF);
-				MEDIA_CLEAR(sender, ICE_LITE_SELF);
-				break;
-			case ICE_LITE_BKW:
-				MEDIA_CLEAR(receiver, ICE_LITE_SELF);
-				MEDIA_SET(sender, ICE_LITE_SELF);
-				break;
-			case ICE_LITE_BOTH:
-				MEDIA_SET(receiver, ICE_LITE_SELF);
-				MEDIA_SET(sender, ICE_LITE_SELF);
-				break;
-			default:
-				break;
-		}
-
-		if (flags->trickle_ice)
-			MEDIA_SET(receiver, TRICKLE_ICE);
-		if (flags->ice2)
-			MEDIA_SET(receiver, ICE2);
-	}
-	else if (flags->opmode == OP_SUBSCRIBE_REQ) {
-		// leave source media alone
-		switch (flags->ice_lite_option) {
-			case ICE_LITE_OFF:
-			case ICE_LITE_BKW:
-				MEDIA_CLEAR(receiver, ICE_LITE_SELF);
-				break;
-			case ICE_LITE_FWD:
-			case ICE_LITE_BOTH:
-				MEDIA_SET(receiver, ICE_LITE_SELF);
-				break;
-			default:
-				break;
-		}
-
-		if (flags->trickle_ice)
-			MEDIA_SET(receiver, TRICKLE_ICE);
-		if (flags->ice2)
-			MEDIA_SET(receiver, ICE2);
-	}
-
-	/* determine roles (even if we don't actually do ICE) */
-	/* ICE_CONTROLLING is from our POV, the other ICE flags are from peer's POV */
-	if (MEDIA_ISSET(receiver, ICE_LITE_PEER) && !MEDIA_ISSET(receiver, ICE_LITE_SELF))
-		MEDIA_SET(receiver, ICE_CONTROLLING);
-	else if (!MEDIA_ISSET(receiver, INITIALIZED) || ice_restart) {
-		if (MEDIA_ISSET(receiver, ICE_LITE_SELF))
-			MEDIA_CLEAR(receiver, ICE_CONTROLLING);
-		else if (flags->opmode == OP_OFFER || flags->opmode == OP_SUBSCRIBE_REQ)
-			MEDIA_SET(receiver, ICE_CONTROLLING);
-		else
-			MEDIA_CLEAR(receiver, ICE_CONTROLLING);
-	}
-
-	if (flags->opmode == OP_OFFER) {
-		/* roles are reversed for the other side */
-		if (MEDIA_ISSET(sender, ICE_LITE_PEER) && !MEDIA_ISSET(sender, ICE_LITE_SELF))
-			MEDIA_SET(sender, ICE_CONTROLLING);
-		else if (!MEDIA_ISSET(sender, INITIALIZED) || ice_restart) {
-			if (MEDIA_ISSET(sender, ICE_LITE_SELF))
-				MEDIA_CLEAR(sender, ICE_CONTROLLING);
-			else if (flags->opmode == OP_OFFER)
-				MEDIA_CLEAR(sender, ICE_CONTROLLING);
-			else
-				MEDIA_SET(sender, ICE_CONTROLLING);
 		}
 	}
 }
@@ -3320,6 +3330,7 @@ static void media_copy_type(struct call_media *dst, struct call_media *src) {
 	dst->type_id = src->type_id;
 }
 
+
 __attribute__((nonnull(1, 2)))
 static void media_update_flags(struct call_media *media, struct stream_params *sp) {
 	/* deduct address family from stream parameters received */
@@ -3332,10 +3343,10 @@ static void media_update_flags(struct call_media *media, struct stream_params *s
 	/* copy parameters advertised by the sender of this message */
 	bf_copy_same(&media->media_flags, &sp->sp_flags,
 			SHARED_FLAG_RTCP_MUX | SHARED_FLAG_ASYMMETRIC | SHARED_FLAG_UNIDIRECTIONAL |
-			SHARED_FLAG_ICE | SHARED_FLAG_ICE2 | SHARED_FLAG_TRICKLE_ICE | SHARED_FLAG_ICE_LITE_PEER |
-			SHARED_FLAG_END_OF_CANDIDATES | SHARED_FLAG_EXTMAP_SHORT |
+			SHARED_FLAG_EXTMAP_SHORT |
 			SHARED_FLAG_RTCP_FB | SHARED_FLAG_LEGACY_OSRTP | SHARED_FLAG_LEGACY_OSRTP_REV);
 }
+
 
 __attribute__((nonnull(1, 2, 3)))
 static void media_set_address_family(struct call_media *media, struct call_media *src,
@@ -4110,8 +4121,9 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		}
 
 		/* ICE stuff - must come after interface and address family selection */
-		__ice_offer(flags, receiver_media, sender_media, ice_is_restart(sender_media->ice_agent, sp));
-
+		ice_accept(flags, sender_media, sp);
+		ice_set_options(flags, receiver_media, MEDIA_ISSET(sender_media, ICE));
+		ice_passthrough(sender_media, receiver_media, flags);
 
 		/* we now know what's being advertised by the other side */
 		MEDIA_SET(sender_media, INITIALIZED);
@@ -4616,8 +4628,7 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		if (media->logical_intf == NULL)
 			return -1; // XXX return error code
 
-		/* ICE stuff - must come after interface and address family selection */
-		__ice_offer(flags, media, media, ice_is_restart(media->ice_agent, sp));
+		ice_accept(flags, media, sp);
 
 		MEDIA_SET(media, INITIALIZED);
 
@@ -4765,7 +4776,7 @@ static int monologue_subscribe_request1(struct call_media *src_media, struct cal
 	if (dst_media->logical_intf == NULL)
 		return -1; // XXX return error code
 
-	__ice_offer(flags, dst_media, src_media, ice_is_restart(src_media->ice_agent, sp));
+	ice_set_options(flags, dst_media, MEDIA_ISSET(src_media, ICE));
 
 	struct endpoint_map *em = __get_endpoint_map(dst_media, num_ports, NULL, flags, true);
 	if (!em)
@@ -6904,12 +6915,8 @@ static bool monologue_call_create_media(struct call_monologue *ml, sdp_ng_flags 
 	media_init_from_flags(m, flags);
 	media_set_audio_player(m, flags);
 	media_gen_media_id(m, flags);
-	if (flags->ice_option == ICE_FORCE)
-		MEDIA_SET(m, ICE);
-	if (flags->trickle_ice)
-		MEDIA_SET(m, TRICKLE_ICE);
-	if (flags->ice_lite_option == ICE_LITE_FWD)
-		MEDIA_SET(m, ICE_LITE_SELF);
+
+	ice_set_options(flags, m, false);
 
 	m->desired_family = flags->address_family;
 
@@ -7001,6 +7008,8 @@ bool monologue_call_create_answer(struct call_monologue *ml, sdp_ng_flags *flags
 
 		bf_copy(&media->media_flags, MEDIA_FLAG_RECV, &sp->sp_flags, SP_FLAG_SEND);
 		bf_copy(&media->media_flags, MEDIA_FLAG_SEND, &sp->sp_flags, SP_FLAG_RECV);
+
+		ice_accept(flags, media, sp);
 
 		MEDIA_SET(media, INITIALIZED);
 
