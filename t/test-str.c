@@ -55,6 +55,20 @@ static double to_d(const char *s, size_t len, double def) {
 	check(fn(STR_PTR(buf), 77) == 77); \
 	check(fn(&STR_CONST("-1"), 77) == 77); \
 	check(fn(&STR_CONST(" -1"), 77) == 77); \
+	check(fn(&STR_CONST("\t-1"), 77) == 77); \
+	check(fn(&STR_CONST("\n-1"), 77) == 77); \
+	check(fn(&STR_CONST("\r-1"), 77) == 77); \
+	check(fn(&STR_CONST("\v-1"), 77) == 77); \
+	check(fn(&STR_CONST("\f-1"), 77) == 77); \
+	check(fn(&STR_CONST(" \t\r\n\v\f-1"), 77) == 77); \
+	check(fn(&STR_CONST("\t+42"), 77) == 42); \
+	check(fn(&STR_CONST(" \t\r\n\v\f42"), 77) == 42); \
+	/* Check every byte prefix, including NUL and negative signed chars. */ \
+	for (unsigned int prefix = 0; prefix <= UCHAR_MAX; prefix++) { \
+		char input[] = { (char) prefix, '-', '1' }; \
+		str value = STR_LEN(input, sizeof(input)); \
+		check(fn(&value, 77) == 77); \
+	} \
 	check(fn(&STR_CONST("-0"), 77) == 77); \
 } while (0)
 

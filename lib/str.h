@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <errno.h>
+#include <ctype.h>
 #include <math.h>
 #include "compat.h"
 #include "containers.h"
@@ -421,9 +422,14 @@ INLINE void str_swap(str *a, str *b) {
 			return def; \
 		memcpy(buf, s->s, s->len); \
 		buf[s->len] = '\0'; \
-		/* strtoul/strtoull accept a minus sign; these helpers must not. */ \
-		if (min == 0 && memchr(buf, '-', s->len)) \
-			return def; \
+		/* A minus sign is only valid before digits, after any whitespace. */ \
+		if (min == 0 && G_UNLIKELY(buf[0] < '0' || buf[0] > '9')) { \
+			const char *start = buf; \
+			while (isspace((unsigned char) *start)) \
+				start++; \
+			if (*start == '-') \
+				return def; \
+		} \
 		errno = 0; \
 		ret = fn(buf, &ep, 10); \
 		if (errno == ERANGE || ep == buf || ep != buf + s->len) \
