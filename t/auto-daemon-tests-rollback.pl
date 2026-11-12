@@ -315,6 +315,10 @@ rtpe_req('delete', 'delete DTLS rollback call', {
 	'from-tag' => ft(), 'to-tag' => tt(),
 });
 
+undef $rollback_dtls;
+undef $rollback_dtls_mux;
+
+
 new_call;
 my $fork_from = ft();
 my $fork_a = 'fork-a-' . tt();
