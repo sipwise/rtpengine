@@ -1459,8 +1459,7 @@ static void __ice_offer(const sdp_ng_flags *flags, struct call_media *receiver,
 	// advertise it. A locally created ICE agent means we intentionally
 	// offered ICE on this leg, in which case keep the negotiated state.
 	// In other cases ignore ICE=force on the answer (see issue #2161).
-	if (!op_is_offer(flags->opmode) && flags->ice_option == ICE_FORCE &&
-			!MEDIA_ISSET(sender, ICE) && !receiver->ice_agent)
+	if (!op_is_offer(flags->opmode) && flags->ice_option == ICE_FORCE && !receiver->ice_agent)
 		MEDIA_CLEAR(receiver, ICE);
 
 	if (flags->passthrough_on) {
