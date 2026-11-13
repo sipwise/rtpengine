@@ -2709,8 +2709,6 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 		return -EIO;
 	if (!is_valid_address(&i->local))
 		ret_einval("invalid local address");
-	if (i->num_destinations > RTPE_MAX_FORWARD_DESTINATIONS)
-		ret_einval("too many destinations (%u)", i->num_destinations);
 	if (i->num_payload_types > RTPE_NUM_PAYLOAD_TYPES)
 		ret_einval("too many payload types (%u)", i->num_payload_types);
 	if (!i->non_forwarding) {

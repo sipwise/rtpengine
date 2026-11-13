@@ -2074,12 +2074,6 @@ static void kernelize(struct packet_stream *stream) {
 				"lack of sinks");
 	}
 
-	if (reti->num_destinations > RTPE_MAX_FORWARD_DESTINATIONS) {
-		ilog(LOG_NOTICE | LOG_FLAG_LIMIT, "Too many outputs for kernel forwarding (%u), "
-				"keeping the stream in userspace", reti->num_destinations);
-		goto no_kernel;
-	}
-
 	if (kernel_add_stream(&s.reti))
 		obj_hold(stream->selected_sfd); // ref in reti.target.raw_ring_buf.opaque
 
