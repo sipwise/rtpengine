@@ -19,6 +19,7 @@
 #include "iptables.h"
 #include "main.h"
 #include "media_player.h"
+#include "audio_player.h"
 #include "jitter_buffer.h"
 #include "dtmf.h"
 #include "mqtt.h"
@@ -1908,7 +1909,43 @@ static const char *kernelize_one(kernelize_state *s,
 	redi->output.iface_stats = sink->selected_sfd->local_intf->stats;
 	redi->output.stats = sink->stats_out;
 
-	if (reti->track_ssrc) {
+	if (reti->track_ssrc && sink->media->fixed_egress_ssrc) {
+		/* With a fixed egress SSRC every ingress SSRC maps onto the same egress
+		 * entry, so the egress hash holds a single entry and pairing it with
+		 * the ingress slots one to one would leave every slot but the first
+		 * without substitution: a second ingress SSRC (a media player feeding
+		 * this leg, a re-INVITE from the far end) would then leave the sink
+		 * under its own SSRC and sequence. Give every slot the fixed SSRC and
+		 * the shared counters (the SRTP index must be one per SSRC), and
+		 * re-base each slot's sequence offset on the egress counter so that a
+		 * returning SSRC carries on where the last packet left off. */
+		struct ssrc_entry_call *se = get_ssrc(sink->media->fixed_egress_ssrc,
+				&sink->media->ssrc_hash_out);
+		if (se) {
+			/* The egress counter only reflects packets already sent: the
+			 * one being handled right now is still queued, and on a fresh
+			 * leg nothing has gone out yet. So the slot of the SSRC that
+			 * userspace is forwarding keeps the offset userspace computed
+			 * (exact continuity), and only the other slots are re-based on
+			 * the counter, when there is one. */
+			uint32_t last = atomic_get_na(&se->stats->ext_seq);
+			for (unsigned int u = 0; u < G_N_ELEMENTS(redi->output.ssrc_out) && s->ssrc[u]; u++) {
+				uint32_t in_last = atomic_get_na(&s->ssrc[u]->stats->ext_seq);
+				bool current = se->fixed_in_ssrc_set && s->ssrc[u]->h.ssrc == se->fixed_in_ssrc;
+				redi->output.seq_offset[u] = (!current && last && in_last)
+					? (uint16_t) (last - in_last) : se->seq_diff;
+				redi->output.ssrc_stats[u] = se->stats;
+				redi->output.ssrc_out[u] = htonl(se->h.ssrc);
+			}
+			/* the kernel now advances the egress counter: userspace must
+			 * re-base on it when it next sees a packet of this leg. Only
+			 * for RTP: offloading RTCP does not move the RTP numbering. */
+			if (!rtcp)
+				se->fixed_rebase = true;
+			ssrc_entry_release(se);
+		}
+	}
+	else if (reti->track_ssrc) {
 		unsigned int u = 0;
 		for (GList *l = sink->media->ssrc_hash_out.nq.head; l; l = l->next) {
 			struct ssrc_entry_call *se = l->data;
@@ -3074,12 +3111,16 @@ static void media_packet_rtp_out(struct packet_handler_ctx *phc, struct sink_han
 				sh->attrs.transcoding || fixed_ssrc, phc->rtcp);
 
 		/* a fixed egress SSRC outlives the ingress SSRC, so carry the
-		 * sequence numbering across a change of source */
-		if (fixed_ssrc) {
+		 * sequence numbering across a change of source. Not while an audio
+		 * player feeds the sink: then this packet is decoded into its mix
+		 * buffer and never reaches the wire under this SSRC, whose numbering
+		 * belongs to the player (which advances seq_diff itself) until it
+		 * stops - forwarding re-bases on ext_seq when it resumes. */
+		if (fixed_ssrc && !audio_player_is_active(phc->mp.media_out)) {
 			struct ssrc_entry_call *so = phc->mp.ssrc_out;
 			uint32_t in_ssrc = ntohl(phc->mp.rtp->ssrc);
 			uint16_t seq = ntohs(phc->mp.rtp->seq_num);
-			if (so->fixed_in_ssrc_set && so->fixed_in_ssrc != in_ssrc) {
+			if ((so->fixed_in_ssrc_set && so->fixed_in_ssrc != in_ssrc) || so->fixed_rebase) {
 				/* the egress sequence counter lives in memory shared with
 				 * the kernel module, so it stays current even while the
 				 * stream is offloaded and userspace sees no packets */
@@ -3096,6 +3137,7 @@ static void media_packet_rtp_out(struct packet_handler_ctx *phc, struct sink_han
 			}
 			so->fixed_in_ssrc = in_ssrc;
 			so->fixed_in_ssrc_set = true;
+			so->fixed_rebase = false;
 		}
 	}
 	else if (phc->rtcp && phc->mp.rtcp) {

@@ -40,6 +40,7 @@ INLINE void audio_player_start(struct call_media *m) { }
 INLINE void audio_player_free(struct call_media *m) { }
 INLINE void audio_player_stop(struct call_media *m) { }
 INLINE void audio_player_activate(struct call_media *m) { }
+INLINE bool audio_player_is_active(struct call_media *m) { return false; }
 
 #endif
 
