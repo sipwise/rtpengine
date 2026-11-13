@@ -18,7 +18,85 @@ static double to_d(const char *s, size_t len, double def) {
 	return str_to_d(&st, def);
 }
 
+// Exercise the public helpers, including slices without a terminating NUL.
+#define integer_common(fn) do { \
+	check(fn(&STR_CONST("0"), 77) == 0); \
+	check(fn(&STR_CONST("42"), 77) == 42); \
+	check(fn(&STR_CONST(" +42"), 77) == 42); \
+	check(fn(&STR_LEN("42x", 2), 77) == 42); \
+	check(fn(&STR_CONST(""), 77) == 77); \
+	check(fn(&STR_CONST(" "), 77) == 77); \
+	check(fn(&STR_CONST("+"), 77) == 77); \
+	check(fn(&STR_CONST("x"), 77) == 77); \
+	check(fn(&STR_CONST("42x"), 77) == 77); \
+	check(fn(&STR_CONST("42 "), 77) == 77); \
+	check(fn(&STR_CONST("42\0x"), 77) == 77); \
+} while (0)
+
+#define signed_limits(fn, min, max) do { \
+	char buf[64]; \
+	snprintf(buf, sizeof(buf), "%lld", (long long) (min)); \
+	check(fn(STR_PTR(buf), 77) == (min)); \
+	snprintf(buf, sizeof(buf), "%lld", (long long) (max)); \
+	check(fn(STR_PTR(buf), 77) == (max)); \
+	snprintf(buf, sizeof(buf), "%llu", (unsigned long long) (max) + 1); \
+	check(fn(STR_PTR(buf), 77) == 77); \
+	snprintf(buf, sizeof(buf), "-%llu", (unsigned long long) (-((min) + 1)) + 2); \
+	check(fn(STR_PTR(buf), 77) == 77); \
+	check(fn(&STR_CONST("-42"), 77) == -42); \
+} while (0)
+
+#define unsigned_limits(fn, max) do { \
+	char buf[64]; \
+	snprintf(buf, sizeof(buf), "%llu", (unsigned long long) (max)); \
+	check(fn(STR_PTR(buf), 77) == (max)); \
+	/* Appending a zero exceeds the destination range without C overflow. */ \
+	snprintf(buf, sizeof(buf), "%llu0", (unsigned long long) (max)); \
+	check(fn(STR_PTR(buf), 77) == 77); \
+	check(fn(&STR_CONST("-1"), 77) == 77); \
+	check(fn(&STR_CONST(" -1"), 77) == 77); \
+	check(fn(&STR_CONST("\t-1"), 77) == 77); \
+	check(fn(&STR_CONST("\n-1"), 77) == 77); \
+	check(fn(&STR_CONST("\r-1"), 77) == 77); \
+	check(fn(&STR_CONST("\v-1"), 77) == 77); \
+	check(fn(&STR_CONST("\f-1"), 77) == 77); \
+	check(fn(&STR_CONST(" \t\r\n\v\f-1"), 77) == 77); \
+	check(fn(&STR_CONST("\t+42"), 77) == 42); \
+	check(fn(&STR_CONST(" \t\r\n\v\f42"), 77) == 42); \
+	/* Check every byte prefix, including NUL and negative signed chars. */ \
+	for (unsigned int prefix = 0; prefix <= UCHAR_MAX; prefix++) { \
+		char input[] = { (char) prefix, '-', '1' }; \
+		str value = STR_LEN(input, sizeof(input)); \
+		check(fn(&value, 77) == 77); \
+	} \
+	check(fn(&STR_CONST("-0"), 77) == 77); \
+} while (0)
+
+static void integer_tests(void) {
+	integer_common(str_to_i);
+	integer_common(str_to_u);
+	integer_common(str_to_l);
+	integer_common(str_to_ul);
+	integer_common(str_to_ll);
+	integer_common(str_to_ull);
+	signed_limits(str_to_i, INT_MIN, INT_MAX);
+	signed_limits(str_to_l, LONG_MIN, LONG_MAX);
+	signed_limits(str_to_ll, LLONG_MIN, LLONG_MAX);
+	unsigned_limits(str_to_u, UINT_MAX);
+	unsigned_limits(str_to_ul, ULONG_MAX);
+	unsigned_limits(str_to_ull, ULLONG_MAX);
+
+	// These previously narrowed to small valid positive integers.
+	check(str_to_i(&STR_CONST("4295003297"), 77) == 77);
+	check(str_to_i(&STR_CONST("-4294931295"), 77) == 77);
+	check(str_to_u(&STR_CONST("4294967296"), 77) == 77);
+	check(str_to_u(&STR_CONST("4295003297"), 77) == 77);
+	// Unsigned values above LLONG_MAX must remain valid.
+	check(str_to_ull(&STR_CONST("9223372036854775808"), 77) == 9223372036854775808ULL);
+}
+
 int main(void) {
+	integer_tests();
 	check(to_d("1.5", 3, -1) == 1.5);
 	check(to_d("-2.25", 5, -1) == -2.25);
 	check(to_d("0", 1, -1) == 0);

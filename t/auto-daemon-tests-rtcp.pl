@@ -17,6 +17,33 @@ autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
 		or die;
 
 
+# Reject invalid integers before narrowing them to an SDP port.
+for my $case (
+	['36001', 36001],
+	['65535', 65535],
+	['65536', 35001],
+	['2147483648', 35001],
+	['4295003297', 35001],
+	['-4294931295', 35001],
+) {
+	my ($port, $expected) = @$case;
+	my $name = "RTCP integer port $port";
+	new_call();
+	rtpe_req('offer', $name, {
+		'from-tag' => ft(),
+		flags => ['trust address'],
+		sdp => "v=0\r\no=- 1 1 IN IP4 198.51.100.1\r\ns=tester\r\n"
+			. "c=IN IP4 198.51.100.1\r\nt=0 0\r\nm=audio 35000 RTP/AVP 0\r\n"
+			. "a=rtpmap:0 PCMU/8000\r\na=rtcp:$port IN IP4 198.51.100.1\r\n",
+	});
+	my $query = rtpe_req('query', $name, {});
+	my $streams = $query->{tags}{ft()}{medias}[0]{streams};
+	my ($rtcp) = grep { grep { $_ eq 'RTCP' } @{$_->{flags}} } @$streams;
+	is($rtcp->{endpoint}{port}, $expected, "$name - selected RTCP endpoint");
+	rtpe_req('delete', $name, { 'delete-delay' => 0 });
+}
+
+
 my ($sock_a, $sock_b, $sock_ax, $sock_bx,
 	$port_a, $port_ax, $port_b, $port_bx,
 	$resp,
