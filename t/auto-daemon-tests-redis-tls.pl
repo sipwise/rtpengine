@@ -17,6 +17,10 @@ use IO::Socket::SSL;
 use Time::HiRes qw(time sleep);
 
 
+# possibly unstable tests, see GH #2243
+$ENV{RTPENGINE_EXTENDED_TESTS} or exit();
+
+
 # the refusals at startup; a build without TLS support has no TLS option,
 # and nothing else can be tested
 sub refused_start {

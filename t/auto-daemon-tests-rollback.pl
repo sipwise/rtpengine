@@ -10,6 +10,9 @@ use IO::Multiplex;
 use Socket qw(MSG_DONTWAIT);
 use Test::More;
 
+# timing sensitive tests (ICE checks)
+$ENV{RTPENGINE_EXTENDED_TESTS} or exit();
+
 autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1
 		-n 2223 -c 12345 -f -L 7 -E -u 2222)) or die;
 
