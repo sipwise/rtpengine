@@ -2733,14 +2733,18 @@ static const char *__stream_ssrc_out(struct packet_stream *out_srtp, uint32_t ss
 // -1 = packet not handled, proceed;
 // 1 = same as 0, but stream can be kernelized
 static int media_demux_protocols(struct packet_handler_ctx *phc) {
-	if (phc->mp.media->ice_agent && is_stun(&phc->s)) {
-		int stun_ret = stun(&phc->s, phc->mp.sfd, &phc->mp.fsin);
-		if (!stun_ret)
-			return 0;
-		if (stun_ret == 1) {
-			call_media_state_machine(phc->mp.media);
-			return 1;
+	if (is_stun(&phc->s)) {
+		if (phc->mp.media->ice_agent) {
+			int stun_ret = stun(&phc->s, phc->mp.sfd, &phc->mp.fsin);
+			if (!stun_ret)
+				return 0;
+			if (stun_ret == 1) {
+				call_media_state_machine(phc->mp.media);
+				return 1;
+			}
 		}
+		else if (!MEDIA_ISSET(phc->mp.media, PASSTHRU))
+			return 0; // drop
 	}
 
 	// verify packet against ICE checks if present
