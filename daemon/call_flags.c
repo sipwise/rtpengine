@@ -1503,6 +1503,9 @@ const char *call_ng_flags_ice(str *s, unsigned int idx, sdp_ng_flags *out) {
 		case CSH_LOOKUP("ICE2"):
 			out->ice2 = true;
 			break;
+		case CSH_LOOKUP("reject"):
+			out->ice_reject = true;
+			break;
 		default:
 			ilog(LOG_WARN, "Unknown 'ICE' flag encountered: '" STR_FORMAT "'",
 					STR_FMT(s));

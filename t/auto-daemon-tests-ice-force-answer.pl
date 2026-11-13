@@ -235,7 +235,7 @@ rcv_no($sock_b);
     [qw(198.51.100.3 7354)],
 );
 
-($port_a, $port_ax) = offer('rejected ICE offer and stray ICE answer', { flags => ['reject ICE'] }, <<SDP);
+($port_a, $port_ax) = offer('rejected ICE offer and stray ICE answer', { ICE => ['remove', 'reject'] }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
