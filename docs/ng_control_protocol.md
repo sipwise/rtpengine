@@ -428,21 +428,27 @@ Optionally included keys are:
     Contains a list of strings, or alternatively a single string, each of which
     must be one of the following values:
 
-	With `remove`, any ICE attributes are stripped from the SDP body. Also
-	see the flag `reject ICE` to effect an early removal of ICE support
-	during an `offer`.
+	With `remove`, any ICE attributes are stripped from the SDP body.
 
 	With `force`, ICE attributes are first stripped, then new attributes are
 	generated and inserted, which leaves the media proxy as the only ICE candidate.
+
+    With `reject`, ICE attributes in a received offer are ignored and the SDP
+    is treated as a non-ICE SDP, leading to ICE being rejected in the
+    respective answer. This replaces the legacy `reject-ICE` flag, as well as
+    using `ICE=remove` in an answer.
 
 	With `default`, the behaviour will be the same as with `force` if the incoming SDP already
 	had ICE attributes listed. If the incoming SDP did not contain ICE attributes, then no
 	ICE attributes are added.
 
-	For `answer` messages, an endpoint must not negotiate ICE that was absent from
-	the corresponding offer. Prefer `ICE=default` when handling an answer from
-	a peer which might not support ICE. `ICE=force` on an answer cannot invent
-	ICE support when no ICE was offered on that leg.
+    For `answer` messages, an endpoint must not negotiate ICE that was absent
+    from the corresponding offer. Prefer `ICE=default` when handling an answer
+    from a peer which might not support ICE. `ICE=force` on an answer cannot
+    invent ICE support when no ICE was offered on that leg. Similarily,
+    `ICE=remove` on an answer cannot reliably abort ICE processing, as ICE may
+    already be in flight at that point or may even have completed and converged
+    on a different RTP endpoint.
 
 	With `force-relay`, existing ICE candidates are left in place except `relay`
 	type candidates, and *rtpengine* inserts itself as a `relay` candidate. It will also leave SDP
@@ -1336,12 +1342,6 @@ Spaces in each string may be replaced by hyphens.
     Setting this flag forces decryption and re-encryption of all SRTP packets,
     validating the authentication tag in the process, and discarding packets
     without a valid tag.
-
-* `reject ICE`
-
-	Useful for `offer` messages that advertise support for ICE.
-	Instructs *rtpengine* to reject the offered ICE. This is
-	similar to using `ICE=remove` in the respective `answer`.
 
 * `reset`
 

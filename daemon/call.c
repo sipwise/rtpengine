@@ -1504,10 +1504,6 @@ static void ice_set_options(const sdp_ng_flags *flags, struct call_media *receiv
 	if (MEDIA_ISSET(receiver, PASSTHRU))
 		return;
 
-	// honour ICE=remove also for an answer: legacy way to reject an ICE offer
-	if (flags->ice_option == ICE_REMOVE)
-		MEDIA_CLEAR(receiver, ICE);
-
 	if (!op_is_offer(flags->opmode))
 		return;
 
