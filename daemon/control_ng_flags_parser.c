@@ -333,14 +333,14 @@ static void rtpp_direction_flag(sdp_ng_flags *flags, unsigned int *flagnum, str 
  * @param rtpp_flags - raw str rtpp_flags
  * @param dict - root dict to store encoded flags
  */
-void parse_rtpp_flags(const str * rtpp_flags, sdp_ng_flags *out)
+const char *parse_rtpp_flags(const str * rtpp_flags, sdp_ng_flags *out)
 {
 	str remainder, key, val;
 	unsigned int direction_flag = 0;
 	unsigned int transport = 0;
 
 	if (!rtpp_flags->s)
-		return;
+		return NULL;
 
 	remainder = *rtpp_flags;
 
@@ -452,13 +452,17 @@ void parse_rtpp_flags(const str * rtpp_flags, sdp_ng_flags *out)
 		}
 
 generic:
-		/* generic one key flags */
-		if (!val.len)
-			call_ng_flags_flags(&key, 0, out);
+		if (!val.len) {
+			const char *err = call_ng_flags_flags(&key, 0, out);
+			if (err)
+				return err;
+		}
 		/* generic flags with value, but no particular processing */
 		else {
 			rtpp_pos pos = { .cur = val, .remainder = remainder };
-			call_ng_main_flags(&dummy_parser, &key, &pos, out);
+			const char *err = call_ng_main_flags(&dummy_parser, &key, &pos, out);
+			if (err)
+				return err;
 			if (rtpp_is_dict_list(&pos))
 				rtpp_list_iter(&dummy_parser, &pos, NULL, NULL, NULL);
 			remainder = pos.remainder;
@@ -470,4 +474,5 @@ next:;
 	/* define transport */
 	if (transport)
 		parse_transports(transport, out);
+	return NULL;
 }

@@ -1972,8 +1972,7 @@ const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg v
 		case CSH_LOOKUP("rtpp flags"):;
 			/* s - list of rtpp flags */
 			out->rtpp_flags = true;
-			parse_rtpp_flags(&s, out);
-			break;
+			return parse_rtpp_flags(&s, out);
 		case CSH_LOOKUP("SDES"):
 		case CSH_LOOKUP("sdes"):
 			return call_ng_flags_str_list(parser, value, ng_sdes_option, out);
@@ -2095,8 +2094,7 @@ const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg v
 			}
 			// naive approach: just parse them out every time
 			// TODO: improve this by pre-parsing the flags at startup
-			parse_rtpp_flags(tplate, out);
-			break;
+			return parse_rtpp_flags(tplate, out);
 		case CSH_LOOKUP("to-interface"):
 		case CSH_LOOKUP("to interface"):
 			out->direction[1] = s;
@@ -2206,11 +2204,17 @@ const char *call_ng_process_flags(sdp_ng_flags *out, ng_command_ctx_t *ctx) {
 	ctx->flags = out;
 
 	// check for default templates, "default" first
-	if (rtpe_default_signalling_templates[OP_OTHER].len)
-		parse_rtpp_flags(&rtpe_default_signalling_templates[OP_OTHER], out);
+	if (rtpe_default_signalling_templates[OP_OTHER].len) {
+		const char *err = parse_rtpp_flags(&rtpe_default_signalling_templates[OP_OTHER], out);
+		if (err)
+			return err;
+	}
 	// and then one matching the current command
-	if (ctx->opmode != OP_OTHER && rtpe_default_signalling_templates[ctx->opmode].len)
-		parse_rtpp_flags(&rtpe_default_signalling_templates[ctx->opmode], out);
+	if (ctx->opmode != OP_OTHER && rtpe_default_signalling_templates[ctx->opmode].len) {
+		const char *err = parse_rtpp_flags(&rtpe_default_signalling_templates[ctx->opmode], out);
+		if (err)
+			return err;
+	}
 
 	return parser->dict_iter(parser, ctx->req, call_ng_main_flags, out);
 }
