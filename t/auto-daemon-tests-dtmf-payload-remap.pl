@@ -294,7 +294,12 @@ for my $case (
 ) {
 	my ($name, $codecs, $flags) = @$case;
 	new_call;
-	rtpe_req('publish', $name, {'from-tag' => ft(), sdp => sdp(4000, @$codecs)});
+	# publish normally keeps only the first primary codec. Preserve all supported
+	# codecs so that Opus really occupies PT 101 when testing the collision.
+	my $published = rtpe_req('publish', $name, {
+		'from-tag' => ft(), sdp => sdp(4000, @$codecs), codec => {accept => ['all']},
+	});
+	check_codecs("$name publish precondition", $published->{sdp}, @$codecs);
 	my $resp = rtpe_req('subscribe request', $name, {
 		'from-tag' => ft(), 'to-tag' => tt(), flags => $flags,
 		codec => {'telephone-event-payload' => 101},
