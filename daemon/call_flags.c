@@ -1,6 +1,7 @@
 #include "call_flags.h"
 
 #include "str.h"
+#include "codec.h"
 #include "control_ng_flags_parser.h"
 
 
@@ -688,6 +689,8 @@ const char *call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 	sdp_ng_flags *out = arg.flags;
 
 	switch (__csh_lookup(s)) {
+		case CSH_LOOKUP("codec-telephone-event-payload"):
+			return "telephone-event-payload must be an unassigned RTP payload type from 1 to 127, excluding 64 to 95";
 		case CSH_LOOKUP("all"):
 			out->all = ALL_ALL;
 			break;
@@ -1158,6 +1161,37 @@ static const char *call_ng_direction_flag(const ng_parser_t *parser, sdp_ng_flag
 const char *call_ng_codec_flags(const ng_parser_t *parser, str *key, parser_arg value, helper_arg arg) {
 	sdp_ng_flags *out = arg.flags;
 	switch (__csh_lookup(key)) {
+		case CSH_LOOKUP("telephone-event-payload"): {
+#ifndef WITH_TRANSCODING
+			return "telephone-event-payload requires transcoding support";
+#else
+			if (out->opmode != OP_OFFER && out->opmode != OP_SUBSCRIBE_REQ && out->opmode != OP_CREATE)
+				return "telephone-event-payload is only supported in offer, subscribe-request and create";
+			// The shared integer helpers also accept JSON booleans for legacy flags.
+			if (parser == &ng_parser_json && json_node_get_node_type(value.json) == JSON_NODE_VALUE
+					&& json_node_get_value_type(value.json) == G_TYPE_BOOLEAN)
+				return "telephone-event-payload must be an unassigned RTP payload type from 1 to 127, excluding 64 to 95";
+			// Flags-string clients can only supply the payload type as a string.
+			// Parse strings strictly: the JSON integer helper accepts numeric prefixes.
+			str number = STR_NULL;
+			if (!parser->is_int(value)) {
+				if (parser->get_str(value, &number)) {
+					for (size_t i = 0; i < number.len; i++) {
+						if (number.s[i] < '0' || number.s[i] > '9')
+							return "telephone-event-payload must be an unassigned RTP payload type from 1 to 127, excluding 64 to 95";
+					}
+				}
+			}
+			long long pt = parser->get_int_str(value, -1);
+			// Keep decimal strings consistent across parsers (JSON uses base zero).
+			if (number.len > 1 && number.s[0] == '0')
+				pt = str_to_ll(&number, -1);
+			if (pt < 1 || pt > 127 || !codec_telephone_event_payload_valid(pt))
+				return "telephone-event-payload must be an unassigned RTP payload type from 1 to 127, excluding 64 to 95";
+			out->telephone_event_payload = pt;
+			return NULL;
+#endif
+		}
 		case CSH_LOOKUP("except"):
 			return call_ng_flags_str_list(parser, value, call_ng_flags_str_ht, &out->codec_except);
 		case CSH_LOOKUP("offer"):
@@ -1631,6 +1665,8 @@ const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg v
 		case CSH_LOOKUP("codec"):
 		case CSH_LOOKUP("codecs"):
 			return parser->dict_iter(parser, value, call_ng_codec_flags, out);
+		case CSH_LOOKUP("codec-telephone-event-payload"):
+			return call_ng_codec_flags(parser, &STR_CONST("telephone-event-payload"), value, out);
 		case CSH_LOOKUP("command"):
 			break;
 		case CSH_LOOKUP("db-id"):

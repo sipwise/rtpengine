@@ -6315,6 +6315,57 @@ static void codec_store_add_q(struct codec_store *cs, const str_q *offer, struct
 	}
 }
 
+bool codec_telephone_event_payload_valid(int payload_type) {
+	// Avoid fixed RFC assignments and payload types reserved for RTCP multiplexing.
+	return payload_type > 0 && payload_type <= 127 && !rtp_get_rfc_payload_type(payload_type)
+			&& (payload_type < 64 || payload_type > 95);
+}
+
+// Change only the outgoing codec store. Existing codec handlers perform
+// the RTP translation, and offered_codecs retains each leg's PT for the answer.
+void codec_store_remap_telephone_event(struct codec_store *cs,
+		const struct codec_store *source, int payload_type)
+{
+#ifdef WITH_TRANSCODING
+	if (!codec_telephone_event_payload_valid(payload_type))
+		return;
+	rtp_payload_type *event = NULL;
+	for (__auto_type l = cs->codec_prefs.head; l; l = l->next) {
+		rtp_payload_type *pt = l->data;
+		if (!pt->codec_def || !pt->codec_def->dtmf)
+			continue;
+		if (event) {
+			ilog(LOG_WARN, "Ignoring telephone-event-payload: multiple telephone-event codecs");
+			return;
+		}
+		event = pt;
+	}
+	if (!event)
+		return;
+	// Never introduce event-to-PCM or PCM-to-event conversion with this option.
+	rtp_payload_type *input = codec_store_find_compatible(source, event);
+	if (!input || input->clock_rate != event->clock_rate) {
+		ilog(LOG_WARN, "Ignoring telephone-event-payload: no matching input telephone-event codec");
+		return;
+	}
+	if (event->payload_type == payload_type)
+		return;
+	if (t_hash_table_lookup(cs->codecs, GINT_TO_POINTER(payload_type))) {
+		ilog(LOG_WARN, "Ignoring telephone-event-payload: payload type %i is occupied", payload_type);
+		return;
+	}
+	// Reindex every codec-store index together; leave any separate source store intact.
+	rtp_payload_type *copy = rtp_payload_type_dup(event);
+	copy->payload_type = payload_type;
+	copy->reverse_payload_type = payload_type;
+	bool was_supp_link = cs->supp_link == event->prefs_link;
+	__auto_type next = __codec_store_delete_link(event->prefs_link, cs);
+	codec_store_add_raw_link(cs, copy, next);
+	if (was_supp_link)
+		cs->supp_link = copy->prefs_link;
+#endif
+}
+
 void codec_store_transcode(struct codec_store *cs, const str_q *offer, struct codec_store *orig) {
 #ifdef WITH_TRANSCODING
 	codec_store_add_q(cs, offer, orig, codec_make_payload_type_sup);
