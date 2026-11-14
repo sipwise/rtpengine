@@ -2633,6 +2633,15 @@ static void codecs_offer(struct call_media *receiver, struct call_media *sender,
 	// update supp codecs based on actions so far
 	codec_tracker_update(&receiver->codecs, &sp->codecs);
 
+	if (flags->telephone_event_payload) {
+		// Asymmetric mode intentionally does not translate compatible payload types.
+		if (flags->allow_asymmetric_codecs)
+			ilog(LOG_WARN, "Ignoring telephone-event-payload with allow-asymmetric-codecs");
+		else
+			codec_store_remap_telephone_event(&receiver->codecs, &sender->codecs,
+					flags->telephone_event_payload);
+	}
+
 	// set up handlers
 	codec_handlers_update(receiver, sender, .flags = flags, .sp = sp,
 			.allow_asymmetric = !!(flags->allow_asymmetric_codecs));
@@ -4748,6 +4757,14 @@ static int monologue_subscribe_request1(struct call_media *src_media, struct cal
 	codec_store_offer(&dst_media->codecs, &flags->codec_offer, &sp->codecs);
 	codec_store_transcode(&dst_media->codecs, &flags->codec_transcode, &sp->codecs);
 	codec_store_synthesise(&dst_media->codecs, &src_media->codecs);
+
+	if (flags->telephone_event_payload) {
+		if (flags->allow_asymmetric_codecs)
+			ilog(LOG_WARN, "Ignoring telephone-event-payload with allow-asymmetric-codecs");
+		else
+			codec_store_remap_telephone_event(&dst_media->codecs, &src_media->codecs,
+					flags->telephone_event_payload);
+	}
 
 	codec_handlers_update(dst_media, src_media, .flags = flags, .sp = sp,
 			.allow_asymmetric = !!flags->allow_asymmetric_codecs);
@@ -6925,6 +6942,8 @@ static bool monologue_call_create_media(struct call_monologue *ml, sdp_ng_flags 
 
 	if (m->type_id == MT_AUDIO || m->type_id == MT_VIDEO)
 		codec_store_synthesise_basic(&m->codecs, "create media");
+
+	codec_store_remap_telephone_event(&m->codecs, &m->codecs, flags->telephone_event_payload);
 
 	__generate_crypto(flags, m, NULL);
 

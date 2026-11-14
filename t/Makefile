@@ -133,6 +133,7 @@ include ../lib/common.Makefile
 	daemon-tests-alias \
 	daemon-tests-kernel-api \
 	daemon-tests-dtmf-fanout \
+	daemon-tests-dtmf-payload-remap \
 	daemon-tests-dtx-rtcp \
 	daemon-tests-mixer-drift \
 	daemon-tests-dtx-clock \
@@ -245,6 +246,7 @@ daemon-tests: \
 	daemon-tests-alias \
 	daemon-tests-kernel-api \
 	daemon-tests-dtmf-fanout \
+	daemon-tests-dtmf-payload-remap \
 	daemon-tests-video \
 	daemon-tests-inject \
 	daemon-tests-redis-master-only \
@@ -301,6 +303,9 @@ daemon-tests-dtx-rtcp:	daemon-test-deps
 
 daemon-tests-mixer-drift:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-mixer-drift.pl
+
+daemon-tests-dtmf-payload-remap:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtmf-payload-remap.pl
 
 daemon-tests-dtmf-fanout:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtmf-fanout.pl
