@@ -272,7 +272,6 @@ void media_player_new(struct media_player **mpp, struct call_media *media, struc
 		mutex_init(&mp->lock);
 		mp->kernel_idx = KERNEL_IDX_NONE;
 
-		mp->run_func = media_player_read_packet; // default
 		mp->call = obj_get(media->call);
 		mp->media = media;
 		if (prev_ssrc)
@@ -1353,7 +1352,7 @@ static bool media_player_play_start(struct media_player *mp, const rtp_payload_t
 	if (media_player_cache_entry_init(mp, dst_pt, codec_set))
 		return true;
 
-	mp->run_func = media_player_read_packet; // an earlier playback may have read from the cache
+	mp->run_func = media_player_read_packet;
 	mp->next_run = rtpe_now;
 	// give ourselves a bit of a head start with decoding
 	mp->next_run -= 50000;
