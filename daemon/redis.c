@@ -2082,8 +2082,12 @@ static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 			memory_arena_str_cpy_free(&ml->call_id, &s);
 		if (!redis_hash_get_str(&s, rh, "via-branch"))
 			__monologue_viabranch(ml, &s);
-		if (!redis_hash_get_str(&s, rh, "label"))
+		if (!redis_hash_get_str(&s, rh, "label")) {
 			memory_arena_str_cpy_free(&ml->label, &s);
+			// index it as offer/answer does, or commands addressed by
+			// label fail on the restored call
+			t_hash_table_replace(c->labels, &ml->label, ml);
+		}
 		if (!redis_hash_get_str(&s, rh, "metadata"))
 			memory_arena_str_cpy_free(&ml->metadata, &s);
 		redis_hash_get_time_t(&ml->deleted_us, rh, "deleted");
