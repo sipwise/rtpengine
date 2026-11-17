@@ -13853,7 +13853,7 @@ a=rtcp:PORT
 SDP
 
 # delete ft1
-rtpe_req('delete', 'GH 1086', { 'from-tag' => $ft1 });
+rtpe_req('delete', 're-invite re-tag w/ via-branch', { 'from-tag' => $ft1 });
 
 # reverse re-invite to new from-tag ft3
 new_ft;
