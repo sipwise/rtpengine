@@ -230,6 +230,9 @@ struct codec_ssrc_handler {
 	// DTMF send delay
 	unsigned long dtmf_first_duration;
 
+	// for audio player output
+	resample_t ap_resampler;
+
 	uint64_t skip_pts;
 
 	bool rtp_mark;
@@ -4589,6 +4592,7 @@ static void __free_ssrc_handler(struct codec_ssrc_handler *ch) {
 	t_queue_clear_full(&ch->silence_events, silence_event_free);
 	t_queue_clear(&ch->async_jobs);
 	dtx_buffer_stop(&ch->dtx_buffer);
+	resample_shutdown(&ch->ap_resampler);
 }
 
 
@@ -4860,7 +4864,7 @@ static int packet_decoded_audio_player(decoder_t *decoder, AVFrame *frame, void 
 		return 0;
 	}
 
-	audio_player_add_frame(m->audio_player, ch->h.ssrc, frame);
+	audio_player_add_frame(m->audio_player, ch->h.ssrc, frame, &ch->ap_resampler);
 	// XXX error checking/reporting
 
 	return 0;

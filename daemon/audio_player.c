@@ -11,7 +11,6 @@
 struct audio_player {
 	struct media_player *mp;
 	format_t format;
-	resample_t resampler;
 	struct mix_buffer mb;
 	int64_t last_run;
 
@@ -103,7 +102,6 @@ bool audio_player_setup(struct call_media *m, const rtp_payload_type *dst_pt,
 
 	if (ap) {
 		mix_buffer_destroy(&ap->mb);
-		resample_shutdown(&ap->resampler);
 		ZERO(ap->mb);
 	}
 	else
@@ -186,8 +184,8 @@ void audio_player_start(struct call_media *m) {
 }
 
 
-void audio_player_add_frame(struct audio_player *ap, uint32_t ssrc, AVFrame *frame) {
-	AVFrame *rsmp_frame = resample_frame(&ap->resampler, frame, &ap->format);
+void audio_player_add_frame(struct audio_player *ap, uint32_t ssrc, AVFrame *frame, resample_t *rsmp) {
+	AVFrame *rsmp_frame = resample_frame(rsmp, frame, &ap->format);
 	if (!rsmp_frame) {
 		ilog(LOG_ERR, "Resampling failed");
 		av_frame_free(&frame);
@@ -236,7 +234,6 @@ void audio_player_free(struct call_media *m) {
 		return;
 	mix_buffer_destroy(&ap->mb);
 	media_player_put(&ap->mp);
-	resample_shutdown(&ap->resampler);
 	g_free(ap);
 	m->audio_player = NULL;
 }
