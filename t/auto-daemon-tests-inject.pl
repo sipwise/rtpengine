@@ -765,6 +765,49 @@ sub exercise_playback {
 }
 
 
+# a playback that seeks, to its start position or back to the start of the file to repeat it, plays on in time
+sub exercise_seek {
+	my ($seek) = @_;
+	my ($destination, $source_socket) = new_call(
+		['198.51.100.14', 6010], ['198.51.100.14', 6012]);
+	my @receivers = ({ socket => $destination, label => 'destination' }, { socket => $source_socket, label => 'source' });
+	my $created = rtpe_req('create', 'standalone destination', { codec => { offer => ['PCMU'] } });
+	my ($call, $tag) = @{$created}{'call-id', 'from-tag'};
+	rtpe_req('create answer', 'destination answer', {
+		'call-id' => $call, 'from-tag' => $tag, sdp => sdp(6010, 'recvonly'),
+	});
+	my $source_tag = "$tag-source";
+	my ($port) = negotiate('publish', 'only RTP source',
+		{ 'call-id' => $call, 'from-tag' => $source_tag }, 6012, 'sendonly');
+	my $sender = start_sender([{ socket => $source_socket, port => $port, label => 'source',
+		sequence => 1000, timestamp => 8000, ssrc => 0x12345678, payload => "\xcf" }]);
+	my %injection = ('call-id' => $call, 'to-tag' => $tag, 'source-tag' => $source_tag);
+	my %destination = ('call-id' => $call, 'from-tag' => $tag);
+	my $ok = eval {
+		if ($seek eq 'start position') {
+			rtpe_req('play media', 'playback from one second in',
+				{ %destination, file => playback_file(4), 'start-pos' => 8000 });
+			check_audio('playback from one second in', \@receivers, ["\xdf", undef]);
+		}
+		else {
+			rtpe_req('inject start', 'start sole injection', \%injection);
+			check_audio('injected source before playback', \@receivers, ["\xcf", undef]);
+			rtpe_req('play media', 'playback repeated into injection',
+				{ %destination, file => playback_file(1), 'repeat-times' => 3 });
+			drain_audio(\@receivers, 1.2);
+			check_audio('playback repeated into injection, second time', \@receivers, ["\xc9", undef]);
+			rtpe_req('inject stop', 'stop sole injection', \%injection);
+		}
+		rtpe_req('stop media', 'stop playback', \%destination);
+		1;
+	};
+	my $error = $@;
+	stop_sender($sender);
+	die $error unless $ok;
+	rtpe_req('delete', 'delete standalone call', { 'call-id' => $call });
+}
+
+
 sub drain_audio {
 	my ($peers, $duration) = @_;
 	my $selector = IO::Select->new(map { $_->{socket} } @$peers);
@@ -1043,6 +1086,11 @@ subtest 'a file first played into an injection is cached by its next playback' =
 subtest 'a cached file is played into an injection through the audio player' => sub {
 	exercise_playback('stop', 'before');
 };
+NGCP::Rtpengine::AutoTest::shut_rtpe();
+
+start_daemon('on-demand', 40);
+subtest 'a playback from a start position plays on without a pause' => sub { exercise_seek('start position'); };
+subtest 'a playback repeated into an injection is mixed every time' => sub { exercise_seek('repeat'); };
 NGCP::Rtpengine::AutoTest::shut_rtpe();
 
 start_daemon('on-demand', 40, qw(--dtx-delay=10 --dtx-shift=0 --dtx-buffer=3 --dtx-lag=40));
