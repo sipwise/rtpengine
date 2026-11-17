@@ -518,9 +518,9 @@ static void media_player_coder_add_packet(struct media_player_coder *c,
 
 	int64_t duration = c->pkt->duration;
 
-	// adjust for drift caused by rounding in the duration
-	int64_t pts_drift = c->pkt->pts - c->next_pts;
-	duration += pts_drift;
+	// adjust for drift caused by rounding in the duration, not for a seek
+	if (c->next_pts != AV_NOPTS_VALUE)
+		duration += c->pkt->pts - c->next_pts;
 	c->next_pts = c->pkt->pts + duration;
 
 	int64_t duration_scaled = duration * c->avstream->codecpar->sample_rate
@@ -1165,6 +1165,8 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 static int media_player_seek_first_frame(struct media_player *mp) {
 	int ret = 0;
 
+	mp->coder.next_pts = AV_NOPTS_VALUE;
+
 	int64_t ret64 = avio_seek(mp->coder.fmtctx->pb, 0, SEEK_SET);
 	if (ret64 != 0) {
 		ilog(LOG_ERR, "Failed to seek to beginning of media file");
@@ -1335,6 +1337,8 @@ static bool media_player_play_start(struct media_player *mp, const rtp_payload_t
 	mp->next_run = rtpe_now;
 	// give ourselves a bit of a head start with decoding
 	mp->next_run -= 50000;
+
+	mp->coder.next_pts = AV_NOPTS_VALUE;
 
 	// if start_pos is positive, try to seek to that position
 	if (mp->opts.start_pos > 0) {
