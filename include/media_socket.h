@@ -265,7 +265,7 @@ struct sink_attrs {
 	bool rtcp_only:1;
 	bool transcoding:1;
 	bool egress:1;
-	bool inject:1;
+	bool inject:1; // XXX convert this to some other flag to indicate implicit audio player
 };
 
 struct rtpext_printer {

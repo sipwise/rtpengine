@@ -953,13 +953,10 @@ bool monologue_subscribe_answer(struct call_monologue *dst, sdp_ng_flags *flags,
 __attribute__((nonnull(1, 3)))
 bool monologue_unsubscribe(struct call_monologue *dst, struct call_monologue *src, sdp_ng_flags *);
 
-__attribute__((nonnull(1, 2, 3)))
-bool monologue_inject_start(struct call_monologue *src, struct call_monologue *dst,
-		sdp_ng_flags *flags);
-
-__attribute__((nonnull(1, 2, 3)))
-bool monologue_inject_stop(struct call_monologue *src, struct call_monologue *dst,
-		sdp_ng_flags *flags);
+__attribute__((nonnull(1, 2, 3, 4)))
+bool monologue_connect(struct call_monologue *src_ml, struct call_monologue *dst_ml,
+		sdp_ng_flags *flags,
+		const struct sink_attrs *attrs);
 
 __attribute__((nonnull(1, 2, 3, 4)))
 bool dialogue_connect(const medias_q *, struct call_monologue *, sdp_ng_flags *,

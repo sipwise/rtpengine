@@ -2502,6 +2502,9 @@ static const char *call_inject_common(ng_command_ctx_t *ctx, sdp_ng_flags *flags
 	if (*src_ml == *dst_ml)
 		return "Trying to inject to self";
 
+	flags->directional = true;
+	flags->bidirectional = false;
+
 	return NULL;
 }
 
@@ -2515,7 +2518,7 @@ const char *call_inject_start_ng(ng_command_ctx_t *ctx) {
 	if (ret)
 		return ret;
 
-	if (!monologue_inject_start(src_ml, dst_ml, &flags))
+	if (!monologue_connect(src_ml, dst_ml, &flags, &(struct sink_attrs) { .inject = true }))
 		return "Failed to start inject";
 
 	call_unlock_release_update(&call);
@@ -2532,7 +2535,7 @@ const char *call_inject_stop_ng(ng_command_ctx_t *ctx) {
 	if (ret)
 		return ret;
 
-	if (!monologue_inject_stop(src_ml, dst_ml, &flags))
+	if (!monologue_unsubscribe(dst_ml, src_ml, &flags))
 		return "Failed to stop inject";
 
 	call_unlock_release_update(&call);
