@@ -435,8 +435,10 @@ sub playback_file {
 }
 
 
+# $outside plays the same file once more without the injection, 'before' or 'after' it
 sub exercise_playback {
-	my ($ending) = @_;
+	my ($ending, $outside) = @_;
+	$outside //= '';
 	my ($destination, $source_socket) = new_call(
 		['198.51.100.14', 6010], ['198.51.100.14', 6012]);
 	my @receivers = ({ socket => $destination, label => 'destination' }, { socket => $source_socket, label => 'source' });
@@ -451,21 +453,31 @@ sub exercise_playback {
 	my $sender = start_sender([{ socket => $source_socket, port => $port, label => 'source',
 		sequence => 1000, timestamp => 8000, ssrc => 0x12345678, payload => "\xcf" }]);
 	my %injection = ('call-id' => $call, 'to-tag' => $tag, 'source-tag' => $source_tag);
+	my %destination = ('call-id' => $call, 'from-tag' => $tag);
+	my %playback = (%destination, file => playback_file(4));
 	my $ok = eval {
+		if ($outside eq 'before') {
+			rtpe_req('play media', 'playback before injection', \%playback);
+			check_audio('playback before injection', \@receivers, ["\xdf", undef]);
+			rtpe_req('stop media', 'stop playback before injection', \%destination);
+		}
 		rtpe_req('inject start', 'start sole injection', \%injection);
 		check_audio('injected source before playback', \@receivers, ["\xcf", undef], { duration => 1.2 });
-		my $play = rtpe_req('play media', 'independent playback', {
-			'call-id' => $call, 'from-tag' => $tag, file => playback_file(4),
-		});
+		my $play = rtpe_req('play media', 'independent playback', \%playback);
 		is $play->{duration}, 4000, 'playback outlasts inject stop observation';
 		check_audio('playback plus injection', \@receivers, ["\xc9", undef], { duration => 1.2 });
 		rtpe_req('inject stop', 'stop sole injection', \%injection);
 		check_audio('independent playback after inject stop', \@receivers, ["\xdf", undef], { duration => 1.2 });
 		if ($ending eq 'stop') {
-			rtpe_req('stop media', 'stop independent playback', { 'call-id' => $call, 'from-tag' => $tag });
+			rtpe_req('stop media', 'stop independent playback', \%destination);
 		}
 		drain_audio(\@receivers, $ending eq 'stop' ? 0.3 : 2.0);
 		check_audio('player removed after playback ends', \@receivers, [undef, undef]);
+		if ($outside eq 'after') {
+			rtpe_req('play media', 'playback after injection', \%playback);
+			check_audio('playback after injection', \@receivers, ["\xdf", undef]);
+			rtpe_req('stop media', 'stop playback after injection', \%destination);
+		}
 		1;
 	};
 	my $error = $@;
@@ -675,6 +687,19 @@ NGCP::Rtpengine::AutoTest::shut_rtpe();
 start_daemon('play-media', 40);
 subtest 'standalone playback stopped after injection' => sub { exercise_playback('stop'); };
 subtest 'standalone playback ends after injection' => sub { exercise_playback('eof'); };
+NGCP::Rtpengine::AutoTest::shut_rtpe();
+
+start_daemon('play-media', 40, '--player-cache');
+subtest 'playback into the audio player with the player cache on' => sub { exercise_playback('eof'); };
+NGCP::Rtpengine::AutoTest::shut_rtpe();
+
+start_daemon('on-demand', 40, '--player-cache');
+subtest 'a file first played into an injection is cached by its next playback' => sub {
+	exercise_playback('stop', 'after');
+};
+subtest 'a cached file is played into an injection through the audio player' => sub {
+	exercise_playback('stop', 'before');
+};
 NGCP::Rtpengine::AutoTest::shut_rtpe();
 
 start_daemon('on-demand');
