@@ -220,7 +220,7 @@ int homer_send(GString *s, const str *id, const endpoint_t *src,
 	if (!s->len) // empty write, shouldn't happen
 		goto out;
 
-	ilog(LOG_DEBUG, "JSON to send to Homer: '"STR_FORMAT"'", G_STR_FMT(s));
+	ilog(LOG_DEBUG, "JSON to send to Homer: '" STR_FORMAT "'", G_STR_FMT(s));
 
 	if (send_hepv3(s, id, main_homer_sender->capture_id, src, dst, tv, hep_capture_proto))
 		goto out;
@@ -231,7 +231,8 @@ int homer_send(GString *s, const str *id, const endpoint_t *src,
 		s = NULL;
 	}
 	else
-		ilog(LOG_ERR, "Send queue length limit (%i) reached, dropping Homer message", SEND_QUEUE_LIMIT);
+		ilog(LOG_ERR | LOG_FLAG_LIMIT,
+				"Send queue length limit (%i) reached, dropping Homer message", SEND_QUEUE_LIMIT);
 	main_homer_sender->state(main_homer_sender);
 	mutex_unlock(&main_homer_sender->lock);
 
