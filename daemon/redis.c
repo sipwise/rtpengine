@@ -1565,8 +1565,12 @@ static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 			__monologue_tag(ml, &s);
 		if (!redis_hash_get_str(&s, rh, "via-branch"))
 			__monologue_viabranch(ml, &s);
-		if (!redis_hash_get_str(&s, rh, "label"))
+		if (!redis_hash_get_str(&s, rh, "label")) {
 			ml->label = call_str_cpy(&s);
+			// index it as offer/answer does, or commands addressed by
+			// label fail on the restored call
+			t_hash_table_replace(c->labels, &ml->label, ml);
+		}
 		if (!redis_hash_get_str(&s, rh, "metadata"))
 			ml->metadata = call_str_cpy(&s);
 		redis_hash_get_time_t(&ml->deleted_us, rh, "deleted");
