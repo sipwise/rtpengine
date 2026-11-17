@@ -8,7 +8,20 @@ labels: ["bug"]
 body:
   - type: markdown
     attributes:
-      value: Thanks for taking the time to fill out this bug report!
+      value: |
+        ## Thanks for taking the time to fill out this bug report!
+
+        **Please do not** post an AI/LLM-generated summary or analysis of a bug
+        (or behaviour that you think is a bug) you've encountered. They tend to
+        lack the critical information required to actually debug the issue, and
+        tend to clutter the bug report with too much irrelevant information.
+
+        **Please do** provide all raw information and details relevant to the
+        issue you've encountered, including full raw debug logs, complete SDPs,
+        complete signalling messages, and raw packet traces (tcpdump,
+        Wireshark, etc).
+
+        AI/LLM-generated bug reports may be closed without comment.
 
   - type: input
     id: version
@@ -39,7 +52,6 @@ body:
       placeholder: 6.1.0-13-amd64
     validations:
       required: false
-
 
   - type: dropdown
     id: architecture
