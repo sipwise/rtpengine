@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include "types.h"
+#include "resample.h"
 
 /*
  * Similar to the existing media_player, but instead of simply producing
@@ -30,7 +31,7 @@ void audio_player_stop(struct call_media *);
 bool audio_player_is_active(struct call_media *);
 bool audio_player_pt_match(struct call_media *, const rtp_payload_type *);
 
-void audio_player_add_frame(struct audio_player *, uint32_t ssrc, AVFrame *);
+void audio_player_add_frame(struct audio_player *, uint32_t ssrc, AVFrame *, resample_t *);
 
 #else
 
