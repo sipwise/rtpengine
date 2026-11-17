@@ -26,6 +26,7 @@
 #include "bufferpool.h"
 #include "uring.h"
 #include "arena.h"
+#include "audio_player.h"
 
 #define DEFAULT_AVIO_BUFSIZE 4096
 
@@ -727,6 +728,9 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 		return false;
 	if (!dst_pt)
 		return false;
+	// cached packets would go out past the audio player: decode into it instead
+	if (audio_player_is_active(mp->media))
+		return false;
 
 	obj_release(mp->cache_entry);
 
@@ -1256,6 +1260,7 @@ static bool media_player_play_start(struct media_player *mp, const rtp_payload_t
 	if (media_player_cache_entry_init(mp, dst_pt, codec_set))
 		return true;
 
+	mp->run_func = media_player_read_packet; // an earlier playback may have read from the cache
 	mp->next_run = rtpe_now;
 	// give ourselves a bit of a head start with decoding
 	mp->next_run -= 50000;
