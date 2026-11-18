@@ -4574,7 +4574,7 @@ bool call_ml_sendonly_inactive(struct call_monologue *ml) {
 
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
-int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_flags *flags) {
+bool monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_flags *flags) {
 	__call_monologue_init_from_flags(ml, NULL, flags);
 
 	if (flags->exclude_recording)
@@ -4603,7 +4603,7 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		codec_store_populate(&media->codecs, &sp->codecs,
 				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 		if (codec_store_accept_one(&media->codecs, &flags->codec_accept, !!flags->accept_any))
-			return -1;
+			return false;
 
 		// we can definitely receive if needed
 		bf_copy(&media->media_flags, MEDIA_FLAG_RECV, &sp->sp_flags, SP_FLAG_SEND);
@@ -4622,7 +4622,7 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		__init_interface(media, &flags->interface, num_ports);
 
 		if (media->logical_intf == NULL)
-			return -1; // XXX return error code
+			return false;
 
 		ice_accept(flags, media, sp);
 
@@ -4664,11 +4664,11 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 
 	monologue_media_start(ml);
 
-	return 0;
+	return true;
 
 error_ports:
 	ilog(LOG_ERR, "Error allocating media ports");
-	return -1;
+	return false;
 }
 
 /* called with call->master_lock held in W */

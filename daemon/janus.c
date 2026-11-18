@@ -868,14 +868,14 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 		flags.accept_any = 1;
 		flags.replace_origin_full = 1;
 
-		int ret = monologue_publish(ml, &streams, &flags);
-		if (ret)
+		bool ok = monologue_publish(ml, &streams, &flags);
+		if (!ok)
 			return "Publish error";
 
 		// XXX check there's only one audio and one video stream?
 
 		g_auto(str) sdp_out = STR_NULL;
-		bool ok = sdp_create(&sdp_out, ml, &flags);
+		ok = sdp_create(&sdp_out, ml, &flags);
 		if (!ok)
 			return "Publish error";
 

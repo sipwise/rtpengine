@@ -932,13 +932,17 @@ __attribute__((nonnull(1)))
 call_q calls_get(const str_q *);
 __attribute__((nonnull(1)))
 call_t *calls_merge(call_q *);
+
+
 __attribute__((nonnull(2, 3)))
 int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *streams, sdp_ng_flags *flags);
 __attribute__((nonnull(1, 2, 3, 4)))
 void codecs_offer_answer(struct call_media *media, struct call_media *other_media,
 		struct stream_params *sp, sdp_ng_flags *flags);
+
 __attribute__((nonnull(1, 2, 3)))
-int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_flags *flags);
+bool monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_flags *flags);
+
 __attribute__((nonnull(1, 2, 3)))
 int monologue_subscribe_request(const medias_q *medias, struct call_monologue *dst, sdp_ng_flags *flags);
 __attribute__((nonnull(1, 2, 3)))

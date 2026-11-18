@@ -2195,7 +2195,6 @@ const char *call_publish_ng(ng_command_ctx_t *ctx, const char *addr) {
 	str sdp_in = STR_NULL;
 	g_auto(str) sdp_out = STR_NULL;
 	g_autoptr(call_t) call = NULL;
-	int ret;
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
 	struct recording *recording = NULL;
 	char rand_call_id[65];
@@ -2228,8 +2227,8 @@ const char *call_publish_ng(ng_command_ctx_t *ctx, const char *addr) {
 	updated_created_from(call, addr);
 	struct call_monologue *ml = call_get_or_create_monologue(call, &flags.call_id, &flags.from_tag);
 
-	ret = monologue_publish(ml, &streams, &flags);
-	if (ret)
+	bool ok = monologue_publish(ml, &streams, &flags);
+	if (!ok)
 		ilog(LOG_ERR, "Publish error"); // XXX close call? handle errors?
 
 	update_metadata_monologue(ml, &flags);
@@ -2238,7 +2237,7 @@ const char *call_publish_ng(ng_command_ctx_t *ctx, const char *addr) {
 	recording = call->recording;
 
 	meta_write_sdp_before(recording, &sdp_in, ml, flags.opmode);
-	bool ok = sdp_create(&sdp_out, ml, &flags);
+	ok = sdp_create(&sdp_out, ml, &flags);
 	if (!ok)
 		return "Failed to create SDP";
 
