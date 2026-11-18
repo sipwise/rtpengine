@@ -2453,8 +2453,8 @@ const char *call_unsubscribe_ng(ng_command_ctx_t *ctx) {
 			return "From-tag not found";
 	}
 
-	int ret = monologue_unsubscribe(dest_ml, src_ml, &flags);
-	if (ret)
+	bool ok = monologue_unsubscribe(dest_ml, src_ml, &flags);
+	if (!ok)
 		return "Failed to unsubscribe";
 
 	call_unlock_release_update(&call);

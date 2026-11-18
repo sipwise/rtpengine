@@ -949,8 +949,9 @@ bool monologue_subscribe_request(const medias_q *medias, struct call_monologue *
 __attribute__((nonnull(1, 2, 3)))
 bool monologue_subscribe_answer(struct call_monologue *dst, sdp_ng_flags *flags,
 		sdp_streams_q *streams);
+
 __attribute__((nonnull(1, 3)))
-int monologue_unsubscribe(struct call_monologue *dst, struct call_monologue *src, sdp_ng_flags *);
+bool monologue_unsubscribe(struct call_monologue *dst, struct call_monologue *src, sdp_ng_flags *);
 int monologue_inject_start(struct call_monologue *src, struct call_monologue *dst,
 		sdp_ng_flags *flags);
 int monologue_inject_stop(struct call_monologue *src, struct call_monologue *dst,
