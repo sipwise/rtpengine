@@ -302,9 +302,9 @@ static int cert_init(void) {
 	if (!BN_to_ASN1_INTEGER(serial_number, asn1_serial_number))
 		goto err;
 
-	/* version 1 */
+	/* version 3 */
 
-	if (!X509_set_version(x509, 0L))
+	if (!X509_set_version(x509, 2L))
 		goto err;
 
 	/* common name */
