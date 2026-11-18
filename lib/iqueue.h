@@ -176,7 +176,7 @@
 
 
 #define i_queue_find(list, fn) ({ \
-	 __typeof ((list)->head) __ret = NULL; \
+	 __typeof ((list)->head + 0) __ret = NULL; \
 	 bool (*__fn)(__typeof ((list)->const_ele)) = (fn); \
 	 IQUEUE_FOREACH(list, __ele) { \
 	 	if (__fn(__ele)) { \
@@ -184,7 +184,7 @@
 			break; \
 		} \
 	} \
-	__ret; \
+	(__typeof ((list)->head)) __ret; \
 })
 
 
