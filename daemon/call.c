@@ -5130,6 +5130,72 @@ bool monologue_inject_stop(struct call_monologue *src_ml, struct call_monologue 
 }
 
 
+__attribute__((nonnull(1, 2, 5, 6, 7)))
+static bool subscriber_connect1(struct call_media *src_media, struct call_monologue *dst_ml,
+		bool directional, bool bidirectional, medias_q *upd_src_medias, medias_q *upd_dst_medias, medias_q *unconf_medias)
+{
+	// avoid connect to self XXX allow in some cases?
+	if (src_media->monologue == dst_ml)
+		return false;
+
+	struct call_media *dst_media = NULL;
+
+	// try a=mid first if there is one
+	if (src_media->media_id.len) {
+		dst_media = t_hash_table_lookup(dst_ml->media_ids, &src_media->media_id);
+		// type must still match
+		if (dst_media && str_cmp_str(&dst_media->type, &src_media->type))
+			dst_media = NULL;
+	}
+
+	// otherwise try by index
+	if (!dst_media) {
+		for (unsigned int j = 0; j < dst_ml->medias->len; j++) {
+			unsigned int dx = (j + src_media->index - 1) % dst_ml->medias->len;
+			dst_media = dst_ml->medias->pdata[dx];
+			if (!dst_media)
+				continue;
+			// XXX avoid duplicate dst_media from same src_ml?
+			// if type matches, we can connect
+			if (!str_cmp_str(&dst_media->type, &src_media->type))
+				break;
+			dst_media = NULL;
+		}
+	}
+
+	// anything found?
+	if (!dst_media) {
+		ilog(LOG_WARN, "Unable to find usable media (type '" STR_FORMAT "') to connect call",
+				STR_FMT(&src_media->type));
+		return false;
+	}
+
+	__media_unconfirm(src_media, "connect");
+	__media_unconfirm(dst_media, "connect");
+
+	if (!directional)
+		__subscribe_medias_both_ways(src_media, dst_media, false, unconf_medias);
+	else {
+		__auto_type ms = call_get_media_subscription(dst_media->media_subscriptions_ht,
+				src_media);
+		if (!ms)
+			add_media_subscription(dst_media, src_media, &(struct sink_attrs) { });
+
+		if (bidirectional) {
+			ms = call_get_media_subscription(src_media->media_subscriptions_ht,
+					dst_media);
+			if (!ms)
+				add_media_subscription(src_media, dst_media, &(struct sink_attrs) { });
+		}
+	}
+
+	t_queue_push_tail(upd_src_medias, src_media);
+	t_queue_push_tail(upd_dst_medias, dst_media);
+
+	return true;
+}
+
+
 bool subscriber_connect(const medias_q *src_medias, struct call_monologue *dst_ml,
 		bool directional, bool bidirectional, medias_q *upd_src_medias, medias_q *upd_dst_medias, medias_q *unconf_medias)
 {
@@ -5137,67 +5203,8 @@ bool subscriber_connect(const medias_q *src_medias, struct call_monologue *dst_m
 
 	// for each source media, find a usable destination media
 	for (auto_iter(l, src_medias->head); l; l = l->next) {
-		__auto_type src_media = l->data;
-
-		// avoid connect to self XXX allow in some cases?
-		if (src_media->monologue == dst_ml)
-			continue;
-
-		struct call_media *dst_media = NULL;
-
-		// try a=mid first if there is one
-		if (src_media->media_id.len) {
-			dst_media = t_hash_table_lookup(dst_ml->media_ids, &src_media->media_id);
-			// type must still match
-			if (dst_media && str_cmp_str(&dst_media->type, &src_media->type))
-				dst_media = NULL;
-		}
-
-		// otherwise try by index
-		if (!dst_media) {
-			for (unsigned int j = 0; j < dst_ml->medias->len; j++) {
-				unsigned int dx = (j + src_media->index - 1) % dst_ml->medias->len;
-				dst_media = dst_ml->medias->pdata[dx];
-				if (!dst_media)
-					continue;
-				// XXX avoid duplicate dst_media from same src_ml?
-				// if type matches, we can connect
-				if (!str_cmp_str(&dst_media->type, &src_media->type))
-					break;
-				dst_media = NULL;
-			}
-		}
-
-		// anything found?
-		if (!dst_media) {
-			ilog(LOG_WARN, "Unable to find usable media (type '" STR_FORMAT "') to connect call",
-					STR_FMT(&src_media->type));
-			continue;
-		}
-
-		__media_unconfirm(src_media, "connect");
-		__media_unconfirm(dst_media, "connect");
-
-		if (!directional)
-			__subscribe_medias_both_ways(src_media, dst_media, false, unconf_medias);
-		else {
-			__auto_type ms = call_get_media_subscription(dst_media->media_subscriptions_ht,
-					src_media);
-			if (!ms)
-				add_media_subscription(dst_media, src_media, &(struct sink_attrs) { });
-
-			if (bidirectional) {
-				ms = call_get_media_subscription(src_media->media_subscriptions_ht,
-						dst_media);
-				if (!ms)
-					add_media_subscription(src_media, dst_media, &(struct sink_attrs) { });
-			}
-		}
-
-		t_queue_push_tail(upd_src_medias, src_media);
-		t_queue_push_tail(upd_dst_medias, dst_media);
-
-		ok = true;
+		if (subscriber_connect1(l->data, dst_ml, directional, bidirectional, upd_src_medias, upd_dst_medias, unconf_medias))
+			ok = true;
 	}
 
 	return ok;
