@@ -2415,8 +2415,8 @@ const char *call_subscribe_answer_ng(ng_command_ctx_t *ctx) {
 	if (!dest_ml)
 		return "To-tag not found";
 
-	int ret = monologue_subscribe_answer(dest_ml, &flags, &streams);
-	if (ret)
+	bool ok = monologue_subscribe_answer(dest_ml, &flags, &streams);
+	if (!ok)
 		return "Failed to process subscription answer";
 
 	call_unlock_release_update(&call);

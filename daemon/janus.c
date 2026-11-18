@@ -995,8 +995,8 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 	if (!dest_ml)
 		return "Subscriber not found";
 
-	int ret = monologue_subscribe_answer(dest_ml, &flags, &streams);
-	if (ret)
+	bool ok = monologue_subscribe_answer(dest_ml, &flags, &streams);
+	if (!ok)
 		return "Failed to process subscription answer";
 
 	*successp = "event";

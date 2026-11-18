@@ -4818,7 +4818,7 @@ bool monologue_subscribe_request(const medias_q *medias, struct call_monologue *
 
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
-int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flags, sdp_streams_q *streams) {
+bool monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flags, sdp_streams_q *streams) {
 	struct media_subscription *rev_ms = NULL;
 	g_auto(str_ht) mid_tracker = str_ht_new();
 
@@ -4865,7 +4865,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 					.answer_cs = &src_media->codecs,
 					.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 			if (!codec_store_is_full_answer(&src_media->codecs, &dst_media->codecs))
-				return -1;
+				return false;
 		}
 
 		codec_handlers_update(src_media, dst_media, .flags = flags,
@@ -4880,7 +4880,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 		__dtls_logic(flags, dst_media, sp);
 
 		if (!__init_streams(dst_media, sp, flags))
-			return -1;
+			return false;
 
 		MEDIA_CLEAR(dst_media, RECV);
 		bf_copy(&dst_media->media_flags, MEDIA_FLAG_SEND, &sp->sp_flags, SP_FLAG_RECV);
@@ -4907,7 +4907,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 
 	monologue_media_start(dst_ml);
 
-	return 0;
+	return true;
 }
 
 /* called with call->master_lock held in W */
