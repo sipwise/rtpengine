@@ -5025,7 +5025,7 @@ static void inject_set_subscription_attrs(struct media_subscription *ms) {
 
 
 /* called with call->master_lock held in W */
-int monologue_inject_start(struct call_monologue *src_ml, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
+bool monologue_inject_start(struct call_monologue *src_ml, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
 	bool has_candidates = false;
 	bool linked = false;
 
@@ -5046,12 +5046,12 @@ int monologue_inject_start(struct call_monologue *src_ml, struct call_monologue 
 			ilog(LOG_WARN, "Inject failed for destination tag '" STR_FORMAT_M "': "
 					"media pair %d <- %d already has non-inject subscription",
 					STR_FMT_M(&dst_ml->tag), dst_media->index, src_media->index);
-			return -1;
+			return false;
 		}
 	}
 
 	if (!has_candidates)
-		return -1;
+		return false;
 
 	for (unsigned int i = 0; i < src_ml->medias->len; i++) {
 		struct call_media *src_media = src_ml->medias->pdata[i];
@@ -5077,7 +5077,7 @@ int monologue_inject_start(struct call_monologue *src_ml, struct call_monologue 
 	}
 
 	if (!linked)
-		return -1;
+		return false;
 
 	for (unsigned int i = 0; i < dst_ml->medias->len; i++) {
 		struct call_media *dst_media = dst_ml->medias->pdata[i];
@@ -5090,11 +5090,11 @@ int monologue_inject_start(struct call_monologue *src_ml, struct call_monologue 
 	}
 
 	update_init_monologue_subscribers(dst_ml, flags->opmode);
-	return 0;
+	return true;
 }
 
 /* called with call->master_lock held in W */
-int monologue_inject_stop(struct call_monologue *src_ml, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
+bool monologue_inject_stop(struct call_monologue *src_ml, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
 	bool removed_any = false;
 
 	for (unsigned int i = 0; i < dst_ml->medias->len; i++) {
@@ -5118,9 +5118,9 @@ int monologue_inject_stop(struct call_monologue *src_ml, struct call_monologue *
 	}
 
 	if (!removed_any)
-		return -1;
+		return false;
 
-	return 0;
+	return true;
 }
 
 

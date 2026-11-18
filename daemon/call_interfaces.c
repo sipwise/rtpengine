@@ -2501,10 +2501,10 @@ static const char *call_inject_ng(ng_command_ctx_t *ctx, bool start) {
 	if (src_ml == dst_ml)
 		return "Trying to inject to self";
 
-	int ret = start
+	bool ok = start
 		? monologue_inject_start(src_ml, dst_ml, &flags)
 		: monologue_inject_stop(src_ml, dst_ml, &flags);
-	if (ret)
+	if (!ok)
 		return start ? "Failed to start inject" : "Failed to stop inject";
 
 	call_unlock_release_update(&call);
