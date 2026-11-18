@@ -2767,7 +2767,7 @@ const char *call_mesh_ng(ng_command_ctx_t *ctx) {
 				return "Given to-tag not found";
 
 			subscriber_connect(&medias, to_ml, &flags, true, &upd_src_medias,
-			&upd_dst_medias, &unconf_medias);
+				&upd_dst_medias, &unconf_medias);
 		}
 	}
 

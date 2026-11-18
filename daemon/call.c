@@ -5130,9 +5130,11 @@ bool monologue_inject_stop(struct call_monologue *src_ml, struct call_monologue 
 }
 
 
-void subscriber_connect(const medias_q *src_medias, struct call_monologue *dst_ml, sdp_ng_flags *flags,
+bool subscriber_connect(const medias_q *src_medias, struct call_monologue *dst_ml, sdp_ng_flags *flags,
 		bool directional, medias_q *upd_src_medias, medias_q *upd_dst_medias, medias_q *unconf_medias)
 {
+	bool ok = false;
+
 	// for each source media, find a usable destination media
 	for (auto_iter(l, src_medias->head); l; l = l->next) {
 		__auto_type src_media = l->data;
@@ -5194,7 +5196,11 @@ void subscriber_connect(const medias_q *src_medias, struct call_monologue *dst_m
 
 		t_queue_push_tail(upd_src_medias, src_media);
 		t_queue_push_tail(upd_dst_medias, dst_media);
+
+		ok = true;
 	}
+
+	return ok;
 }
 
 
@@ -5223,15 +5229,17 @@ void subscriber_connect_finish(medias_q *upd_src_medias, medias_q *upd_dst_media
 }
 
 
-void dialogue_connect(const medias_q *src_medias, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
+bool dialogue_connect(const medias_q *src_medias, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
 	g_auto(medias_q) upd_src_medias = TYPED_GQUEUE_INIT;
 	g_auto(medias_q) upd_dst_medias = TYPED_GQUEUE_INIT;
 	g_auto(medias_q) unconf_medias = TYPED_GQUEUE_INIT;
 
-	subscriber_connect(src_medias, dst_ml, flags, flags->directional, &upd_src_medias,
+	bool ok = subscriber_connect(src_medias, dst_ml, flags, flags->directional, &upd_src_medias,
 			&upd_dst_medias, &unconf_medias);
 
 	subscriber_connect_finish(&upd_src_medias, &upd_dst_medias, &unconf_medias, flags);
+
+	return ok;
 }
 
 
