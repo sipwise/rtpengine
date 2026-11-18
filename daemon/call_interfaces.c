@@ -2540,7 +2540,7 @@ const char *call_connect_ng(ng_command_ctx_t *ctx) {
 	if (!dest_ml)
 		return "To-tag not found";
 
-	dialogue_connect(&medias, dest_ml, &flags);
+	dialogue_connect(&medias, dest_ml, &flags, &(struct sink_attrs) { });
 
 	call_unlock_release_update(&call);
 
@@ -2767,7 +2767,7 @@ const char *call_mesh_ng(ng_command_ctx_t *ctx) {
 				return "Given to-tag not found";
 
 			subscriber_connect(&medias, to_ml, true, flags.bidirectional, &upd_src_medias,
-				&upd_dst_medias, &unconf_medias);
+				&upd_dst_medias, &unconf_medias, &(struct sink_attrs) { });
 		}
 	}
 

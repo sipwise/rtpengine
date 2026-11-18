@@ -5130,9 +5130,11 @@ bool monologue_inject_stop(struct call_monologue *src_ml, struct call_monologue 
 }
 
 
-__attribute__((nonnull(1, 2, 5, 6, 7)))
+// XXX could use a callback function instead of bools/attrs
+__attribute__((nonnull(1, 2, 5, 6, 7, 8)))
 static bool subscriber_connect1(struct call_media *src_media, struct call_monologue *dst_ml,
-		bool directional, bool bidirectional, medias_q *upd_src_medias, medias_q *upd_dst_medias, medias_q *unconf_medias)
+		bool directional, bool bidirectional, medias_q *upd_src_medias, medias_q *upd_dst_medias, medias_q *unconf_medias,
+		const struct sink_attrs *attrs)
 {
 	// avoid connect to self XXX allow in some cases?
 	if (src_media->monologue == dst_ml)
@@ -5179,13 +5181,13 @@ static bool subscriber_connect1(struct call_media *src_media, struct call_monolo
 		__auto_type ms = call_get_media_subscription(dst_media->media_subscriptions_ht,
 				src_media);
 		if (!ms)
-			add_media_subscription(dst_media, src_media, &(struct sink_attrs) { });
+			add_media_subscription(dst_media, src_media, attrs);
 
 		if (bidirectional) {
 			ms = call_get_media_subscription(src_media->media_subscriptions_ht,
 					dst_media);
 			if (!ms)
-				add_media_subscription(src_media, dst_media, &(struct sink_attrs) { });
+				add_media_subscription(src_media, dst_media, attrs);
 		}
 	}
 
@@ -5197,13 +5199,15 @@ static bool subscriber_connect1(struct call_media *src_media, struct call_monolo
 
 
 bool subscriber_connect(const medias_q *src_medias, struct call_monologue *dst_ml,
-		bool directional, bool bidirectional, medias_q *upd_src_medias, medias_q *upd_dst_medias, medias_q *unconf_medias)
+		bool directional, bool bidirectional, medias_q *upd_src_medias, medias_q *upd_dst_medias, medias_q *unconf_medias,
+		const struct sink_attrs *attrs)
 {
 	bool ok = false;
 
 	// for each source media, find a usable destination media
 	for (auto_iter(l, src_medias->head); l; l = l->next) {
-		if (subscriber_connect1(l->data, dst_ml, directional, bidirectional, upd_src_medias, upd_dst_medias, unconf_medias))
+		if (subscriber_connect1(l->data, dst_ml, directional, bidirectional, upd_src_medias, upd_dst_medias, unconf_medias,
+					attrs))
 			ok = true;
 	}
 
@@ -5236,13 +5240,13 @@ void subscriber_connect_finish(medias_q *upd_src_medias, medias_q *upd_dst_media
 }
 
 
-bool dialogue_connect(const medias_q *src_medias, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
+bool dialogue_connect(const medias_q *src_medias, struct call_monologue *dst_ml, sdp_ng_flags *flags, const struct sink_attrs *attrs) {
 	g_auto(medias_q) upd_src_medias = TYPED_GQUEUE_INIT;
 	g_auto(medias_q) upd_dst_medias = TYPED_GQUEUE_INIT;
 	g_auto(medias_q) unconf_medias = TYPED_GQUEUE_INIT;
 
 	bool ok = subscriber_connect(src_medias, dst_ml, flags->directional, flags->bidirectional, &upd_src_medias,
-			&upd_dst_medias, &unconf_medias);
+			&upd_dst_medias, &unconf_medias, attrs);
 
 	subscriber_connect_finish(&upd_src_medias, &upd_dst_medias, &unconf_medias, flags);
 

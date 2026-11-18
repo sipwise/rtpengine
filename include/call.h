@@ -961,13 +961,15 @@ __attribute__((nonnull(1, 2, 3)))
 bool monologue_inject_stop(struct call_monologue *src, struct call_monologue *dst,
 		sdp_ng_flags *flags);
 
-__attribute__((nonnull(1, 2, 3)))
-bool dialogue_connect(const medias_q *, struct call_monologue *, sdp_ng_flags *);
+__attribute__((nonnull(1, 2, 3, 4)))
+bool dialogue_connect(const medias_q *, struct call_monologue *, sdp_ng_flags *,
+		const struct sink_attrs *);
 
-__attribute__((nonnull(1, 2, 5, 6, 7)))
+__attribute__((nonnull(1, 2, 5, 6, 7, 8)))
 bool subscriber_connect(const medias_q *src_medias, struct call_monologue *dst_ml,
 		bool directional, bool bidirectional,
-		medias_q *upd_src_medias, medias_q *upd_dst_medias, medias_q *unconf_medias);
+		medias_q *upd_src_medias, medias_q *upd_dst_medias, medias_q *unconf_medias,
+		const struct sink_attrs *);
 
 __attribute__((nonnull(1, 2, 3, 4)))
 void subscriber_connect_finish(medias_q *upd_src_medias, medias_q *upd_dst_medias, medias_q *unconf_medias,
