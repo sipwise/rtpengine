@@ -2297,12 +2297,12 @@ const char *call_subscribe_request_ng(ng_command_ctx_t *ctx) {
 
 	struct call_monologue *dest_ml = call_get_or_create_monologue(call, &flags.call_id, &flags.to_tag);
 
-	int ret = monologue_subscribe_request(&mq, dest_ml, &flags);
-	if (ret)
+	bool ok = monologue_subscribe_request(&mq, dest_ml, &flags);
+	if (!ok)
 		return "Failed to request subscription";
 
 	/* create new SDP */
-	bool ok = sdp_create(&sdp_out, dest_ml, &flags);
+	ok = sdp_create(&sdp_out, dest_ml, &flags);
 	if (!ok)
 		return "Failed to create SDP";
 

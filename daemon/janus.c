@@ -640,12 +640,12 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 			flags.rtcp_mux_demux = 1;
 		}
 
-		int ret = monologue_subscribe_request(&medias, dest_ml, &flags);
-		if (ret)
+		bool ok = monologue_subscribe_request(&medias, dest_ml, &flags);
+		if (!ok)
 			return "Subscribe error";
 
 		/* create SDP */
-		bool ok = sdp_create(jsep_sdp_out, dest_ml, &flags);
+		ok = sdp_create(jsep_sdp_out, dest_ml, &flags);
 
 		if (!dest_ml->janus_session)
 			dest_ml->janus_session = obj_get(session);

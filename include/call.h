@@ -944,7 +944,8 @@ __attribute__((nonnull(1, 2, 3)))
 bool monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_flags *flags);
 
 __attribute__((nonnull(1, 2, 3)))
-int monologue_subscribe_request(const medias_q *medias, struct call_monologue *dst, sdp_ng_flags *flags);
+bool monologue_subscribe_request(const medias_q *medias, struct call_monologue *dst, sdp_ng_flags *flags);
+
 __attribute__((nonnull(1, 2, 3)))
 int monologue_subscribe_answer(struct call_monologue *dst, sdp_ng_flags *flags,
 		sdp_streams_q *streams);

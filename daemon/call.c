@@ -4673,7 +4673,7 @@ error_ports:
 
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
-static int monologue_subscribe_request1(struct call_media *src_media, struct call_monologue *dst_ml,
+static bool monologue_subscribe_request1(struct call_media *src_media, struct call_monologue *dst_ml,
 		sdp_ng_flags *flags, subscription_store_ht ht)
 {
 	unsigned int idx_diff = 0, rev_idx_diff = 0;
@@ -4770,32 +4770,32 @@ static int monologue_subscribe_request1(struct call_media *src_media, struct cal
 	// interface selection
 	__init_interface(dst_media, &flags->interface, num_ports);
 	if (dst_media->logical_intf == NULL)
-		return -1; // XXX return error code
+		return false;
 
 	ice_set_options(flags, dst_media, MEDIA_ISSET(src_media, ICE));
 
 	struct endpoint_map *em = __get_endpoint_map(dst_media, num_ports, NULL, flags, true);
 	if (!em)
-		return -1; // XXX error - no ports
+		return false;
 
 	__num_media_streams(dst_media, num_ports);
 
 	if (!__init_streams(dst_media, NULL, flags))
-		return -1;
+		return false;
 
 	update_init_subscribers(src_media, NULL, NULL, flags->opmode);
 
 	if (!monologue_open_ports(dst_ml)) {
 		ilog(LOG_ERR, "Error allocating media ports");
-		return -1;
+		return false;
 	}
 
-	return 0;
+	return true;
 }
 
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
-int monologue_subscribe_request(const medias_q *medias, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
+bool monologue_subscribe_request(const medias_q *medias, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
 	g_auto(subscription_store_ht) ht = subscription_store_ht_new();
 
 	__unsubscribe_monologue_from_all(dst_ml, ht);
@@ -4806,14 +4806,14 @@ int monologue_subscribe_request(const medias_q *medias, struct call_monologue *d
 		if (!src_media)
 			continue;
 
-		int ret = monologue_subscribe_request1(src_media, dst_ml, flags, ht);
-		if (ret)
-			return -1;
+		bool ret = monologue_subscribe_request1(src_media, dst_ml, flags, ht);
+		if (!ret)
+			return false;
 	}
 
 	monologue_media_start(dst_ml);
 
-	return 0;
+	return true;
 }
 
 /* called with call->master_lock held in W */
