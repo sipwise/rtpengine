@@ -5130,8 +5130,8 @@ bool monologue_inject_stop(struct call_monologue *src_ml, struct call_monologue 
 }
 
 
-bool subscriber_connect(const medias_q *src_medias, struct call_monologue *dst_ml, sdp_ng_flags *flags,
-		bool directional, medias_q *upd_src_medias, medias_q *upd_dst_medias, medias_q *unconf_medias)
+bool subscriber_connect(const medias_q *src_medias, struct call_monologue *dst_ml,
+		bool directional, bool bidirectional, medias_q *upd_src_medias, medias_q *upd_dst_medias, medias_q *unconf_medias)
 {
 	bool ok = false;
 
@@ -5186,7 +5186,7 @@ bool subscriber_connect(const medias_q *src_medias, struct call_monologue *dst_m
 			if (!ms)
 				add_media_subscription(dst_media, src_media, &(struct sink_attrs) { });
 
-			if (flags->bidirectional) {
+			if (bidirectional) {
 				ms = call_get_media_subscription(src_media->media_subscriptions_ht,
 						dst_media);
 				if (!ms)
@@ -5234,7 +5234,7 @@ bool dialogue_connect(const medias_q *src_medias, struct call_monologue *dst_ml,
 	g_auto(medias_q) upd_dst_medias = TYPED_GQUEUE_INIT;
 	g_auto(medias_q) unconf_medias = TYPED_GQUEUE_INIT;
 
-	bool ok = subscriber_connect(src_medias, dst_ml, flags, flags->directional, &upd_src_medias,
+	bool ok = subscriber_connect(src_medias, dst_ml, flags->directional, flags->bidirectional, &upd_src_medias,
 			&upd_dst_medias, &unconf_medias);
 
 	subscriber_connect_finish(&upd_src_medias, &upd_dst_medias, &unconf_medias, flags);

@@ -964,9 +964,10 @@ bool monologue_inject_stop(struct call_monologue *src, struct call_monologue *ds
 __attribute__((nonnull(1, 2, 3)))
 bool dialogue_connect(const medias_q *, struct call_monologue *, sdp_ng_flags *);
 
-__attribute__((nonnull(1, 2, 3, 5, 6, 7)))
-bool subscriber_connect(const medias_q *src_medias, struct call_monologue *dst_ml, sdp_ng_flags *flags,
-		bool directional, medias_q *upd_src_medias, medias_q *upd_dst_medias, medias_q *unconf_medias);
+__attribute__((nonnull(1, 2, 5, 6, 7)))
+bool subscriber_connect(const medias_q *src_medias, struct call_monologue *dst_ml,
+		bool directional, bool bidirectional,
+		medias_q *upd_src_medias, medias_q *upd_dst_medias, medias_q *unconf_medias);
 
 __attribute__((nonnull(1, 2, 3, 4)))
 void subscriber_connect_finish(medias_q *upd_src_medias, medias_q *upd_dst_medias, medias_q *unconf_medias,
