@@ -343,7 +343,7 @@ static void mqtt_stream_stats(struct packet_stream *ps, JsonBuilder *json) {
 	}
 
 	json_builder_set_member_name(json, "transcoding");
-	json_builder_add_boolean_value(json, MEDIA_ISSET(ps->media, TRANSCODING) ? TRUE : FALSE);
+	json_builder_add_boolean_value(json, call_media_is_transcoding(ps->media) ? TRUE : FALSE);
 }
 
 

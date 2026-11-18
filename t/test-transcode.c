@@ -275,9 +275,7 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 		.sink = { .sink = other_media->streams.head },
 	};
 	determine_sink_handler(media->streams.head, &mp.sink);
-	// from __stream_ssrc()
-	if (!MEDIA_ISSET(media, TRANSCODING))
-		mp.ssrc_in->ssrc_map_out = ntohl(ssrc);
+	mp.ssrc_in->ssrc_map_out = ntohl(ssrc);
 	mp.ssrc_out = get_ssrc(mp.ssrc_in->ssrc_map_out, &other_media->ssrc_hash_out);
 	payload_tracker_add(&mp.ssrc_in->tracker, pt_in & 0x7f);
 

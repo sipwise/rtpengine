@@ -203,7 +203,7 @@ enum {
 #define MEDIA_FLAG_END_OF_CANDIDATES		SHARED_FLAG_END_OF_CANDIDATES
 #define MEDIA_FLAG_LEGACY_OSRTP			SHARED_FLAG_LEGACY_OSRTP
 #define MEDIA_FLAG_LEGACY_OSRTP_REV		SHARED_FLAG_LEGACY_OSRTP_REV
-#define MEDIA_FLAG_TRANSCODING			(1LL << 32)
+// unused					(1LL << 32)
 #define MEDIA_FLAG_BLOCK_EGRESS			(1LL << 33)
 /* MoH sendrecv flag handling, if set then hold is on-going */
 #define MEDIA_FLAG_FAKE_SENDRECV		(1LL << 34)
@@ -1001,6 +1001,9 @@ void call_media_state_machine(struct call_media *m);
 void call_media_unkernelize(struct call_media *media, const char *reason);
 void __monologue_unconfirm(struct call_monologue *monologue, const char *);
 void __media_unconfirm(struct call_media *media, const char *);
+
+__attribute__((nonnull(1)))
+bool call_media_is_transcoding(const struct call_media *);
 
 /* one monologue's state from before an offer, held as a call record snapshot */
 struct call_checkpoint {

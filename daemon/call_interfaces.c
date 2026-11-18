@@ -997,7 +997,8 @@ static void ng_stats_media(ng_command_ctx_t *ctx, parser_arg list, const struct 
 	BF_M("audio player", AUDIO_PLAYER);
 	BF_M("legacy OSRTP", LEGACY_OSRTP);
 	BF_M("reverse legacy OSRTP", LEGACY_OSRTP_REV);
-	BF_M("transcoding", TRANSCODING);
+	if (call_media_is_transcoding(m))
+		parser->list_add_string(flags, "transcoding");
 	BF_M("block egress", BLOCK_EGRESS);
 
 	ng_stats_ssrc(parser, ssrc, parser->dict_add_list(dict, "ingress SSRCs"), &m->ssrc_hash_in, m);

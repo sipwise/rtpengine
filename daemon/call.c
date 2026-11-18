@@ -248,7 +248,7 @@ no_sfd:
 
 		if (rtpe_config.measure_rtp)
 			ssrc_collect_metrics(media);
-		if (MEDIA_ISSET(media, TRANSCODING))
+		if (call_media_is_transcoding(media))
 			hlp->transcoded_media++;
 
 		for (__auto_type l = media->ssrc_hash_in.nq.head; l; l = l->next) {
@@ -3450,18 +3450,11 @@ unsigned int proto_num_ports(unsigned int sp_ports, struct call_media *media, co
 static bool __sub_is_transcoding(const struct media_subscription *ms) {
 	return ms->attrs.transcoding ? true : false;
 }
-/**
- * Set transcoding flag if any media flows are transcoding, otherwise unset it.
- */
-static void media_update_transcoding_flag(struct call_media *media) {
-	if (!media)
-		return;
 
-	MEDIA_CLEAR(media, TRANSCODING);
-
-	if (i_queue_find(&media->media_subscribers, __sub_is_transcoding))
-		MEDIA_SET(media, TRANSCODING);
+bool call_media_is_transcoding(const struct call_media *m) {
+	return i_queue_find(&m->media_subscribers, __sub_is_transcoding) ? true : false;
 }
+
 
 /**
  * For handling sdp media level manipulations (media sessions remove).
@@ -4163,9 +4156,6 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		update_init_subscribers(sender_media, sp, flags, flags->opmode);
 		__update_init_medias(&old_medias, flags->opmode);
 
-		media_update_transcoding_flag(receiver_media);
-		media_update_transcoding_flag(sender_media);
-
 		sdp_sp_move(&sender_media->sp, sp);
 	}
 
@@ -4216,9 +4206,6 @@ static void inject_reconfigure_destination_media(struct call_media *dst_media, c
 			.flags = &local_flags,
 			.allow_asymmetric = !!local_flags.allow_asymmetric_codecs,
 			.reset_transcoding = true);
-
-	IQUEUE_FOREACH(&dst_media->media_subscriptions, ms)
-		media_update_transcoding_flag(ms->media);
 }
 
 
@@ -4253,7 +4240,6 @@ static inline void __remove_sub_link_store(struct call_media *which, struct medi
 
 	if (inject) {
 		inject_reconfigure_destination_media(which, flags);
-		media_update_transcoding_flag(from);
 		enum ng_opmode opmode = flags ? flags->opmode : OP_OTHER;
 		update_init_subscribers(from, NULL, NULL, opmode);
 		update_init_subscribers(which, NULL, NULL, opmode);
@@ -4940,9 +4926,6 @@ bool monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *fla
 		__media_unconfirm(src_media, "subscribe answer event");
 
 		sdp_sp_move(&dst_media->sp, sp);
-
-		media_update_transcoding_flag(dst_media);
-		media_update_transcoding_flag(src_media);
 
 		codec_update_media_source_handlers(dst_media, .flags = flags);
 		codec_update_media_source_handlers(src_media);
