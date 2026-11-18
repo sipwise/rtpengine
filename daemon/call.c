@@ -3950,7 +3950,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		ML_SET(sender_ml, NO_RECORDING);
 	}
 
-	dbg_int("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&receiver_ml->tag), STR_FMT(&sender_ml->tag));
+	dbg_int("this=" STR_FORMAT " other="STR_FORMAT, STR_FMT(&receiver_ml->tag), STR_FMT(&sender_ml->tag));
 
 	if (flags->opmode == OP_OFFER)
 		ML_CLEAR(receiver_ml, FINAL_RESPONSE);
@@ -3981,7 +3981,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 			if (sender_media->logical_intf == NULL)
 				goto error_intf;
 
-			ilog(LOG_DEBUG, "Media type '"STR_FORMAT"' is to be removed by SDP manipulations.", STR_FMT(&sp->type));
+			ilog(LOG_DEBUG, "Media type '" STR_FORMAT "' is to be removed by SDP manipulations.", STR_FMT(&sp->type));
 			continue;
 		}
 
