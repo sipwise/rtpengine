@@ -4923,6 +4923,8 @@ bool monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *fla
 
 /* called with call->master_lock held in W */
 bool monologue_unsubscribe(struct call_monologue *dst_ml, struct call_monologue *src_ml, sdp_ng_flags *flags) {
+	bool ok = false;
+
 	for (unsigned int i = 0; i < dst_ml->medias->len; i++)
 	{
 		struct call_media *media = dst_ml->medias->pdata[i];
@@ -4940,6 +4942,8 @@ bool monologue_unsubscribe(struct call_monologue *dst_ml, struct call_monologue 
 			__media_unconfirm(src_media, "media unsubscribe");
 			__unsubscribe_media_link(media, ms, flags);
 			update_init_subscribers(src_media, NULL, NULL, flags->opmode);
+
+			ok = true;
 		}
 
 		if (flags->bidirectional) {
@@ -4958,6 +4962,8 @@ bool monologue_unsubscribe(struct call_monologue *dst_ml, struct call_monologue 
 				__media_unconfirm(src_media, "media unsubscribe");
 				__unsubscribe_media_link(src_media, ms->reverse, flags);
 				update_init_subscribers(src_media, NULL, NULL, flags->opmode);
+
+				ok = true;
 			}
 		}
 
@@ -4967,7 +4973,7 @@ bool monologue_unsubscribe(struct call_monologue *dst_ml, struct call_monologue 
 	if (!src_ml)
 		monologue_destroy(dst_ml);
 
-	return true;
+	return ok;
 }
 
 static bool inject_media_types_match(const struct call_media *src_media, const struct call_media *dst_media) {
