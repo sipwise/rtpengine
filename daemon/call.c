@@ -4785,11 +4785,6 @@ static bool monologue_subscribe_request1(struct call_media *src_media, struct ca
 
 	update_init_subscribers(src_media, NULL, NULL, flags->opmode);
 
-	if (!monologue_open_ports(dst_ml)) {
-		ilog(LOG_ERR, "Error allocating media ports");
-		return false;
-	}
-
 	return true;
 }
 
@@ -4809,6 +4804,11 @@ bool monologue_subscribe_request(const medias_q *medias, struct call_monologue *
 		bool ret = monologue_subscribe_request1(src_media, dst_ml, flags, ht);
 		if (!ret)
 			return false;
+	}
+
+	if (!monologue_open_ports(dst_ml)) {
+		ilog(LOG_ERR, "Error allocating media ports");
+		return false;
 	}
 
 	monologue_media_start(dst_ml);
