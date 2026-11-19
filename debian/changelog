@@ -1,3 +1,10 @@
+ngcp-rtpengine (13.5.1.32+0~mr13.5.1.32) unstable; urgency=medium
+
+  [ AaronActu ]
+  * [3fb7efe] MT#55283 mix_buffer: fix the source position when the buffer is exactly full
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 19 Nov 2026 15:57:03 +0100
+
 ngcp-rtpengine (13.5.1.31+0~mr13.5.1.31) unstable; urgency=medium
 
   [ darwvin-dev ]
