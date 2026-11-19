@@ -24,6 +24,259 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $port_c, $ssrc_a, $ssr
 
 
 
+
+new_call;
+
+publish('plain publish to bundle subscribe', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 4000 RTP/AVP 96 0 8 9
+c=IN IP4 198.51.100.54
+a=rtpmap:96 opus/48000/2
+a=sendonly
+m=video 4002 RTP/AVP 97 98
+c=IN IP4 198.51.100.54
+a=rtpmap:97 VP9/90000
+a=rtpmap:98 VP8/90000
+a=sendonly
+----------------------------------
+v=0
+o=- SDP_VERSION IN IP4 203.0.113.1
+s=RTPE_VERSION
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 opus/48000/2
+a=recvonly
+a=rtcp:PORT
+m=video PORT RTP/AVP 97
+c=IN IP4 203.0.113.1
+a=rtpmap:97 VP9/90000
+a=recvonly
+a=rtcp:PORT
+SDP
+
+(undef, undef, undef, undef, undef, $port_a, $port_ax, $port_b, $port_bx)
+	= subscribe_request('plain publish to bundle subscribe',
+	{ 'from-tag' => ft(), bundle => ['require'] }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE 1 2
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:96 opus/48000/2
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendonly
+a=rtcp:PORT
+m=video PORT RTP/AVP 97
+c=IN IP4 203.0.113.1
+a=mid:2
+a=rtpmap:97 VP9/90000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is($port_a, $port_b, 'bundled');
+isnt($port_a, $port_ax, 'not muxed');
+is($port_ax, $port_bx, 'bundled');
+isnt($port_b, $port_bx, 'not muxed');
+
+
+
+
+new_call;
+
+($port_a, $port_ax, $port_b, $port_bx) = publish('bundle publish to plain subscribe control', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE audio video
+m=audio 4000 RTP/AVP 96 0 8 9
+c=IN IP4 198.51.100.54
+a=rtpmap:96 opus/48000/2
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendonly
+a=mid:audio
+m=video 4002 RTP/AVP 97 98
+c=IN IP4 198.51.100.54
+a=rtpmap:97 VP9/90000
+a=rtpmap:98 VP8/90000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendonly
+a=mid:video
+----------------------------------
+v=0
+o=- SDP_VERSION IN IP4 203.0.113.1
+s=RTPE_VERSION
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=mid:audio
+a=rtpmap:96 opus/48000/2
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=recvonly
+a=rtcp:PORT
+m=video PORT RTP/AVP 97
+c=IN IP4 203.0.113.1
+a=mid:video
+a=rtpmap:97 VP9/90000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=recvonly
+a=rtcp:PORT
+SDP
+
+isnt($port_a, $port_b, 'not bundled');
+isnt($port_a, $port_ax, 'not muxed');
+isnt($port_ax, $port_bx, 'not bundled');
+isnt($port_b, $port_bx, 'not muxed');
+
+
+
+new_call;
+
+($port_a, $port_ax, $port_b, $port_bx) = publish('bundle publish to plain subscribe',
+	{ bundle => ['accept'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE audio video
+m=audio 4000 RTP/AVP 96 0 8 9
+c=IN IP4 198.51.100.54
+a=rtpmap:96 opus/48000/2
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendonly
+a=mid:audio
+m=video 4000 RTP/AVP 97 98
+c=IN IP4 198.51.100.54
+a=rtpmap:97 VP9/90000
+a=rtpmap:98 VP8/90000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendonly
+a=mid:video
+----------------------------------
+v=0
+o=- SDP_VERSION IN IP4 203.0.113.1
+s=RTPE_VERSION
+t=0 0
+a=group:BUNDLE audio video
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=mid:audio
+a=rtpmap:96 opus/48000/2
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=recvonly
+a=rtcp:PORT
+m=video PORT RTP/AVP 97
+c=IN IP4 203.0.113.1
+a=mid:video
+a=rtpmap:97 VP9/90000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=recvonly
+a=rtcp:PORT
+SDP
+
+is($port_a, $port_b, 'bundled');
+isnt($port_a, $port_ax, 'not muxed');
+is($port_ax, $port_bx, 'bundled');
+isnt($port_b, $port_bx, 'not muxed');
+
+
+
+(undef, undef, undef, undef, undef, $port_a, $port_ax, $port_b, $port_bx) = subscribe_request('plain publish to bundle subscribe',
+	{ 'from-tag' => ft(), bundle => ['require'] }, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=group:BUNDLE 1 2
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:96 opus/48000/2
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendonly
+a=rtcp:PORT
+m=video PORT RTP/AVP 97
+c=IN IP4 203.0.113.1
+a=mid:2
+a=rtpmap:97 VP9/90000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is($port_a, $port_b, 'bundled');
+is($port_ax, $port_bx, 'bundled');
+
+
+
+new_call;
+
+(undef, undef, $port_a, undef, $port_b) = create('create', {
+	media => [
+		{
+			type => 'audio',
+			codecs => [qw,PCMA G722 PCMU,],
+		},
+		{
+			type => 'video',
+			codecs => [qw,VP8/90000 VP9/90000,],
+		},
+	],
+	bundle => ['require'],
+}, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 203.0.113.1
+s=RTPE_VERSION
+t=0 0
+a=group:BUNDLE 1 2
+m=audio PORT RTP/AVP 8 9 0
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:0 PCMU/8000
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 96 97
+c=IN IP4 203.0.113.1
+a=mid:2
+a=rtpmap:96 VP8/90000
+a=fmtp:96 max-fr:30;max-fs:1800
+a=rtpmap:97 VP9/90000
+a=fmtp:97 max-fr:30;max-fs:1800;profile-id=0
+a=extmap-allow-mixed
+a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+is($port_a, $port_b, 'bundled');
+
+
+
 ($sock_a, $sock_b) =
 	new_call([qw(198.51.100.14 6438)],
 		[qw(198.51.100.14 6440)]);
@@ -3361,7 +3614,7 @@ if ($ENV{RTPENGINE_EXTENDED_TESTS}) {
 
 	is($resp->{interfaces}[0]{name}, 'default', 'intf found');
 	is($resp->{interfaces}[0]{address}, '203.0.113.1', 'address found');
-	is($resp->{interfaces}[0]{ports}{used}, 166, 'port usage');
+	is($resp->{interfaces}[0]{ports}{used}, 184, 'port usage');
 	is($resp->{interfaces}[1]{name}, 'default', 'intf found');
 	is($resp->{interfaces}[1]{address}, '2001:db8:4321::1', 'address found');
 	is($resp->{interfaces}[1]{ports}{used}, 2, 'port usage');
