@@ -1,3 +1,45 @@
+ngcp-rtpengine (26.3.1.4+0~mr26.3.1.4) unstable; urgency=medium
+
+  [ TristanInSec ]
+  * [b99f6a5] MT#55283 rtcp: account for fixed header size in report block validation
+
+  [ Richard Fuchs ]
+  * [00e46f1] MT#55283 refactor into op_is_offer
+  * [c7b0f3d] MT#55283 update comment after Ie9170f71f7
+  * [1475dfa] MT#55283 init state variables
+  * [6ba31f1] MT#55283 fix perl warning
+  * [62b6c9c] MT#55283 use mux_timeout for DTLS completion
+  * [dcf6359] MT#55283 test: ROC across DTLS restarts
+  * [5692935] MT#55283 split out ROC reset function
+  * [1d95765] MT#55283 reset SRTP ROC after DTLS reset
+  * [33c1942] MT#55283 fix test return values
+  * [6381128] MT#55283 use op_is_offer
+  * [6707200] MT#55283 clarify variable names
+  * [a7f3f51] MT#55283 simplify ICE state check
+  * [8af2972] MT#55283 streamline ICE decision making
+  * [db92abf] MT#55283 extend tests after I5074002be
+  * [5ce8711] MT#55283 properly support ICE=[reject]
+  * [b97cda5] MT#55283 drop stray STUN packets
+  * [b1c3bfa] MT#55283 use per-decoder resampler
+  * [c31ffc6] MT#55283 fix wrong label
+  * [81ac988] MT#55283 update nft build version test
+  * [15cecd3] MT#55283 fix wrong size test
+
+  [ Jorge Leal ]
+  * [4426867] MT#55283 Do not hold the egress SSRC lock while the send timer emits RTCP
+  * [4494109] MT#55283 Keep the egress index on plain RTP output fed by SRTP or AVPF
+  * [7031835] MT#55283 Do not re-base a fixed egress SSRC on an empty egress counter
+
+  [ Nikolay Feshenko ]
+  * [58230b7] MT#55283 kernelize one stream of a call at a time and within the output limit
+  * [a5487cf] MT#55283 a playback into the audio player is not served from the player cache
+  * [110d2ee] MT#55283 a seek in a playback is not taken for drift
+
+  [ Peter Pulham ]
+  * [e57bc03] MT#55283 redis: index the labels of restored monologues
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 19 Nov 2026 15:56:41 +0100
+
 ngcp-rtpengine (26.3.1.3+0~mr26.3.1.3) unstable; urgency=medium
 
   [ Donat Zenichev ]
