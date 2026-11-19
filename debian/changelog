@@ -1,3 +1,42 @@
+ngcp-rtpengine (26.0.1.29+0~mr26.0.1.29) unstable; urgency=medium
+
+  [ TristanInSec ]
+  * [7a40738] MT#55283 rtcp: account for fixed header size in report block validation
+
+  [ Richard Fuchs ]
+  * [a0373b2] MT#55283 refactor into op_is_offer
+  * [dc551ad] MT#55283 update comment after Ie9170f71f7
+  * [2977b9a] MT#55283 init state variables
+  * [df75a74] MT#55283 fix perl warning
+  * [c90cdb8] MT#55283 use mux_timeout for DTLS completion
+  * [4c58e36] MT#55283 test: ROC across DTLS restarts
+  * [b2845aa] MT#55283 split out ROC reset function
+  * [9739fde] MT#55283 reset SRTP ROC after DTLS reset
+  * [521e28f] MT#55283 fix test return values
+  * [767ad63] MT#55283 use op_is_offer
+  * [36f9004] MT#55283 clarify variable names
+  * [6736ffb] MT#55283 simplify ICE state check
+  * [21950a1] MT#55283 streamline ICE decision making
+  * [dbf4456] MT#55283 extend tests after I5074002be
+  * [1049dd2] MT#55283 drop stray STUN packets
+  * [0980013] MT#55283 update nft build version test
+
+  [ Jorge Leal ]
+  * [73a3e0b] MT#55283 Do not hold the egress SSRC lock while the send timer emits RTCP
+  * [0cf8ff9] MT#55283 Keep the egress index on plain RTP output fed by SRTP or AVPF
+
+  [ Nikolay Feshenko ]
+  * [1a76859] MT#55283 kernelize one stream of a call at a time and within the output limit
+  * [309db86] MT#55283 a playback into the audio player is not served from the player cache
+
+  [ Peter Pulham ]
+  * [d6aaa49] MT#55283 redis: index the labels of restored monologues
+
+  [ AaronActu ]
+  * [e57295d] MT#55283 mix_buffer: fix the source position when the buffer is exactly full
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 19 Nov 2026 15:56:52 +0100
+
 ngcp-rtpengine (26.0.1.28+0~mr26.0.1.28) unstable; urgency=medium
 
   [ Donat Zenichev ]
