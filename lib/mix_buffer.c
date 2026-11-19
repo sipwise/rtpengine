@@ -188,7 +188,10 @@ static bool mix_buffer_write_slow(struct mix_buffer *mb, mix_buffer_ssrc_source 
 {
 	// mix-in up to the current write-head, or end of buffer in case of wrap-around
 
-	if (mb->head_write_pos < src->write_pos) {
+	// A source one loop behind the head can also sit exactly on head_write_pos: the buffer is
+	// then exactly full, and the source is on read_pos.
+	if (mb->head_write_pos < src->write_pos
+			|| (mb->head_write_pos == src->write_pos && src->loops != mb->loops)) {
 		// wrap-arund: mix-in to end of buffer
 		unsigned int tail_part = mb->size - src->write_pos;
 		if (tail_part > samples)
@@ -221,6 +224,16 @@ static bool mix_buffer_write_slow(struct mix_buffer *mb, mix_buffer_ssrc_source 
 }
 
 
+// The filled part [read_pos, head_write_pos) wraps around the end of the buffer: the samples
+// from read_pos to the end belong to the previous loop. This includes a buffer that is exactly
+// full (fill == size), where head_write_pos == read_pos.
+static bool mix_buffer_wrapped(struct mix_buffer *mb) {
+	if (mb->head_write_pos < mb->read_pos)
+		return true;
+	return mb->head_write_pos == mb->read_pos && mb->fill == mb->size;
+}
+
+
 static void mix_buffer_src_add_delay(struct mix_buffer *mb, mix_buffer_ssrc_source *src,
 		unsigned int samples)
 {
@@ -243,7 +256,7 @@ static void mix_buffer_src_add_delay(struct mix_buffer *mb, mix_buffer_ssrc_sour
 static void mix_buffer_src_init_pos(struct mix_buffer *mb, mix_buffer_ssrc_source *src) {
 	src->write_pos = mb->read_pos;
 	src->loops = mb->loops;
-	if (mb->head_write_pos < src->write_pos)
+	if (mix_buffer_wrapped(mb))
 		src->loops--;
 	mix_buffer_src_add_delay(mb, src, mb->delay);
 }
@@ -285,7 +298,7 @@ bool mix_buffer_write_delay(struct mix_buffer *mb, uint32_t ssrc, const void *bu
 			return mix_buffer_write_fast(mb, src, buf, samples);
 
 		// not at the write head... did we fall behind what has been read already?
-		if (mb->head_write_pos >= mb->read_pos) {
+		if (!mix_buffer_wrapped(mb)) {
 			// |--------------|###################|------------|
 			//                R                   W
 			//                    ^- slow mix-in
