@@ -507,5 +507,129 @@ int main(void) {
 
 	mix_buffer_destroy(&mb);
 
+	// A source delay is kept in full while the buffer is not full.
+	// 8 kHz, 500 ms buffer = 4000 samples, 5 ms delay = 40 samples. A new source
+	// arrives 300 ms (2400 samples) late while 2000 samples are buffered: it must
+	// be mixed in 40 + 2400 samples after the read position, not 50 ms earlier.
+
+	memset(&mb, 0, sizeof(mb));
+	ret = mix_buffer_init(&mb, AV_SAMPLE_FMT_S16, 8000, 1, 500, 5);
+	assert(ret == true);
+	assert(mb.size == 4000 && mb.delay == 40);
+
+	static int16_t zeroes[1960];
+	ret = mix_buffer_write(&mb, 0x1234, zeroes, 1960);
+	assert(ret == true);
+	assert(mb.fill == 2000);
+
+	last = 300 * 1000000LL;
+	now = last + 300000;
+	ret = mix_buffer_write_delay(&mb, 0x6543, (int16_t[]){7}, 1, last, now);
+	assert(ret == true);
+	assert(mb.fill == 40 + 2400 + 1);
+
+	p = mix_buffer_read_fast(&mb, 40 + 2400 + 1, &size);
+	assert(p != NULL);
+	assert(((int16_t *) p)[40 + 2000] == 0);
+	assert(((int16_t *) p)[40 + 2400 - 1] == 0);
+	assert(((int16_t *) p)[40 + 2400] == 7);
+
+	mix_buffer_destroy(&mb);
+
+	// The leading source fills the buffer exactly (fill == size, so
+	// head_write_pos == read_pos), then the other leg, still behind the write
+	// head, writes. It must be mixed in at its own position. Without the fix,
+	// it is reset one loop too far and fill_up_to() aborts the process.
+
+	memset(&mb, 0, sizeof(mb));
+	ret = mix_buffer_init(&mb, AV_SAMPLE_FMT_S16, 500, 1, 100, 10); // 50 samples, 5 samples delay
+	assert(ret == true);
+
+	ret = mix_buffer_write(&mb, 0x1234, (int16_t[5]){0}, 5);
+	assert(ret == true);
+	ret = mix_buffer_write(&mb, 0x6543, (int16_t[5]){0}, 5);
+	assert(ret == true);
+	int16_t lead[40];
+	for (unsigned int i = 0; i < 40; i++)
+		lead[i] = 100;
+	ret = mix_buffer_write(&mb, 0x1234, lead, 40);
+	assert(ret == true);
+	assert(mb.fill == mb.size);
+	assert(mb.head_write_pos == mb.read_pos);
+
+	ret = mix_buffer_write(&mb, 0x6543, (int16_t[]){1,2,3,4,5}, 5);
+	assert(ret == true);
+	assert(mb.fill == mb.size);
+
+	p = mix_buffer_read_fast(&mb, 50, &size);
+	assert(p != NULL);
+	assert(size == 100);
+	assert(memcmp(p, (int16_t[]){0,0,0,0,0, 0,0,0,0,0, 101,102,103,104,105, 100,100,100,100,100}, 40) == 0);
+	assert(((int16_t *) p)[49] == 100);
+
+	mix_buffer_destroy(&mb);
+
+	// A new SSRC appears while the buffer is exactly full. It starts
+	// at the read position plus the delay, like any new source.
+
+	memset(&mb, 0, sizeof(mb));
+	ret = mix_buffer_init(&mb, AV_SAMPLE_FMT_S16, 500, 1, 100, 10); // 50 samples, 5 samples delay
+	assert(ret == true);
+
+	int16_t lead45[45];
+	for (unsigned int i = 0; i < 45; i++)
+		lead45[i] = 100;
+	ret = mix_buffer_write(&mb, 0x1234, lead45, 45);
+	assert(ret == true);
+	assert(mb.fill == mb.size);
+	assert(mb.head_write_pos == mb.read_pos);
+
+	ret = mix_buffer_write(&mb, 0x7777, (int16_t[]){1,2,3,4,5}, 5);
+	assert(ret == true);
+	assert(mb.fill == mb.size);
+
+	p = mix_buffer_read_fast(&mb, 50, &size);
+	assert(p != NULL);
+	assert(memcmp(p, (int16_t[]){0,0,0,0,0, 101,102,103,104,105, 100,100,100,100,100}, 30) == 0);
+
+	mix_buffer_destroy(&mb);
+
+	// ... and a known source exactly on read_pos, one loop behind the head, while
+	// the buffer is exactly full: it must be mixed in from read_pos, not refused.
+
+	memset(&mb, 0, sizeof(mb));
+	ret = mix_buffer_init(&mb, AV_SAMPLE_FMT_S16, 500, 1, 100, 10); // 50 samples, 5 samples delay
+	assert(ret == true);
+
+	ret = mix_buffer_write(&mb, 0x1234, (int16_t[5]){0}, 5);
+	assert(ret == true);
+	ret = mix_buffer_write(&mb, 0x6543, (int16_t[5]){0}, 5);
+	assert(ret == true);
+	p = mix_buffer_read_fast(&mb, 10, &size);
+	assert(p != NULL);
+	assert(mb.fill == 0);
+
+	int16_t lead50[50];
+	for (unsigned int i = 0; i < 50; i++)
+		lead50[i] = 100;
+	ret = mix_buffer_write(&mb, 0x1234, lead50, 50);
+	assert(ret == true);
+	assert(mb.fill == mb.size);
+	assert(mb.head_write_pos == mb.read_pos);
+
+	ret = mix_buffer_write(&mb, 0x6543, (int16_t[]){1,2,3,4,5}, 5);
+	assert(ret == true);
+	assert(mb.fill == mb.size);
+
+	p = mix_buffer_read_fast(&mb, 50, &size);
+	assert(p == NULL);
+	assert(size == 100);
+	int16_t full[50];
+	mix_buffer_read_slow(&mb, full, 50);
+	assert(memcmp(full, (int16_t[]){101,102,103,104,105, 100,100,100,100,100}, 20) == 0);
+	assert(full[49] == 100);
+
+	mix_buffer_destroy(&mb);
+
 	return 0;
 }
