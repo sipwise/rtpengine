@@ -4598,7 +4598,7 @@ bool monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng
 		media_update_attrs(media, sp);
 		media_update_format(media, sp);
 		media_set_ptime(media, sp, flags->ptime, 0);
-		media_update_extmap(media, sp, NULL, flags);
+		media_update_extmap(media, sp, media_extmap_accept, flags);
 
 		codec_store_populate(&media->codecs, &sp->codecs,
 				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
@@ -4661,6 +4661,10 @@ bool monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng
 
 	if (!monologue_open_ports(ml))
 		goto error_ports;
+
+	monologue_bundle_accept(ml, flags);
+
+	monologue_bundle_set_sinks(ml);
 
 	monologue_media_start(ml);
 
