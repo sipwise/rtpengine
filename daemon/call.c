@@ -3771,7 +3771,7 @@ static void monologue_bundle_mid(struct call_monologue *ml) {
 
 __attribute__((nonnull(1, 2)))
 static void monologue_bundle_offer(struct call_monologue *ml, const sdp_ng_flags *flags) {
-	if (!flags->bundle_offer || flags->opmode != OP_OFFER)
+	if (!flags->bundle_offer)
 		return;
 
 	ML_SET(ml, BUNDLE);
@@ -4174,7 +4174,8 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 	}
 
 	monologue_bundle_accept(sender_ml, flags);
-	monologue_bundle_offer(receiver_ml, flags);
+	if (flags->opmode == OP_OFFER)
+		monologue_bundle_offer(receiver_ml, flags);
 	monologue_bundle_check_consistency(receiver_ml);
 	monologue_bundle_check_heads(receiver_ml);
 
@@ -4805,10 +4806,17 @@ bool monologue_subscribe_request(const medias_q *medias, struct call_monologue *
 			return false;
 	}
 
+	monologue_bundle_offer(dst_ml, flags);
+	monologue_bundle_check_consistency(dst_ml);
+	monologue_bundle_check_heads(dst_ml);
+
 	if (!monologue_open_ports(dst_ml)) {
 		ilog(LOG_ERR, "Error allocating media ports");
 		return false;
 	}
+
+	monologue_bundle_set_fds(dst_ml);
+	monologue_bundle_set_sinks(dst_ml);
 
 	monologue_media_start(dst_ml);
 
