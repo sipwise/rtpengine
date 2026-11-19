@@ -230,7 +230,7 @@ static bool mix_buffer_write_slow(struct mix_buffer *mb, mix_buffer_ssrc_source 
 static bool mix_buffer_wrapped(struct mix_buffer *mb) {
 	if (mb->head_write_pos < mb->read_pos)
 		return true;
-	return mb->head_write_pos == mb->read_pos && mb->fill == mb->size;
+	return mb->fill == mb->size;
 }
 
 
