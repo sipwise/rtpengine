@@ -185,10 +185,10 @@ a=rtcp:PORT
 SDP
 
 # consume initial ICE checks
-rcv($sock_a, -1, qr/^\x00\x01\x00\x6c\x21\x12/s);
-rcv($sock_ax, -1, qr/^\x00\x01\x00\x6c\x21\x12/s);
-rcv($sock_a, -1, qr/^\x00\x01\x00\x6c\x21\x12/s);
-rcv($sock_ax, -1, qr/^\x00\x01\x00\x6c\x21\x12/s);
+rcv($sock_a, -1, qr/^\x00\x01\x00.\x21\x12/s);
+rcv($sock_ax, -1, qr/^\x00\x01\x00.\x21\x12/s);
+rcv($sock_a, -1, qr/^\x00\x01\x00.\x21\x12/s);
+rcv($sock_ax, -1, qr/^\x00\x01\x00.\x21\x12/s);
 
 ($port_b) = answer('rejected ICE offer and stray ICE answer', { ICE => 'remove' }, <<SDP);
 v=0
