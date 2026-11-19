@@ -136,6 +136,7 @@ my @string_arr_opts = qw(
 	received-from
 	from-tags
 	frequencies
+	bundle
 );
 
 my @codec_opts = qw(
