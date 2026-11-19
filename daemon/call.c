@@ -4191,9 +4191,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 	monologue_media_start(receiver_ml);
 
 	// set ipv4/ipv6/mixed media stats
-	if (flags->opmode == OP_OFFER || flags->opmode == OP_ANSWER) {
-		statistics_update_ip46_inc_dec(receiver_ml->call, CMC_INCREMENT);
-	}
+	statistics_update_ip46_inc_dec(receiver_ml->call, CMC_INCREMENT);
 
 	return 0;
 
@@ -4205,6 +4203,7 @@ error_intf:
 	ilog(LOG_ERR, "Error finding logical interface with free ports");
 	return ERROR_NO_FREE_LOGS;
 }
+
 
 void media_subscriptions_clear(subscription_q *q) {
 	i_queue_clear_full(q, media_subscription_free);
