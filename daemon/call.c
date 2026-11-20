@@ -6952,28 +6952,32 @@ static bool monologue_call_create_media(struct call_monologue *ml, sdp_ng_flags 
 		return false;
 	__ice_init(m);
 
+	return true;
+}
+
+bool monologue_call_create(struct call_monologue *ml, sdp_ng_flags *flags) {
+	if (!flags->medias.length) {
+		// default: one audio media
+		if (!monologue_call_create_media(ml, flags, STR_PTR("audio"), 1, NULL))
+			return false;
+	}
+	else {
+		unsigned int idx = 1;
+
+		for (auto_iter(l, flags->medias.head); l; l = l->next) {
+			__auto_type m = l->data;
+			bool ok = monologue_call_create_media(ml, flags, &m->type, idx++, &m->codec_list);
+			if (!ok)
+				return false;
+		}
+	}
+
 	if (!monologue_open_ports(ml)) {
 		ilog(LOG_ERR, "Error allocating media ports");
 		return false;
 	}
 
 	monologue_media_start(ml);
-
-	return true;
-}
-
-bool monologue_call_create(struct call_monologue *ml, sdp_ng_flags *flags) {
-	if (!flags->medias.length) // default: one audio media
-		return monologue_call_create_media(ml, flags, STR_PTR("audio"), 1, NULL);
-
-	unsigned int idx = 1;
-
-	for (auto_iter(l, flags->medias.head); l; l = l->next) {
-		__auto_type m = l->data;
-		bool ok = monologue_call_create_media(ml, flags, &m->type, idx++, &m->codec_list);
-		if (!ok)
-			return false;
-	}
 
 	return true;
 }
