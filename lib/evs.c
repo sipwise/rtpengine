@@ -334,14 +334,19 @@ static int evs_decoder_input(decoder_t *dec, const str *data, frame_q *out, bool
 
 			// bit shift payload
 			// XXX use larger word sizes
-			for (size_t i = 0; i < frame_data.len; i++) {
+			for (size_t i = 0; i < frame_data.len - 1; i++) {
 				shifter[i] <<= 2;
 				shifter[i] |= shifter[i+1] >> 6;
 			}
+			shifter[frame_data.len - 1] <<= 2;
+
 			// restore first bit
 			size_t first_bit_octet = bits / 8;
 			size_t first_bit_bit = bits % 8;
 			shifter[0] |= (shifter[first_bit_octet] << first_bit_bit) & 0x80;
+
+			// clear that bit as padding
+			shifter[first_bit_octet] &= ~(1 << first_bit_bit);
 		}
 	}
 	else {
