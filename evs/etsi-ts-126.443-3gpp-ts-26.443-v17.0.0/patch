@@ -1,6 +1,7 @@
-diff --git a/Makefile b/Makefile
---- a/Makefile
-+++ b/Makefile
+diff --git c/Makefile w/Makefile
+index 02883b9..c806202 100755
+--- c/Makefile
++++ w/Makefile
 @@ -3,6 +3,7 @@
  # Paths
  SRC_ENC   = lib_enc lib_com
@@ -54,9 +55,10 @@ diff --git a/Makefile b/Makefile
  clean:
  	$(QUIET)$(RM) $(OBJS_ENC) $(OBJS_DEC) $(DEPS)
  	$(QUIET)$(RM) $(DEPS:.P=.d)
-diff --git a/lib_com/prot.h b/lib_com/prot.h
---- a/lib_com/prot.h
-+++ b/lib_com/prot.h
+diff --git c/lib_com/prot.h w/lib_com/prot.h
+index e9911d5..c4c5c44 100755
+--- c/lib_com/prot.h
++++ w/lib_com/prot.h
 @@ -624,6 +624,11 @@ short lsp_convert_poly(
      const short L_frame,                    /* i  : flag for up or down conversion */
      const short Opt_AMRWB                   /* i  : flag for the AMR-WB IO mode    */
@@ -79,10 +81,11 @@ diff --git a/lib_com/prot.h b/lib_com/prot.h
  
  void cb_shape(
      const short preemphFlag,                /* i  : flag for pre-emphasis                       */
-diff --git a/lib_dec/init_dec.c b/lib_dec/init_dec.c
---- a/lib_dec/init_dec.c
-+++ b/lib_dec/init_dec.c
-@@ -653,3 +653,16 @@ void destroy_decoder(
+diff --git c/lib_dec/init_dec.c w/lib_dec/init_dec.c
+index c627356..cda89b5 100755
+--- c/lib_dec/init_dec.c
++++ w/lib_dec/init_dec.c
+@@ -653,3 +653,17 @@ void destroy_decoder(
  
      return;
  }
@@ -94,14 +97,16 @@ diff --git a/lib_dec/init_dec.c b/lib_dec/init_dec.c
 +}
 +void decoder_set_Fs(Decoder_State *st, unsigned long Fs) {
 +	st->output_Fs = Fs;
++	st->bitstreamformat = VOIP_RTPDUMP;
 +}
 +void decoder_inc_ini_frame(Decoder_State *st) {
 +	if (st->ini_frame < MAX_FRAME_COUNTER)
 +		st->ini_frame++;
 +}
-diff --git a/lib_enc/init_enc.c b/lib_enc/init_enc.c
---- a/lib_enc/init_enc.c
-+++ b/lib_enc/init_enc.c
+diff --git c/lib_enc/init_enc.c w/lib_enc/init_enc.c
+index 3a18e25..bfb191e 100755
+--- c/lib_enc/init_enc.c
++++ w/lib_enc/init_enc.c
 @@ -729,3 +729,31 @@ void destroy_encoder(
  
      return;
