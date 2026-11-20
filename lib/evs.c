@@ -280,7 +280,7 @@ static const int evs_mode_bits[2][16] = {
 		397, // 19.85 kbit/s // 6
 		461, // 23.05 kbit/s // 7
 		477, // 23.85 kbit/s // 8
-		40, // comfort noise // 9
+		35, // comfort noise // 9
 		0, // invalid // 10
 		0, // invalid // 11
 		0, // invalid // 12
