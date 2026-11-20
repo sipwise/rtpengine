@@ -76,7 +76,6 @@ my @string_opts = qw(
 	address-family
 	DTLS
 	via-branch
-	media-address
 	xmlrpc-callback
 	metadata
 	address
