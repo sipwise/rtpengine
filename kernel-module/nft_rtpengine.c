@@ -6709,15 +6709,14 @@ static struct sk_buff *proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpe
 {
 	int i;
 	uint32_t pkt_idx;
+	bool need_copy = false;
 
 	if (!rtp->ok) {
 		proxy_packet_output_rtcp(skb, o, rtp, ssrc_idx);
 		return skb;
 	}
 
-	if (o->output.extmap)
-		apply_extmap_filter(skb, o, rtp);
-
+	// first check: drop?
 	if (rtp_pt_idx >= 0) {
 		// blackhole?
 		if (o->output.pt_output[rtp_pt_idx].blackhole)
@@ -6727,7 +6726,37 @@ static struct sk_buff *proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpe
 		if (o->output.pt_output[rtp_pt_idx].min_payload_len
 				&& rtp->payload_len < o->output.pt_output[rtp_pt_idx].min_payload_len)
 			goto drop;
+	}
 
+	// see if we need a copy
+	// extmap rewriting requires it
+	if (o->output.extmap)
+		need_copy = true;
+	// encryption requires copy
+	if (o->output.encrypt.hmac != REH_NULL || o->encrypt_rtp.cipher->encrypt_rtp)
+		need_copy = true;
+	// seq or SSRC manipulations require it
+	if (likely(ssrc_idx >= 0)) {
+		if (o->output.seq_offset[ssrc_idx])
+			need_copy = true;
+		if (o->output.ssrc_subst && likely(o->output.ssrc_out[ssrc_idx]))
+			need_copy = true;
+	}
+
+	// make copy if needed
+	if (need_copy) {
+		struct sk_buff *skb2 = rtpe_skb_cpy(skb, rtp, rtp, t);
+		if (!skb2)
+			goto drop;
+		kfree_skb(skb);
+		skb = skb2;
+	}
+
+	// apply RTP extmap
+	if (o->output.extmap)
+		apply_extmap_filter(skb, o, rtp);
+
+	if (rtp_pt_idx >= 0) {
 		if (o->output.pt_output[rtp_pt_idx].replace_pattern_len) {
 			if (o->output.pt_output[rtp_pt_idx].replace_pattern_len == 1)
 				memset(rtp->payload, o->output.pt_output[rtp_pt_idx].replace_pattern[0],
@@ -6748,15 +6777,6 @@ static struct sk_buff *proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpe
 				+ o->output.seq_offset[ssrc_idx]);
 		if (o->output.ssrc_subst && likely(o->output.ssrc_out[ssrc_idx]))
 			rtp->rtp_header->ssrc = o->output.ssrc_out[ssrc_idx];
-	}
-
-	// copy to encrypt/authenticate needed?
-	if (o->output.encrypt.hmac != REH_NULL || o->encrypt_rtp.cipher->encrypt_rtp) {
-		struct sk_buff *skb2 = rtpe_skb_cpy(skb, rtp, rtp, t);
-		if (!skb2)
-			goto drop;
-		kfree_skb(skb);
-		skb = skb2;
 	}
 
 	pkt_idx = proxy_packet_srtp_encrypt(skb, &o->encrypt_rtp, &o->output.encrypt,
