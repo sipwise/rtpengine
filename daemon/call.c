@@ -6972,10 +6972,17 @@ bool monologue_call_create(struct call_monologue *ml, sdp_ng_flags *flags) {
 		}
 	}
 
+	monologue_bundle_offer(ml, flags);
+	monologue_bundle_check_consistency(ml);
+	monologue_bundle_check_heads(ml);
+
 	if (!monologue_open_ports(ml)) {
 		ilog(LOG_ERR, "Error allocating media ports");
 		return false;
 	}
+
+	monologue_bundle_set_fds(ml);
+	monologue_bundle_set_sinks(ml);
 
 	monologue_media_start(ml);
 
