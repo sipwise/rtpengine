@@ -537,6 +537,14 @@ sub exercise_sequence_continuity {
 	# a DTMF event stands in for B's packets while it lasts
 	my @event = grep { (ord(substr($_->[2], 1, 1)) & 0x7f) == 101 } @from_b;
 	my @audio = grep { (ord(substr($_->[2], 1, 1)) & 0x7f) != 101 } @from_b;
+	# the media player sends under the fixed egress SSRC too, from its own clock: B's packets are the ones
+	# that carry B's timestamps, which pass through unchanged
+	my @injected;
+	if ($options{fixed_egress}) {
+		my $from_b_clock = sub { my $ts = $_[0][4]; $ts >= 8000 && $ts < 8000 + 160 * 20000 && ($ts - 8000) % 160 == 0 };
+		@injected = grep { !$from_b_clock->($_) } @audio;
+		@audio = grep { $from_b_clock->($_) } @audio;
+	}
 	my @sequence = map { $_->[1] } @from_b;
 	my @steps = map { ($sequence[$_] - $sequence[$_ - 1]) & 0xffff } (1 .. $#sequence);
 	my @jumps = grep { $steps[$_] != 1 } (0 .. $#steps);
@@ -552,6 +560,12 @@ sub exercise_sequence_continuity {
 	is scalar(@damaged), 0, 'B reaches A whole, ' . ($csrc ? 'CSRC list, ' : '') . 'payload and padding included';
 	if ($options{fixed_egress}) {
 		isnt $egress_ssrc, $source_ssrc, 'A receives the fixed egress SSRC in place of the source SSRC';
+		if ($cycles) {
+			cmp_ok scalar(@injected), '>', 0, 'A receives the injection under the fixed egress SSRC';
+		}
+		else {
+			is scalar(@injected), 0, 'A receives nothing but B under the fixed egress SSRC';
+		}
 		is scalar(grep { $_->[0] == $source_ssrc || $_->[0] == $changed_ssrc } @arrivals), 0,
 			'the source SSRCs never reach A';
 	}
@@ -571,8 +585,9 @@ sub exercise_sequence_continuity {
 		is scalar(@renumbered), 0, 'A receives the sequence numbers B sends'
 			. ($options{dtmf_first} ? ', moved on by the DTMF event' : '');
 	}
-	elsif (!$cycles) {
-		is scalar(@jumps), 0, 'A receives a continuous sequence under the fixed egress SSRC';
+	else {
+		is scalar(@jumps), 0, 'A receives a continuous sequence under the fixed egress SSRC'
+			. ($cycles ? ', the injection included' : '');
 	}
 	# B's packets leave for A under the key B sends with, unless a fixed egress SSRC stands in or B replaced the key
 	if ($srtp_a && $srtp_b && !$options{fixed_egress} && ($options{rekey} // '') ne 'B') {
