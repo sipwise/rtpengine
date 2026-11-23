@@ -67,6 +67,7 @@ enum attr_id {
 	ATTR_EXTMAP,
 	ATTR_EXTMAP_ALLOW_MIXED,
 	ATTR_LABEL,
+	ATTR_ENCRYPTION,
 };
 // make sure g_direct_hash can be used
 static_assert(sizeof(void *) >= sizeof(enum attr_id), "sizeof enum attr_id wrong");
@@ -1323,6 +1324,9 @@ static bool parse_attribute(struct sdp_attribute *a) {
 			break;
 		case CSH_LOOKUP("label"):
 			a->attr = ATTR_LABEL;
+			break;
+		case CSH_LOOKUP("encryption"):
+			a->attr = ATTR_ENCRYPTION;
 			break;
 		default:
 			/* check moh-attr-name (can be a variable attribute value) */

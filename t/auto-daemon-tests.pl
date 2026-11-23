@@ -7611,6 +7611,7 @@ m=audio 3000 RTP/AVP 8
 a=sendrecv
 m=audio 4000 RTP/AVP 8
 a=sendrecv
+a=encryption:optional
 ----------------------------------------
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.11
