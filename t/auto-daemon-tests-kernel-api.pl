@@ -140,22 +140,28 @@ sub add_destination {
 	return %ret;
 }
 
-
-my $del_targets = sub {
+sub del_target {
 	my ($addr) = $kintf->recv($buf, 4096);
 	my ($msg, $text) = unpack("i! a*", $buf);
 	is($msg, 3, "write message");
-	my ($code) = unpack('i!', $text);
+	my (%ret, $code);
+	($code, $ret{lfam}, $ret{laddr}, $ret{lport}) = unpack('i!  (i! L x12 S  x[S])', $text);
 	is($code, 9, "del target msg");
 	$kintf->send(pack('ii', 3, length($text)), 0, $addr);
+	return %ret;
+}
 
-	($addr) = $kintf->recv($buf, 4096);
-	($msg, $text) = unpack("i! a*", $buf);
-	is($msg, 3, "write message");
-	($code) = unpack('i!', $text);
-	is($code, 9, "del target msg");
-	$kintf->send(pack('ii', 3, length($text)), 0, $addr);
-};
+
+sub del_targets {
+	my @ports = @_;
+	return sub {
+		for my $port (@ports) {
+			my %dict = del_target();
+			is($dict{lfam}, 2, "laddr fam");
+			is($dict{lport}, $port, "lport");
+		}
+	};
+}
 
 
 ($sock_a, $sock_ax, $sock_b, $sock_bx) = new_call([qw(198.51.100.23 3000)], [qw(198.51.100.23 3001)],
@@ -319,7 +325,7 @@ is($dict{flags}, 4, "flags");
 
 rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x7654321, "\x00" x 160));
 
-$NGCP::Rtpengine::req_cb = $del_targets;
+$NGCP::Rtpengine::req_cb = del_targets($port_a, $port_b);
 
 rtpe_req('delete', 'basic', { 'delete-delay' => 0 });
 
@@ -482,7 +488,7 @@ is($dict{flags}, 4, "flags");
 
 srtp_rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x7654321, "\x00" x 160), $srtp_ctx_b);
 
-$NGCP::Rtpengine::req_cb = $del_targets;
+$NGCP::Rtpengine::req_cb = del_targets($port_a, $port_b);
 
 rtpe_req('delete', 'basic', { 'delete-delay' => 0 });
 
@@ -638,7 +644,7 @@ is($dict{flags}, 4, "flags");
 
 rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x7654321, "\x00" x 160));
 
-$NGCP::Rtpengine::req_cb = $del_targets;
+$NGCP::Rtpengine::req_cb = del_targets($port_a, $port_b);
 
 rtpe_req('delete', 'basic', { 'delete-delay' => 0 });
 
