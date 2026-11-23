@@ -247,6 +247,7 @@ is($dict{g}[3], 2, "rtcp end idx 0");
 is($dict{decr}[0], 1, "null cipher");
 is($dict{decr}[1], 1, "null hmac");
 is($dict{ssrc}[0], 0x1234567, "ssrc 0");
+is($dict{ssrc}[1], 0x0, "ssrc 1");
 is($dict{ssrci}[0], -1, "ssrc index 0");
 is($dict{flags}, 344, "flags");
 
@@ -293,6 +294,7 @@ is($dict{g}[3], 2, "rtcp end idx 0");
 is($dict{decr}[0], 1, "null cipher");
 is($dict{decr}[1], 1, "null hmac");
 is($dict{ssrc}[0], 0x7654321, "ssrc 0");
+is($dict{ssrc}[1], 0x0, "ssrc 1");
 is($dict{ssrci}[0], -1, "ssrc index 0");
 is($dict{flags}, 344, "flags");
 
