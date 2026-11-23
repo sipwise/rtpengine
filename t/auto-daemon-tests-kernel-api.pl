@@ -327,7 +327,212 @@ is($dict{flags}, 4, "flags");
 
 rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x7654321, "\x00" x 160));
 
-$NGCP::Rtpengine::req_cb = del_targets($port_a, $port_b);
+# new SSRC
+
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x6655443, "\x00" x 160));
+
+%dict = del_target();
+is($dict{lfam}, 2, "laddr fam");
+is($dict{laddr}, 24182987, "laddr");
+is($dict{lport}, $port_b, "lport");
+
+%dict = add_target();
+is($dict{lfam}, 2, "laddr fam");
+is($dict{laddr}, 24182987, "laddr");
+is($dict{lport}, $port_b, "lport");
+is($dict{mismatch}, 0, "mismatch ignore");
+is($dict{numdest}, 2, "num dests");
+is($dict{g}[0], 0, "rtp start idx 0");
+is($dict{g}[1], 1, "rtp end idx 0");
+is($dict{g}[2], 1, "rtcp start idx 0");
+is($dict{g}[3], 2, "rtcp end idx 0");
+is($dict{decr}[0], 1, "null cipher");
+is($dict{decr}[1], 1, "null hmac");
+is($dict{ssrc}[0], 0x6655443, "ssrc 0");
+is($dict{ssrc}[1], 0x1234567, "ssrc 1");
+is($dict{ssrc}[2], 0x0, "ssrc 2");
+is($dict{ssrci}[0], -1, "ssrc index 0");
+is($dict{flags}, 344, "flags");
+
+%dict = add_destination();
+is($dict{lfam}, 2, "laddr fam");
+is($dict{laddr}, 24182987, "laddr");
+is($dict{lport}, $port_b, "lport");
+is($dict{idx}, 0, "dest idx");
+is($dict{sfam}, 2, "saddr fam");
+is($dict{saddr}, 24182987, "saddr");
+is($dict{sport}, $port_a, "sport");
+is($dict{dfam}, 2, "daddr fam");
+is($dict{daddr}, 392442822, "daddr");
+is($dict{dport}, 3002, "dport");
+is($dict{encr}[0], 1, "null cipher");
+is($dict{encr}[1], 1, "null hmac");
+is($dict{flags}, 0, "flags");
+
+%dict = add_destination();
+is($dict{lfam}, 2, "laddr fam");
+is($dict{laddr}, 24182987, "laddr");
+is($dict{lport}, $port_b, "lport");
+is($dict{idx}, 1, "dest idx");
+is($dict{sfam}, 2, "saddr fam");
+is($dict{saddr}, 24182987, "saddr");
+is($dict{sport}, $port_ax, "sport");
+is($dict{dfam}, 2, "daddr fam");
+is($dict{daddr}, 392442822, "daddr");
+is($dict{dport}, 3003, "dport");
+is($dict{encr}[0], 1, "null cipher");
+is($dict{encr}[1], 1, "null hmac");
+is($dict{flags}, 4, "flags");
+
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x6655443, "\x00" x 160));
+
+# RTCP for existing SSRC
+#                              SR  LEN          SSRC           NTP1          NTP2                 RTP          PACKETS         OCTETS
+snd($sock_ax, $port_bx, "\x80\xc8\x00\x06\x01\x23\x45\x67\x00\x00\x56\x78\x9a\xbc\x00\x00\x00\x00\x0b\xb8\x00\x00\x00\x01\x00\x00\x00\xac");
+rcv($sock_bx, $port_ax, qr/^\x80\xc8\x00\x06\x01\x23\x45\x67\x00\x00\x56\x78\x9a\xbc\x00\x00\x00\x00\x0b\xb8\x00\x00\x00\x01\x00\x00\x00\xac$/s);
+
+%dict = add_target();
+is($dict{lfam}, 2, "laddr fam");
+is($dict{laddr}, 24182987, "laddr");
+is($dict{lport}, $port_bx, "lport");
+is($dict{mismatch}, 0, "mismatch ignore");
+is($dict{numdest}, 1, "num dests");
+is($dict{g}[0], 0, "rtp start idx 0");
+is($dict{g}[1], 0, "rtp end idx 0");
+is($dict{g}[2], 0, "rtcp start idx 0");
+is($dict{g}[3], 1, "rtcp end idx 0");
+is($dict{decr}[0], 1, "null cipher");
+is($dict{decr}[1], 1, "null hmac");
+is($dict{ssrc}[0], 0x6655443, "ssrc 0");
+is($dict{ssrc}[1], 0x1234567, "ssrc 1");
+is($dict{ssrc}[2], 0x0, "ssrc 2");
+is($dict{ssrci}[0], -1, "ssrc index 0");
+is($dict{flags}, 472, "flags");
+
+%dict = add_destination();
+is($dict{lfam}, 2, "laddr fam");
+is($dict{laddr}, 24182987, "laddr");
+is($dict{lport}, $port_bx, "lport");
+is($dict{idx}, 0, "dest idx");
+is($dict{sfam}, 2, "saddr fam");
+is($dict{saddr}, 24182987, "saddr");
+is($dict{sport}, $port_ax, "sport");
+is($dict{dfam}, 2, "daddr fam");
+is($dict{daddr}, 392442822, "daddr");
+is($dict{dport}, 3003, "dport");
+is($dict{encr}[0], 1, "null cipher");
+is($dict{encr}[1], 1, "null hmac");
+is($dict{flags}, 4, "flags");
+
+
+# new SSRC via RTCP (GH #2251)
+
+#                              SR  LEN          SSRC           NTP1          NTP2                 RTP          PACKETS         OCTETS
+snd($sock_ax, $port_bx, "\x80\xc8\x00\x06\x00\x00\x12\x34\x00\x00\x56\x78\x9a\xbc\x00\x00\x00\x00\x0b\xb8\x00\x00\x00\x01\x00\x00\x00\xac");
+rcv($sock_bx, $port_ax, qr/^\x80\xc8\x00\x06\x00\x00\x12\x34\x00\x00\x56\x78\x9a\xbc\x00\x00\x00\x00\x0b\xb8\x00\x00\x00\x01\x00\x00\x00\xac$/s);
+
+%dict = del_target();
+is($dict{lfam}, 2, "laddr fam");
+is($dict{laddr}, 24182987, "laddr");
+is($dict{lport}, $port_b, "lport");
+
+%dict = del_target();
+is($dict{lfam}, 2, "laddr fam");
+is($dict{laddr}, 24182987, "laddr");
+is($dict{lport}, $port_bx, "lport");
+
+%dict = add_target();
+is($dict{lfam}, 2, "laddr fam");
+is($dict{laddr}, 24182987, "laddr");
+is($dict{lport}, $port_bx, "lport");
+is($dict{mismatch}, 0, "mismatch ignore");
+is($dict{numdest}, 1, "num dests");
+is($dict{g}[0], 0, "rtp start idx 0");
+is($dict{g}[1], 0, "rtp end idx 0");
+is($dict{g}[2], 0, "rtcp start idx 0");
+is($dict{g}[3], 1, "rtcp end idx 0");
+is($dict{decr}[0], 1, "null cipher");
+is($dict{decr}[1], 1, "null hmac");
+is($dict{ssrc}[0], 0x6655443, "ssrc 0");
+is($dict{ssrc}[1], 0x1234567, "ssrc 1");
+is($dict{ssrc}[2], 0x1234, "ssrc 2");
+is($dict{ssrc}[3], 0x0, "ssrc 3");
+is($dict{ssrci}[0], -1, "ssrc index 0");
+is($dict{flags}, 472, "flags");
+
+%dict = add_destination();
+is($dict{lfam}, 2, "laddr fam");
+is($dict{laddr}, 24182987, "laddr");
+is($dict{lport}, $port_bx, "lport");
+is($dict{idx}, 0, "dest idx");
+is($dict{sfam}, 2, "saddr fam");
+is($dict{saddr}, 24182987, "saddr");
+is($dict{sport}, $port_ax, "sport");
+is($dict{dfam}, 2, "daddr fam");
+is($dict{daddr}, 392442822, "daddr");
+is($dict{dport}, 3003, "dport");
+is($dict{encr}[0], 1, "null cipher");
+is($dict{encr}[1], 1, "null hmac");
+is($dict{flags}, 4, "flags");
+
+# same SSRC as RTP
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+
+
+%dict = add_target();
+is($dict{lfam}, 2, "laddr fam");
+is($dict{laddr}, 24182987, "laddr");
+is($dict{lport}, $port_b, "lport");
+is($dict{mismatch}, 0, "mismatch ignore");
+is($dict{numdest}, 2, "num dests");
+is($dict{g}[0], 0, "rtp start idx 0");
+is($dict{g}[1], 1, "rtp end idx 0");
+is($dict{g}[2], 1, "rtcp start idx 0");
+is($dict{g}[3], 2, "rtcp end idx 0");
+is($dict{decr}[0], 1, "null cipher");
+is($dict{decr}[1], 1, "null hmac");
+is($dict{ssrc}[0], 0x1234, "ssrc 0");
+is($dict{ssrc}[1], 0x6655443, "ssrc 1");
+is($dict{ssrc}[2], 0x1234567, "ssrc 2");
+is($dict{ssrc}[3], 0x0, "ssrc 3");
+is($dict{ssrci}[0], -1, "ssrc index 0");
+is($dict{flags}, 344, "flags");
+
+%dict = add_destination();
+is($dict{lfam}, 2, "laddr fam");
+is($dict{laddr}, 24182987, "laddr");
+is($dict{lport}, $port_b, "lport");
+is($dict{idx}, 0, "dest idx");
+is($dict{sfam}, 2, "saddr fam");
+is($dict{saddr}, 24182987, "saddr");
+is($dict{sport}, $port_a, "sport");
+is($dict{dfam}, 2, "daddr fam");
+is($dict{daddr}, 392442822, "daddr");
+is($dict{dport}, 3002, "dport");
+is($dict{encr}[0], 1, "null cipher");
+is($dict{encr}[1], 1, "null hmac");
+is($dict{flags}, 0, "flags");
+
+%dict = add_destination();
+is($dict{lfam}, 2, "laddr fam");
+is($dict{laddr}, 24182987, "laddr");
+is($dict{lport}, $port_b, "lport");
+is($dict{idx}, 1, "dest idx");
+is($dict{sfam}, 2, "saddr fam");
+is($dict{saddr}, 24182987, "saddr");
+is($dict{sport}, $port_ax, "sport");
+is($dict{dfam}, 2, "daddr fam");
+is($dict{daddr}, 392442822, "daddr");
+is($dict{dport}, 3003, "dport");
+is($dict{encr}[0], 1, "null cipher");
+is($dict{encr}[1], 1, "null hmac");
+is($dict{flags}, 4, "flags");
+
+
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160));
+
+
+$NGCP::Rtpengine::req_cb = del_targets($port_a, $port_b, $port_bx);
 
 rtpe_req('delete', 'basic', { 'delete-delay' => 0 });
 
