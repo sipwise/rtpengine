@@ -66,6 +66,7 @@ struct packet_handler_ctx {
 	const char *unkernelize; // non-null if stream ought to be removed from kernel
 	bool unconfirm; // forget learned peer address
 	bool unkernelize_subscriptions; // if our peer address changed
+	bool unkernelize_all; // also apply to all other components (RTP/RTCP)
 	bool kernelize; // true if stream can be kernelized
 	bool rtcp_discard; // do not forward RTCP
 	bool media_set; // media explicitly know via MID header extension
@@ -3047,8 +3048,10 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc) {
 				ssrc_hash, true);
 	}
 
-	if (unkern)
+	if (unkern) {
 		phc->unkernelize = unkern;
+		phc->unkernelize_all = true;
+	}
 
 	if (!phc->mp.ssrc_in)
 		return;
@@ -3110,8 +3113,10 @@ static void media_packet_rtp_out(struct packet_handler_ctx *phc, struct sink_han
 				sh->attrs.transcoding || fixed_ssrc, phc->rtcp);
 	}
 
-	if (unkern)
+	if (unkern) {
 		phc->unkernelize = unkern;
+		phc->unkernelize_all = true;
+	}
 }
 
 
@@ -3853,8 +3858,13 @@ drop:
 	handler_ret = 0;
 
 out:
-	if (phc->unkernelize)
-		unkernelize(phc->mp.stream, phc->unkernelize);
+	if (phc->unkernelize) {
+		if (phc->unkernelize_all)
+			IQUEUE_FOREACH(&phc->mp.media->streams, ps)
+				unkernelize(ps, phc->unkernelize);
+		else
+			unkernelize(phc->mp.stream, phc->unkernelize);
+	}
 	if (phc->kernelize)
 		media_packet_kernel_check(phc);
 
