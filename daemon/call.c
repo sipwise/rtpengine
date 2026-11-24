@@ -6332,6 +6332,12 @@ static void __tags_unassociate(struct call_monologue *a, struct call_monologue *
 	g_hash_table_remove(b->associated_tags, a);
 }
 
+
+__attribute__((nonnull(1)))
+static bool do_unsub_not_offer_answer(struct media_subscription *ms, struct call_monologue *ml) {
+	return !ms->attrs.offer_answer;
+}
+
 /**
  * Marks the monologue for destruction, or destroys it immediately.
  * It also iterates through the associated monologues and does the same for them.
@@ -6341,7 +6347,25 @@ static void monologue_delete_iter(struct call_monologue *a, int64_t delete_delay
 	if (!call)
 		return;
 
-	monologue_stop_injections(a);
+	for (unsigned int i = 0; i < a->medias->len; i++) {
+		struct call_media *media = a->medias->pdata[i];
+		if (!media)
+			continue;
+
+		bool ok = false;
+
+		ok |= media_do_unsubscribe_subscriptions(media, OP_DELETE, "delete branch",
+				do_unsub_not_offer_answer, NULL);
+		ok |= media_do_unsubscribe_subscribers(media, OP_DELETE, "delete branch",
+				do_unsub_not_offer_answer, NULL);
+
+		if (ok) {
+			update_init_subscribers(media, NULL, NULL, OP_DELETE);
+
+			codec_update_media_source_handlers(media, .reset_transcoding = true);
+			codec_update_media_handlers(media);
+		}
+	}
 
 	GList *associated = g_hash_table_get_values(a->associated_tags);
 
