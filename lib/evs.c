@@ -159,26 +159,28 @@ static void evs_push_frame(decoder_t *dec, char *frame_data, int bits, int is_am
 	if (av_frame_get_buffer(frame, 0) < 0)
 		abort();
 
-	evs_dec_in(dec->evs, frame_data, bits, is_amr, mode, q_bit, 0, 0);
+	evs_dec_in(dec->evs.ctx, frame_data, bits, is_amr, mode, q_bit, 0, 0);
+
+	dec->evs.amr = is_amr;
 
 	// check for floating point implementation
 	if (evs_syn_output) {
 		// temp float buffer
 		float tmp[n_samples * 3];
 		if (!is_amr)
-			evs_dec_out(dec->evs, tmp, 0);
+			evs_dec_out(dec->evs.ctx, tmp, 0);
 		else
-			evs_amr_dec_out(dec->evs, tmp);
+			evs_amr_dec_out(dec->evs.ctx, tmp);
 		float2int16_array(tmp, n_samples, (void *) frame->extended_data[0]);
 	}
 	else {
 		if (!is_amr)
-			evs_dec_out(dec->evs, frame->extended_data[0], 0);
+			evs_dec_out(dec->evs.ctx, frame->extended_data[0], 0);
 		else
-			evs_amr_dec_out(dec->evs, frame->extended_data[0]);
+			evs_amr_dec_out(dec->evs.ctx, frame->extended_data[0]);
 	}
 
-	evs_dec_inc_frame(dec->evs);
+	evs_dec_inc_frame(dec->evs.ctx);
 
 	pts += n_samples;
 	dec->pts = pts;
@@ -420,7 +422,7 @@ err:
 
 static int evs_dtx(decoder_t *dec, frame_q *out, int ptime) {
 	ilog(LOG_DEBUG, "pushing empty/lost frame to EVS decoder");
-	evs_push_frame(dec, NULL, 0, 0, 0, 0, out);
+	evs_push_frame(dec, NULL, 0, dec->evs.amr, 0, 0, out);
 	return 0;
 }
 
@@ -804,7 +806,7 @@ static void evs_select_encoder_format(encoder_t *enc, format_t *req_format, cons
 
 
 static const char *evs_decoder_init(decoder_t *dec, const str *extra_opts) {
-	dec->evs = g_malloc0(evs_decoder_size);
+	dec->evs.ctx = g_malloc0(evs_decoder_size);
 	if (dec->in_format.clockrate != 48000)
 		ilog(LOG_WARN, "EVS: invalid decoder clock rate (%i) requested",
 				fraction_div(dec->in_format.clockrate, &dec->clockrate_fact));
@@ -812,13 +814,13 @@ static const char *evs_decoder_init(decoder_t *dec, const str *extra_opts) {
 		ilog(LOG_WARN, "EVS: %i-channel EVS is not supported",
 				dec->in_format.channels);
 	dec->in_format.clockrate = 48000;
-	evs_set_decoder_Fs(dec->evs, dec->in_format.clockrate);
-	evs_init_decoder(dec->evs);
+	evs_set_decoder_Fs(dec->evs.ctx, dec->in_format.clockrate);
+	evs_init_decoder(dec->evs.ctx);
 	return NULL;
 }
 static void evs_decoder_close(decoder_t *dec) {
-	evs_destroy_decoder(dec->evs);
-	g_free(dec->evs);
+	evs_destroy_decoder(dec->evs.ctx);
+	g_free(dec->evs.ctx);
 }
 
 
