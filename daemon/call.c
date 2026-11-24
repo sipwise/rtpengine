@@ -4273,9 +4273,10 @@ static inline void __unsubscribe_media_link_store(struct call_media *which, stru
 }
 
 __attribute__((nonnull(1, 2)))
-static inline void __unsubscribe_subscriber_media_link(struct call_media *from, struct media_subscription *rev_ms)
+static inline void __unsubscribe_subscriber_media_link(struct call_media *from, struct media_subscription *rev_ms,
+		const sdp_ng_flags *flags)
 {
-	__remove_sub_link_store(rev_ms->media, rev_ms->reverse, from, rev_ms, subscription_store_ht_null(), NULL);
+	__remove_sub_link_store(rev_ms->media, rev_ms->reverse, from, rev_ms, subscription_store_ht_null(), flags);
 }
 
 __attribute__((nonnull(1, 2)))
@@ -4338,7 +4339,7 @@ __attribute__((nonnull(1)))
 INLINE void __unsubscribe_all_from_media(struct call_media *media)
 {
 	while (media->media_subscribers.head)
-		__unsubscribe_subscriber_media_link(media, media->media_subscribers.head);
+		__unsubscribe_subscriber_media_link(media, media->media_subscribers.head, NULL);
 }
 
 __attribute__((nonnull(1)))
@@ -4400,7 +4401,7 @@ static void monologue_stop_injections(struct call_monologue *ml) {
 		}
 		struct media_subscription *ms;
 		while ((ms = i_queue_find(&media->media_subscribers, __sub_is_inject)))
-			__unsubscribe_subscriber_media_link(media, ms);
+			__unsubscribe_subscriber_media_link(media, ms, NULL);
 	}
 }
 
