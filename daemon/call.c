@@ -5239,9 +5239,9 @@ void subscriber_connect_finish(medias_q *upd_src_medias, medias_q *upd_dst_media
 	for (auto_iter(l, upd_dst_medias->head); l; l = l->next) {
 		__auto_type dst_media = l->data;
 		media_set_audio_player(dst_media, flags);
-		codec_update_media_source_handlers(dst_media, .flags = flags);
+		codec_update_media_source_handlers(dst_media, .flags = flags, .reset_transcoding = true);
 		codec_update_media_handlers(dst_media);
-		update_init_subscribers(dst_media, NULL, NULL, flags->opmode);
+		audio_player_activate(dst_media);
 	}
 
 	__update_init_medias(unconf_medias, flags->opmode);
