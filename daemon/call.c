@@ -4951,17 +4951,11 @@ bool monologue_unsubscribe(struct call_monologue *dst_ml, struct call_monologue 
 		}
 
 		if (flags->bidirectional) {
-			g_auto(medias_q) subscribers = TYPED_GQUEUE_INIT;
-			IQUEUE_FOREACH(&media->media_subscribers, ms) {
-				if (!src_ml || ms->monologue == src_ml)
-					t_queue_push_tail(&subscribers, ms->media);
-			}
-			for (auto_iter(l, subscribers.head); l; l = l->next) {
-				struct call_media *src_media = l->data;
-				struct media_subscription *ms = call_get_media_subscription(
-						media->media_subscribers_ht, src_media);
-				if (!ms)
+			IQUEUE_FOREACH_SAFE(&media->media_subscribers, ms) {
+				if (src_ml && ms->monologue != src_ml)
 					continue;
+
+				struct call_media *src_media = ms->media;
 
 				__media_unconfirm(src_media, "media unsubscribe");
 				__unsubscribe_media_link(src_media, ms->reverse, flags);
