@@ -6336,6 +6336,9 @@ static void monologue_delete_iter(struct call_monologue *a, int64_t delete_delay
 			monologue_delete_iter(b, delete_delay_us);	/* schedule deletion of B */
 	}
 
+	codec_update_all_source_handlers(a, .reset_transcoding = true);
+	codec_update_all_handlers(a);
+
 	g_list_free(associated);
 }
 
