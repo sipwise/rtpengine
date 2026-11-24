@@ -5184,6 +5184,12 @@ static bool subscriber_connect1(struct call_media *src_media, struct call_monolo
 				src_media);
 		if (!ms)
 			add_media_subscription(dst_media, src_media, attrs);
+		else if (!attrs->offer_answer && ms->attrs.offer_answer) {
+			ilog(LOG_WARN, "Connect failed for destination tag '" STR_FORMAT_M "': "
+					"media pair %d <- %d already has offer/answer subscription",
+					STR_FMT_M(&dst_ml->tag), dst_media->index, src_media->index);
+			return false;
+		}
 
 		if (bidirectional) {
 			ms = call_get_media_subscription(src_media->media_subscriptions_ht,
