@@ -4941,7 +4941,11 @@ bool monologue_unsubscribe(struct call_monologue *dst_ml, struct call_monologue 
 
 			__media_unconfirm(src_media, "media unsubscribe");
 			__unsubscribe_media_link(media, ms, flags);
+
 			update_init_subscribers(src_media, NULL, NULL, flags->opmode);
+
+			codec_update_media_source_handlers(src_media, .reset_transcoding = true);
+			codec_update_media_handlers(src_media);
 
 			ok = true;
 		}
@@ -4962,12 +4966,16 @@ bool monologue_unsubscribe(struct call_monologue *dst_ml, struct call_monologue 
 				__media_unconfirm(src_media, "media unsubscribe");
 				__unsubscribe_media_link(src_media, ms->reverse, flags);
 				update_init_subscribers(src_media, NULL, NULL, flags->opmode);
+				codec_update_media_source_handlers(src_media, .reset_transcoding = true);
+				codec_update_media_handlers(src_media);
 
 				ok = true;
 			}
 		}
 
+		codec_update_media_source_handlers(media, .flags = flags, .reset_transcoding = true);
 		update_init_subscribers(media, NULL, NULL, flags->opmode);
+		codec_update_media_handlers(media);
 	}
 
 	if (!src_ml)
