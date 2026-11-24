@@ -306,7 +306,12 @@ struct decoder_s {
 			unsigned int event;
 			unsigned long duration;
 		} dtmf;
-		void *evs;
+
+		struct {
+			void *ctx;
+			bool amr;
+		} evs;
+
 		OpusDecoder *opus;
 	};
 
