@@ -4389,6 +4389,59 @@ void unsubscribe_all_from_monologue(struct call_monologue *ml) {
 }
 
 
+// XXX consolidate with __unsubscribe_all_offer_answer_medias etc
+__attribute__((nonnull(1, 2, 5)))
+static bool __media_do_unsubscribe(struct call_media *media,
+		subscription_q *subs,
+		enum ng_opmode opmode, const char *reason,
+		void (*unsub_fn)(struct call_media *, struct media_subscription *, const sdp_ng_flags *),
+		bool (*check)(struct media_subscription *, struct call_monologue *),
+		struct call_monologue *check_arg)
+{
+	bool ret = false;
+
+	IQUEUE_FOREACH_SAFE(subs, ms) {
+		if (check && !check(ms, check_arg))
+			continue;
+
+		__auto_type other = ms->media;
+
+		__media_unconfirm(media, reason);
+		unsub_fn(media, ms, NULL);
+		update_init_subscribers(other, NULL, NULL, opmode);
+
+		codec_update_media_source_handlers(other, .reset_transcoding = true);
+		codec_update_media_handlers(other);
+
+		ret = true;
+	}
+
+	return ret;
+}
+
+
+__attribute__((nonnull(1, 4)))
+static bool media_do_unsubscribe_subscriptions(struct call_media *media,
+		enum ng_opmode opmode, const char *reason,
+		bool (*check)(struct media_subscription *, struct call_monologue *),
+		struct call_monologue *check_arg)
+{
+	return __media_do_unsubscribe(media, &media->media_subscriptions,
+			opmode, reason, __unsubscribe_media_link, check, check_arg);
+}
+
+
+__attribute__((nonnull(1, 4)))
+static bool media_do_unsubscribe_subscribers(struct call_media *media,
+		enum ng_opmode opmode, const char *reason,
+		bool (*check)(struct media_subscription *, struct call_monologue *),
+		struct call_monologue *check_arg)
+{
+	return __media_do_unsubscribe(media, &media->media_subscribers,
+			opmode, reason, __unsubscribe_subscriber_media_link, check, check_arg);
+}
+
+
 static void monologue_stop_injections(struct call_monologue *ml) {
 	for (unsigned int i = 0; i < ml->medias->len; i++) {
 		struct call_media *media = ml->medias->pdata[i];
@@ -4922,6 +4975,13 @@ bool monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *fla
 	return true;
 }
 
+
+__attribute__((nonnull(1)))
+static bool do_unsub_ml_only(struct media_subscription *ms, struct call_monologue *ml) {
+	return !ml || ms->monologue == ml;
+}
+
+
 /* called with call->master_lock held in W */
 bool monologue_unsubscribe(struct call_monologue *dst_ml, struct call_monologue *src_ml, sdp_ng_flags *flags) {
 	bool ok = false;
@@ -4934,39 +4994,12 @@ bool monologue_unsubscribe(struct call_monologue *dst_ml, struct call_monologue 
 
 		__media_unconfirm(media, "media unsubscribe");
 
-		IQUEUE_FOREACH_SAFE(&media->media_subscriptions, ms) {
-			if (src_ml && ms->monologue != src_ml)
-				continue;
+		ok |= media_do_unsubscribe_subscriptions(media, flags->opmode, "media unsubscribe",
+				do_unsub_ml_only, src_ml);
 
-			struct call_media *src_media = ms->media;
-
-			__media_unconfirm(src_media, "media unsubscribe");
-			__unsubscribe_media_link(media, ms, flags);
-
-			update_init_subscribers(src_media, NULL, NULL, flags->opmode);
-
-			codec_update_media_source_handlers(src_media, .reset_transcoding = true);
-			codec_update_media_handlers(src_media);
-
-			ok = true;
-		}
-
-		if (flags->bidirectional) {
-			IQUEUE_FOREACH_SAFE(&media->media_subscribers, ms) {
-				if (src_ml && ms->monologue != src_ml)
-					continue;
-
-				struct call_media *src_media = ms->media;
-
-				__media_unconfirm(src_media, "media unsubscribe");
-				__unsubscribe_media_link(src_media, ms->reverse, flags);
-				update_init_subscribers(src_media, NULL, NULL, flags->opmode);
-				codec_update_media_source_handlers(src_media, .reset_transcoding = true);
-				codec_update_media_handlers(src_media);
-
-				ok = true;
-			}
-		}
+		if (flags->bidirectional)
+			ok |= media_do_unsubscribe_subscribers(media, flags->opmode, "media unsubscribe",
+					do_unsub_ml_only, src_ml);
 
 		codec_update_media_source_handlers(media, .flags = flags, .reset_transcoding = true);
 		update_init_subscribers(media, NULL, NULL, flags->opmode);
