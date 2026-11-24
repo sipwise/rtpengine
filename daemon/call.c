@@ -3447,10 +3447,6 @@ unsigned int proto_num_ports(unsigned int sp_ports, struct call_media *media, co
 }
 
 
-static bool __sub_is_inject(const struct media_subscription *ms) {
-	return ms->attrs.inject;
-}
-
 static bool __sub_is_transcoding(const struct media_subscription *ms) {
 	return ms->attrs.transcoding ? true : false;
 }
@@ -4441,22 +4437,6 @@ static bool media_do_unsubscribe_subscribers(struct call_media *media,
 			opmode, reason, __unsubscribe_subscriber_media_link, check, check_arg);
 }
 
-
-static void monologue_stop_injections(struct call_monologue *ml) {
-	for (unsigned int i = 0; i < ml->medias->len; i++) {
-		struct call_media *media = ml->medias->pdata[i];
-		if (!media)
-			continue;
-
-		IQUEUE_FOREACH_SAFE(&media->media_subscriptions, ms) {
-			if (ms->attrs.inject)
-				__unsubscribe_media_link(media, ms, NULL);
-		}
-		struct media_subscription *ms;
-		while ((ms = i_queue_find(&media->media_subscribers, __sub_is_inject)))
-			__unsubscribe_subscriber_media_link(media, ms, NULL);
-	}
-}
 
 
 /**
@@ -6296,7 +6276,6 @@ void monologue_destroy(struct call_monologue *monologue) {
 			STR_FMT(&monologue->tag),
 			STR_FMT0(&monologue->viabranch));
 
-	monologue_stop_injections(monologue);
 	__monologue_unconfirm(monologue, "destroying monologue");
 	__tags_unassociate_all(monologue);
 
@@ -6719,27 +6698,12 @@ void call_media_stop(struct call_media *m) {
 
 /**
  * Stops media player and all medias of given monologue.
- * If asked, stops all media subscribers as well.
  */
-static void monologue_stop(struct call_monologue *ml, bool stop_media_subscribers) {
-	if (stop_media_subscribers)
-		monologue_stop_injections(ml);
-
+static void monologue_stop(struct call_monologue *ml) {
 	/* monologue itself */
 	for (unsigned int i = 0; i < ml->medias->len; i++)
 	{
 		call_media_stop(ml->medias->pdata[i]);
-	}
-	/* monologue's subscribers */
-	if (stop_media_subscribers) {
-		for (unsigned int i = 0; i < ml->medias->len; i++)
-		{
-			struct call_media *media = ml->medias->pdata[i];
-			if (!media)
-				continue;
-			IQUEUE_FOREACH(&media->media_subscribers, ms)
-				call_media_stop(ms->media);
-		}
 	}
 }
 
@@ -6785,7 +6749,7 @@ static int call_delete_full(call_t *c, const str *callid, ng_command_ctx_t *ctx,
 		return call_delete_by_id(c, callid, ctx, delete_delay, stats);
 
 	IQUEUE_FOREACH(&c->monologues, ml)
-		monologue_stop(ml, false);
+		monologue_stop(ml);
 
 	return call_do_delete_full(c, delete_delay);
 }
@@ -6800,9 +6764,7 @@ static int call_delete_monologue(call_t *c, const str *callid, struct call_monol
 {
 	c->destroyed = rtpe_now;
 
-	/* stop media player and all medias of ml.
-	 * same for media subscribers */
-	monologue_stop(ml, true);
+	monologue_stop(ml);
 
 	/* check, if we have some associated monologues left, which have own associations
 	 * which means they need a media to flow */
@@ -6837,7 +6799,7 @@ static int call_delete_by_id(call_t *c, const str *callid, ng_command_ctx_t *ctx
 		if (str_cmp_str(&ml->call_id, callid))
 			continue;
 
-		monologue_stop(ml, true);
+		monologue_stop(ml);
 		monologue_delete_iter(ml, delete_delay);
 	}
 
