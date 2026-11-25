@@ -375,7 +375,8 @@ void metafile_change(char *name) {
 	// open file and seek to last known position
 	int fd = open(fnbuf, O_RDONLY);
 	if (fd == -1) {
-		ilog(LOG_ERR, "Failed to open %s%s%s: %s", FMT_M(fnbuf), strerror(errno));
+		if (errno != ENOENT) // expected with delete-delay=0
+			ilog(LOG_ERR, "Failed to open %s%s%s: %s", FMT_M(fnbuf), strerror(errno));
 		goto out;
 	}
 	if (lseek(fd, mf->pos, SEEK_SET) == (off_t) -1) {
