@@ -1211,9 +1211,9 @@ bool __init_stream(struct packet_stream *ps) {
 		if (dtls_active == -1)
 			dtls_active = !MEDIA_ISSET(media, SETUP_PASSIVE);
 		else if (dtls_active == 0 && !MEDIA_ISSET(media, SETUP_PASSIVE))
-			dtls_active = 1;
+			dtls_active = true;
 		else if (dtls_active == 1 && !MEDIA_ISSET(media, SETUP_ACTIVE))
-			dtls_active = 0;
+			dtls_active = false;
 		dtls_connection_init(&ps->ice_dtls, ps, dtls_active, call->dtls_cert);
 		for (__auto_type l = ps->sfds.head; l; l = l->next) {
 			stream_fd *sfd = l->data;
