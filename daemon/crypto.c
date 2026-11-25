@@ -296,7 +296,6 @@ struct crypto_suite __crypto_suites[] = {
 		.decrypt_rtcp		= null_crypt_rtcp,
 		.hash_rtp		= hmac_sha1_rtp,
 		.hash_rtcp		= hmac_sha1_rtcp,
-		.session_key_cleanup	= evp_session_key_cleanup,
 	},
 	{
 		.name			= "NULL_HMAC_SHA1_32",
@@ -319,7 +318,6 @@ struct crypto_suite __crypto_suites[] = {
 		.decrypt_rtcp		= null_crypt_rtcp,
 		.hash_rtp		= hmac_sha1_rtp,
 		.hash_rtcp		= hmac_sha1_rtcp,
-		.session_key_cleanup	= evp_session_key_cleanup,
 	},
 };
 
