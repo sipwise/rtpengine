@@ -143,7 +143,9 @@ INLINE int crypto_decrypt_rtcp(struct crypto_context *c, struct rtcp_packet *rtc
 	return c->params.crypto_suite->decrypt_rtcp(c, rtcp, payload, index);
 }
 INLINE int crypto_init_session_key(struct crypto_context *c) {
-	return c->params.crypto_suite->session_key_init(c);
+	if (c->params.crypto_suite->session_key_init)
+		return c->params.crypto_suite->session_key_init(c);
+	return 0;
 }
 INLINE int crypto_cleanup_session_key(struct crypto_context *c) {
 	if (c->params.crypto_suite->session_key_cleanup)
