@@ -1462,6 +1462,10 @@ static void ice_accept(const sdp_ng_flags *flags, struct call_media *sender, str
 		// answer SDP
 		if (!SP_ISSET(sp, ICE))
 			MEDIA_CLEAR(sender, ICE);
+		// a zero address in an answer is sendonly unless the answer trickles ICE
+		bf_copy_same(&sender->media_flags, &sp->sp_flags,
+				SHARED_FLAG_TRICKLE_ICE |
+				SHARED_FLAG_END_OF_CANDIDATES);
 
 		return;
 	}
