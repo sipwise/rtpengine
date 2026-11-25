@@ -62,7 +62,7 @@ const struct dtls_hash_func *dtls_find_hash_func(const str *);
 struct dtls_cert *dtls_cert(void);
 void dtls_cert_free(void);
 
-int dtls_connection_init(struct dtls_connection *, struct packet_stream *, int active, struct dtls_cert *cert);
+bool dtls_connection_init(struct dtls_connection *, struct packet_stream *, int active, struct dtls_cert *cert);
 int dtls(stream_fd *, const str *s, const endpoint_t *sin);
 void dtls_connection_cleanup(struct dtls_connection *);
 void dtls_shutdown(struct packet_stream *ps);
