@@ -3513,7 +3513,12 @@ static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	str input = *data;
 	uint64_t pts = dec->pts;
 
-	while (input.len >= 2) {
+	// RFC 3551 4.5.6: zero or more 10-byte frames, optionally followed by one 2-byte
+	// Annex B SID frame, always last. A 2-byte remainder is decoded as a SID frame even
+	// if annexb=no was negotiated (some senders ignore it), so bcg729 reads only those
+	// 2 bytes. Any other remainder is malformed and dropped: bcg729 does not check the
+	// length and would read past the payload (CVE-2026-71980).
+	while (input.len >= 10 || input.len == 2) {
 		int frame_len = input.len >= 10 ? 10 : 2;
 		str inp_frame = input;
 		inp_frame.len = frame_len;
@@ -3530,12 +3535,16 @@ static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 
 		pts += frame->nb_samples;
 
-		// XXX handle lost packets and comfort noise
-		bcg729Decoder(dec->bcg729, (void *) inp_frame.s, inp_frame.len, 0, 0, 0,
+		// XXX handle lost packets
+		bcg729Decoder(dec->bcg729, (void *) inp_frame.s, inp_frame.len, 0, frame_len == 2, 0,
 				(void *) frame->extended_data[0]);
 
 		g_queue_push_tail(out, frame);
 	}
+
+	if (input.len)
+		ilog(LOG_DEBUG, "Dropping %zu trailing bytes of a malformed G.729 payload",
+				(size_t) input.len);
 
 	return 0;
 }
