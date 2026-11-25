@@ -716,20 +716,22 @@ static void dtls_connection_reset(struct dtls_connection *c) {
 }
 
 
-int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, int active,
+bool dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, int active,
 		struct dtls_cert *cert)
 {
 	if (!cert) {
 		ilogs(crypto, LOG_ERR, "Cannot establish DTLS: no certificate available");
-		return -1;
+		return false;
 	}
 
 	unsigned long err;
+	bool ret = false;
 
 	if (d->init) {
 		if ((d->active && active) || (!d->active && !active))
-			goto done;
+			return false;
 		dtls_connection_reset(d);
+		ret = true;
 	}
 
 	d->ps = ps;
@@ -812,8 +814,7 @@ int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, in
 	while (memcmp(d->tls_id, (unsigned char [sizeof(d->tls_id)]) {0}, sizeof(d->tls_id)) == 0)
 		random_string(d->tls_id, sizeof(d->tls_id));
 
-done:
-	return 0;
+	return ret;
 
 error:
 	err = ERR_peek_last_error();
@@ -829,7 +830,7 @@ error:
 		SSL_CTX_free(d->ssl_ctx);
 	ZERO(*d);
 	ilogs(crypto, LOG_ERROR, "Failed to init DTLS connection: %s", ERR_reason_error_string(err));
-	return -1;
+	return false;
 }
 
 static int dtls_setup_crypto(struct packet_stream *ps, struct dtls_connection *d) {
