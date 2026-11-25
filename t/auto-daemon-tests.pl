@@ -15431,6 +15431,190 @@ a=candidate:ICEBASE 2 UDP 2130706430 2001:db8:4321::1 PORT typ host
 a=candidate:ICEBASE 2 UDP 2130706174 203.0.113.1 PORT typ host
 SDP
 
+new_call;
+
+offer('trickle ICE answer',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 6666 RTP/AVP 8
+c=IN IP4 198.51.110.1
+a=ice-ufrag:Ci7n
+a=ice-pwd:l9QndxLG6OycZRcQe9zcT95c
+a=ice-options:trickle
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+SDP
+
+answer('trickle ICE answer',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 9 RTP/AVP 8
+c=IN IP4 0.0.0.0
+a=ice-ufrag:Kd8x
+a=ice-pwd:t3MvqzRW7JcrNbYHe2LsP6gk
+a=ice-options:trickle
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=ice-options:trickle
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+a=end-of-candidates
+SDP
+
+new_call;
+
+offer('trickle ICE address answer without ICE options',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 6666 RTP/AVP 8
+c=IN IP4 198.51.110.1
+a=ice-ufrag:Ci7n
+a=ice-pwd:l9QndxLG6OycZRcQe9zcT95c
+a=ice-options:trickle
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+SDP
+
+answer('trickle ICE address answer without ICE options',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 9 RTP/AVP 8
+c=IN IP4 0.0.0.0
+a=ice-ufrag:Kd8x
+a=ice-pwd:t3MvqzRW7JcrNbYHe2LsP6gk
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=ice-options:trickle
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+a=end-of-candidates
+SDP
+
+new_call;
+
+offer('trickle ICE flag, zero address answer',
+	{ flags => ['trickle ICE'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 6666 RTP/AVP 8
+c=IN IP4 198.51.110.1
+a=ice-ufrag:Ci7n
+a=ice-pwd:l9QndxLG6OycZRcQe9zcT95c
+a=ice-options:trickle
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=ice-options:trickle
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+a=end-of-candidates
+SDP
+
+answer('trickle ICE flag, zero address answer',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 7777 RTP/AVP 8
+c=IN IP4 0.0.0.0
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=ice-options:trickle
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+a=end-of-candidates
+SDP
+
 
 new_call;
 
