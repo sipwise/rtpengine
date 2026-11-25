@@ -590,7 +590,7 @@ static int try_connect(struct dtls_connection *d) {
 				ilogs(crypto, LOG_INFO, "DTLS data received after handshake, code: %i", code);
 			} else {
 				ilogs(crypto, LOG_DEBUG, "DTLS handshake successful");
-				d->connected = 1;
+				d->connected = true;
 				ret = 1;
 			}
 			break;
@@ -712,11 +712,11 @@ static void dtls_connection_reset(struct dtls_connection *c) {
 	c->w_bio = NULL;
 	c->ps = NULL;
 	ZERO(c->fsin);
-	c->init = c->active = c->connected = 0;
+	c->init = c->active = c->connected = false;
 }
 
 
-bool dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, int active,
+bool dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, bool active,
 		struct dtls_cert *cert)
 {
 	if (!cert) {
@@ -784,7 +784,7 @@ bool dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, i
 
 	SSL_set_app_data(d->ssl, d);
 	SSL_set_bio(d->ssl, d->r_bio, d->w_bio);
-	d->init = 1;
+	d->init = true;
 	SSL_set_mode(d->ssl, SSL_MODE_ENABLE_PARTIAL_WRITE | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
 
@@ -809,7 +809,7 @@ bool dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, i
 #endif
 #endif
 
-	d->active = active ? 1 : 0;
+	d->active = active;
 
 	while (memcmp(d->tls_id, (unsigned char [sizeof(d->tls_id)]) {0}, sizeof(d->tls_id)) == 0)
 		random_string(d->tls_id, sizeof(d->tls_id));
