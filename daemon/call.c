@@ -1219,17 +1219,25 @@ bool __init_stream(struct packet_stream *ps) {
 			dtls_active = true;
 		else if (dtls_active == 1 && !MEDIA_ISSET(media, SETUP_ACTIVE))
 			dtls_active = false;
-		dtls_connection_init(&ps->ice_dtls, ps, dtls_active, call->dtls_cert);
+
+		bool restarted = false;
+		restarted |= dtls_connection_init(&ps->ice_dtls, ps, dtls_active, call->dtls_cert);
 		for (__auto_type l = ps->sfds.head; l; l = l->next) {
 			stream_fd *sfd = l->data;
-			dtls_connection_init(&sfd->dtls, ps, dtls_active, call->dtls_cert);
+			restarted |= dtls_connection_init(&sfd->dtls, ps, dtls_active, call->dtls_cert);
 		}
 
-		if (!PS_ISSET(ps, FINGERPRINT_VERIFIED) && media->fingerprint.hash_func
-				&& media->fingerprint.digest_len && ps->dtls_cert)
-		{
-			if (dtls_verify_cert(ps))
-				return false;
+		if (restarted) {
+			PS_CLEAR(ps, FINGERPRINT_VERIFIED);
+			call_media_reset_crypto_roc(media);
+		}
+		else {
+			if (!PS_ISSET(ps, FINGERPRINT_VERIFIED) && media->fingerprint.hash_func
+					&& media->fingerprint.digest_len && ps->dtls_cert)
+			{
+				if (dtls_verify_cert(ps))
+					return false;
+			}
 		}
 	}
 
