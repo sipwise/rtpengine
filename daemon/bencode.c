@@ -570,6 +570,9 @@ static bencode_item_t *__bencode_decode_string(bencode_buffer_t *buf, const char
 	const char *orig = s;
 	bencode_item_t *ret;
 
+	if (s >= end)
+		return NULL;
+
 	if (*s == '0') {
 		sl = 0;
 		s++;
@@ -588,7 +591,7 @@ colon:
 		return NULL;
 	s++;
 
-	if (s + sl > end)
+	if (sl > end - s)
 		return NULL;
 
 	ret = __bencode_item_alloc(buf, 0);
