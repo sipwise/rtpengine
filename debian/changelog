@@ -1,3 +1,23 @@
+ngcp-rtpengine (13.5.1.33+0~mr13.5.1.33) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [c4d9715] MT#55283 adjust EVS/AMR SID length
+  * [5134a88] MT#55283 update EVS patches
+  * [1ac1342] MT#55283 update EVS tests after I3c7bfa6375
+  * [f79a896] MT#55283 special handling for EVS/AMR DTX
+  * [ff6ada1] MT#55283 fix null function call
+  * [7a5c337] MT#55283 test for Ia5ef40452
+  * [cfedcfe] MT#55283 split out ROC reset function
+  * [8c2b064] MT#55283 reset SRTP ROC after DTLS reset
+  * [ce9204e] MT#55283 update dtls_connection_init return type
+  * [89c7c6b] MT#55283 reset fingerprint status w/ DTLS restart
+  * [f4071ab] MT#55283 silence ENOENT error message
+
+  [ Antti Isoaho ]
+  * [a44027b] MT#55283 G.729: decode payloads per RFC 3551
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 26 Nov 2026 12:44:04 +0100
+
 ngcp-rtpengine (13.5.1.32+0~mr13.5.1.32) unstable; urgency=medium
 
   [ AaronActu ]
