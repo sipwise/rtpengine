@@ -1,6 +1,7 @@
 #include "call_flags.h"
 
 #include "str.h"
+#include "codec.h"
 #include "control_ng_flags_parser.h"
 
 
@@ -686,6 +687,15 @@ const char *call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 	sdp_ng_flags *out = arg.flags;
 
 	switch (__csh_lookup(s)) {
+		case CSH_LOOKUP("codec-telephone-event-payload"):
+#ifndef WITH_TRANSCODING
+			return "telephone-event-payload requires transcoding support";
+#else
+			if (out->opmode != OP_OFFER && out->opmode != OP_SUBSCRIBE_REQ && out->opmode != OP_CREATE)
+				return "telephone-event-payload is only supported in offer, subscribe-request and create";
+			ilog(LOG_WARN, "Ignoring telephone-event-payload: missing payload type");
+			return NULL;
+#endif
 		case CSH_LOOKUP("all"):
 			out->all = ALL_ALL;
 			break;
@@ -1156,6 +1166,21 @@ static const char *call_ng_direction_flag(const ng_parser_t *parser, sdp_ng_flag
 const char *call_ng_codec_flags(const ng_parser_t *parser, str *key, parser_arg value, helper_arg arg) {
 	sdp_ng_flags *out = arg.flags;
 	switch (__csh_lookup(key)) {
+		case CSH_LOOKUP("telephone-event-payload"): {
+#ifndef WITH_TRANSCODING
+			return "telephone-event-payload requires transcoding support";
+#else
+			if (out->opmode != OP_OFFER && out->opmode != OP_SUBSCRIBE_REQ && out->opmode != OP_CREATE)
+				return "telephone-event-payload is only supported in offer, subscribe-request and create";
+			long long pt = parser->get_int_str(value, -1);
+			if (pt < 1 || pt > 127 || !codec_telephone_event_payload_valid(pt)) {
+				ilog(LOG_WARN, "Ignoring telephone-event-payload: expected an unassigned RTP payload type from 1 to 127, excluding 64 to 95");
+				return NULL;
+			}
+			out->telephone_event_payload = pt;
+			return NULL;
+#endif
+		}
 		case CSH_LOOKUP("except"):
 			return call_ng_flags_str_list(parser, value, call_ng_flags_str_ht, &out->codec_except);
 		case CSH_LOOKUP("offer"):
@@ -1632,6 +1657,8 @@ const char *call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg v
 		case CSH_LOOKUP("codec"):
 		case CSH_LOOKUP("codecs"):
 			return parser->dict_iter(parser, value, call_ng_codec_flags, out);
+		case CSH_LOOKUP("codec-telephone-event-payload"):
+			return call_ng_codec_flags(parser, &STR_CONST("telephone-event-payload"), value, out);
 		case CSH_LOOKUP("command"):
 			break;
 		case CSH_LOOKUP("db-id"):
