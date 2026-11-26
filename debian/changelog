@@ -1,3 +1,25 @@
+ngcp-rtpengine (26.0.1.30+0~mr26.0.1.30) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [a05dac8] MT#55283 adjust EVS/AMR SID length
+  * [37f622f] MT#55283 update EVS patches
+  * [52bde78] MT#55283 update EVS tests after I3c7bfa6375
+  * [6345876] MT#55283 special handling for EVS/AMR DTX
+  * [968d3b1] MT#55283 fix null function call
+  * [f366402] MT#55283 test for Ia5ef40452
+  * [7b58af1] MT#55283 update dtls_connection_init return type
+  * [c3d3b28] MT#55283 update internal DTLS flags to bool
+  * [b261205] MT#55283 reset fingerprint status w/ DTLS restart
+  * [7a56818] MT#55283 silence ENOENT error message
+
+  [ Nikolay Feshenko ]
+  * [832c6f5] MT#55283 an answer sets the trickle ICE flags of its media
+
+  [ Antti Isoaho ]
+  * [b488bed] MT#55283 G.729: decode payloads per RFC 3551
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 26 Nov 2026 12:43:52 +0100
+
 ngcp-rtpengine (26.0.1.29+0~mr26.0.1.29) unstable; urgency=medium
 
   [ TristanInSec ]
