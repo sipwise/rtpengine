@@ -1,3 +1,18 @@
+ngcp-rtpengine (12.5.1.57+0~mr12.5.1.57) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [66cf57f] MT#55283 adjust EVS/AMR SID length
+  * [4ac11ba] MT#55283 update EVS patches
+  * [038f85d] MT#55283 update EVS tests after I3c7bfa6375
+  * [2f07a66] MT#55283 special handling for EVS/AMR DTX
+  * [9b065e9] MT#55283 fix null function call
+  * [7b7b7b4] MT#55283 test for Ia5ef40452
+
+  [ Antti Isoaho ]
+  * [87ac1d1] MT#55283 G.729: decode payloads per RFC 3551
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 26 Nov 2026 12:44:12 +0100
+
 ngcp-rtpengine (12.5.1.56+0~mr12.5.1.56) unstable; urgency=medium
 
   [ Richard Fuchs ]
