@@ -485,6 +485,9 @@ static bencode_item_t *__bencode_decode_string(arena_t *buf, const char *s, cons
 	const char *orig = s;
 	bencode_item_t *ret;
 
+	if (s >= end)
+		return NULL;
+
 	if (*s == '0') {
 		sl = 0;
 		s++;
@@ -505,7 +508,7 @@ static bencode_item_t *__bencode_decode_string(arena_t *buf, const char *s, cons
 	s = convend + 1;
 
 done:
-	if (s + sl > end)
+	if (sl > end - s)
 		return NULL;
 
 	ret = __bencode_item_alloc(buf, 0);
